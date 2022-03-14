@@ -1,1 +1,1 @@
-# DockerUnifiedUIMAInterface
+# DockerUnifiedUIMAInterface (DUUI)
