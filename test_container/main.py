@@ -6,7 +6,11 @@ import json
 
 class MyHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
     def do_POST(self):
-        post_body = self.rfile.read(50).decode("utf-8")
+        content_len = int(self.headers.get('Content-Length'))
+        post_body = self.rfile.read(content_len).decode("utf-8")
+
+        decoded = json.loads(post_body)
+        cas = load_cas_from_xmi(decoded["cas"], typesystem=load_typesystem(decoded["typesystem"]))
         #loaded = json.loads(post_body)
         #print(loaded)
         #cas = load_cas_from_xmi(loaded["cas"], typesystem=loaded["typesystem"])
@@ -19,7 +23,8 @@ class MyHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
 
         # Whenever using 'send_header', you also have to call 'end_headers'
         self.end_headers()
-        self.wfile.write(b"{\"cas\": \"cas\"}")
+        new_obj = {"cas": cas.to_xmi()}
+        self.wfile.write(json.dumps(new_obj).encode('utf-8'))
 
 # Create an object of the above class
 handler_object = MyHttpRequestHandler
