@@ -86,7 +86,7 @@ public class DUUIComposer {
             System.out.printf("Result %s\n", cas);
             jc = start.getAsJCas();
 
-            System.out.printf("Total number of transforms in pipeline %d", start.getTransformSteps());
+            System.out.printf("Total number of transforms in pipeline %d\n", start.getTransformSteps());
         }
         catch(Exception e) {
             e.printStackTrace();
