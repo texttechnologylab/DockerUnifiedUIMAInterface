@@ -325,7 +325,7 @@ public class DUUIComposer {
 
         // Every component needs a driver which instantiates and runs them
         // Local driver manages local docker container and pulls docker container from remote repositories
-        composer.add(new DUUILocalDriver.Component("new:latest", true)
+        composer.add(new DUUILocalDriver.Component("new12:latest")
                         .withScale(2)
                         .withRunningAfterDestroy(false)
                 , DUUILocalDriver.class);
@@ -340,10 +340,11 @@ public class DUUIComposer {
                 AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class)
         ).withScale(2), DUUIUIMADriver.class);
 
-        System.out.println("Generating full concurrency graph. WARNING: This needs a full pipeline instantiation.");
+        //System.out.println("Generating full concurrency graph. WARNING: This needs a full pipeline instantiation.");
 
         // This takes a bit of time since the full pipeline is begin build and evaluatd.
-//        composer.printConcurrencyGraph();
+        //composer.printConcurrencyGraph();
+
 
 
         JCas jc = JCasFactory.createJCas();
@@ -354,9 +355,9 @@ public class DUUIComposer {
         composer.run(jc);
 
         // Run Collection Reader
-        composer.run(createReaderDescription(TextReader.class,
+        /*composer.run(createReaderDescription(TextReader.class,
                 TextReader.PARAM_SOURCE_LOCATION, "test_corpora/**.txt",
                 TextReader.PARAM_LANGUAGE, "en"));
 
-    }
+  }
 }

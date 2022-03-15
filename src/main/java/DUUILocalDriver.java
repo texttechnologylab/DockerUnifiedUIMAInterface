@@ -114,6 +114,11 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
         if (!comp.isLocal()) {
             _interface.pullImage(comp.getImageName());
         }
+        else {
+            if(!_interface.hasLocalImage(comp.getImageName())) {
+                throw new InvalidParameterException(format("Could not find local docker image \"%s\". Did you misspell it or forget with .withImageFetching() to fetch it from remote registry?",comp.getImageName()));
+            }
+        }
         System.out.printf("[DockerLocalDriver] Assigned new pipeline component unique id %s\n", uuid);
         for (int i = 0; i < comp.getScale(); i++) {
             String containerid = _interface.run(comp.getImageName(), false, true);
@@ -293,13 +298,18 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
         private int _with_scale;
 
 
-        Component(String target, boolean local) {
+        Component(String target) {
             setOption("container", target);
-            setOption("local", (local) ? "yes" : "no");
+            setOption("local", "yes");
         }
 
         public Component withScale(int scale) {
             setOption("scale", String.valueOf(scale));
+            return this;
+        }
+
+        public Component withImageFetching() {
+            setOption("local", "no");
             return this;
         }
 
