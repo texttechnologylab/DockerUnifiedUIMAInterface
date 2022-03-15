@@ -66,8 +66,9 @@ public class DUUIComposer {
         }
     }
 
-    public void run(JCas jc) throws IOException, InterruptedException, SAXException, TimeoutException, UIMAException {
+    public void run(JCas jc) throws Exception {
         Vector<PipelinePart> idPipeline = new Vector<PipelinePart>();
+        Exception catched = null;
         try {
             for (IDUUIPipelineComponent comp : _pipeline) {
                 IDUUIDriverInterface driver = _drivers.get(comp.getOption(DRIVER_OPTION_NAME));
@@ -90,20 +91,22 @@ public class DUUIComposer {
         catch(Exception e) {
             e.printStackTrace();
             System.out.println("Something went wrong, shutting down remaining components...");
-            for(PipelinePart comp : idPipeline) {
-                comp.getDriver().destroy(comp.getUUID());
-            }
-            throw e;
+            catched = e;
         }
 
         for(PipelinePart comp : idPipeline) {
+            System.out.printf("Shutting down %s...\n",comp.getUUID());
             comp.getDriver().destroy(comp.getUUID());
+        }
+        System.out.println("Shut down complete.\n");
+        if(catched!=null) {
+            throw catched;
         }
     }
 
 
 
-    public static void main(String[] args) throws IOException, InterruptedException, UIMAException, SAXException, TimeoutException {
+    public static void main(String[] args) throws Exception {
         DUUIComposer composer = new DUUIComposer();
         DUUILocalDriver driver = new DUUILocalDriver();
         DUUIRemoteDriver remote_driver = new DUUIRemoteDriver();
