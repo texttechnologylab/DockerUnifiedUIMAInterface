@@ -116,7 +116,7 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
         if (!comp.isLocal()) {
             _interface.pullImage(comp.getImageName());
         }
-        System.out.printf("[LocalDriver] Assigned new pipeline component unique id %s\n", uuid);
+        System.out.printf("[DockerLocalDriver] Assigned new pipeline component unique id %s\n", uuid);
         for (int i = 0; i < comp.getScale(); i++) {
             String containerid = _interface.run(comp.getImageName(), false, true);
             int port = _interface.extract_port_mapping(containerid);
@@ -125,7 +125,7 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
                 throw new UnknownError("Could not read the container port!");
             }
             if (responsiveAfterTime("http://127.0.0.1:" + String.valueOf(port), bod, _container_timeout, _client)) {
-                System.out.printf("[LocalDriver][%s][Docker Replication %d/%d] Container for image %s is online (URL http://127.0.0.1:%d) and seems to understand DUUI V1 format!\n", uuid, i + 1, comp.getScale(), comp.getImageName(), port);
+                System.out.printf("[DockerLocalDriver][%s][Docker Replication %d/%d] Container for image %s is online (URL http://127.0.0.1:%d) and seems to understand DUUI V1 format!\n", uuid, i + 1, comp.getScale(), comp.getImageName(), port);
                 comp.addInstance(new ComponentInstance(containerid, port));
             } else {
                 _interface.stop_container(containerid);
@@ -136,6 +136,13 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
         return uuid;
     }
 
+    public void printConcurrencyGraph(String uuid) {
+        InstantiatedComponent component = _active_components.get(uuid);
+        if (component == null) {
+            throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
+        }
+        System.out.printf("[DockerLocalDriver][%s]: Maximum concurrency %d\n",uuid,component.getInstances().size());
+    }
 
     public DUUIEither run(String uuid, DUUIEither aCas) throws InterruptedException, IOException, SAXException {
         InstantiatedComponent comp = _active_components.get(uuid);
@@ -222,7 +229,7 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
         InstantiatedComponent(IDUUIPipelineComponent comp) {
             _image_name = comp.getOption("container");
             if (_image_name == null) {
-                throw new InvalidParameterException("The image name was not set! This is mandatory for the LocalDriver Class.");
+                throw new InvalidParameterException("The image name was not set! This is mandatory for the DockerLocalDriver Class.");
             }
 
             String local = comp.getOption("local");

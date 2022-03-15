@@ -19,6 +19,7 @@ import java.security.InvalidParameterException;
 import java.util.HashMap;
 import java.util.UUID;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static java.lang.String.format;
 
@@ -31,16 +32,50 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         Component(String url) {
             setOption("url", url);
         }
+
+        public Component withScale(int scale) {
+            setOption("scale", String.valueOf(scale));
+            return this;
+        }
     }
 
     private static class InstantiatedComponent extends IDUUIPipelineComponent {
         private String _url;
+        private AtomicInteger _maximum_concurrency;
 
         InstantiatedComponent(IDUUIPipelineComponent comp) {
             _url = comp.getOption("url");
             if (_url == null) {
                 throw new InvalidParameterException("Missing parameter URL in the pipeline component descriptor");
             }
+
+            String max = comp.getOption("scale");
+            if(max != null) {
+                _maximum_concurrency = new AtomicInteger(Integer.valueOf(max));
+            }
+            else {
+                _maximum_concurrency = new AtomicInteger(1);
+            }
+        }
+
+        public void enter() {
+            while(true) {
+                int before = _maximum_concurrency.get();
+                while (before < 1) {
+                    before = _maximum_concurrency.get();
+                }
+                int result = _maximum_concurrency.compareAndExchange(before,before-1);
+                if(result==before)
+                    return;
+            }
+        }
+
+        public void leave() {
+            _maximum_concurrency.addAndGet(1);
+        }
+
+        public int getScale() {
+            return _maximum_concurrency.get();
         }
 
         public String getUrl() {
@@ -78,6 +113,8 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         if (DUUILocalDriver.responsiveAfterTime(comp.getUrl(), bod, 10000, _client)) {
             _components.put(uuid, comp);
             System.out.printf("[RemoteDriver][%s] Remote URL %s is online and seems to understand DUUI V1 format!\n", uuid, comp.getUrl());
+            System.out.printf("[RemoteDriver][%s] Maximum concurrency for this endpoint %d\n", uuid, comp.getScale());
+
         } else {
             throw new TimeoutException(format("The URL %s did not provide one succesful answer! Aborting...", comp.getUrl()));
         }
@@ -85,7 +122,15 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         return uuid;
     }
 
-    public synchronized DUUIEither run(String uuid, DUUIEither aCas) throws InterruptedException, IOException, SAXException {
+    public void printConcurrencyGraph(String uuid) {
+        InstantiatedComponent component = _components.get(uuid);
+        if (component == null) {
+            throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
+        }
+        System.out.printf("[RemoteDriver][%s]: Maximum concurrency %d\n",uuid,component.getScale());
+    }
+
+    public DUUIEither run(String uuid, DUUIEither aCas) throws InterruptedException, IOException, SAXException {
         InstantiatedComponent comp = _components.get(uuid);
         if (comp == null) {
             throw new InvalidParameterException("The given instantiated component uuid was not instantiated by the remote driver");
@@ -103,7 +148,9 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
                 .post(bod)
                 .header("Content-Length", String.valueOf(ok.length()))
                 .build();
+        comp.enter();
         Response resp = _client.newCall(request).execute();
+        comp.leave();
         if (resp.code() == 200) {
             String body = new String(resp.body().bytes(), Charset.defaultCharset());
             JSONObject response = new JSONObject(body);

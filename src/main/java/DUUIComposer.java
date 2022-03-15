@@ -1,29 +1,17 @@
 import de.tudarmstadt.ukp.dkpro.core.io.text.TextReader;
-import de.tudarmstadt.ukp.dkpro.core.opennlp.OpenNlpSegmenter;
 import de.tudarmstadt.ukp.dkpro.core.tokit.BreakIteratorSegmenter;
-import org.apache.uima.UIMAException;
-import org.apache.uima.analysis_engine.AnalysisEngineProcessException;
-import org.apache.uima.cas.CAS;
-import org.apache.uima.cas.impl.XmiCasSerializer;
 import org.apache.uima.collection.CollectionReader;
 import org.apache.uima.collection.CollectionReaderDescription;
-import org.apache.uima.collection.base_cpm.CasDataCollectionReader;
 import org.apache.uima.fit.factory.AnalysisEngineFactory;
 import org.apache.uima.fit.factory.CollectionReaderFactory;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.jcas.JCas;
-import org.xml.sax.SAXException;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.nio.channels.Pipe;
 import java.security.InvalidParameterException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Vector;
-import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -262,6 +250,34 @@ public class DUUIComposer {
         System.out.println("Shut down complete.\n");
     }
 
+    public void printConcurrencyGraph() throws Exception {
+        Exception catched = null;
+        Vector<PipelinePart> idPipeline = new Vector<PipelinePart>();
+        try {
+            instantiate_pipeline(idPipeline);
+            if(_cas_poolsize!=null) {
+                System.out.printf("[Composer]: CAS Pool size %d\n", _cas_poolsize);
+            }
+            else {
+                System.out.printf("[Composer]: CAS Pool size %d\n", _workers);
+            }
+            System.out.printf("[Composer]: Worker threads %d\n", _workers);
+            for (PipelinePart comp : idPipeline) {
+                comp.getDriver().printConcurrencyGraph(comp.getUUID());
+            }
+            System.out.println("");
+        }
+        catch(Exception e) {
+            e.printStackTrace();
+            System.out.println("Something went wrong, shutting down remaining components...");
+            catched = e;
+        }
+        shutdown_pipeline(idPipeline);
+        if (catched != null) {
+            throw catched;
+        }
+    }
+
     public void run(JCas jc) throws Exception {
         Exception catched = null;
         Vector<PipelinePart> idPipeline = new Vector<PipelinePart>();
@@ -314,13 +330,19 @@ public class DUUIComposer {
                 , DUUILocalDriver.class);
 
         // Remote driver handles all pure URL endpoints
-        composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9714"),
+        composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9714")
+                        .withScale(2),
                 DUUIRemoteDriver.class);
 
         // UIMA Driver handles all native UIMA Analysis Engine Descriptions
         composer.add(new DUUIUIMADriver.Component(
                 AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class)
         ).withScale(2), DUUIUIMADriver.class);
+
+        System.out.println("Generating full concurrency graph. WARNING: This needs a full pipeline instantiation.");
+
+        // This takes a bit of time since the full pipeline is begin build and evaluatd.
+        composer.printConcurrencyGraph();
 
 
         JCas jc = JCasFactory.createJCas();

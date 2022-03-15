@@ -60,6 +60,14 @@ public class DUUIUIMADriver implements IDUUIDriverInterface {
         return component.getClass().getCanonicalName().toString() == Component.class.getCanonicalName().toString();
     }
 
+    public void printConcurrencyGraph(String uuid) {
+        InstantiatedComponent component = _engines.get(uuid);
+        if (component == null) {
+            throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
+        }
+        System.out.printf("[UIMADriver][%s]: Maximum concurrency %d\n",uuid,component.getEngines().size());
+    }
+
     public String instantiate(IDUUIPipelineComponent component) throws InterruptedException, TimeoutException, UIMAException, SAXException, IOException {
         String uuid = UUID.randomUUID().toString();
         while ((_engines.containsKey(uuid))) {
