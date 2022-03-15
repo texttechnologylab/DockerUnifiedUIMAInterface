@@ -265,6 +265,24 @@ public class DUUIDockerInterface {
         return -1;
     }
 
+    public boolean hasLocalImage(String imageName) {
+        List<Image> images = _docker.listImagesCmd()
+                .withShowAll(true)
+                .exec();
+        for(Image i : images) {
+            if(i.getId() == imageName) {
+                return true;
+            }
+
+            for(String repo : i.getRepoTags()) {
+                if(repo.equals(imageName)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     public String build(Path builddir, List<String> buildArgs) {
         BuildImageCmd buildCmd = _docker.buildImageCmd().withPull(true)
                 .withBaseDirectory(builddir.toFile())
