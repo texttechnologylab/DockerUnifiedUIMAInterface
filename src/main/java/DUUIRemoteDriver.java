@@ -85,7 +85,7 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         return uuid;
     }
 
-    public DUUIEither run(String uuid, DUUIEither aCas) throws InterruptedException, IOException, SAXException {
+    public synchronized DUUIEither run(String uuid, DUUIEither aCas) throws InterruptedException, IOException, SAXException {
         InstantiatedComponent comp = _components.get(uuid);
         if (comp == null) {
             throw new InvalidParameterException("The given instantiated component uuid was not instantiated by the remote driver");

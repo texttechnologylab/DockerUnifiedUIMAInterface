@@ -2,6 +2,8 @@ import de.tudarmstadt.ukp.dkpro.core.io.text.TextReader;
 import de.tudarmstadt.ukp.dkpro.core.opennlp.OpenNlpSegmenter;
 import de.tudarmstadt.ukp.dkpro.core.tokit.BreakIteratorSegmenter;
 import org.apache.uima.UIMAException;
+import org.apache.uima.analysis_engine.AnalysisEngineProcessException;
+import org.apache.uima.cas.CAS;
 import org.apache.uima.cas.impl.XmiCasSerializer;
 import org.apache.uima.collection.CollectionReader;
 import org.apache.uima.collection.CollectionReaderDescription;
@@ -19,20 +21,83 @@ import java.security.InvalidParameterException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Vector;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static java.lang.String.format;
 import static org.apache.uima.fit.factory.CollectionReaderFactory.createReaderDescription;
 
+class DUUIWorker extends Thread {
+    Vector<DUUIComposer.PipelinePart> _flow;
+    ConcurrentLinkedQueue<JCas> _instancesToBeLoaded;
+    ConcurrentLinkedQueue<JCas> _loadedInstances;
+    AtomicInteger _threadsAlive;
+    AtomicBoolean _shutdown;
+
+    DUUIWorker(Vector<DUUIComposer.PipelinePart> engineFlow, ConcurrentLinkedQueue<JCas> emptyInstance, ConcurrentLinkedQueue<JCas> loadedInstances, AtomicBoolean shutdown, AtomicInteger error) {
+        super();
+        _flow = engineFlow;
+        _instancesToBeLoaded = emptyInstance;
+        _loadedInstances = loadedInstances;
+        _shutdown = shutdown;
+        _threadsAlive = error;
+    }
+
+    @Override
+    public void run() {
+        _threadsAlive.addAndGet(1);
+        while(true) {
+            JCas object = null;
+            while(object == null) {
+                object = _loadedInstances.poll();
+
+                if(_shutdown.get()) {
+                    return;
+                }
+            }
+
+            DUUIEither either = new DUUIEither(object);
+            for (DUUIComposer.PipelinePart i : _flow) {
+                try {
+                    either = i.getDriver().run(i.getUUID(),either);
+                } catch (Exception e) {
+                    //Ignore errors at the moment
+                    e.printStackTrace();
+                }
+            }
+            object.reset();
+            _instancesToBeLoaded.add(object);
+        }
+    }
+}
+
+
 public class DUUIComposer {
     private Map<String, IDUUIDriverInterface> _drivers;
     private Vector<IDUUIPipelineComponent> _pipeline;
+    private int _workers;
+    public Integer _cas_poolsize;
 
     private static final String DRIVER_OPTION_NAME = "duuid.composer.driver";
 
     public DUUIComposer() {
         _drivers = new HashMap<String, IDUUIDriverInterface>();
         _pipeline = new Vector<IDUUIPipelineComponent>();
+        _workers = 1;
+        _cas_poolsize = null;
+    }
+
+    public DUUIComposer withCasPoolsize(int poolsize) {
+        _cas_poolsize = poolsize;
+        return this;
+    }
+
+    public DUUIComposer withWorkers(int workers) {
+        _workers = workers;
+        return this;
     }
 
     public DUUIComposer addDriver(IDUUIDriverInterface driver) {
@@ -72,17 +137,89 @@ public class DUUIComposer {
         }
     }
 
+    public void run_async(CollectionReader collectionReader) throws Exception {
+        ConcurrentLinkedQueue<JCas> emptyCasDocuments = new ConcurrentLinkedQueue<>();
+        ConcurrentLinkedQueue<JCas> loadedCasDocuments = new ConcurrentLinkedQueue<>();
+        AtomicInteger aliveThreads = new AtomicInteger(0);
+        AtomicBoolean shutdown = new AtomicBoolean(false);
+
+        Exception catched = null;
+
+        System.out.printf("Running in asynchronous mode, %d threads at most!\n", _workers);
+            if (_cas_poolsize == null) {
+                _cas_poolsize = _workers;
+            } else {
+                if (_cas_poolsize < _workers) {
+                    System.err.println("WARNING: Pool size is smaller than the available threads, this is likely a bottleneck.");
+                }
+            }
+
+        for(int i = 0; i < _cas_poolsize; i++) {
+            emptyCasDocuments.add(JCasFactory.createJCas());
+        }
+
+        Vector<PipelinePart> idPipeline = new Vector<PipelinePart>();
+        try {
+            instantiate_pipeline(idPipeline);
+            Thread []arr = new Thread[_workers];
+            for(int i = 0; i < _workers; i++) {
+                System.out.printf("Starting worker thread [%d/%d]\n",i+1,_workers);
+                arr[i] = new DUUIWorker(idPipeline,emptyCasDocuments,loadedCasDocuments,shutdown,aliveThreads);
+                arr[i].start();
+            }
+            while(collectionReader.hasNext()) {
+                JCas jc = emptyCasDocuments.poll();
+                while(jc == null) {
+                    jc = emptyCasDocuments.poll();
+                }
+                collectionReader.getNext(jc.getCas());
+                loadedCasDocuments.add(jc);
+            }
+
+            while(emptyCasDocuments.size() != _cas_poolsize) {
+                System.out.println("Waiting for threads to finish document processing...");
+                Thread.sleep(1000);
+            }
+            System.out.println("All documents have been processed. Signaling threads to shut down now...");
+            shutdown.set(true);
+
+            for(int i = 0; i < arr.length; i++) {
+                System.out.printf("Waiting for thread [%d/%d] to shut down\n",i+1,arr.length);
+                arr[i].join();
+                System.out.printf("Thread %d returned.\n",i);
+            }
+            System.out.println("All threads returned.");
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.out.println("Something went wrong, shutting down remaining components...");
+            catched = e;
+        }
+
+        shutdown_pipeline(idPipeline);
+        if (catched != null) {
+            throw catched;
+        }
+    }
+
     public void run(CollectionReaderDescription reader) throws Exception {
         Exception catched = null;
         System.out.println("Instantiation the collection reader...");
         CollectionReader collectionReader = CollectionReaderFactory.createReader(reader);
         System.out.println("Instantiated the collection reader.");
 
-        JCas jc = JCasFactory.createJCas();
+        if(_workers == 1) {
+            System.out.println("Running in synchronous mode, 1 thread at most!");
+            _cas_poolsize = 1;
+        }
+        else {
+            run_async(collectionReader);
+            return;
+        }
+
         Vector<PipelinePart> idPipeline = new Vector<PipelinePart>();
+        JCas jc = JCasFactory.createJCas();
         try {
             instantiate_pipeline(idPipeline);
-
             while(collectionReader.hasNext()) {
                 collectionReader.getNext(jc.getCas());
                 run_pipeline(jc,idPipeline);
@@ -128,6 +265,10 @@ public class DUUIComposer {
     public void run(JCas jc) throws Exception {
         Exception catched = null;
         Vector<PipelinePart> idPipeline = new Vector<PipelinePart>();
+        if(_workers!=1) {
+            System.err.println("WARNING: Single document processing runs always single threaded, worker threads are ignored!");
+        }
+
         try {
             instantiate_pipeline(idPipeline);
             DUUIEither start = run_pipeline(jc,idPipeline);
@@ -150,7 +291,7 @@ public class DUUIComposer {
 
 
     public static void main(String[] args) throws Exception {
-        DUUIComposer composer = new DUUIComposer();
+        DUUIComposer composer = new DUUIComposer().withWorkers(2);
         DUUILocalDriver driver = new DUUILocalDriver();
         DUUIRemoteDriver remote_driver = new DUUIRemoteDriver();
         DUUIUIMADriver uima_driver = new DUUIUIMADriver();
