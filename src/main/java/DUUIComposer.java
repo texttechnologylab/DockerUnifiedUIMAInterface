@@ -133,12 +133,12 @@ public class DUUIComposer {
 
         Exception catched = null;
 
-        System.out.printf("Running in asynchronous mode, %d threads at most!\n", _workers);
+        System.out.printf("[Composer] Running in asynchronous mode, %d threads at most!\n", _workers);
             if (_cas_poolsize == null) {
                 _cas_poolsize = _workers;
             } else {
                 if (_cas_poolsize < _workers) {
-                    System.err.println("WARNING: Pool size is smaller than the available threads, this is likely a bottleneck.");
+                    System.err.println("[Composer] WARNING: Pool size is smaller than the available threads, this is likely a bottleneck.");
                 }
             }
 
@@ -151,7 +151,7 @@ public class DUUIComposer {
             instantiate_pipeline(idPipeline);
             Thread []arr = new Thread[_workers];
             for(int i = 0; i < _workers; i++) {
-                System.out.printf("Starting worker thread [%d/%d]\n",i+1,_workers);
+                System.out.printf("[Composer] Starting worker thread [%d/%d]\n",i+1,_workers);
                 arr[i] = new DUUIWorker(idPipeline,emptyCasDocuments,loadedCasDocuments,shutdown,aliveThreads);
                 arr[i].start();
             }
@@ -165,21 +165,21 @@ public class DUUIComposer {
             }
 
             while(emptyCasDocuments.size() != _cas_poolsize) {
-                System.out.println("Waiting for threads to finish document processing...");
+                System.out.println("[Composer] Waiting for threads to finish document processing...");
                 Thread.sleep(1000);
             }
-            System.out.println("All documents have been processed. Signaling threads to shut down now...");
+            System.out.println("[Composer] All documents have been processed. Signaling threads to shut down now...");
             shutdown.set(true);
 
             for(int i = 0; i < arr.length; i++) {
-                System.out.printf("Waiting for thread [%d/%d] to shut down\n",i+1,arr.length);
+                System.out.printf("[Composer] Waiting for thread [%d/%d] to shut down\n",i+1,arr.length);
                 arr[i].join();
-                System.out.printf("Thread %d returned.\n",i);
+                System.out.printf("[Composer] Thread %d returned.\n",i);
             }
-            System.out.println("All threads returned.");
+            System.out.println("[Composer] All threads returned.");
         } catch (Exception e) {
             e.printStackTrace();
-            System.out.println("Something went wrong, shutting down remaining components...");
+            System.out.println("[Composer] Something went wrong, shutting down remaining components...");
             catched = e;
         }
 
@@ -191,12 +191,12 @@ public class DUUIComposer {
 
     public void run(CollectionReaderDescription reader) throws Exception {
         Exception catched = null;
-        System.out.println("Instantiation the collection reader...");
+        System.out.println("[Composer] Instantiation the collection reader...");
         CollectionReader collectionReader = CollectionReaderFactory.createReader(reader);
-        System.out.println("Instantiated the collection reader.");
+        System.out.println("[Composer] Instantiated the collection reader.");
 
         if(_workers == 1) {
-            System.out.println("Running in synchronous mode, 1 thread at most!");
+            System.out.println("[Composer] Running in synchronous mode, 1 thread at most!");
             _cas_poolsize = 1;
         }
         else {
@@ -215,7 +215,7 @@ public class DUUIComposer {
             }
         } catch (Exception e) {
             e.printStackTrace();
-            System.out.println("Something went wrong, shutting down remaining components...");
+            System.out.println("[Composer] Something went wrong, shutting down remaining components...");
             catched = e;
         }
 
@@ -244,10 +244,10 @@ public class DUUIComposer {
 
     private void shutdown_pipeline(Vector<PipelinePart> pipeline) throws Exception {
         for (PipelinePart comp : pipeline) {
-            System.out.printf("Shutting down %s...\n", comp.getUUID());
+            System.out.printf("[Composer] Shutting down %s...\n", comp.getUUID());
             comp.getDriver().destroy(comp.getUUID());
         }
-        System.out.println("Shut down complete.\n");
+        System.out.println("[Composer] Shut down complete.\n");
     }
 
     public void printConcurrencyGraph() throws Exception {
@@ -269,7 +269,7 @@ public class DUUIComposer {
         }
         catch(Exception e) {
             e.printStackTrace();
-            System.out.println("Something went wrong, shutting down remaining components...");
+            System.out.println("[Composer] Something went wrong, shutting down remaining components...");
             catched = e;
         }
         shutdown_pipeline(idPipeline);
@@ -282,7 +282,7 @@ public class DUUIComposer {
         Exception catched = null;
         Vector<PipelinePart> idPipeline = new Vector<PipelinePart>();
         if(_workers!=1) {
-            System.err.println("WARNING: Single document processing runs always single threaded, worker threads are ignored!");
+            System.err.println("[Composer] WARNING: Single document processing runs always single threaded, worker threads are ignored!");
         }
 
         try {
@@ -290,13 +290,13 @@ public class DUUIComposer {
             DUUIEither start = run_pipeline(jc,idPipeline);
 
             String cas = start.getAsString();
-            System.out.printf("Result %s\n", cas);
+            System.out.printf("[Composer] Result %s\n", cas);
             jc = start.getAsJCas();
 
-            System.out.printf("Total number of transforms in pipeline %d\n", start.getTransformSteps());
+            System.out.printf("[Composer] Total number of transforms in pipeline %d\n", start.getTransformSteps());
         } catch (Exception e) {
             e.printStackTrace();
-            System.out.println("Something went wrong, shutting down remaining components...");
+            System.out.println("[Composer] Something went wrong, shutting down remaining components...");
             catched = e;
         }
         shutdown_pipeline(idPipeline);
@@ -316,16 +316,19 @@ public class DUUIComposer {
 
         DUUIRemoteDriver remote_driver = new DUUIRemoteDriver();
         DUUIUIMADriver uima_driver = new DUUIUIMADriver();
+        DUUISwarmDriver swarm_driver = new DUUISwarmDriver();
 
         // A driver must be added before components can be added for it in the composer.
         composer.addDriver(driver);
         composer.addDriver(remote_driver);
         composer.addDriver(uima_driver);
+        composer.addDriver(swarm_driver);
 
         // Every component needs a driver which instantiates and runs them
         // Local driver manages local docker container and pulls docker container from remote repositories
-        composer.add(new DUUILocalDriver.Component("new12:latest")
+        composer.add(new DUUILocalDriver.Component("localhost:5000/duuid:latest")
                         .withScale(2)
+                        .withImageFetching()
                         .withRunningAfterDestroy(false)
                 , DUUILocalDriver.class);
 
@@ -338,6 +341,11 @@ public class DUUIComposer {
         composer.add(new DUUIUIMADriver.Component(
                 AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class)
         ).withScale(2), DUUIUIMADriver.class);
+
+        composer.add(new DUUISwarmDriver.Component("localhost:5000/duuid:latest")
+                        .withScale(3)
+                        .withRunningAfterDestroy(false)
+                , DUUISwarmDriver.class);
 
         //System.out.println("Generating full concurrency graph. WARNING: This needs a full pipeline instantiation.");
 

@@ -223,15 +223,7 @@ public class DUUIDockerInterface {
         }
     }
 
-    public String run_service(String imagename, int scale, String tag) throws InterruptedException {
-        if (tag == null) {
-            tag = "localhost/reproducibleanno";
-        }
-        _docker.tagImageCmd(imagename, tag, imagename).exec();
-        _docker.pushImageCmd(tag)
-                .withTag(imagename)
-                .exec(new PushImageResultCallback())
-                .awaitCompletion(90, TimeUnit.SECONDS);
+    public String run_service(String imagename, int scale) throws InterruptedException {
         ServiceSpec spec = new ServiceSpec();
         ServiceModeConfig cfg = new ServiceModeConfig();
         ServiceReplicatedModeOptions opts = new ServiceReplicatedModeOptions();
@@ -240,7 +232,7 @@ public class DUUIDockerInterface {
 
         TaskSpec task = new TaskSpec();
         ContainerSpec cont = new ContainerSpec();
-        cont = cont.withImage(tag + ":" + imagename);
+        cont = cont.withImage(imagename);
         task.withContainerSpec(cont);
 
         spec.withTaskTemplate(task);
@@ -250,7 +242,6 @@ public class DUUIDockerInterface {
         end.withPorts(portcfg);
         spec.withEndpointSpec(end);
 
-        System.out.printf("Spawning %d service replicas", scale);
         CreateServiceResponse cmd = _docker.createServiceCmd(spec).exec();
         return cmd.getId();
     }
@@ -299,9 +290,13 @@ public class DUUIDockerInterface {
         return img_id;
     }
 
+    public boolean isSwarmManagerNode() {
+        Info sw = _docker.infoCmd().exec();
+        return sw.getSwarm().getControlAvailable();
+    }
+
     public String pullImage(String tag) throws InterruptedException {
         _docker.pullImageCmd(tag).exec(new PullImageStdout()).awaitCompletion();
-        System.out.printf("Pulled image with id %s\n", tag);
         return tag;
     }
 
