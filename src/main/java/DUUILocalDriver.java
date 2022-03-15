@@ -48,13 +48,11 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
         ByteArrayOutputStream arr = new ByteArrayOutputStream();
         XmiCasSerializer.serialize(_basic.getCas(), _basic.getTypeSystem(), arr);
         _testCas = arr.toString();
-        LOGGER.info("Generated test cas " + _testCas);
 
         TypeSystemDescription desc = TypeSystemUtil.typeSystem2TypeSystemDescription(_basic.getTypeSystem());
         StringWriter wr = new StringWriter();
         desc.toXML(wr);
         _testTypesystem = wr.getBuffer().toString();
-        LOGGER.info("Generated test cas typesystem " + _testTypesystem);
         _active_components = new HashMap<String, InstantiatedComponent>();
     }
 
