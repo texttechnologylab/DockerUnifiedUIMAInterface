@@ -82,7 +82,7 @@ public class DUUIComposer {
         Vector<PipelinePart> idPipeline = new Vector<PipelinePart>();
         try {
             instantiate_pipeline(idPipeline);
-            do
+
             while(collectionReader.hasNext()) {
                 collectionReader.getNext(jc.getCas());
                 run_pipeline(jc,idPipeline);
