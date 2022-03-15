@@ -291,23 +291,33 @@ public class DUUIComposer {
 
 
     public static void main(String[] args) throws Exception {
+        // Use two worker threads, at most 2 concurrent pipelines can run
         DUUIComposer composer = new DUUIComposer().withWorkers(2);
-        DUUILocalDriver driver = new DUUILocalDriver();
+
+        // Instantiate drivers with options
+        DUUILocalDriver driver = new DUUILocalDriver()
+                .withTimeout(10000);
+
         DUUIRemoteDriver remote_driver = new DUUIRemoteDriver();
         DUUIUIMADriver uima_driver = new DUUIUIMADriver();
 
+        // A driver must be added before components can be added for it in the composer.
         composer.addDriver(driver);
         composer.addDriver(remote_driver);
         composer.addDriver(uima_driver);
 
+        // Every component needs a driver which instantiates and runs them
+        // Local driver manages local docker container and pulls docker container from remote repositories
         composer.add(new DUUILocalDriver.Component("new:latest", true)
                         .withScale(2)
                         .withRunningAfterDestroy(false)
                 , DUUILocalDriver.class);
 
+        // Remote driver handles all pure URL endpoints
         composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9714"),
                 DUUIRemoteDriver.class);
 
+        // UIMA Driver handles all native UIMA Analysis Engine Descriptions
         composer.add(new DUUIUIMADriver.Component(
                 AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class)
         ), DUUIUIMADriver.class);
@@ -317,8 +327,10 @@ public class DUUIComposer {
         jc.setDocumentLanguage("en");
         jc.setDocumentText("Hello World!");
 
+        // Run single document
         composer.run(jc);
 
+        // Run Collection Reader
         composer.run(createReaderDescription(TextReader.class,
                 TextReader.PARAM_SOURCE_LOCATION, "test_corpora/**.txt",
                 TextReader.PARAM_LANGUAGE, "en"));
