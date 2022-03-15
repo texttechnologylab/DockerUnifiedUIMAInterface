@@ -159,6 +159,7 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
             throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the Swarm Driver");
         }
         if (!comp.getRunningAfterExit()) {
+            System.out.printf("[DockerSwarmDriver] Stopping service %s...\n",comp.getServiceId());
             _interface.rm_service(comp.getServiceId());
         }
     }

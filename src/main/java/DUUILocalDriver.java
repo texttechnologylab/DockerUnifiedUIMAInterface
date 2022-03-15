@@ -194,8 +194,11 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
             throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
         }
         if (!comp.getRunningAfterExit()) {
+            int counter = 1;
             for (ComponentInstance inst : comp.getInstances()) {
+                System.out.printf("[DockerLocalDriver][Replication %d/%d] Stopping docker container %s...\n",counter,comp.getInstances().size(),inst.getContainerId());
                 _interface.stop_container(inst.getContainerId());
+                counter+=1;
             }
         }
     }

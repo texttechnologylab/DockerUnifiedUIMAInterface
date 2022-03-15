@@ -206,7 +206,6 @@ public class DUUIDockerInterface {
      * @param id The id of the container to stop.
      */
     public void rm_service(String id) {
-        System.out.printf("Stopping service %s\n", id);
         _docker.removeServiceCmd(id).withServiceId(id).exec();
     }
 
