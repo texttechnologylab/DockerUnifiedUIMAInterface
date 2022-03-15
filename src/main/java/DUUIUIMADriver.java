@@ -54,7 +54,7 @@ public class DUUIUIMADriver implements IDUUIDriverInterface {
         AnalysisEngine ana = AnalysisEngineFactory.createEngine(analysis_engine_desc);
         String annotator = analysis_engine_desc.getAnnotatorImplementationName();
         if(annotator!=null) {
-            System.out.printf("[UIMADriver][%s] Instantiated native UIMA Analysis Engine Annotator %s without problems\n",annotator,uuid);
+            System.out.printf("[UIMADriver][%s] Instantiated native UIMA Analysis Engine Annotator %s without problems\n",uuid,annotator);
         }
         else {
             System.out.println("[UIMADriver] Instantiated native UIMA Analysis Engine without problems");
