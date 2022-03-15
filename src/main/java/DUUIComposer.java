@@ -320,7 +320,7 @@ public class DUUIComposer {
         // UIMA Driver handles all native UIMA Analysis Engine Descriptions
         composer.add(new DUUIUIMADriver.Component(
                 AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class)
-        ), DUUIUIMADriver.class);
+        ).withScale(2), DUUIUIMADriver.class);
 
 
         JCas jc = JCasFactory.createJCas();

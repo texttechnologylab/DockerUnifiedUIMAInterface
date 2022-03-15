@@ -15,20 +15,44 @@ import java.nio.file.Paths;
 import java.security.InvalidParameterException;
 import java.util.HashMap;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeoutException;
 
 public class DUUIUIMADriver implements IDUUIDriverInterface {
-    private HashMap<String, AnalysisEngine> _engines;
+    private HashMap<String, InstantiatedComponent> _engines;
 
     public DUUIUIMADriver() {
-        _engines = new HashMap<String, AnalysisEngine>();
+        _engines = new HashMap<String, InstantiatedComponent>();
     }
+
+    public static class InstantiatedComponent {
+        private ConcurrentLinkedQueue<AnalysisEngine> _engines;
+
+        public InstantiatedComponent() {
+            _engines = new ConcurrentLinkedQueue<AnalysisEngine>();
+        }
+
+        public InstantiatedComponent add(AnalysisEngine engine) {
+            _engines.add(engine);
+            return this;
+        }
+
+        public ConcurrentLinkedQueue<AnalysisEngine> getEngines() {
+            return _engines;
+        }
+    }
+
 
     public static class Component extends IDUUIPipelineComponent {
         public Component(AnalysisEngineDescription desc) throws IOException, SAXException {
             StringWriter writer = new StringWriter();
             desc.toXML(writer);
             setOption("engine", writer.getBuffer().toString());
+        }
+
+        public Component withScale(int scale) {
+            setOption("scale",String.valueOf(scale));
+            return this;
         }
     }
 
@@ -45,40 +69,63 @@ public class DUUIUIMADriver implements IDUUIDriverInterface {
         if (engine == null) {
             throw new InvalidParameterException("The component does not contain a valid engine!");
         }
+        String scale_string = component.getOption("scale");
+        int scale = 1;
+        if (scale_string != null) {
+            scale = Integer.valueOf(scale_string);
+        }
         System.out.printf("[UIMADriver] Assigned new pipeline component unique id %s\n", uuid);
 
 
         String tempanno = Files.createTempFile("duuid_driver_uima", ".xml").toFile().getAbsolutePath();
         Files.write(Paths.get(tempanno), engine.getBytes(StandardCharsets.UTF_8));
         AnalysisEngineDescription analysis_engine_desc = AnalysisEngineFactory.createEngineDescriptionFromPath(tempanno);
-        AnalysisEngine ana = AnalysisEngineFactory.createEngine(analysis_engine_desc);
-        String annotator = analysis_engine_desc.getAnnotatorImplementationName();
-        if (annotator != null) {
-            System.out.printf("[UIMADriver][%s] Instantiated native UIMA Analysis Engine Annotator %s without problems\n", uuid, annotator);
-        } else {
-            System.out.println("[UIMADriver] Instantiated native UIMA Analysis Engine without problems");
+
+        InstantiatedComponent comp = new InstantiatedComponent();
+        for(int i = 0; i < scale; i++) {
+            AnalysisEngine ana = AnalysisEngineFactory.createEngine(analysis_engine_desc);
+            String annotator = analysis_engine_desc.getAnnotatorImplementationName();
+            if (annotator != null) {
+                System.out.printf("[UIMADriver][%s][Replication %d/%d] Instantiated native UIMA Analysis Engine Annotator %s without problems\n", uuid,i+1,scale, annotator);
+            } else {
+                System.out.printf("[UIMADriver][%s][Replication %d/%d] Instantiated native UIMA Analysis Engine without problems\n",uuid,i+1,scale);
+            }
+            comp.add(ana);
         }
         Files.delete(Paths.get(tempanno));
-        _engines.put(uuid, ana);
+        _engines.put(uuid, comp);
         return uuid;
     }
 
-    public synchronized DUUIEither run(String uuid, DUUIEither aCas) throws InterruptedException, IOException, SAXException, AnalysisEngineProcessException {
-        AnalysisEngine engine = _engines.get(uuid);
-        if (engine == null) {
+    public DUUIEither run(String uuid, DUUIEither aCas) throws InterruptedException, IOException, SAXException, AnalysisEngineProcessException {
+        InstantiatedComponent component = _engines.get(uuid);
+        if (component == null) {
             throw new InvalidParameterException("The given instantiated component uuid was not instantiated by the remote driver");
         }
-        JCas jc = aCas.getAsJCas();
-        engine.process(jc.getCas());
-        aCas.updateJCas(jc);
+        AnalysisEngine engine = component.getEngines().poll();
+        while(engine==null) {
+            engine = component.getEngines().poll();
+        }
+        try {
+            JCas jc = aCas.getAsJCas();
+            engine.process(jc.getCas());
+            aCas.updateJCas(jc);
+            component.add(engine);
+        }
+        catch(Exception e) {
+            component.add(engine);
+            throw e;
+        }
         return aCas;
     }
 
     public void destroy(String uuid) {
-        AnalysisEngine engine = _engines.remove(uuid);
-        if (engine == null) {
+        InstantiatedComponent component = _engines.remove(uuid);
+        if (component == null) {
             throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
         }
-        engine.destroy();
+        for(AnalysisEngine engine : component.getEngines()) {
+            engine.destroy();
+        }
     }
 }

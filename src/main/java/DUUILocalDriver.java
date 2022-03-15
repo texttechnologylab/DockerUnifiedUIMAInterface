@@ -125,7 +125,7 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
                 throw new UnknownError("Could not read the container port!");
             }
             if (responsiveAfterTime("http://127.0.0.1:" + String.valueOf(port), bod, _container_timeout, _client)) {
-                System.out.printf("[LocalDriver][%s][Local Replica %d/%d] Container for image %s is online (URL http://127.0.0.1:%d) and seems to understand DUUI V1 format!\n", uuid, i + 1, comp.getScale(), comp.getImageName(), port);
+                System.out.printf("[LocalDriver][%s][Docker Replication %d/%d] Container for image %s is online (URL http://127.0.0.1:%d) and seems to understand DUUI V1 format!\n", uuid, i + 1, comp.getScale(), comp.getImageName(), port);
                 comp.addInstance(new ComponentInstance(containerid, port));
             } else {
                 _interface.stop_container(containerid);
