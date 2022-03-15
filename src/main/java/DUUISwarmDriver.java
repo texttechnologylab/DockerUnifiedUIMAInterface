@@ -265,8 +265,8 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         private int _with_scale;
 
 
-        Component(String target) {
-            setOption("container", target);
+        Component(String globalRegistryImageName) {
+            setOption("container", globalRegistryImageName);
         }
 
         public Component withScale(int scale) {
