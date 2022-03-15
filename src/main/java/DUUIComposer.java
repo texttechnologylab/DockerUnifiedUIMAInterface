@@ -18,30 +18,29 @@ import java.util.concurrent.TimeoutException;
 import static java.lang.String.format;
 
 public class DUUIComposer {
-    private Map<String,IDUUIDriverInterface> _drivers;
+    private Map<String, IDUUIDriverInterface> _drivers;
     private Vector<IDUUIPipelineComponent> _pipeline;
 
     private static final String DRIVER_OPTION_NAME = "duuid.composer.driver";
 
     public DUUIComposer() {
-        _drivers = new HashMap<String,IDUUIDriverInterface>();
+        _drivers = new HashMap<String, IDUUIDriverInterface>();
         _pipeline = new Vector<IDUUIPipelineComponent>();
     }
 
     public DUUIComposer addDriver(IDUUIDriverInterface driver) {
-        _drivers.put(driver.getClass().getCanonicalName().toString(),driver);
+        _drivers.put(driver.getClass().getCanonicalName().toString(), driver);
         return this;
     }
 
     public <Y> DUUIComposer add(IDUUIPipelineComponent object, Class<Y> t) {
-        object.setOption(DRIVER_OPTION_NAME,t.getCanonicalName().toString());
+        object.setOption(DRIVER_OPTION_NAME, t.getCanonicalName().toString());
         IDUUIDriverInterface driver = _drivers.get(t.getCanonicalName().toString());
-        if(driver  == null) {
-            throw new InvalidParameterException(format("No driver %s in the composer installed!",t.getCanonicalName().toString()));
-        }
-        else {
-            if(!driver.canAccept(object)) {
-                throw new InvalidParameterException(format("The driver %s cannot accept %s as input!",t.getCanonicalName().toString(),object.getClass().getCanonicalName().toString()));
+        if (driver == null) {
+            throw new InvalidParameterException(format("No driver %s in the composer installed!", t.getCanonicalName().toString()));
+        } else {
+            if (!driver.canAccept(object)) {
+                throw new InvalidParameterException(format("The driver %s cannot accept %s as input!", t.getCanonicalName().toString(), object.getClass().getCanonicalName().toString()));
             }
         }
         _pipeline.add(object);
@@ -87,23 +86,21 @@ public class DUUIComposer {
             jc = start.getAsJCas();
 
             System.out.printf("Total number of transforms in pipeline %d\n", start.getTransformSteps());
-        }
-        catch(Exception e) {
+        } catch (Exception e) {
             e.printStackTrace();
             System.out.println("Something went wrong, shutting down remaining components...");
             catched = e;
         }
 
-        for(PipelinePart comp : idPipeline) {
-            System.out.printf("Shutting down %s...\n",comp.getUUID());
+        for (PipelinePart comp : idPipeline) {
+            System.out.printf("Shutting down %s...\n", comp.getUUID());
             comp.getDriver().destroy(comp.getUUID());
         }
         System.out.println("Shut down complete.\n");
-        if(catched!=null) {
+        if (catched != null) {
             throw catched;
         }
     }
-
 
 
     public static void main(String[] args) throws Exception {
@@ -119,14 +116,14 @@ public class DUUIComposer {
         composer.add(new DUUILocalDriver.Component("new:latest", true)
                         .withScale(2)
                         .withRunningAfterDestroy(false)
-                            ,DUUILocalDriver.class);
+                , DUUILocalDriver.class);
 
         composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9714"),
-                        DUUIRemoteDriver.class);
+                DUUIRemoteDriver.class);
 
         composer.add(new DUUIUIMADriver.Component(
                 AnalysisEngineFactory.createEngineDescription(OpenNlpSegmenter.class)
-        ),DUUIUIMADriver.class);
+        ), DUUIUIMADriver.class);
 
 
         JCas jc = JCasFactory.createJCas();

@@ -1,7 +1,7 @@
 import java.util.HashMap;
 
 public class IDUUIPipelineComponent {
-    private HashMap<String,String> _options;
+    private HashMap<String, String> _options;
 
     IDUUIPipelineComponent() {
         _options = new HashMap<>();
@@ -11,8 +11,8 @@ public class IDUUIPipelineComponent {
         _options = other._options;
     }
 
-    public void setOption(String key,String value) {
-        _options.put(key,value);
+    public void setOption(String key, String value) {
+        _options.put(key, value);
     }
 
     public String getOption(String key) {

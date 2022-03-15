@@ -13,8 +13,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 //Taken from https://stackoverflow.com/questions/26162407/is-there-an-equivalent-of-scalas-either-in-java-8
-public class DUUIEither
-{
+public class DUUIEither {
     private String _string_buffer;
     private JCas _jcas_buffer;
     private boolean _current_selected_jcas;
@@ -28,7 +27,7 @@ public class DUUIEither
     }
 
     public String getAsString() throws SAXException {
-        if(_current_selected_jcas) {
+        if (_current_selected_jcas) {
             ByteArrayOutputStream arr = new ByteArrayOutputStream();
             XmiCasSerializer.serialize(_jcas_buffer.getCas(), null, arr);
             _transform_steps++;
@@ -52,9 +51,9 @@ public class DUUIEither
     }
 
     public JCas getAsJCas() throws SAXException, IOException {
-        if(!_current_selected_jcas) {
+        if (!_current_selected_jcas) {
             _jcas_buffer.reset();
-            XmiCasDeserializer.deserialize(new ByteArrayInputStream(_string_buffer.getBytes(StandardCharsets.UTF_8)),_jcas_buffer.getCas(),true);
+            XmiCasDeserializer.deserialize(new ByteArrayInputStream(_string_buffer.getBytes(StandardCharsets.UTF_8)), _jcas_buffer.getCas(), true);
             _transform_steps++;
         }
         return _jcas_buffer;

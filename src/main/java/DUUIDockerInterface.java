@@ -16,21 +16,21 @@ import java.util.concurrent.TimeUnit;
 
 class PullImageStdout extends PullImageResultCallback {
     private String _status;
+
     PullImageStdout() {
         _status = "";
     }
 
     @Override
     public void onNext(PullResponseItem item) {
-        if(item.getStatus()!=null) {
+        if (item.getStatus() != null) {
             _status = item.getStatus();
         }
 
-        if(item.getProgressDetail()!=null) {
-            if(item.getProgressDetail().getCurrent()!=null && item.getProgressDetail().getTotal()!=null) {
-                System.out.printf("%s: %.2f%%\n", _status, ((float)item.getProgressDetail().getCurrent()/(float)item.getProgressDetail().getTotal())*100);
-            }
-            else {
+        if (item.getProgressDetail() != null) {
+            if (item.getProgressDetail().getCurrent() != null && item.getProgressDetail().getTotal() != null) {
+                System.out.printf("%s: %.2f%%\n", _status, ((float) item.getProgressDetail().getCurrent() / (float) item.getProgressDetail().getTotal()) * 100);
+            } else {
                 System.out.printf("%s.\n", _status);
             }
         }
@@ -51,7 +51,7 @@ class BuildImageProgress extends BuildImageResultCallback {
         } else if (item.isErrorIndicated()) {
             this.error = item.getError();
         }
-        if(item.getStream()!=null) {
+        if (item.getStream() != null) {
             System.out.print(item.getStream());
         }
     }
@@ -59,8 +59,7 @@ class BuildImageProgress extends BuildImageResultCallback {
     /**
      * Awaits the image id from the response stream.
      *
-     * @throws DockerClientException
-     *             if the build fails.
+     * @throws DockerClientException if the build fails.
      */
     public String awaitImageId() {
         try {
@@ -75,8 +74,7 @@ class BuildImageProgress extends BuildImageResultCallback {
     /**
      * Awaits the image id from the response stream.
      *
-     * @throws DockerClientException
-     *             if the build fails or the timeout occurs.
+     * @throws DockerClientException if the build fails or the timeout occurs.
      */
     public String awaitImageId(long timeout, TimeUnit timeUnit) {
         try {
@@ -113,6 +111,7 @@ public class DUUIDockerInterface {
 
     /**
      * Creates a default object which connects to the local docker daemon, may need admin rights depending on the docker installation
+     *
      * @throws IOException
      */
     public DUUIDockerInterface() throws IOException {
@@ -122,6 +121,7 @@ public class DUUIDockerInterface {
     /**
      * Extracts port mapping from the container with the given containerid, this is important since docker does auto allocate
      * ports when not explicitly specifying the port number. This will only work on a DockerWrapper constructed container.
+     *
      * @param containerid The running containerid to read the port mapping from
      * @return The port it was mapped to.
      * @throws InterruptedException
@@ -131,8 +131,8 @@ public class DUUIDockerInterface {
                 = _docker.inspectContainerCmd(containerid).exec();
 
         int innerport = 0;
-        for(Map.Entry<ExposedPort, Ports.Binding[]> port : container.getNetworkSettings().getPorts().getBindings().entrySet()) {
-            if(port.getValue().length > 0 && port.getKey().getPort() == 9714) {
+        for (Map.Entry<ExposedPort, Ports.Binding[]> port : container.getNetworkSettings().getPorts().getBindings().entrySet()) {
+            if (port.getValue().length > 0 && port.getKey().getPort() == 9714) {
                 innerport = Integer.parseInt(port.getValue()[0].getHostPortSpec());
             }
         }
@@ -142,10 +142,11 @@ public class DUUIDockerInterface {
 
     /**
      * Returns true if the code is run inside the container and false otherwise.
+     *
      * @return true if in container false otherwise
      */
     public boolean inside_container() {
-        if(new File("/.dockerenv").exists()) {
+        if (new File("/.dockerenv").exists()) {
             return true;
         }
         return false;
@@ -154,10 +155,11 @@ public class DUUIDockerInterface {
     /**
      * Reads the container gateway bridge ip if inside the container to enable communication between sibling containers or the
      * localhost ip if one is the host.
+     *
      * @return The ip address.
      */
     public String get_ip() {
-        if(inside_container()) {
+        if (inside_container()) {
             Network net = _docker.inspectNetworkCmd().withNetworkId("docker_gwbridge").exec();
             return net.getIpam().getConfig().get(0).getGateway();
         }
@@ -166,6 +168,7 @@ public class DUUIDockerInterface {
 
     /**
      * Reads the logs from the container to determine if the container has started up without errors
+     *
      * @param containerid The container id to check the logs from
      * @return The string representation of the read logs
      * @throws InterruptedException
@@ -182,14 +185,15 @@ public class DUUIDockerInterface {
                     }
                 }).awaitCompletion();
         String completelog = "";
-        for(String x : logs) {
-            completelog+=x;
+        for (String x : logs) {
+            completelog += x;
         }
         return completelog;
     }
 
     /**
      * Stops the container with the given container id
+     *
      * @param id The id of the container to stop.
      */
     public void stop_container(String id) {
@@ -198,29 +202,32 @@ public class DUUIDockerInterface {
 
     /**
      * Stops the container with the given container id
+     *
      * @param id The id of the container to stop.
      */
     public void rm_service(String id) {
-        System.out.printf("Stopping service %s\n",id);
+        System.out.printf("Stopping service %s\n", id);
         _docker.removeServiceCmd(id).withServiceId(id).exec();
     }
+
     /**
      * Exports a running container to a new image.
+     *
      * @param containerid The containerid to commit to a new image
-     * @param imagename The image name in the format "repository!imagename"
+     * @param imagename   The image name in the format "repository!imagename"
      */
     public void export_to_new_image(String containerid, String imagename) {
-        if(!imagename.equals("")) {
+        if (!imagename.equals("")) {
             String split[] = imagename.split("!");
             _docker.commitCmd(containerid).withRepository(split[0]).withTag(split[1]).exec();
         }
     }
 
     public String run_service(String imagename, int scale, String tag) throws InterruptedException {
-        if(tag==null) {
+        if (tag == null) {
             tag = "localhost/reproducibleanno";
         }
-        _docker.tagImageCmd(imagename,tag,imagename).exec();
+        _docker.tagImageCmd(imagename, tag, imagename).exec();
         _docker.pushImageCmd(tag)
                 .withTag(imagename)
                 .exec(new PushImageResultCallback())
@@ -233,7 +240,7 @@ public class DUUIDockerInterface {
 
         TaskSpec task = new TaskSpec();
         ContainerSpec cont = new ContainerSpec();
-        cont = cont.withImage(tag+":"+imagename);
+        cont = cont.withImage(tag + ":" + imagename);
         task.withContainerSpec(cont);
 
         spec.withTaskTemplate(task);
@@ -243,7 +250,7 @@ public class DUUIDockerInterface {
         end.withPorts(portcfg);
         spec.withEndpointSpec(end);
 
-        System.out.printf("Spawning %d service replicas",scale);
+        System.out.printf("Spawning %d service replicas", scale);
         CreateServiceResponse cmd = _docker.createServiceCmd(spec).exec();
         return cmd.getId();
     }
@@ -252,7 +259,7 @@ public class DUUIDockerInterface {
         Thread.sleep(1000);
         Service cmd = _docker.inspectServiceCmd(service).exec();
         Endpoint end = cmd.getEndpoint();
-        for(PortConfig p : end.getPorts()) {
+        for (PortConfig p : end.getPorts()) {
             return p.getPublishedPort();
         }
         return -1;
@@ -261,7 +268,7 @@ public class DUUIDockerInterface {
     public String build(Path builddir, List<String> buildArgs) {
         BuildImageCmd buildCmd = _docker.buildImageCmd().withPull(true)
                 .withBaseDirectory(builddir.toFile())
-                .withDockerfile(Paths.get(builddir.toString(),"dockerfile").toFile());
+                .withDockerfile(Paths.get(builddir.toString(), "dockerfile").toFile());
 
         for (String buildArg : buildArgs) {
             String[] fields = buildArg.split("=", 2);
@@ -276,23 +283,24 @@ public class DUUIDockerInterface {
 
     public String pullImage(String tag) throws InterruptedException {
         _docker.pullImageCmd(tag).exec(new PullImageStdout()).awaitCompletion();
-        System.out.printf("Pulled image with id %s\n",tag);
+        System.out.printf("Pulled image with id %s\n", tag);
         return tag;
     }
 
     /**
      * Builds and runs the container with a specified temporary build directory and some flags.
-     * @param gpu If the gpu should be used
+     *
+     * @param gpu        If the gpu should be used
      * @param autoremove If the autoremove flag is set for the container
      * @return The docker container id
      * @throws InterruptedException
      */
     public String run(String imageid, boolean gpu, boolean autoremove) throws InterruptedException {
         HostConfig cfg = new HostConfig();
-        if(autoremove) {
+        if (autoremove) {
             cfg = cfg.withAutoRemove(true);
         }
-        if(gpu) {
+        if (gpu) {
             cfg = cfg.withDeviceRequests(ImmutableList.of(new DeviceRequest()
                     .withCapabilities(ImmutableList.of(ImmutableList.of("gpu")))));
         }
