@@ -68,23 +68,33 @@ public class DUUIComposer {
 
     public void run(JCas jc) throws IOException, InterruptedException, SAXException, TimeoutException, UIMAException {
         Vector<PipelinePart> idPipeline = new Vector<PipelinePart>();
-        for(IDUUIPipelineComponent comp : _pipeline) {
-            IDUUIDriverInterface driver = _drivers.get(comp.getOption(DRIVER_OPTION_NAME));
-            idPipeline.add(new PipelinePart(driver,driver.instantiate(comp)));
+        try {
+            for (IDUUIPipelineComponent comp : _pipeline) {
+                IDUUIDriverInterface driver = _drivers.get(comp.getOption(DRIVER_OPTION_NAME));
+                idPipeline.add(new PipelinePart(driver, driver.instantiate(comp)));
+            }
+            System.out.println("");
+
+            DUUIEither start = new DUUIEither(jc);
+
+            for (PipelinePart comp : idPipeline) {
+                start = comp.getDriver().run(comp.getUUID(), start);
+            }
+
+            String cas = start.getAsString();
+            System.out.printf("Result %s\n", cas);
+            jc = start.getAsJCas();
+
+            System.out.printf("Total number of transforms in pipeline %d", start.getTransformSteps());
         }
-        System.out.println("");
-
-        DUUIEither start = new DUUIEither(jc);
-
-        for(PipelinePart comp : idPipeline) {
-            start = comp.getDriver().run(comp.getUUID(),start);
+        catch(Exception e) {
+            e.printStackTrace();
+            System.out.println("Something went wrong, shutting down remaining components...");
+            for(PipelinePart comp : idPipeline) {
+                comp.getDriver().destroy(comp.getUUID());
+            }
+            throw e;
         }
-
-        String cas = start.getAsString();
-        System.out.printf("Result %s\n",cas);
-        jc = start.getAsJCas();
-
-        System.out.printf("Total number of transforms in pipeline %d",start.getTransformSteps());
 
         for(PipelinePart comp : idPipeline) {
             comp.getDriver().destroy(comp.getUUID());
