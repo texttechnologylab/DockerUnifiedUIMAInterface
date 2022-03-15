@@ -1,4 +1,5 @@
 import com.github.dockerjava.api.DockerClient;
+import com.github.dockerjava.api.async.ResultCallback;
 import com.github.dockerjava.api.command.*;
 import com.github.dockerjava.api.exception.DockerClientException;
 import com.github.dockerjava.api.model.*;
@@ -11,8 +12,11 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.security.InvalidParameterException;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+
+import static java.lang.String.format;
 
 class PullImageStdout extends PullImageResultCallback {
     private String _status;
@@ -29,11 +33,35 @@ class PullImageStdout extends PullImageResultCallback {
 
         if (item.getProgressDetail() != null) {
             if (item.getProgressDetail().getCurrent() != null && item.getProgressDetail().getTotal() != null) {
-                System.out.printf("%s: %.2f%%\n", _status, ((float) item.getProgressDetail().getCurrent() / (float) item.getProgressDetail().getTotal()) * 100);
+                System.out.printf("[DockerSwarmDriver] %s: %.2f%%\n", _status, ((float) item.getProgressDetail().getCurrent() / (float) item.getProgressDetail().getTotal()) * 100);
             } else {
-                System.out.printf("%s.\n", _status);
+                System.out.printf("[DockerSwarmDriver] %s.\n", _status);
             }
         }
+    }
+}
+
+class PushImageStdout extends ResultCallback.Adapter<PushResponseItem> {
+    private String _status;
+
+    PushImageStdout() {
+        _status = "";
+    }
+
+    @Override
+    public void onNext(PushResponseItem item) {
+        if (item.getStatus() != null) {
+            _status = item.getStatus();
+        }
+
+        if (item.getProgressDetail() != null) {
+            if (item.getProgressDetail().getCurrent() != null && item.getProgressDetail().getTotal() != null) {
+                System.out.printf("[DockerSwarmDriver] %s: %.2f%%\n", _status, ((float) item.getProgressDetail().getCurrent() / (float) item.getProgressDetail().getTotal()) * 100);
+            } else {
+                System.out.printf("[DockerSwarmDriver] %s.\n", _status);
+            }
+        }
+        super.onNext(item);
     }
 }
 
@@ -220,6 +248,36 @@ public class DUUIDockerInterface {
             String split[] = imagename.split("!");
             _docker.commitCmd(containerid).withRepository(split[0]).withTag(split[1]).exec();
         }
+    }
+
+    public Image getLocalImage(String imageName) {
+        List<Image> images = _docker.listImagesCmd()
+                .withShowAll(true)
+                .exec();
+        for(Image i : images) {
+            if(i.getId() == imageName) {
+                return i;
+            }
+
+            for(String repo : i.getRepoTags()) {
+                if(repo.equals(imageName)) {
+                    return i;
+                }
+            }
+        }
+        return null;
+    }
+
+    public void push_image(String remoteName, String localName) throws InterruptedException {
+        Image img = getLocalImage(localName);
+        if(img==null) {
+            throw new InvalidParameterException(format("Could not find local image %s, not attempting to upload it to a registry!",localName));
+        }
+
+        _docker.tagImageCmd(localName,remoteName,"latest").exec();
+        _docker.pushImageCmd(remoteName)
+                .exec(new PushImageStdout())
+                .awaitCompletion();
     }
 
     public String run_service(String imagename, int scale) throws InterruptedException {

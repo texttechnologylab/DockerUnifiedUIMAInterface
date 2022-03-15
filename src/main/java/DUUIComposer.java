@@ -343,7 +343,8 @@ public class DUUIComposer {
                 AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class)
         ).withScale(2), DUUIUIMADriver.class);
 
-        composer.add(new DUUISwarmDriver.Component("localhost:5000/duuid:latest")
+        composer.add(new DUUISwarmDriver.Component("localhost:5000/pushed")
+                        .withFromLocalImage("new:latest")
                         .withScale(3)
                         .withRunningAfterDestroy(false)
                 , DUUISwarmDriver.class);
@@ -360,12 +361,12 @@ public class DUUIComposer {
         jc.setDocumentText("Hello World!");
 
         // Run single document
-        composer.run(jc);
+        //composer.run(jc);
 
         // Run Collection Reader
-        /*composer.run(createReaderDescription(TextReader.class,
+        composer.run(createReaderDescription(TextReader.class,
                 TextReader.PARAM_SOURCE_LOCATION, "test_corpora/**.txt",
-                TextReader.PARAM_LANGUAGE, "en"));*/
+                TextReader.PARAM_LANGUAGE, "en"));
 
   }
 }

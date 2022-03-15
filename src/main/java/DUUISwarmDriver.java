@@ -86,6 +86,10 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         RequestBody bod = RequestBody.create(obj.toString().getBytes(StandardCharsets.UTF_8));
         DUUISwarmDriver.InstantiatedComponent comp = new DUUISwarmDriver.InstantiatedComponent(component);
 
+        if(comp.isBackedByLocalImage()) {
+            System.out.printf("[DockerSwarmDriver] Attempting to push local image %s to remote image registry %s\n", comp.getLocalImageName(),comp.getImageName());
+            _interface.push_image(comp.getImageName(),comp.getLocalImageName());
+        }
         System.out.printf("[DockerSwarmDriver] Assigned new pipeline component unique id %s\n", uuid);
 
             String serviceid = _interface.run_service(comp.getImageName(),comp.getScale());
@@ -171,6 +175,7 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         private boolean _keep_runnging_after_exit;
         private int _scale;
         private AtomicInteger _maximum_concurrency;
+        private String _fromLocalImage;
 
         public void enter() {
             while(true) {
@@ -208,7 +213,18 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
             } else {
                 _keep_runnging_after_exit = with_running_after.equals("yes");
             }
+
+            _fromLocalImage = comp.getOption("local_image");
         }
+
+        public boolean isBackedByLocalImage() {
+            return _fromLocalImage!=null;
+        }
+
+        public String getLocalImageName() {
+            return _fromLocalImage;
+        }
+
 
         public InstantiatedComponent initialise(String service_id, int container_port) {
             _service_id = service_id;
@@ -255,6 +271,11 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
 
         public Component withScale(int scale) {
             setOption("scale", String.valueOf(scale));
+            return this;
+        }
+
+        public Component withFromLocalImage(String localImageName) {
+            setOption("local_image",localImageName);
             return this;
         }
 
