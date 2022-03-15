@@ -46,6 +46,19 @@
             <artifactId>de.tudarmstadt.ukp.dkpro.core.opennlp-asl</artifactId>
             <version>1.10.0</version>
         </dependency>
+        <!-- https://mvnrepository.com/artifact/de.tudarmstadt.ukp.dkpro.core/de.tudarmstadt.ukp.dkpro.core.io.text-asl -->
+        <dependency>
+            <groupId>de.tudarmstadt.ukp.dkpro.core</groupId>
+            <artifactId>de.tudarmstadt.ukp.dkpro.core.io.text-asl</artifactId>
+            <version>1.10.0</version>
+        </dependency>
+        <!-- https://mvnrepository.com/artifact/de.tudarmstadt.ukp.dkpro.core/de.tudarmstadt.ukp.dkpro.core.tokit-asl -->
+        <dependency>
+            <groupId>de.tudarmstadt.ukp.dkpro.core</groupId>
+            <artifactId>de.tudarmstadt.ukp.dkpro.core.tokit-asl</artifactId>
+            <version>1.10.0</version>
+        </dependency>
+
 
     </dependencies>
 

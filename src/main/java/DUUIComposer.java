@@ -1,7 +1,13 @@
+import de.tudarmstadt.ukp.dkpro.core.io.text.TextReader;
 import de.tudarmstadt.ukp.dkpro.core.opennlp.OpenNlpSegmenter;
+import de.tudarmstadt.ukp.dkpro.core.tokit.BreakIteratorSegmenter;
 import org.apache.uima.UIMAException;
 import org.apache.uima.cas.impl.XmiCasSerializer;
+import org.apache.uima.collection.CollectionReader;
+import org.apache.uima.collection.CollectionReaderDescription;
+import org.apache.uima.collection.base_cpm.CasDataCollectionReader;
 import org.apache.uima.fit.factory.AnalysisEngineFactory;
+import org.apache.uima.fit.factory.CollectionReaderFactory;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.jcas.JCas;
 import org.xml.sax.SAXException;
@@ -16,6 +22,7 @@ import java.util.Vector;
 import java.util.concurrent.TimeoutException;
 
 import static java.lang.String.format;
+import static org.apache.uima.fit.factory.CollectionReaderFactory.createReaderDescription;
 
 public class DUUIComposer {
     private Map<String, IDUUIDriverInterface> _drivers;
@@ -65,21 +72,65 @@ public class DUUIComposer {
         }
     }
 
-    public void run(JCas jc) throws Exception {
-        Vector<PipelinePart> idPipeline = new Vector<PipelinePart>();
+    public void run(CollectionReaderDescription reader) throws Exception {
         Exception catched = null;
+        System.out.println("Instantiation the collection reader...");
+        CollectionReader collectionReader = CollectionReaderFactory.createReader(reader);
+        System.out.println("Instantiated the collection reader.");
+
+        JCas jc = JCasFactory.createJCas();
+        Vector<PipelinePart> idPipeline = new Vector<PipelinePart>();
         try {
-            for (IDUUIPipelineComponent comp : _pipeline) {
-                IDUUIDriverInterface driver = _drivers.get(comp.getOption(DRIVER_OPTION_NAME));
-                idPipeline.add(new PipelinePart(driver, driver.instantiate(comp)));
+            instantiate_pipeline(idPipeline);
+            do
+            while(collectionReader.hasNext()) {
+                collectionReader.getNext(jc.getCas());
+                run_pipeline(jc,idPipeline);
+                jc.reset();
             }
-            System.out.println("");
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.out.println("Something went wrong, shutting down remaining components...");
+            catched = e;
+        }
 
-            DUUIEither start = new DUUIEither(jc);
+        shutdown_pipeline(idPipeline);
+        if (catched != null) {
+            throw catched;
+        }
+    }
 
-            for (PipelinePart comp : idPipeline) {
-                start = comp.getDriver().run(comp.getUUID(), start);
-            }
+    private void instantiate_pipeline(Vector<PipelinePart> idPipeline) throws Exception {
+        for (IDUUIPipelineComponent comp : _pipeline) {
+            IDUUIDriverInterface driver = _drivers.get(comp.getOption(DRIVER_OPTION_NAME));
+            idPipeline.add(new PipelinePart(driver, driver.instantiate(comp)));
+        }
+        System.out.println("");
+    }
+
+    private DUUIEither run_pipeline(JCas jc, Vector<PipelinePart> pipeline) throws Exception {
+        DUUIEither start = new DUUIEither(jc);
+
+        for (PipelinePart comp : pipeline) {
+            start = comp.getDriver().run(comp.getUUID(), start);
+        }
+        return start;
+    }
+
+    private void shutdown_pipeline(Vector<PipelinePart> pipeline) throws Exception {
+        for (PipelinePart comp : pipeline) {
+            System.out.printf("Shutting down %s...\n", comp.getUUID());
+            comp.getDriver().destroy(comp.getUUID());
+        }
+        System.out.println("Shut down complete.\n");
+    }
+
+    public void run(JCas jc) throws Exception {
+        Exception catched = null;
+        Vector<PipelinePart> idPipeline = new Vector<PipelinePart>();
+        try {
+            instantiate_pipeline(idPipeline);
+            DUUIEither start = run_pipeline(jc,idPipeline);
 
             String cas = start.getAsString();
             System.out.printf("Result %s\n", cas);
@@ -91,12 +142,7 @@ public class DUUIComposer {
             System.out.println("Something went wrong, shutting down remaining components...");
             catched = e;
         }
-
-        for (PipelinePart comp : idPipeline) {
-            System.out.printf("Shutting down %s...\n", comp.getUUID());
-            comp.getDriver().destroy(comp.getUUID());
-        }
-        System.out.println("Shut down complete.\n");
+        shutdown_pipeline(idPipeline);
         if (catched != null) {
             throw catched;
         }
@@ -122,7 +168,7 @@ public class DUUIComposer {
                 DUUIRemoteDriver.class);
 
         composer.add(new DUUIUIMADriver.Component(
-                AnalysisEngineFactory.createEngineDescription(OpenNlpSegmenter.class)
+                AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class)
         ), DUUIUIMADriver.class);
 
 
@@ -131,5 +177,9 @@ public class DUUIComposer {
         jc.setDocumentText("Hello World!");
 
         composer.run(jc);
+
+        composer.run(createReaderDescription(TextReader.class,
+                TextReader.PARAM_SOURCE_LOCATION, "test_corpora/**.txt",
+                TextReader.PARAM_LANGUAGE, "en"));
     }
 }

@@ -143,6 +143,9 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
             throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
         }
         ComponentInstance inst = comp.getInstances().poll();
+        while(inst == null) {
+            inst = comp.getInstances().poll();
+        }
 
         String cas = aCas.getAsString();
 
