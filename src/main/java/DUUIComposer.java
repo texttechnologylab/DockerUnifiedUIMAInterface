@@ -7,6 +7,7 @@ import org.apache.uima.fit.factory.CollectionReaderFactory;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.jcas.JCas;
 
+import javax.sql.rowset.spi.XmlWriter;
 import java.security.InvalidParameterException;
 import java.util.HashMap;
 import java.util.Map;
@@ -269,7 +270,7 @@ public class DUUIComposer {
         }
         catch(Exception e) {
             e.printStackTrace();
-            System.out.println("Something went wrong, shutting down remaining components...");
+            System.out.println(idPipeline+"\t Something went wrong, shutting down remaining components...");
             catched = e;
         }
         shutdown_pipeline(idPipeline);
@@ -342,7 +343,7 @@ public class DUUIComposer {
         System.out.println("Generating full concurrency graph. WARNING: This needs a full pipeline instantiation.");
 
         // This takes a bit of time since the full pipeline is begin build and evaluatd.
-        composer.printConcurrencyGraph();
+//        composer.printConcurrencyGraph();
 
 
         JCas jc = JCasFactory.createJCas();
@@ -356,5 +357,6 @@ public class DUUIComposer {
         composer.run(createReaderDescription(TextReader.class,
                 TextReader.PARAM_SOURCE_LOCATION, "test_corpora/**.txt",
                 TextReader.PARAM_LANGUAGE, "en"));
+
     }
 }
