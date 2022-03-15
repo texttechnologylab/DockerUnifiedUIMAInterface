@@ -137,7 +137,6 @@ public class DUUIDockerInterface {
             }
         }
 
-        System.out.printf("Detected port: %d\n",innerport);
         return innerport;
     }
 

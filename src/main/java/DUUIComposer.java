@@ -1,11 +1,14 @@
+import de.tudarmstadt.ukp.dkpro.core.opennlp.OpenNlpSegmenter;
 import org.apache.uima.UIMAException;
 import org.apache.uima.cas.impl.XmiCasSerializer;
+import org.apache.uima.fit.factory.AnalysisEngineFactory;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.jcas.JCas;
 import org.xml.sax.SAXException;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.channels.Pipe;
 import java.security.InvalidParameterException;
 import java.util.HashMap;
 import java.util.Map;
@@ -27,7 +30,6 @@ public class DUUIComposer {
 
     public DUUIComposer addDriver(IDUUIDriverInterface driver) {
         _drivers.put(driver.getClass().getCanonicalName().toString(),driver);
-        System.out.println(driver.getClass().toString());
         return this;
     }
 
@@ -46,20 +48,46 @@ public class DUUIComposer {
         return this;
     }
 
-    public void run(JCas jc) throws IOException, InterruptedException, SAXException, TimeoutException {
-        for(IDUUIPipelineComponent comp : _pipeline) {
-            IDUUIDriverInterface driver = _drivers.get(comp.getOption(DRIVER_OPTION_NAME));
-            driver.instantiate(comp);
+    public static class PipelinePart {
+        private IDUUIDriverInterface _driver;
+        private String _uuid;
+
+        PipelinePart(IDUUIDriverInterface driver, String uuid) {
+            _driver = driver;
+            _uuid = uuid;
         }
 
-        for(IDUUIPipelineComponent comp : _pipeline) {
-            IDUUIDriverInterface driver = _drivers.get(comp.getOption(DRIVER_OPTION_NAME));
-            driver.run(comp,jc);
+        public IDUUIDriverInterface getDriver() {
+            return _driver;
         }
 
+        public String getUUID() {
+            return _uuid;
+        }
+    }
+
+    public void run(JCas jc) throws IOException, InterruptedException, SAXException, TimeoutException, UIMAException {
+        Vector<PipelinePart> idPipeline = new Vector<PipelinePart>();
         for(IDUUIPipelineComponent comp : _pipeline) {
             IDUUIDriverInterface driver = _drivers.get(comp.getOption(DRIVER_OPTION_NAME));
-            driver.destroy(comp);
+            idPipeline.add(new PipelinePart(driver,driver.instantiate(comp)));
+        }
+        System.out.println("");
+
+        DUUIEither start = new DUUIEither(jc);
+
+        for(PipelinePart comp : idPipeline) {
+            start = comp.getDriver().run(comp.getUUID(),start);
+        }
+
+        String cas = start.getAsString();
+        System.out.printf("Result %s\n",cas);
+        jc = start.getAsJCas();
+
+        System.out.printf("Total number of transforms in pipeline %d",start.getTransformSteps());
+
+        for(PipelinePart comp : idPipeline) {
+            comp.getDriver().destroy(comp.getUUID());
         }
     }
 
@@ -68,18 +96,30 @@ public class DUUIComposer {
     public static void main(String[] args) throws IOException, InterruptedException, UIMAException, SAXException, TimeoutException {
         DUUIComposer composer = new DUUIComposer();
         DUUILocalDriver driver = new DUUILocalDriver();
-        composer.addDriver(driver);
+        DUUIRemoteDriver remote_driver = new DUUIRemoteDriver();
+        DUUIUIMADriver uima_driver = new DUUIUIMADriver();
 
-        composer.add(new DUUILocalDriver.Component("new:latest", true),DUUILocalDriver.class);
+        composer.addDriver(driver);
+        composer.addDriver(remote_driver);
+        composer.addDriver(uima_driver);
+
+        composer.add(new DUUILocalDriver.Component("new:latest", true)
+                        .withScale(2)
+                        .withRunningAfterDestroy(false)
+                            ,DUUILocalDriver.class);
+
+        composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9714"),
+                        DUUIRemoteDriver.class);
+
+        composer.add(new DUUIUIMADriver.Component(
+                AnalysisEngineFactory.createEngineDescription(OpenNlpSegmenter.class)
+        ),DUUIUIMADriver.class);
+
 
         JCas jc = JCasFactory.createJCas();
         jc.setDocumentLanguage("en");
         jc.setDocumentText("Hello World!");
 
         composer.run(jc);
-
-        ByteArrayOutputStream arr = new ByteArrayOutputStream();
-        XmiCasSerializer.serialize(jc.getCas(),arr);
-        System.out.printf("Result %s",arr.toString());
     }
 }
