@@ -352,8 +352,20 @@ public class DUUIDockerInterface {
         return sw.getSwarm().getControlAvailable();
     }
 
-    public String pullImage(String tag) throws InterruptedException {
-        _docker.pullImageCmd(tag).exec(new PullImageStdout()).awaitCompletion();
+    public String pullImage(String tag,String username, String password) throws InterruptedException {
+
+        if(username!=null && password!=null) {
+            AuthConfig cfg = new AuthConfig();
+            cfg.withUsername(username);
+            cfg.withPassword(password);
+            _docker.pullImageCmd(tag)
+                    .withAuthConfig(cfg)
+                    .exec(new PullImageStdout()).awaitCompletion();
+        }
+        else {
+            _docker.pullImageCmd(tag)
+                    .exec(new PullImageStdout()).awaitCompletion();
+        }
         return tag;
     }
 
