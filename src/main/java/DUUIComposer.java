@@ -327,7 +327,7 @@ public class DUUIComposer {
 
         // Every component needs a driver which instantiates and runs them
         // Local driver manages local docker container and pulls docker container from remote repositories
-        composer.add(new DUUILocalDriver.Component("localhost:5000/duuid:latest")
+        composer.add(new DUUILocalDriver.Component("new:latest")
                         .withScale(2)
                         .withImageFetching()
                         .withRunningAfterDestroy(false)
