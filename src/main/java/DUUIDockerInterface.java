@@ -268,16 +268,27 @@ public class DUUIDockerInterface {
         return null;
     }
 
-    public void push_image(String remoteName, String localName) throws InterruptedException {
+    public void push_image(String remoteName, String localName,String username, String password) throws InterruptedException {
         Image img = getLocalImage(localName);
         if(img==null) {
             throw new InvalidParameterException(format("Could not find local image %s, not attempting to upload it to a registry!",localName));
         }
 
         _docker.tagImageCmd(localName,remoteName,"latest").exec();
-        _docker.pushImageCmd(remoteName)
-                .exec(new PushImageStdout())
-                .awaitCompletion();
+        if(username!=null && password!=null) {
+            AuthConfig cfg = new AuthConfig();
+            cfg.withPassword(password);
+            cfg.withUsername(username);
+            _docker.pushImageCmd(remoteName)
+                    .withAuthConfig(cfg)
+                    .exec(new PushImageStdout())
+                    .awaitCompletion();
+        }
+        else {
+            _docker.pushImageCmd(remoteName)
+                    .exec(new PushImageStdout())
+                    .awaitCompletion();
+        }
     }
 
     public String run_service(String imagename, int scale) throws InterruptedException {
