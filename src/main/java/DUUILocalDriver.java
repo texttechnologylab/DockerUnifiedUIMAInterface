@@ -112,7 +112,11 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
 
 
         if (!comp.isLocal()) {
-            _interface.pullImage(comp.getImageName());
+            if(comp.getUsername() != null) {
+                System.out.printf("[DockerLocalDriver] Attempting image %s download from secure remote registry\n",comp.getImageName());
+            }
+            _interface.pullImage(comp.getImageName(),comp.getUsername(),comp.getPassword());
+            System.out.printf("[DockerLocalDriver] Pulled image with id %s\n",comp.getImageName());
         }
         else {
             if(!_interface.hasLocalImage(comp.getImageName())) {
@@ -193,8 +197,11 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
             throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
         }
         if (!comp.getRunningAfterExit()) {
+            int counter = 1;
             for (ComponentInstance inst : comp.getInstances()) {
+                System.out.printf("[DockerLocalDriver][Replication %d/%d] Stopping docker container %s...\n",counter,comp.getInstances().size(),inst.getContainerId());
                 _interface.stop_container(inst.getContainerId());
+                counter+=1;
             }
         }
     }
@@ -228,6 +235,9 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
         private boolean _gpu;
         private boolean _keep_runnging_after_exit;
         private int _scale;
+
+        private String _reg_password;
+        private String _reg_username;
 
         InstantiatedComponent(IDUUIPipelineComponent comp) {
             _image_name = comp.getOption("container");
@@ -263,7 +273,15 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
             } else {
                 _keep_runnging_after_exit = with_running_after.equals("yes");
             }
+
+            _reg_password = comp.getOption("reg_password");
+            _reg_username = comp.getOption("reg_username");
         }
+
+        public String getPassword() {return _reg_password;}
+
+        public String getUsername() {return _reg_username;}
+
 
         public String getImageName() {
             return _image_name;
@@ -305,6 +323,12 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
 
         public Component withScale(int scale) {
             setOption("scale", String.valueOf(scale));
+            return this;
+        }
+
+        public Component withRegistryAuth(String username, String password) {
+            setOption("reg_username",username);
+            setOption("reg_password",password);
             return this;
         }
 
