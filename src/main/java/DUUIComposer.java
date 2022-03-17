@@ -316,7 +316,8 @@ public class DUUIComposer {
                 .withTimeout(10000);
 
         DUUIRemoteDriver remote_driver = new DUUIRemoteDriver();
-        DUUIUIMADriver uima_driver = new DUUIUIMADriver();
+        DUUIUIMADriver uima_driver = new DUUIUIMADriver()
+                .withDebug(true);
         DUUISwarmDriver swarm_driver = new DUUISwarmDriver();
 
         // A driver must be added before components can be added for it in the composer.
@@ -327,12 +328,12 @@ public class DUUIComposer {
 
         // Every component needs a driver which instantiates and runs them
         // Local driver manages local docker container and pulls docker container from remote repositories
-        composer.add(new DUUILocalDriver.Component("kava-i.de:5000/secure/test_image")
+        /*composer.add(new DUUILocalDriver.Component("kava-i.de:5000/secure/test_image")
                         .withScale(2)
                         .withImageFetching()
                         .withRunningAfterDestroy(false)
                         .withRegistryAuth("SET_USERNAME_HERE","SET_PASSWORD_HERE")
-                , DUUILocalDriver.class);
+                , DUUILocalDriver.class);*/
 
         // Remote driver handles all pure URL endpoints
         //composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9714")
@@ -340,9 +341,10 @@ public class DUUIComposer {
         //        DUUIRemoteDriver.class);
 
         // UIMA Driver handles all native UIMA Analysis Engine Descriptions
-        //composer.add(new DUUIUIMADriver.Component(
-        //        AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class)
-        //).withScale(2), DUUIUIMADriver.class);
+        composer.add(new DUUIUIMADriver.Component(
+                AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class,
+                        BreakIteratorSegmenter.PARAM_LANGUAGE,"en")
+        ).withScale(2), DUUIUIMADriver.class);
 
         //composer.add(new DUUISwarmDriver.Component("localhost:5000/pushed")
         //                .withFromLocalImage("new:latest")
