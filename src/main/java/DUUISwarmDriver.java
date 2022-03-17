@@ -88,7 +88,10 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
 
         if(comp.isBackedByLocalImage()) {
             System.out.printf("[DockerSwarmDriver] Attempting to push local image %s to remote image registry %s\n", comp.getLocalImageName(),comp.getImageName());
-            _interface.push_image(comp.getImageName(),comp.getLocalImageName());
+            if(comp.getUsername() != null && comp.getPassword() != null) {
+                System.out.println("[DockerSwarmDriver] Using provided password and username to authentificate against the remote registry");
+            }
+            _interface.push_image(comp.getImageName(),comp.getLocalImageName(),comp.getUsername(),comp.getPassword());
         }
         System.out.printf("[DockerSwarmDriver] Assigned new pipeline component unique id %s\n", uuid);
 
@@ -177,6 +180,9 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         private AtomicInteger _maximum_concurrency;
         private String _fromLocalImage;
 
+        private String _reg_password;
+        private String _reg_username;
+
         public void enter() {
             while(true) {
                 int before = _maximum_concurrency.get();
@@ -215,7 +221,13 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
             }
 
             _fromLocalImage = comp.getOption("local_image");
+            _reg_password = comp.getOption("reg_password");
+            _reg_username = comp.getOption("reg_username");
         }
+
+        public String getPassword() {return _reg_password;}
+
+        public String getUsername() {return _reg_username;}
 
         public boolean isBackedByLocalImage() {
             return _fromLocalImage!=null;
@@ -271,6 +283,12 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
 
         public Component withScale(int scale) {
             setOption("scale", String.valueOf(scale));
+            return this;
+        }
+
+        public DUUISwarmDriver.Component withRegistryAuth(String username, String password) {
+            setOption("reg_username",username);
+            setOption("reg_password",password);
             return this;
         }
 

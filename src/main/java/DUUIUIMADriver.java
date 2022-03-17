@@ -4,6 +4,9 @@ import org.apache.uima.analysis_engine.AnalysisEngineDescription;
 import org.apache.uima.analysis_engine.AnalysisEngineProcessException;
 import org.apache.uima.fit.factory.AnalysisEngineFactory;
 import org.apache.uima.jcas.JCas;
+import org.apache.uima.resource.ResourceSpecifier;
+import org.apache.uima.resource.metadata.ConfigurationParameter;
+import org.apache.uima.resource.metadata.NameValuePair;
 import org.apache.uima.util.InvalidXMLException;
 import org.xml.sax.SAXException;
 
@@ -13,16 +16,24 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.security.InvalidParameterException;
-import java.util.HashMap;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeoutException;
 
+import static java.lang.String.format;
+
 public class DUUIUIMADriver implements IDUUIDriverInterface {
     private HashMap<String, InstantiatedComponent> _engines;
+    private boolean _enable_debug;
 
     public DUUIUIMADriver() {
         _engines = new HashMap<String, InstantiatedComponent>();
+        _enable_debug = false;
+    }
+
+    public DUUIUIMADriver withDebug(boolean enableDebug) {
+        _enable_debug = enableDebug;
+        return this;
     }
 
     public static class InstantiatedComponent {
@@ -68,6 +79,106 @@ public class DUUIUIMADriver implements IDUUIDriverInterface {
         System.out.printf("[UIMADriver][%s]: Maximum concurrency %d\n",uuid,component.getEngines().size());
     }
 
+    static private String[] extractNames(AnalysisEngineDescription engine, String uuid, int recursionDepth) throws InvalidXMLException {
+        List<String> lst = new ArrayList<String>();
+        System.out.println(format("[UIMADriver][DEBUG][%s] Dumping annotator layout and parameters:",uuid));
+        String offset = "";
+        for(int i = 0; i < recursionDepth; i++) {
+            offset+="  ";
+        }
+        if(engine.isPrimitive()) {
+            lst.add(offset+engine.getAnnotatorImplementationName());
+            offset+=" ";
+            Map<String,ConfigurationParameter> val = new HashMap<String,ConfigurationParameter>();
+
+            for(ConfigurationParameter param : engine.getAnalysisEngineMetaData().getConfigurationParameterDeclarations().getConfigurationParameters()) {
+                val.put(param.getName(), param);
+            }
+
+            for(NameValuePair valuesName : engine.getAnalysisEngineMetaData().getConfigurationParameterSettings().getParameterSettings()) {
+                ConfigurationParameter param = val.get(valuesName.getName());
+                if(param==null) {
+                    continue;
+                }
+                lst.add(offset+"Name: "+param.getName());
+                lst.add(offset+"Type: "+param.getType());
+                Object result = valuesName.getValue();
+                switch(param.getType()) {
+                    case ConfigurationParameter.TYPE_FLOAT:
+                        if(param.isMultiValued()) {
+                            String serialized = "[";
+                            for(float inner : (float[])result) {
+                                serialized+=String.valueOf(inner);
+                            }
+                            serialized+="]";
+                            lst.add(offset+"Value: "+serialized);
+                        }
+                        else {
+                            lst.add(offset+"Value: "+String.valueOf((float)result));
+                        }
+                        break;
+                    case ConfigurationParameter.TYPE_STRING:
+                        if(param.isMultiValued()) {
+                            String serialized = "[";
+                            for(String inner : (String[])result) {
+                                serialized+=inner;
+                            }
+                            serialized+="]";
+                            lst.add(offset+"Value: "+serialized);
+                        }
+                        else {
+                            lst.add(offset+"Value: "+(String)result);
+                        }
+                        break;
+                    case ConfigurationParameter.TYPE_BOOLEAN:
+                        if(param.isMultiValued()) {
+                            String serialized = "[";
+                            for(Boolean inner : (Boolean[])result) {
+                                serialized+=String.valueOf(inner);
+                            }
+                            serialized+="]";
+                            lst.add(offset+"Value: "+serialized);
+                        }
+                        else {
+                            lst.add(offset+"Value: "+String.valueOf((Boolean)result));
+                        }
+                        break;
+                    case ConfigurationParameter.TYPE_INTEGER:
+                        if(param.isMultiValued()) {
+                            String serialized = "[";
+                            for(Integer inner : (Integer[])result) {
+                                serialized+=String.valueOf(inner);
+                            }
+                            serialized+="]";
+                            lst.add(offset+"Value: "+serialized);
+                        }
+                        else {
+                            lst.add(offset+"Value: "+String.valueOf((Integer) result));
+                        }
+                        break;
+                    default:
+                        throw new InvalidXMLException();
+                }
+                lst.add("");
+            }
+        }
+        else {
+            Map<String, ResourceSpecifier> spec = engine.getDelegateAnalysisEngineSpecifiers();
+            for(String x : spec.keySet()) {
+                ResourceSpecifier res = spec.get(x);
+                if (res instanceof AnalysisEngineDescription) {
+                    for(String inner : DUUIUIMADriver.extractNames((AnalysisEngineDescription) res,uuid,recursionDepth+1)) {
+                        lst.add(inner);
+                    }
+                    lst.add("");
+                }
+            }
+        }
+        String []arr = new String[lst.size()];
+        lst.toArray(arr);
+        return arr;
+    }
+
     public String instantiate(IDUUIPipelineComponent component) throws InterruptedException, TimeoutException, UIMAException, SAXException, IOException {
         String uuid = UUID.randomUUID().toString();
         while ((_engines.containsKey(uuid))) {
@@ -89,6 +200,12 @@ public class DUUIUIMADriver implements IDUUIDriverInterface {
         Files.write(Paths.get(tempanno), engine.getBytes(StandardCharsets.UTF_8));
         AnalysisEngineDescription analysis_engine_desc = AnalysisEngineFactory.createEngineDescriptionFromPath(tempanno);
 
+        if(_enable_debug) {
+            String[] values = extractNames(analysis_engine_desc,uuid,0);
+            for(String x : values) {
+                System.out.println(x);
+            }
+        }
         InstantiatedComponent comp = new InstantiatedComponent();
         for(int i = 0; i < scale; i++) {
             AnalysisEngine ana = AnalysisEngineFactory.createEngine(analysis_engine_desc);
