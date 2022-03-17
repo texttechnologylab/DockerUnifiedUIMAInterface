@@ -1,3 +1,5 @@
+package org.texttechnology.DockerUnifiedUIMAInterface;
+
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.async.ResultCallback;
 import com.github.dockerjava.api.command.*;
@@ -5,7 +7,6 @@ import com.github.dockerjava.api.exception.DockerClientException;
 import com.github.dockerjava.api.model.*;
 import com.github.dockerjava.core.DockerClientBuilder;
 import com.github.dockerjava.core.command.LogContainerResultCallback;
-import com.github.dockerjava.core.command.PushImageResultCallback;
 import com.google.common.collect.ImmutableList;
 
 import java.io.File;

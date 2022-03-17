@@ -1,3 +1,5 @@
+package org.texttechnology.DockerUnifiedUIMAInterface;
+
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
@@ -20,12 +22,9 @@ import java.nio.charset.StandardCharsets;
 import java.security.InvalidParameterException;
 import java.util.HashMap;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.logging.Logger;
 
-import static java.lang.String.CASE_INSENSITIVE_ORDER;
 import static java.lang.String.format;
 
 public class DUUISwarmDriver implements IDUUIDriverInterface {

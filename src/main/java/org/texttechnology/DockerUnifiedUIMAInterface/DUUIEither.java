@@ -1,3 +1,5 @@
+package org.texttechnology.DockerUnifiedUIMAInterface;
+
 import org.apache.commons.compress.archivers.ar.ArArchiveInputStream;
 import org.apache.uima.cas.impl.XmiCasDeserializer;
 import org.apache.uima.cas.impl.XmiCasSerializer;

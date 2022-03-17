@@ -8,6 +8,8 @@ import org.dkpro.core.io.xmi.XmiReader;
 import org.dkpro.core.io.xmi.XmiWriter;
 import org.hucompute.services.uima.database.xmi.XmiReaderModified;
 import org.junit.jupiter.api.Test;
+import org.texttechnology.DockerUnifiedUIMAInterface.DUUIComposer;
+import org.texttechnology.DockerUnifiedUIMAInterface.DUUIUIMADriver;
 import org.xml.sax.SAXException;
 import textimager.uima.io.abby.utility.XMIWriter;
 

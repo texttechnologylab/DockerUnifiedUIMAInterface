@@ -1,14 +1,13 @@
+package org.texttechnology.DockerUnifiedUIMAInterface;
+
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
 import org.apache.uima.UIMAException;
-import org.apache.uima.cas.impl.XmiCasDeserializer;
 import org.apache.uima.cas.impl.XmiCasSerializer;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.jcas.JCas;
-import org.apache.uima.resource.metadata.TypeSystemDescription;
-import org.apache.uima.util.TypeSystemUtil;
 import org.json.JSONObject;
 import org.xml.sax.SAXException;
 

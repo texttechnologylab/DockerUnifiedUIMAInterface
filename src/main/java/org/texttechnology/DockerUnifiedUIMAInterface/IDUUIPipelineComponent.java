@@ -1,3 +1,5 @@
+package org.texttechnology.DockerUnifiedUIMAInterface;
+
 import java.util.HashMap;
 
 public class IDUUIPipelineComponent {

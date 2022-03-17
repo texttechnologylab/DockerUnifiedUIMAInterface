@@ -1,3 +1,5 @@
+package org.texttechnology.DockerUnifiedUIMAInterface;
+
 import de.tudarmstadt.ukp.dkpro.core.io.text.TextReader;
 import de.tudarmstadt.ukp.dkpro.core.tokit.BreakIteratorSegmenter;
 import org.apache.uima.collection.CollectionReader;
@@ -7,7 +9,6 @@ import org.apache.uima.fit.factory.CollectionReaderFactory;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.jcas.JCas;
 
-import javax.sql.rowset.spi.XmlWriter;
 import java.security.InvalidParameterException;
 import java.util.HashMap;
 import java.util.Map;
@@ -328,17 +329,17 @@ public class DUUIComposer {
 
         // Every component needs a driver which instantiates and runs them
         // Local driver manages local docker container and pulls docker container from remote repositories
-        /*composer.add(new DUUILocalDriver.Component("kava-i.de:5000/secure/test_image")
+        /*composer.add(new org.texttechnology.DockerUnifiedUIMAInterface.DUUILocalDriver.Component("kava-i.de:5000/secure/test_image")
                         .withScale(2)
                         .withImageFetching()
                         .withRunningAfterDestroy(false)
                         .withRegistryAuth("SET_USERNAME_HERE","SET_PASSWORD_HERE")
-                , DUUILocalDriver.class);*/
+                , org.texttechnology.DockerUnifiedUIMAInterface.DUUILocalDriver.class);*/
 
         // Remote driver handles all pure URL endpoints
-        //composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9714")
+        //composer.add(new org.texttechnology.DockerUnifiedUIMAInterface.DUUIRemoteDriver.Component("http://127.0.0.1:9714")
         //                .withScale(2),
-        //        DUUIRemoteDriver.class);
+        //        org.texttechnology.DockerUnifiedUIMAInterface.DUUIRemoteDriver.class);
 
         // UIMA Driver handles all native UIMA Analysis Engine Descriptions
         composer.add(new DUUIUIMADriver.Component(
@@ -346,11 +347,11 @@ public class DUUIComposer {
                         BreakIteratorSegmenter.PARAM_LANGUAGE,"en")
         ).withScale(2), DUUIUIMADriver.class);
 
-        //composer.add(new DUUISwarmDriver.Component("localhost:5000/pushed")
+        //composer.add(new org.texttechnology.DockerUnifiedUIMAInterface.DUUISwarmDriver.Component("localhost:5000/pushed")
         //                .withFromLocalImage("new:latest")
         //                .withScale(3)
         //                .withRunningAfterDestroy(false)
-        //        , DUUISwarmDriver.class);
+        //        , org.texttechnology.DockerUnifiedUIMAInterface.DUUISwarmDriver.class);
 
         //System.out.println("Generating full concurrency graph. WARNING: This needs a full pipeline instantiation.");
 
