@@ -1,4 +1,4 @@
-package org.texttechnology.DockerUnifiedUIMAInterface;
+package org.texttechnologylab.DockerUnifiedUIMAInterface;
 
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
