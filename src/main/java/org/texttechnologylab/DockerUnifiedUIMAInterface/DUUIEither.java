@@ -1,4 +1,5 @@
-import org.apache.commons.compress.archivers.ar.ArArchiveInputStream;
+package org.texttechnologylab.DockerUnifiedUIMAInterface;
+
 import org.apache.uima.cas.impl.XmiCasDeserializer;
 import org.apache.uima.cas.impl.XmiCasSerializer;
 import org.apache.uima.jcas.JCas;
@@ -8,9 +9,6 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.Optional;
-import java.util.function.Consumer;
-import java.util.function.Function;
 
 //Taken from https://stackoverflow.com/questions/26162407/is-there-an-equivalent-of-scalas-either-in-java-8
 public class DUUIEither {
