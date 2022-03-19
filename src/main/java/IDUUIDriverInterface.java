@@ -1,3 +1,4 @@
+import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.UIMAException;
 import org.apache.uima.analysis_engine.AnalysisEngineProcessException;
 import org.xml.sax.SAXException;
@@ -12,7 +13,7 @@ public interface IDUUIDriverInterface {
 
     public void printConcurrencyGraph(String uuid);
 
-    public DUUIEither run(String uuid, DUUIEither aCas) throws InterruptedException, IOException, SAXException, AnalysisEngineProcessException;
+    public DUUIEither run(String uuid, DUUIEither aCas) throws InterruptedException, IOException, SAXException, AnalysisEngineProcessException, CompressorException;
 
     public void destroy(String uuid);
 }

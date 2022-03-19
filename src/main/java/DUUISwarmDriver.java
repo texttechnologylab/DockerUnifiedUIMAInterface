@@ -2,6 +2,8 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
+import org.apache.commons.compress.compressors.CompressorException;
+import org.apache.commons.compress.compressors.CompressorStreamFactory;
 import org.apache.uima.UIMAException;
 import org.apache.uima.cas.impl.XmiCasSerializer;
 import org.apache.uima.fit.factory.JCasFactory;
@@ -37,11 +39,15 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
     private String _testCas;
     private String _testTypesystem;
     private int _container_timeout;
+    private DUUICompressionHelper _helper;
+    private DUUITypesystemCache _type_cache;
 
 
     DUUISwarmDriver() throws IOException, UIMAException, SAXException {
         _interface = new DUUIDockerInterface();
         _client = new OkHttpClient();
+        _helper = new DUUICompressionHelper(CompressorStreamFactory.ZSTANDARD);
+        _type_cache = new DUUITypesystemCache();
 
         JCas _basic = JCasFactory.createJCas();
         _basic.setDocumentLanguage("en");
@@ -122,7 +128,7 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         System.out.printf("[DockerSwarmDriver][%s]: Maximum concurrency %d\n",uuid,component.getScale());
     }
 
-    public DUUIEither run(String uuid, DUUIEither aCas) throws InterruptedException, IOException, SAXException {
+    public DUUIEither run(String uuid, DUUIEither aCas) throws InterruptedException, IOException, SAXException, CompressorException {
         DUUISwarmDriver.InstantiatedComponent comp = _active_components.get(uuid);
         if (comp == null) {
             throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
@@ -130,12 +136,17 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         comp.enter();
 
         String cas = aCas.getAsString();
-
+        JCas fullcas = aCas.getAsJCas();
+        _type_cache.update(fullcas.getTypeSystem(),_helper);
         JSONObject obj = new JSONObject();
-        obj.put("cas", cas);
-        obj.put("typesystem", "");
-        String ok = obj.toString();
+        String cas_compressed = _helper.compress(cas);
+        obj.put("cas", cas_compressed);
+        obj.put("typesystem", _type_cache.getCompressedTypesystem());
+        obj.put("typesystem_hash", _type_cache.getCompressedTypesystemHash());
+        obj.put("cas_hash", cas_compressed.hashCode());
+        obj.put("compression",_helper.getCompressionMethod());
 
+        String ok = obj.toString();
         RequestBody bod = RequestBody.create(ok.getBytes(StandardCharsets.UTF_8));
         Request request = new Request.Builder()
                 .url(comp.getServiceUrl()+ "/v1/process")

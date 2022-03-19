@@ -2,6 +2,8 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
+import org.apache.commons.compress.compressors.CompressorException;
+import org.apache.commons.compress.compressors.CompressorStreamFactory;
 import org.apache.uima.UIMAException;
 import org.apache.uima.cas.impl.XmiCasDeserializer;
 import org.apache.uima.cas.impl.XmiCasSerializer;
@@ -26,6 +28,8 @@ import static java.lang.String.format;
 public class DUUIRemoteDriver implements IDUUIDriverInterface {
     private HashMap<String, InstantiatedComponent> _components;
     private OkHttpClient _client;
+    private DUUICompressionHelper _helper;
+    private DUUITypesystemCache _type_cache;
 
 
     public static class Component extends IDUUIPipelineComponent {
@@ -86,6 +90,8 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
     DUUIRemoteDriver() {
         _components = new HashMap<String, InstantiatedComponent>();
         _client = new OkHttpClient();
+        _helper = new DUUICompressionHelper(CompressorStreamFactory.ZSTANDARD);
+        _type_cache = new DUUITypesystemCache();
     }
 
     public boolean canAccept(IDUUIPipelineComponent component) {
@@ -130,17 +136,23 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         System.out.printf("[RemoteDriver][%s]: Maximum concurrency %d\n",uuid,component.getScale());
     }
 
-    public DUUIEither run(String uuid, DUUIEither aCas) throws InterruptedException, IOException, SAXException {
+    public DUUIEither run(String uuid, DUUIEither aCas) throws InterruptedException, IOException, SAXException, CompressorException {
         InstantiatedComponent comp = _components.get(uuid);
         if (comp == null) {
             throw new InvalidParameterException("The given instantiated component uuid was not instantiated by the remote driver");
         }
         String cas = aCas.getAsString();
+        JCas fullcas = aCas.getAsJCas();
+        _type_cache.update(fullcas.getTypeSystem(),_helper);
         JSONObject obj = new JSONObject();
-        obj.put("cas", cas);
-        obj.put("typesystem", "");
-        String ok = obj.toString();
+        String cas_compressed = _helper.compress(cas);
+        obj.put("cas", cas_compressed);
+        obj.put("typesystem", _type_cache.getCompressedTypesystem());
+        obj.put("typesystem_hash", _type_cache.getCompressedTypesystemHash());
+        obj.put("cas_hash", cas_compressed.hashCode());
+        obj.put("compression",_helper.getCompressionMethod());
 
+        String ok = obj.toString();
         RequestBody bod = RequestBody.create(ok.getBytes(StandardCharsets.UTF_8));
 
         Request request = new Request.Builder()

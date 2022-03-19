@@ -328,12 +328,12 @@ public class DUUIComposer {
 
         // Every component needs a driver which instantiates and runs them
         // Local driver manages local docker container and pulls docker container from remote repositories
-        /*composer.add(new DUUILocalDriver.Component("kava-i.de:5000/secure/test_image")
+        composer.add(new DUUILocalDriver.Component("kava-i.de:5000/secure/test_image")
                         .withScale(2)
                         .withImageFetching()
                         .withRunningAfterDestroy(false)
                         .withRegistryAuth("SET_USERNAME_HERE","SET_PASSWORD_HERE")
-                , DUUILocalDriver.class);*/
+                , DUUILocalDriver.class);
 
         // Remote driver handles all pure URL endpoints
         //composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9714")
@@ -346,11 +346,11 @@ public class DUUIComposer {
                         BreakIteratorSegmenter.PARAM_LANGUAGE,"en")
         ).withScale(2), DUUIUIMADriver.class);
 
-        //composer.add(new DUUISwarmDriver.Component("localhost:5000/pushed")
-        //                .withFromLocalImage("new:latest")
-        //                .withScale(3)
-        //                .withRunningAfterDestroy(false)
-        //        , DUUISwarmDriver.class);
+        composer.add(new DUUISwarmDriver.Component("localhost:5000/pushed")
+                        .withFromLocalImage("new:latest")
+                        .withScale(3)
+                        .withRunningAfterDestroy(false)
+                , DUUISwarmDriver.class);
 
         //System.out.println("Generating full concurrency graph. WARNING: This needs a full pipeline instantiation.");
 
