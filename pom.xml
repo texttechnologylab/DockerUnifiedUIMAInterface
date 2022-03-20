@@ -70,54 +70,6 @@
             <artifactId>de.tudarmstadt.ukp.dkpro.core.tokit-asl</artifactId>
             <version>1.10.0</version>
         </dependency>
-        <!-- https://mvnrepository.com/artifact/org.junit.jupiter/junit-jupiter-api -->
-        <!--
-        <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter-api</artifactId>
-            <version>5.8.2</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>de.tudarmstadt.ukp.dkpro.core</groupId>
-            <artifactId>de.tudarmstadt.ukp.dkpro.core.stanfordnlp-gpl</artifactId>
-            <version>1.10.0</version>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.github.texttechnologylab</groupId>
-            <artifactId>UIMATypeSystem</artifactId>
-            <version>1d23e466bc</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.github.texttechnologylab</groupId>
-            <artifactId>textimager-uima</artifactId>
-            <version>f0f8622efb</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.github.texttechnologylab.textimager-uima</groupId>
-            <artifactId>textimager-uima-types</artifactId>
-            <version>f0f8622efb</version>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.github.texttechnologylab.textimager-uima</groupId>
-            <artifactId>textimager-uima-heideltime</artifactId>
-            <version>f0f8622efb</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>com.github.texttechnologylab</groupId>
-                    <artifactId>UIMATypeSystem</artifactId>
-                </exclusion>
-            </exclusions>
-            <scope>test</scope>
-        </dependency>
--->
-
     </dependencies>
 
 
