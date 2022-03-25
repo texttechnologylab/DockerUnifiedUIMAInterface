@@ -31,14 +31,42 @@ public class DUUIEither {
         _string_buffer = "";
         _current_selected_jcas = true;
         _transform_steps = 0;
-        _compression = new DUUICompressionHelper(compression);
+        if(!compression.equals("none")) {
+            _compression = new DUUICompressionHelper(compression);
+        }
+        else {
+            _compression = null;
+        }
         StringWriter writer = new StringWriter();
         TypeSystemUtil.typeSystem2TypeSystemDescription(_jcas_buffer.getTypeSystem()).toXML(writer);
-        _typesystem_buffer = new String(Base64.getEncoder().encode(_compression.compress(writer.getBuffer().toString()).getBytes(StandardCharsets.UTF_8)));
+        _typesystem_buffer = compress(writer.getBuffer().toString());
+    }
+
+    private String compress(String tocompress) throws CompressorException, IOException {
+        if(_compression != null) {
+            return new String(Base64.getEncoder().encode(_compression.compress(tocompress).getBytes(StandardCharsets.UTF_8)));
+        }
+        else {
+            return tocompress;
+        }
+    }
+
+    private String decompress(String compressed) throws CompressorException, IOException {
+        if(_compression != null) {
+            return _compression.decompress(new String(Base64.getDecoder().decode(compressed)));
+        }
+        else {
+            return compressed;
+        }
     }
 
     public String getCompressionMethod() {
-        return _compression.getCompressionMethod();
+        if(_compression==null) {
+            return "none";
+        }
+        else {
+            return _compression.getCompressionMethod();
+        }
     }
 
     public String getTypesystem() {
@@ -51,7 +79,7 @@ public class DUUIEither {
             XmiCasSerializer.serialize(_jcas_buffer.getCas(), null, arr);
             _transform_steps++;
             _string_buffer = arr.toString();
-            _string_buffer = new String(Base64.getEncoder().encode(_compression.compress(_string_buffer).getBytes(StandardCharsets.UTF_8)));
+            _string_buffer = compress(_string_buffer);
         }
         return _string_buffer;
     }
@@ -73,7 +101,7 @@ public class DUUIEither {
     public JCas getAsJCas() throws SAXException, IOException, CompressorException {
         if (!_current_selected_jcas) {
             _jcas_buffer.reset();
-            String deserialized = _compression.decompress(new String(Base64.getDecoder().decode(_string_buffer)));
+            String deserialized = decompress(_string_buffer);
             XmiCasDeserializer.deserialize(new ByteArrayInputStream(deserialized.getBytes(StandardCharsets.UTF_8)), _jcas_buffer.getCas(), true);
             _transform_steps++;
         }
