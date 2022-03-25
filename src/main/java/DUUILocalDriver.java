@@ -35,17 +35,12 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
     private String _testCas;
     private String _testTypesystem;
     private int _container_timeout;
-    private DUUICompressionHelper _helper;
-    private DUUITypesystemCache _type_cache;
 
     private final static Logger LOGGER = Logger.getLogger(DUUIComposer.class.getName());
 
     DUUILocalDriver() throws IOException, UIMAException, SAXException {
         _interface = new DUUIDockerInterface();
         _client = new OkHttpClient();
-
-        _helper = new DUUICompressionHelper(CompressorStreamFactory.ZSTANDARD);
-        _type_cache = new DUUITypesystemCache();
 
         JCas _basic = JCasFactory.createJCas();
         _basic.setDocumentLanguage("en");
@@ -169,15 +164,14 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
         }
 
         String cas = aCas.getAsString();
-        JCas fullcas = aCas.getAsJCas();
-        _type_cache.update(fullcas.getTypeSystem(),_helper);
+        String typesystem = aCas.getTypesystem();
+
         JSONObject obj = new JSONObject();
-        String cas_compressed = _helper.compress(cas);
-        obj.put("cas", cas_compressed);
-        obj.put("typesystem", _type_cache.getCompressedTypesystem());
-        obj.put("typesystem_hash", _type_cache.getCompressedTypesystemHash());
-        obj.put("cas_hash", cas_compressed.hashCode());
-        obj.put("compression",_helper.getCompressionMethod());
+        obj.put("cas", cas);
+        obj.put("typesystem", typesystem);
+        obj.put("typesystem_hash", typesystem.hashCode());
+        obj.put("cas_hash", cas.hashCode());
+        obj.put("compression",aCas.getCompressionMethod());
         String ok = obj.toString();
 
         RequestBody bod = RequestBody.create(ok.getBytes(StandardCharsets.UTF_8));

@@ -1,13 +1,18 @@
 import de.tudarmstadt.ukp.dkpro.core.io.text.TextReader;
 import de.tudarmstadt.ukp.dkpro.core.tokit.BreakIteratorSegmenter;
+import org.apache.commons.compress.archivers.zip.StreamCompressor;
+import org.apache.commons.compress.compressors.CompressorException;
+import org.apache.commons.compress.compressors.CompressorStreamFactory;
 import org.apache.uima.collection.CollectionReader;
 import org.apache.uima.collection.CollectionReaderDescription;
 import org.apache.uima.fit.factory.AnalysisEngineFactory;
 import org.apache.uima.fit.factory.CollectionReaderFactory;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.jcas.JCas;
+import org.xml.sax.SAXException;
 
 import javax.sql.rowset.spi.XmlWriter;
+import java.io.IOException;
 import java.security.InvalidParameterException;
 import java.util.HashMap;
 import java.util.Map;
@@ -48,7 +53,16 @@ class DUUIWorker extends Thread {
                 }
             }
 
-            DUUIEither either = new DUUIEither(object);
+            DUUIEither either = null;
+            try {
+                either = new DUUIEither(object, CompressorStreamFactory.ZSTANDARD);
+            } catch (IOException e) {
+                e.printStackTrace();
+            } catch (SAXException e) {
+                e.printStackTrace();
+            } catch (CompressorException e) {
+                e.printStackTrace();
+            }
             for (DUUIComposer.PipelinePart i : _flow) {
                 try {
                     either = i.getDriver().run(i.getUUID(),either);
@@ -235,7 +249,7 @@ public class DUUIComposer {
     }
 
     private DUUIEither run_pipeline(JCas jc, Vector<PipelinePart> pipeline) throws Exception {
-        DUUIEither start = new DUUIEither(jc);
+        DUUIEither start = new DUUIEither(jc,CompressorStreamFactory.ZSTANDARD);
 
         for (PipelinePart comp : pipeline) {
             start = comp.getDriver().run(comp.getUUID(), start);
@@ -328,20 +342,20 @@ public class DUUIComposer {
 
         // Every component needs a driver which instantiates and runs them
         // Local driver manages local docker container and pulls docker container from remote repositories
-        composer.add(new DUUILocalDriver.Component("kava-i.de:5000/secure/test_image")
+    /*    composer.add(new DUUILocalDriver.Component("kava-i.de:5000/secure/test_image")
                         .withScale(2)
                         .withImageFetching()
                         .withRunningAfterDestroy(false)
                         .withRegistryAuth("SET_USERNAME_HERE","SET_PASSWORD_HERE")
-                , DUUILocalDriver.class);
+                , DUUILocalDriver.class);*/
 
         // Remote driver handles all pure URL endpoints
-        //composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9714")
-        //                .withScale(2),
-        //        DUUIRemoteDriver.class);
+        composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9714")
+                        .withScale(2),
+                DUUIRemoteDriver.class);
 
         // UIMA Driver handles all native UIMA Analysis Engine Descriptions
-        composer.add(new DUUIUIMADriver.Component(
+        /*composer.add(new DUUIUIMADriver.Component(
                 AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class,
                         BreakIteratorSegmenter.PARAM_LANGUAGE,"en")
         ).withScale(2), DUUIUIMADriver.class);
@@ -350,7 +364,7 @@ public class DUUIComposer {
                         .withFromLocalImage("new:latest")
                         .withScale(3)
                         .withRunningAfterDestroy(false)
-                , DUUISwarmDriver.class);
+                , DUUISwarmDriver.class);*/
 
         //System.out.println("Generating full concurrency graph. WARNING: This needs a full pipeline instantiation.");
 

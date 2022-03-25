@@ -29,7 +29,6 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
     private HashMap<String, InstantiatedComponent> _components;
     private OkHttpClient _client;
     private DUUICompressionHelper _helper;
-    private DUUITypesystemCache _type_cache;
 
 
     public static class Component extends IDUUIPipelineComponent {
@@ -91,28 +90,32 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         _components = new HashMap<String, InstantiatedComponent>();
         _client = new OkHttpClient();
         _helper = new DUUICompressionHelper(CompressorStreamFactory.ZSTANDARD);
-        _type_cache = new DUUITypesystemCache();
     }
 
     public boolean canAccept(IDUUIPipelineComponent component) {
         return component.getClass().getCanonicalName() == component.getClass().getCanonicalName();
     }
 
-    public String instantiate(IDUUIPipelineComponent component) throws InterruptedException, TimeoutException, UIMAException, SAXException {
+    public String instantiate(IDUUIPipelineComponent component) throws InterruptedException, TimeoutException, UIMAException, SAXException, CompressorException, IOException {
         String uuid = UUID.randomUUID().toString();
         while (_components.containsKey(uuid)) {
             uuid = UUID.randomUUID().toString();
         }
         InstantiatedComponent comp = new InstantiatedComponent(component);
         JCas _basic = JCasFactory.createJCas();
-        ByteArrayOutputStream arr = new ByteArrayOutputStream();
-        XmiCasSerializer.serialize(_basic.getCas(), _basic.getTypeSystem(), arr);
-        String cas = arr.toString();
+        DUUIEither aCas = new DUUIEither(_basic,CompressorStreamFactory.ZSTANDARD);
         System.out.printf("[RemoteDriver] Assigned new pipeline component unique id %s\n", uuid);
+
+        String cas = aCas.getAsString();
+        String typesystem = aCas.getTypesystem();
 
         JSONObject obj = new JSONObject();
         obj.put("cas", cas);
-        obj.put("typesystem", "");
+        obj.put("typesystem", typesystem);
+        obj.put("typesystem_hash", typesystem.hashCode());
+        obj.put("cas_hash", cas.hashCode());
+        obj.put("compression",aCas.getCompressionMethod());
+
         String ok = obj.toString();
         RequestBody bod = RequestBody.create(obj.toString().getBytes(StandardCharsets.UTF_8));
 
@@ -142,17 +145,16 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
             throw new InvalidParameterException("The given instantiated component uuid was not instantiated by the remote driver");
         }
         String cas = aCas.getAsString();
-        JCas fullcas = aCas.getAsJCas();
-        _type_cache.update(fullcas.getTypeSystem(),_helper);
-        JSONObject obj = new JSONObject();
-        String cas_compressed = _helper.compress(cas);
-        obj.put("cas", cas_compressed);
-        obj.put("typesystem", _type_cache.getCompressedTypesystem());
-        obj.put("typesystem_hash", _type_cache.getCompressedTypesystemHash());
-        obj.put("cas_hash", cas_compressed.hashCode());
-        obj.put("compression",_helper.getCompressionMethod());
+        String typesystem = aCas.getTypesystem();
 
+        JSONObject obj = new JSONObject();
+        obj.put("cas", cas);
+        obj.put("typesystem", typesystem);
+        obj.put("typesystem_hash", typesystem.hashCode());
+        obj.put("cas_hash", cas.hashCode());
+        obj.put("compression",aCas.getCompressionMethod());
         String ok = obj.toString();
+
         RequestBody bod = RequestBody.create(ok.getBytes(StandardCharsets.UTF_8));
 
         Request request = new Request.Builder()

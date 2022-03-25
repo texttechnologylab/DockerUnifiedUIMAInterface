@@ -1,3 +1,4 @@
+import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.UIMAException;
 import org.apache.uima.analysis_engine.AnalysisEngine;
 import org.apache.uima.analysis_engine.AnalysisEngineDescription;
@@ -222,7 +223,7 @@ public class DUUIUIMADriver implements IDUUIDriverInterface {
         return uuid;
     }
 
-    public DUUIEither run(String uuid, DUUIEither aCas) throws InterruptedException, IOException, SAXException, AnalysisEngineProcessException {
+    public DUUIEither run(String uuid, DUUIEither aCas) throws InterruptedException, IOException, SAXException, AnalysisEngineProcessException, CompressorException {
         InstantiatedComponent component = _engines.get(uuid);
         if (component == null) {
             throw new InvalidParameterException("The given instantiated component uuid was not instantiated by the remote driver");

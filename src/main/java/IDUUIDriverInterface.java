@@ -9,7 +9,7 @@ import java.util.concurrent.TimeoutException;
 public interface IDUUIDriverInterface {
     public boolean canAccept(IDUUIPipelineComponent component);
 
-    public String instantiate(IDUUIPipelineComponent component) throws InterruptedException, TimeoutException, UIMAException, SAXException, IOException;
+    public String instantiate(IDUUIPipelineComponent component) throws InterruptedException, TimeoutException, UIMAException, SAXException, IOException, CompressorException;
 
     public void printConcurrencyGraph(String uuid);
 

@@ -28,9 +28,9 @@ public class DUUICompressionHelper {
         return new String(Base64.getEncoder().encode(out.toByteArray()), StandardCharsets.UTF_8);
     }
 
-    public String decompress(String input, String method) throws IOException, CompressorException {
+    public String decompress(String input) throws IOException, CompressorException {
         ByteArrayInputStream inputstream = new ByteArrayInputStream(Base64.getDecoder().decode(input.getBytes(StandardCharsets.UTF_8)));
-        CompressorInputStream inpst = _factory.createCompressorInputStream(method, inputstream);
+        CompressorInputStream inpst = _factory.createCompressorInputStream(_method, inputstream);
         return new String(inpst.readAllBytes(), StandardCharsets.UTF_8);
     }
 

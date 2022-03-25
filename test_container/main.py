@@ -32,9 +32,9 @@ with open('dkpro-core-types.xml', 'rb') as f:
 
             # Whenever using 'send_header', you also have to call 'end_headers'
             self.end_headers()
-            new_obj = {"cas": }
             cctx = zstandard.ZstdCompressor()
             compressed = cctx.compress(cas.to_xmi().encode('utf-8'))
+            new_obj = {cas: compressed}
             self.wfile.write(json.dumps(new_obj).encode('utf-8'))
 
     # Create an object of the above class
