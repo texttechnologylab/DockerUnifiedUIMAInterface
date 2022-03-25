@@ -11,6 +11,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -33,7 +34,7 @@ public class DUUIEither {
         _compression = new DUUICompressionHelper(compression);
         StringWriter writer = new StringWriter();
         TypeSystemUtil.typeSystem2TypeSystemDescription(_jcas_buffer.getTypeSystem()).toXML(writer);
-        _typesystem_buffer = _compression.compress(writer.getBuffer().toString());
+        _typesystem_buffer = new String(Base64.getEncoder().encode(_compression.compress(writer.getBuffer().toString()).getBytes(StandardCharsets.UTF_8)));
     }
 
     public String getCompressionMethod() {
@@ -50,7 +51,7 @@ public class DUUIEither {
             XmiCasSerializer.serialize(_jcas_buffer.getCas(), null, arr);
             _transform_steps++;
             _string_buffer = arr.toString();
-            _string_buffer = _compression.compress(_string_buffer);
+            _string_buffer = new String(Base64.getEncoder().encode(_compression.compress(_string_buffer).getBytes(StandardCharsets.UTF_8)));
         }
         return _string_buffer;
     }
@@ -72,7 +73,7 @@ public class DUUIEither {
     public JCas getAsJCas() throws SAXException, IOException, CompressorException {
         if (!_current_selected_jcas) {
             _jcas_buffer.reset();
-            String deserialized = _compression.decompress(_string_buffer);
+            String deserialized = _compression.decompress(new String(Base64.getDecoder().decode(_string_buffer)));
             XmiCasDeserializer.deserialize(new ByteArrayInputStream(deserialized.getBytes(StandardCharsets.UTF_8)), _jcas_buffer.getCas(), true);
             _transform_steps++;
         }
