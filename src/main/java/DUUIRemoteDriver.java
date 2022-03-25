@@ -20,6 +20,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.InvalidParameterException;
 import java.util.HashMap;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -84,6 +85,16 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         public String getUrl() {
             return _url;
         }
+    }
+
+    DUUIRemoteDriver(int timeout) {
+        _client = new OkHttpClient.Builder()
+                .connectTimeout(timeout, TimeUnit.SECONDS)
+                .writeTimeout(timeout, TimeUnit.SECONDS)
+                .readTimeout(timeout, TimeUnit.SECONDS)
+                .build();
+        _components = new HashMap<String, InstantiatedComponent>();
+        _helper = new DUUICompressionHelper(CompressorStreamFactory.ZSTANDARD);
     }
 
     DUUIRemoteDriver() {

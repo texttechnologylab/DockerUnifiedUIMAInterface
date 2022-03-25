@@ -331,7 +331,7 @@ public class DUUIComposer {
 
     public static void main(String[] args) throws Exception {
         // Use two worker threads, at most 2 concurrent pipelines can run
-        DUUIComposer composer = new DUUIComposer().withWorkers(2);
+        DUUIComposer composer = new DUUIComposer().withCompressionMethod("none");
 
         // Instantiate drivers with options
         DUUILocalDriver driver = new DUUILocalDriver()
