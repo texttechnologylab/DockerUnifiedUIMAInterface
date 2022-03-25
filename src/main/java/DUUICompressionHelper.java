@@ -22,7 +22,7 @@ public class DUUICompressionHelper {
 
     public String compress(String input) throws IOException, CompressorException {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        CompressorOutputStream output = _factory.createCompressorOutputStream(CompressorStreamFactory.ZSTANDARD,out);
+        CompressorOutputStream output = _factory.createCompressorOutputStream(_method,out);
         output.write(input.getBytes(StandardCharsets.UTF_8));
         output.close();
         return new String(Base64.getEncoder().encode(out.toByteArray()), StandardCharsets.UTF_8);

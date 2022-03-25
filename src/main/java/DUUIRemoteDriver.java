@@ -103,7 +103,7 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         }
         InstantiatedComponent comp = new InstantiatedComponent(component);
         JCas _basic = JCasFactory.createJCas();
-        DUUIEither aCas = new DUUIEither(_basic,CompressorStreamFactory.ZSTANDARD);
+        DUUIEither aCas = new DUUIEither(_basic,CompressorStreamFactory.GZIP);
         System.out.printf("[RemoteDriver] Assigned new pipeline component unique id %s\n", uuid);
 
         String cas = aCas.getAsString();

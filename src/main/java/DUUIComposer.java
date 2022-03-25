@@ -30,14 +30,16 @@ class DUUIWorker extends Thread {
     ConcurrentLinkedQueue<JCas> _loadedInstances;
     AtomicInteger _threadsAlive;
     AtomicBoolean _shutdown;
+    String _compressionMethod;
 
-    DUUIWorker(Vector<DUUIComposer.PipelinePart> engineFlow, ConcurrentLinkedQueue<JCas> emptyInstance, ConcurrentLinkedQueue<JCas> loadedInstances, AtomicBoolean shutdown, AtomicInteger error) {
+    DUUIWorker(Vector<DUUIComposer.PipelinePart> engineFlow, ConcurrentLinkedQueue<JCas> emptyInstance, ConcurrentLinkedQueue<JCas> loadedInstances, AtomicBoolean shutdown, AtomicInteger error, String compression) {
         super();
         _flow = engineFlow;
         _instancesToBeLoaded = emptyInstance;
         _loadedInstances = loadedInstances;
         _shutdown = shutdown;
         _threadsAlive = error;
+        _compressionMethod = compression;
     }
 
     @Override
@@ -55,7 +57,7 @@ class DUUIWorker extends Thread {
 
             DUUIEither either = null;
             try {
-                either = new DUUIEither(object, CompressorStreamFactory.ZSTANDARD);
+                either = new DUUIEither(object, _compressionMethod);
             } catch (IOException e) {
                 e.printStackTrace();
             } catch (SAXException e) {
@@ -83,6 +85,7 @@ public class DUUIComposer {
     private Vector<IDUUIPipelineComponent> _pipeline;
     private int _workers;
     public Integer _cas_poolsize;
+    private String _compressionMethod;
 
     private static final String DRIVER_OPTION_NAME = "duuid.composer.driver";
 
@@ -95,6 +98,11 @@ public class DUUIComposer {
 
     public DUUIComposer withCasPoolsize(int poolsize) {
         _cas_poolsize = poolsize;
+        return this;
+    }
+
+    public DUUIComposer withCompressionMethod(String method) {
+        _compressionMethod = method;
         return this;
     }
 
@@ -167,7 +175,7 @@ public class DUUIComposer {
             Thread []arr = new Thread[_workers];
             for(int i = 0; i < _workers; i++) {
                 System.out.printf("[Composer] Starting worker thread [%d/%d]\n",i+1,_workers);
-                arr[i] = new DUUIWorker(idPipeline,emptyCasDocuments,loadedCasDocuments,shutdown,aliveThreads);
+                arr[i] = new DUUIWorker(idPipeline,emptyCasDocuments,loadedCasDocuments,shutdown,aliveThreads,_compressionMethod);
                 arr[i].start();
             }
             while(collectionReader.hasNext()) {
@@ -249,7 +257,7 @@ public class DUUIComposer {
     }
 
     private DUUIEither run_pipeline(JCas jc, Vector<PipelinePart> pipeline) throws Exception {
-        DUUIEither start = new DUUIEither(jc,CompressorStreamFactory.ZSTANDARD);
+        DUUIEither start = new DUUIEither(jc,_compressionMethod);
 
         for (PipelinePart comp : pipeline) {
             start = comp.getDriver().run(comp.getUUID(), start);
