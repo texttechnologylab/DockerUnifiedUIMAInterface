@@ -21,6 +21,7 @@ import java.security.InvalidParameterException;
 import java.util.HashMap;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.logging.Logger;
 
@@ -41,6 +42,30 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
     DUUILocalDriver() throws IOException, UIMAException, SAXException {
         _interface = new DUUIDockerInterface();
         _client = new OkHttpClient();
+
+        JCas _basic = JCasFactory.createJCas();
+        _basic.setDocumentLanguage("en");
+        _basic.setDocumentText("Hello World!");
+        _container_timeout = 10000;
+
+        ByteArrayOutputStream arr = new ByteArrayOutputStream();
+        XmiCasSerializer.serialize(_basic.getCas(), _basic.getTypeSystem(), arr);
+        _testCas = arr.toString();
+
+        TypeSystemDescription desc = TypeSystemUtil.typeSystem2TypeSystemDescription(_basic.getTypeSystem());
+        StringWriter wr = new StringWriter();
+        desc.toXML(wr);
+        _testTypesystem = wr.getBuffer().toString();
+        _active_components = new HashMap<String, InstantiatedComponent>();
+    }
+
+    DUUILocalDriver(int timeout) throws IOException, UIMAException, SAXException {
+        _interface = new DUUIDockerInterface();
+        _client = new OkHttpClient.Builder()
+                .connectTimeout(timeout, TimeUnit.SECONDS)
+                .writeTimeout(timeout, TimeUnit.SECONDS)
+                .readTimeout(timeout, TimeUnit.SECONDS)
+                .build();
 
         JCas _basic = JCasFactory.createJCas();
         _basic.setDocumentLanguage("en");
