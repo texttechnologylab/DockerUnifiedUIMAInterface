@@ -17,6 +17,7 @@ import org.json.JSONObject;
 import org.xml.sax.SAXException;
 
 import java.io.*;
+import java.lang.reflect.InvocationTargetException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidParameterException;
@@ -98,7 +99,7 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         return comp.getClass().getName().toString() == DUUISwarmDriver.Component.class.getName().toString();
     }
 
-    public String instantiate(IDUUIPipelineComponent component) throws InterruptedException, TimeoutException {
+    public String instantiate(IDUUIPipelineComponent component) throws InterruptedException, TimeoutException, ClassNotFoundException, InvocationTargetException, NoSuchMethodException, InstantiationException, IllegalAccessException {
         String uuid = UUID.randomUUID().toString();
         while (_active_components.containsKey(uuid.toString())) {
             uuid = UUID.randomUUID().toString();
@@ -164,10 +165,11 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         Response resp = _client.newCall(request).execute();
         if (resp.code() == 200) {
             String body = new String(resp.body().bytes(), Charset.defaultCharset());
-            JSONObject response = new JSONObject(body);
             File tmp = File.createTempFile("duui.composer","_type");
             FileWriter writer = new FileWriter(tmp);
             writer.write(body);
+            writer.flush();
+            writer.close();
             return TypeSystemDescriptionFactory.createTypeSystemDescriptionFromPath(tmp.getAbsolutePath());
         } else {
             throw new InvalidObjectException("Response code != 200, error");
@@ -185,6 +187,7 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         String typesystem = aCas.getTypesystem();
 
         JSONObject obj = new JSONObject();
+
         obj.put("cas", cas);
         obj.put("typesystem", typesystem);
         obj.put("typesystem_hash", typesystem.hashCode());
@@ -235,6 +238,7 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         private int _scale;
         private AtomicInteger _maximum_concurrency;
         private String _fromLocalImage;
+        private IDUUIMapper _mapper;
 
         private String _reg_password;
         private String _reg_username;
@@ -255,7 +259,7 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
             _maximum_concurrency.addAndGet(1);
         }
 
-        InstantiatedComponent(IDUUIPipelineComponent comp) {
+        InstantiatedComponent(IDUUIPipelineComponent comp) throws ClassNotFoundException, NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
             _image_name = comp.getOption("container");
             if (_image_name == null) {
                 throw new InvalidParameterException("The image name was not set! This is mandatory for the DockerLocalDriver Class.");
@@ -279,7 +283,17 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
             _fromLocalImage = comp.getOption("local_image");
             _reg_password = comp.getOption("reg_password");
             _reg_username = comp.getOption("reg_username");
+
+            String classname = comp.getOption("mapper_class_name");
+            if(classname==null) {
+                _mapper = new DUUIIdentityMapper();
+            }
+            else {
+                Class<? extends IDUUIMapper> x = (Class<? extends IDUUIMapper>) this.getClass().getClassLoader().loadClass(classname);
+                _mapper = x.getConstructor().newInstance();
+            }
         }
+        public IDUUIMapper getMapper() {return _mapper;}
 
         public String getPassword() {return _reg_password;}
 

@@ -263,7 +263,7 @@ public class DUUIComposer {
             if(desc!=null) {
                 descriptions.add(desc);
             }
-            idPipeline.add(new PipelinePart(driver, driver.instantiate(comp)));
+            idPipeline.add(new PipelinePart(driver, uuid));
         }
         System.out.println("");
         return CasCreationUtils.mergeTypeSystems(descriptions);
@@ -350,7 +350,7 @@ public class DUUIComposer {
         DUUILocalDriver driver = new DUUILocalDriver()
                 .withTimeout(10000);
 
-        DUUIRemoteDriver remote_driver = new DUUIRemoteDriver();
+        DUUIRemoteDriver remote_driver = new DUUIRemoteDriver(10000);
         DUUIUIMADriver uima_driver = new DUUIUIMADriver()
                 .withDebug(true);
         DUUISwarmDriver swarm_driver = new DUUISwarmDriver();
@@ -372,9 +372,9 @@ public class DUUIComposer {
                 , org.texttechnologylab.DockerUnifiedUIMAInterface.DUUILocalDriver.class);*/
 
         // Remote driver handles all pure URL endpoints
-        //composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIRemoteDriver.Component("http://127.0.0.1:9714")
-        //                .withScale(2),
-        //        org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIRemoteDriver.class);
+       /* composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIRemoteDriver.Component("http://127.0.0.1:9714")
+                        .withScale(2),
+                org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIRemoteDriver.class);*/
         /*composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9714")
                         .withScale(2),
                 DUUIRemoteDriver.class);*/
@@ -385,11 +385,11 @@ public class DUUIComposer {
                         BreakIteratorSegmenter.PARAM_LANGUAGE,"en")
         ).withScale(2), DUUIUIMADriver.class);
 
-        //composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.DUUISwarmDriver.Component("localhost:5000/pushed")
-        //                .withFromLocalImage("new:latest")
-        //                .withScale(3)
-        //                .withRunningAfterDestroy(false)
-        //        , org.texttechnologylab.DockerUnifiedUIMAInterface.DUUISwarmDriver.class);
+        composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.DUUISwarmDriver.Component("localhost:5000/pushed")
+                        .withFromLocalImage("new:latest")
+                        .withScale(3)
+                        .withRunningAfterDestroy(true)
+                , org.texttechnologylab.DockerUnifiedUIMAInterface.DUUISwarmDriver.class);
 
         //System.out.println("Generating full concurrency graph. WARNING: This needs a full pipeline instantiation.");
 

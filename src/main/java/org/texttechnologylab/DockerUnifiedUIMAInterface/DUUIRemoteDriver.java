@@ -115,7 +115,7 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         }
         InstantiatedComponent comp = new InstantiatedComponent(component);
         JCas _basic = JCasFactory.createJCas();
-        DUUIEither aCas = new DUUIEither(_basic,CompressorStreamFactory.GZIP);
+        DUUIEither aCas = new DUUIEither(_basic,"none");
         System.out.printf("[RemoteDriver] Assigned new pipeline component unique id %s\n", uuid);
 
         String cas = aCas.getAsString();
@@ -131,7 +131,7 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         String ok = obj.toString();
         RequestBody bod = RequestBody.create(obj.toString().getBytes(StandardCharsets.UTF_8));
 
-        if (DUUILocalDriver.responsiveAfterTime(comp.getUrl(), bod, 10000, _client)) {
+        if (DUUILocalDriver.responsiveAfterTime(comp.getUrl(), bod, 100000, _client)) {
             _components.put(uuid, comp);
             System.out.printf("[RemoteDriver][%s] Remote URL %s is online and seems to understand DUUI V1 format!\n", uuid, comp.getUrl());
             System.out.printf("[RemoteDriver][%s] Maximum concurrency for this endpoint %d\n", uuid, comp.getScale());
@@ -163,10 +163,12 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         Response resp = _client.newCall(request).execute();
         if (resp.code() == 200) {
             String body = new String(resp.body().bytes(), Charset.defaultCharset());
-            JSONObject response = new JSONObject(body);
             File tmp = File.createTempFile("duui.composer","_type");
+            tmp.deleteOnExit();
             FileWriter writer = new FileWriter(tmp);
             writer.write(body);
+            writer.flush();
+            writer.close();
             return TypeSystemDescriptionFactory.createTypeSystemDescriptionFromPath(tmp.getAbsolutePath());
         } else {
             throw new InvalidObjectException("Response code != 200, error");

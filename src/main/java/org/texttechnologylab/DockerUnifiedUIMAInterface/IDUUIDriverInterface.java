@@ -9,12 +9,13 @@ import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.xml.sax.SAXException;
 
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
 import java.util.concurrent.TimeoutException;
 
 public interface IDUUIDriverInterface {
     public boolean canAccept(IDUUIPipelineComponent component);
 
-    public String instantiate(IDUUIPipelineComponent component) throws InterruptedException, TimeoutException, UIMAException, SAXException, IOException, CompressorException;
+    public String instantiate(IDUUIPipelineComponent component) throws InterruptedException, TimeoutException, UIMAException, SAXException, IOException, CompressorException, ClassNotFoundException, InvocationTargetException, NoSuchMethodException, InstantiationException, IllegalAccessException;
 
     public void printConcurrencyGraph(String uuid);
 

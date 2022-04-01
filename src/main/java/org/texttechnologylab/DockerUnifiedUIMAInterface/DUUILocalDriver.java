@@ -199,7 +199,6 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
         comp.addInstance(inst);
         if (resp.code() == 200) {
             String body = new String(resp.body().bytes(), Charset.defaultCharset());
-            JSONObject response = new JSONObject(body);
             File tmp = File.createTempFile("duui.composer","_type");
             FileWriter writer = new FileWriter(tmp);
             writer.write(body);
