@@ -3,20 +3,22 @@ import de.tudarmstadt.ukp.dkpro.core.tokit.BreakIteratorSegmenter;
 import org.apache.commons.compress.archivers.zip.StreamCompressor;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.commons.compress.compressors.CompressorStreamFactory;
+import org.apache.uima.cas.impl.TypeSystemUtils;
 import org.apache.uima.collection.CollectionReader;
 import org.apache.uima.collection.CollectionReaderDescription;
 import org.apache.uima.fit.factory.AnalysisEngineFactory;
 import org.apache.uima.fit.factory.CollectionReaderFactory;
 import org.apache.uima.fit.factory.JCasFactory;
+import org.apache.uima.fit.factory.TypeSystemDescriptionFactory;
 import org.apache.uima.jcas.JCas;
+import org.apache.uima.resource.metadata.TypeSystemDescription;
+import org.apache.uima.util.CasCreationUtils;
 import org.xml.sax.SAXException;
 
 import javax.sql.rowset.spi.XmlWriter;
 import java.io.IOException;
 import java.security.InvalidParameterException;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Vector;
+import java.util.*;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -157,6 +159,10 @@ public class DUUIComposer {
         Exception catched = null;
 
         System.out.printf("[Composer] Running in asynchronous mode, %d threads at most!\n", _workers);
+        Vector<PipelinePart> idPipeline = new Vector<PipelinePart>();
+
+        try {
+            TypeSystemDescription desc = instantiate_pipeline(idPipeline);
             if (_cas_poolsize == null) {
                 _cas_poolsize = _workers;
             } else {
@@ -166,12 +172,9 @@ public class DUUIComposer {
             }
 
         for(int i = 0; i < _cas_poolsize; i++) {
-            emptyCasDocuments.add(JCasFactory.createJCas());
+            emptyCasDocuments.add(JCasFactory.createJCas(desc));
         }
 
-        Vector<PipelinePart> idPipeline = new Vector<PipelinePart>();
-        try {
-            instantiate_pipeline(idPipeline);
             Thread []arr = new Thread[_workers];
             for(int i = 0; i < _workers; i++) {
                 System.out.printf("[Composer] Starting worker thread [%d/%d]\n",i+1,_workers);
@@ -228,9 +231,9 @@ public class DUUIComposer {
         }
 
         Vector<PipelinePart> idPipeline = new Vector<PipelinePart>();
-        JCas jc = JCasFactory.createJCas();
         try {
-            instantiate_pipeline(idPipeline);
+            TypeSystemDescription desc = instantiate_pipeline(idPipeline);
+            JCas jc = JCasFactory.createJCas(desc);
             while(collectionReader.hasNext()) {
                 collectionReader.getNext(jc.getCas());
                 run_pipeline(jc,idPipeline);
@@ -248,12 +251,21 @@ public class DUUIComposer {
         }
     }
 
-    private void instantiate_pipeline(Vector<PipelinePart> idPipeline) throws Exception {
+    private TypeSystemDescription instantiate_pipeline(Vector<PipelinePart> idPipeline) throws Exception {
+        List<TypeSystemDescription> descriptions = new LinkedList<>();
+        descriptions.add(TypeSystemDescriptionFactory.createTypeSystemDescription());
         for (IDUUIPipelineComponent comp : _pipeline) {
             IDUUIDriverInterface driver = _drivers.get(comp.getOption(DRIVER_OPTION_NAME));
+            String uuid = driver.instantiate(comp);
+
+            TypeSystemDescription desc = driver.get_typesystem(uuid);
+            if(desc!=null) {
+                descriptions.add(desc);
+            }
             idPipeline.add(new PipelinePart(driver, driver.instantiate(comp)));
         }
         System.out.println("");
+        return CasCreationUtils.mergeTypeSystems(descriptions);
     }
 
     private DUUIEither run_pipeline(JCas jc, Vector<PipelinePart> pipeline) throws Exception {
@@ -309,7 +321,7 @@ public class DUUIComposer {
         }
 
         try {
-            instantiate_pipeline(idPipeline);
+            TypeSystemDescription desc = instantiate_pipeline(idPipeline);
             DUUIEither start = run_pipeline(jc,idPipeline);
 
             String cas = start.getAsString();
@@ -358,16 +370,17 @@ public class DUUIComposer {
                 , DUUILocalDriver.class);*/
 
         // Remote driver handles all pure URL endpoints
-        composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9714")
+        /*composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9714")
                         .withScale(2),
-                DUUIRemoteDriver.class);
+                DUUIRemoteDriver.class);*/
 
         // UIMA Driver handles all native UIMA Analysis Engine Descriptions
-        /*composer.add(new DUUIUIMADriver.Component(
+        composer.add(new DUUIUIMADriver.Component(
                 AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class,
                         BreakIteratorSegmenter.PARAM_LANGUAGE,"en")
         ).withScale(2), DUUIUIMADriver.class);
 
+        /*
         composer.add(new DUUISwarmDriver.Component("localhost:5000/pushed")
                         .withFromLocalImage("new:latest")
                         .withScale(3)

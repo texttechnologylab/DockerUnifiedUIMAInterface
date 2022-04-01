@@ -5,9 +5,11 @@ import okhttp3.Response;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.commons.compress.compressors.CompressorStreamFactory;
 import org.apache.uima.UIMAException;
+import org.apache.uima.cas.TypeSystem;
 import org.apache.uima.cas.impl.XmiCasDeserializer;
 import org.apache.uima.cas.impl.XmiCasSerializer;
 import org.apache.uima.fit.factory.JCasFactory;
+import org.apache.uima.fit.factory.TypeSystemDescriptionFactory;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.apache.uima.util.TypeSystemUtil;
@@ -176,6 +178,33 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
             throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
         }
         System.out.printf("[DockerLocalDriver][%s]: Maximum concurrency %d\n",uuid,component.getInstances().size());
+    }
+
+    public TypeSystemDescription get_typesystem(String uuid) throws InterruptedException, IOException, SAXException, CompressorException {
+        InstantiatedComponent comp = _active_components.get(uuid);
+        if (comp == null) {
+            throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
+        }
+        ComponentInstance inst = comp.getInstances().poll();
+        while(inst == null) {
+            inst = comp.getInstances().poll();
+        }
+        Request request = new Request.Builder()
+                .url(inst.getContainerUrl() + "/v1/typesystem")
+                .get()
+                .build();
+        Response resp = _client.newCall(request).execute();
+        comp.addInstance(inst);
+        if (resp.code() == 200) {
+            String body = new String(resp.body().bytes(), Charset.defaultCharset());
+            JSONObject response = new JSONObject(body);
+            File tmp = File.createTempFile("duui.composer","_type");
+            FileWriter writer = new FileWriter(tmp);
+            writer.write(body);
+            return TypeSystemDescriptionFactory.createTypeSystemDescriptionFromPath(tmp.getAbsolutePath());
+        } else {
+            throw new InvalidObjectException("Response code != 200, error");
+        }
     }
 
     public DUUIEither run(String uuid, DUUIEither aCas) throws InterruptedException, IOException, SAXException, CompressorException {
