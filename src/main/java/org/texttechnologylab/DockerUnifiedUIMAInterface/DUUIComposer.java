@@ -2,17 +2,24 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface;
 
 import de.tudarmstadt.ukp.dkpro.core.io.text.TextReader;
 import de.tudarmstadt.ukp.dkpro.core.tokit.BreakIteratorSegmenter;
+import org.apache.commons.compress.archivers.zip.StreamCompressor;
+import org.apache.commons.compress.compressors.CompressorException;
+import org.apache.commons.compress.compressors.CompressorStreamFactory;
+import org.apache.uima.cas.impl.TypeSystemUtils;
 import org.apache.uima.collection.CollectionReader;
 import org.apache.uima.collection.CollectionReaderDescription;
 import org.apache.uima.fit.factory.AnalysisEngineFactory;
 import org.apache.uima.fit.factory.CollectionReaderFactory;
 import org.apache.uima.fit.factory.JCasFactory;
+import org.apache.uima.fit.factory.TypeSystemDescriptionFactory;
 import org.apache.uima.jcas.JCas;
-
+import org.apache.uima.resource.metadata.TypeSystemDescription;
+import org.apache.uima.util.CasCreationUtils;
+import org.xml.sax.SAXException;
+import javax.sql.rowset.spi.XmlWriter;
+import java.io.IOException;
 import java.security.InvalidParameterException;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Vector;
+import java.util.*;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -26,14 +33,16 @@ class DUUIWorker extends Thread {
     ConcurrentLinkedQueue<JCas> _loadedInstances;
     AtomicInteger _threadsAlive;
     AtomicBoolean _shutdown;
+    String _compressionMethod;
 
-    DUUIWorker(Vector<DUUIComposer.PipelinePart> engineFlow, ConcurrentLinkedQueue<JCas> emptyInstance, ConcurrentLinkedQueue<JCas> loadedInstances, AtomicBoolean shutdown, AtomicInteger error) {
+    DUUIWorker(Vector<DUUIComposer.PipelinePart> engineFlow, ConcurrentLinkedQueue<JCas> emptyInstance, ConcurrentLinkedQueue<JCas> loadedInstances, AtomicBoolean shutdown, AtomicInteger error, String compression) {
         super();
         _flow = engineFlow;
         _instancesToBeLoaded = emptyInstance;
         _loadedInstances = loadedInstances;
         _shutdown = shutdown;
         _threadsAlive = error;
+        _compressionMethod = compression;
     }
 
     @Override
@@ -49,7 +58,16 @@ class DUUIWorker extends Thread {
                 }
             }
 
-            DUUIEither either = new DUUIEither(object);
+            DUUIEither either = null;
+            try {
+                either = new DUUIEither(object, _compressionMethod);
+            } catch (IOException e) {
+                e.printStackTrace();
+            } catch (SAXException e) {
+                e.printStackTrace();
+            } catch (CompressorException e) {
+                e.printStackTrace();
+            }
             for (DUUIComposer.PipelinePart i : _flow) {
                 try {
                     either = i.getDriver().run(i.getUUID(),either);
@@ -70,6 +88,7 @@ public class DUUIComposer {
     private Vector<IDUUIPipelineComponent> _pipeline;
     private int _workers;
     public Integer _cas_poolsize;
+    private String _compressionMethod;
 
     private static final String DRIVER_OPTION_NAME = "duuid.composer.driver";
 
@@ -82,6 +101,11 @@ public class DUUIComposer {
 
     public DUUIComposer withCasPoolsize(int poolsize) {
         _cas_poolsize = poolsize;
+        return this;
+    }
+
+    public DUUIComposer withCompressionMethod(String method) {
+        _compressionMethod = method;
         return this;
     }
 
@@ -136,6 +160,10 @@ public class DUUIComposer {
         Exception catched = null;
 
         System.out.printf("[Composer] Running in asynchronous mode, %d threads at most!\n", _workers);
+        Vector<PipelinePart> idPipeline = new Vector<PipelinePart>();
+
+        try {
+            TypeSystemDescription desc = instantiate_pipeline(idPipeline);
             if (_cas_poolsize == null) {
                 _cas_poolsize = _workers;
             } else {
@@ -145,16 +173,13 @@ public class DUUIComposer {
             }
 
         for(int i = 0; i < _cas_poolsize; i++) {
-            emptyCasDocuments.add(JCasFactory.createJCas());
+            emptyCasDocuments.add(JCasFactory.createJCas(desc));
         }
 
-        Vector<PipelinePart> idPipeline = new Vector<PipelinePart>();
-        try {
-            instantiate_pipeline(idPipeline);
             Thread []arr = new Thread[_workers];
             for(int i = 0; i < _workers; i++) {
                 System.out.printf("[Composer] Starting worker thread [%d/%d]\n",i+1,_workers);
-                arr[i] = new DUUIWorker(idPipeline,emptyCasDocuments,loadedCasDocuments,shutdown,aliveThreads);
+                arr[i] = new DUUIWorker(idPipeline,emptyCasDocuments,loadedCasDocuments,shutdown,aliveThreads,_compressionMethod);
                 arr[i].start();
             }
             while(collectionReader.hasNext()) {
@@ -207,9 +232,9 @@ public class DUUIComposer {
         }
 
         Vector<PipelinePart> idPipeline = new Vector<PipelinePart>();
-        JCas jc = JCasFactory.createJCas();
         try {
-            instantiate_pipeline(idPipeline);
+            TypeSystemDescription desc = instantiate_pipeline(idPipeline);
+            JCas jc = JCasFactory.createJCas(desc);
             while(collectionReader.hasNext()) {
                 collectionReader.getNext(jc.getCas());
                 run_pipeline(jc,idPipeline);
@@ -227,16 +252,25 @@ public class DUUIComposer {
         }
     }
 
-    private void instantiate_pipeline(Vector<PipelinePart> idPipeline) throws Exception {
+    private TypeSystemDescription instantiate_pipeline(Vector<PipelinePart> idPipeline) throws Exception {
+        List<TypeSystemDescription> descriptions = new LinkedList<>();
+        descriptions.add(TypeSystemDescriptionFactory.createTypeSystemDescription());
         for (IDUUIPipelineComponent comp : _pipeline) {
             IDUUIDriverInterface driver = _drivers.get(comp.getOption(DRIVER_OPTION_NAME));
+            String uuid = driver.instantiate(comp);
+
+            TypeSystemDescription desc = driver.get_typesystem(uuid);
+            if(desc!=null) {
+                descriptions.add(desc);
+            }
             idPipeline.add(new PipelinePart(driver, driver.instantiate(comp)));
         }
         System.out.println("");
+        return CasCreationUtils.mergeTypeSystems(descriptions);
     }
 
     private DUUIEither run_pipeline(JCas jc, Vector<PipelinePart> pipeline) throws Exception {
-        DUUIEither start = new DUUIEither(jc);
+        DUUIEither start = new DUUIEither(jc,_compressionMethod);
 
         for (PipelinePart comp : pipeline) {
             start = comp.getDriver().run(comp.getUUID(), start);
@@ -288,7 +322,7 @@ public class DUUIComposer {
         }
 
         try {
-            instantiate_pipeline(idPipeline);
+            TypeSystemDescription desc = instantiate_pipeline(idPipeline);
             DUUIEither start = run_pipeline(jc,idPipeline);
 
             String cas = start.getAsString();
@@ -310,7 +344,7 @@ public class DUUIComposer {
 
     public static void main(String[] args) throws Exception {
         // Use two worker threads, at most 2 concurrent pipelines can run
-        DUUIComposer composer = new DUUIComposer().withWorkers(2);
+        DUUIComposer composer = new DUUIComposer().withCompressionMethod("none");
 
         // Instantiate drivers with options
         DUUILocalDriver driver = new DUUILocalDriver()
@@ -330,6 +364,7 @@ public class DUUIComposer {
         // Every component needs a driver which instantiates and runs them
         // Local driver manages local docker container and pulls docker container from remote repositories
         /*composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.DUUILocalDriver.Component("kava-i.de:5000/secure/test_image")
+    /*    composer.add(new DUUILocalDriver.Component("kava-i.de:5000/secure/test_image")
                         .withScale(2)
                         .withImageFetching()
                         .withRunningAfterDestroy(false)
@@ -340,6 +375,9 @@ public class DUUIComposer {
         //composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIRemoteDriver.Component("http://127.0.0.1:9714")
         //                .withScale(2),
         //        org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIRemoteDriver.class);
+        /*composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9714")
+                        .withScale(2),
+                DUUIRemoteDriver.class);*/
 
         // UIMA Driver handles all native UIMA Analysis Engine Descriptions
         composer.add(new DUUIUIMADriver.Component(

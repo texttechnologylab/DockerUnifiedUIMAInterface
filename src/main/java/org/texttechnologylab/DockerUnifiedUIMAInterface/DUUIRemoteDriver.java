@@ -4,10 +4,14 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
+import org.apache.commons.compress.compressors.CompressorException;
+import org.apache.commons.compress.compressors.CompressorStreamFactory;
 import org.apache.uima.UIMAException;
 import org.apache.uima.cas.impl.XmiCasSerializer;
 import org.apache.uima.fit.factory.JCasFactory;
+import org.apache.uima.fit.factory.TypeSystemDescriptionFactory;
 import org.apache.uima.jcas.JCas;
+import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.json.JSONObject;
 import org.xml.sax.SAXException;
 
@@ -17,6 +21,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.InvalidParameterException;
 import java.util.HashMap;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -25,6 +30,7 @@ import static java.lang.String.format;
 public class DUUIRemoteDriver implements IDUUIDriverInterface {
     private HashMap<String, InstantiatedComponent> _components;
     private OkHttpClient _client;
+    private DUUICompressionHelper _helper;
 
 
     public static class Component extends IDUUIPipelineComponent {
@@ -82,30 +88,46 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         }
     }
 
+    DUUIRemoteDriver(int timeout) {
+        _client = new OkHttpClient.Builder()
+                .connectTimeout(timeout, TimeUnit.SECONDS)
+                .writeTimeout(timeout, TimeUnit.SECONDS)
+                .readTimeout(timeout, TimeUnit.SECONDS)
+                .build();
+        _components = new HashMap<String, InstantiatedComponent>();
+        _helper = new DUUICompressionHelper(CompressorStreamFactory.ZSTANDARD);
+    }
+
     DUUIRemoteDriver() {
         _components = new HashMap<String, InstantiatedComponent>();
         _client = new OkHttpClient();
+        _helper = new DUUICompressionHelper(CompressorStreamFactory.ZSTANDARD);
     }
 
     public boolean canAccept(IDUUIPipelineComponent component) {
         return component.getClass().getCanonicalName() == component.getClass().getCanonicalName();
     }
 
-    public String instantiate(IDUUIPipelineComponent component) throws InterruptedException, TimeoutException, UIMAException, SAXException {
+    public String instantiate(IDUUIPipelineComponent component) throws InterruptedException, TimeoutException, UIMAException, SAXException, CompressorException, IOException {
         String uuid = UUID.randomUUID().toString();
         while (_components.containsKey(uuid)) {
             uuid = UUID.randomUUID().toString();
         }
         InstantiatedComponent comp = new InstantiatedComponent(component);
         JCas _basic = JCasFactory.createJCas();
-        ByteArrayOutputStream arr = new ByteArrayOutputStream();
-        XmiCasSerializer.serialize(_basic.getCas(), _basic.getTypeSystem(), arr);
-        String cas = arr.toString();
+        DUUIEither aCas = new DUUIEither(_basic,CompressorStreamFactory.GZIP);
         System.out.printf("[RemoteDriver] Assigned new pipeline component unique id %s\n", uuid);
+
+        String cas = aCas.getAsString();
+        String typesystem = aCas.getTypesystem();
 
         JSONObject obj = new JSONObject();
         obj.put("cas", cas);
-        obj.put("typesystem", "");
+        obj.put("typesystem", typesystem);
+        obj.put("typesystem_hash", typesystem.hashCode());
+        obj.put("cas_hash", cas.hashCode());
+        obj.put("compression",aCas.getCompressionMethod());
+
         String ok = obj.toString();
         RequestBody bod = RequestBody.create(obj.toString().getBytes(StandardCharsets.UTF_8));
 
@@ -129,15 +151,42 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         System.out.printf("[RemoteDriver][%s]: Maximum concurrency %d\n",uuid,component.getScale());
     }
 
-    public DUUIEither run(String uuid, DUUIEither aCas) throws InterruptedException, IOException, SAXException {
+    public TypeSystemDescription get_typesystem(String uuid) throws InterruptedException, IOException, SAXException, CompressorException {
+        DUUIRemoteDriver.InstantiatedComponent comp = _components.get(uuid);
+        if (comp == null) {
+            throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
+        }
+        Request request = new Request.Builder()
+                .url(comp.getUrl() + "/v1/typesystem")
+                .get()
+                .build();
+        Response resp = _client.newCall(request).execute();
+        if (resp.code() == 200) {
+            String body = new String(resp.body().bytes(), Charset.defaultCharset());
+            JSONObject response = new JSONObject(body);
+            File tmp = File.createTempFile("duui.composer","_type");
+            FileWriter writer = new FileWriter(tmp);
+            writer.write(body);
+            return TypeSystemDescriptionFactory.createTypeSystemDescriptionFromPath(tmp.getAbsolutePath());
+        } else {
+            throw new InvalidObjectException("Response code != 200, error");
+        }
+    }
+
+    public DUUIEither run(String uuid, DUUIEither aCas) throws InterruptedException, IOException, SAXException, CompressorException {
         InstantiatedComponent comp = _components.get(uuid);
         if (comp == null) {
             throw new InvalidParameterException("The given instantiated component uuid was not instantiated by the remote driver");
         }
         String cas = aCas.getAsString();
+        String typesystem = aCas.getTypesystem();
+
         JSONObject obj = new JSONObject();
         obj.put("cas", cas);
-        obj.put("typesystem", "");
+        obj.put("typesystem", typesystem);
+        obj.put("typesystem_hash", typesystem.hashCode());
+        obj.put("cas_hash", cas.hashCode());
+        obj.put("compression",aCas.getCompressionMethod());
         String ok = obj.toString();
 
         RequestBody bod = RequestBody.create(ok.getBytes(StandardCharsets.UTF_8));

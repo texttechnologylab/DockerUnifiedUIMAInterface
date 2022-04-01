@@ -1,19 +1,25 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface;
-
+import okhttp3.Request;
+import okhttp3.Response;
+import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.UIMAException;
 import org.apache.uima.analysis_engine.AnalysisEngine;
 import org.apache.uima.analysis_engine.AnalysisEngineDescription;
 import org.apache.uima.analysis_engine.AnalysisEngineProcessException;
 import org.apache.uima.fit.factory.AnalysisEngineFactory;
+import org.apache.uima.fit.factory.TypeSystemDescriptionFactory;
 import org.apache.uima.jcas.JCas;
+import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.resource.ResourceSpecifier;
 import org.apache.uima.resource.metadata.ConfigurationParameter;
 import org.apache.uima.resource.metadata.NameValuePair;
+import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.apache.uima.util.InvalidXMLException;
+import org.json.JSONObject;
 import org.xml.sax.SAXException;
 
-import java.io.IOException;
-import java.io.StringWriter;
+import java.io.*;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -224,7 +230,11 @@ public class DUUIUIMADriver implements IDUUIDriverInterface {
         return uuid;
     }
 
-    public DUUIEither run(String uuid, DUUIEither aCas) throws InterruptedException, IOException, SAXException, AnalysisEngineProcessException {
+    public TypeSystemDescription get_typesystem(String uuid) throws InterruptedException, IOException, SAXException, CompressorException, ResourceInitializationException {
+        return TypeSystemDescriptionFactory.createTypeSystemDescription();
+    }
+
+    public DUUIEither run(String uuid, DUUIEither aCas) throws InterruptedException, IOException, SAXException, AnalysisEngineProcessException, CompressorException {
         InstantiatedComponent component = _engines.get(uuid);
         if (component == null) {
             throw new InvalidParameterException("The given instantiated component uuid was not instantiated by the remote driver");

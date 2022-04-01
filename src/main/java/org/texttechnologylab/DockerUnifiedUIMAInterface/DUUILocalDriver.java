@@ -4,9 +4,14 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
+import org.apache.commons.compress.compressors.CompressorException;
+import org.apache.commons.compress.compressors.CompressorStreamFactory;
 import org.apache.uima.UIMAException;
+import org.apache.uima.cas.TypeSystem;
+import org.apache.uima.cas.impl.XmiCasDeserializer;
 import org.apache.uima.cas.impl.XmiCasSerializer;
 import org.apache.uima.fit.factory.JCasFactory;
+import org.apache.uima.fit.factory.TypeSystemDescriptionFactory;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.apache.uima.util.TypeSystemUtil;
@@ -20,6 +25,7 @@ import java.security.InvalidParameterException;
 import java.util.HashMap;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.logging.Logger;
 
@@ -40,6 +46,30 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
     DUUILocalDriver() throws IOException, UIMAException, SAXException {
         _interface = new DUUIDockerInterface();
         _client = new OkHttpClient();
+
+        JCas _basic = JCasFactory.createJCas();
+        _basic.setDocumentLanguage("en");
+        _basic.setDocumentText("Hello World!");
+        _container_timeout = 10000;
+
+        ByteArrayOutputStream arr = new ByteArrayOutputStream();
+        XmiCasSerializer.serialize(_basic.getCas(), _basic.getTypeSystem(), arr);
+        _testCas = arr.toString();
+
+        TypeSystemDescription desc = TypeSystemUtil.typeSystem2TypeSystemDescription(_basic.getTypeSystem());
+        StringWriter wr = new StringWriter();
+        desc.toXML(wr);
+        _testTypesystem = wr.getBuffer().toString();
+        _active_components = new HashMap<String, InstantiatedComponent>();
+    }
+
+    DUUILocalDriver(int timeout) throws IOException, UIMAException, SAXException {
+        _interface = new DUUIDockerInterface();
+        _client = new OkHttpClient.Builder()
+                .connectTimeout(timeout, TimeUnit.SECONDS)
+                .writeTimeout(timeout, TimeUnit.SECONDS)
+                .readTimeout(timeout, TimeUnit.SECONDS)
+                .build();
 
         JCas _basic = JCasFactory.createJCas();
         _basic.setDocumentLanguage("en");
@@ -152,7 +182,34 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
         System.out.printf("[DockerLocalDriver][%s]: Maximum concurrency %d\n",uuid,component.getInstances().size());
     }
 
-    public DUUIEither run(String uuid, DUUIEither aCas) throws InterruptedException, IOException, SAXException {
+    public TypeSystemDescription get_typesystem(String uuid) throws InterruptedException, IOException, SAXException, CompressorException {
+        InstantiatedComponent comp = _active_components.get(uuid);
+        if (comp == null) {
+            throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
+        }
+        ComponentInstance inst = comp.getInstances().poll();
+        while(inst == null) {
+            inst = comp.getInstances().poll();
+        }
+        Request request = new Request.Builder()
+                .url(inst.getContainerUrl() + "/v1/typesystem")
+                .get()
+                .build();
+        Response resp = _client.newCall(request).execute();
+        comp.addInstance(inst);
+        if (resp.code() == 200) {
+            String body = new String(resp.body().bytes(), Charset.defaultCharset());
+            JSONObject response = new JSONObject(body);
+            File tmp = File.createTempFile("duui.composer","_type");
+            FileWriter writer = new FileWriter(tmp);
+            writer.write(body);
+            return TypeSystemDescriptionFactory.createTypeSystemDescriptionFromPath(tmp.getAbsolutePath());
+        } else {
+            throw new InvalidObjectException("Response code != 200, error");
+        }
+    }
+
+    public DUUIEither run(String uuid, DUUIEither aCas) throws InterruptedException, IOException, SAXException, CompressorException {
         InstantiatedComponent comp = _active_components.get(uuid);
         if (comp == null) {
             throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
@@ -163,10 +220,14 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
         }
 
         String cas = aCas.getAsString();
+        String typesystem = aCas.getTypesystem();
 
         JSONObject obj = new JSONObject();
         obj.put("cas", cas);
-        obj.put("typesystem", "");
+        obj.put("typesystem", typesystem);
+        obj.put("typesystem_hash", typesystem.hashCode());
+        obj.put("cas_hash", cas.hashCode());
+        obj.put("compression",aCas.getCompressionMethod());
         String ok = obj.toString();
 
         RequestBody bod = RequestBody.create(ok.getBytes(StandardCharsets.UTF_8));
