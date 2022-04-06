@@ -15,7 +15,7 @@ import java.util.concurrent.TimeoutException;
 public interface IDUUIDriverInterface {
     public boolean canAccept(IDUUIPipelineComponent component);
 
-    public String instantiate(IDUUIPipelineComponent component) throws InterruptedException, TimeoutException, UIMAException, SAXException, IOException, CompressorException, ClassNotFoundException, InvocationTargetException, NoSuchMethodException, InstantiationException, IllegalAccessException;
+    public String instantiate(IDUUIPipelineComponent component) throws Exception;
 
     public void printConcurrencyGraph(String uuid);
 

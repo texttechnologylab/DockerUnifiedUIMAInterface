@@ -11,5 +11,6 @@ import java.io.OutputStream;
 
 public interface IDUUICommunicationLayer {
     public void serialize(JCas jc, OutputStream out) throws CompressorException, IOException, SAXException;
-    public void deserialize(JCas jc, InputStream input);
+    public void deserialize(JCas jc, InputStream input) throws IOException, SAXException;
+    public IDUUICommunicationLayer copy();
 }

@@ -15,10 +15,9 @@ with open('dkpro-core-types.xml', 'rb') as f:
         def do_POST(self):
             content_len = int(self.headers.get('Content-Length'))
             post_body = self.rfile.read(content_len).decode("utf-8")
+            print(post_body)
 
-            decoded = json.loads(post_body)
-
-            cas = load_cas_from_xmi(decoded["cas"], typesystem=typesystem,lenient=True)
+            cas = load_cas_from_xmi(post_body, typesystem=typesystem,lenient=True)
             #loaded = json.loads(post_body)
             #print(loaded)
             #cas = load_cas_from_xmi(loaded["cas"], typesystem=loaded["typesystem"])
@@ -31,8 +30,7 @@ with open('dkpro-core-types.xml', 'rb') as f:
 
             # Whenever using 'send_header', you also have to call 'end_headers'
             self.end_headers()
-            new_obj = {"cas": cas.to_xmi()}
-            self.wfile.write(json.dumps(new_obj).encode('utf-8'))
+            self.wfile.write(cas.to_xmi().encode('utf-8'))
         def do_GET(self):
             if self.path == '/v1/communication_layer':
                 # Sending an '200 OK' response
@@ -46,7 +44,7 @@ with open('dkpro-core-types.xml', 'rb') as f:
 
                 # Whenever using 'send_header', you also have to call 'end_headers'
                 self.end_headers()
-                self.wfile.write(typesystem.to_xml().encode('utf-8'))
+                self.wfile.write(communication.encode('utf-8'))
 
             else:
                 # Sending an '200 OK' response

@@ -1,23 +1,34 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface;
 
+import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
+import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token_Type;
 import de.tudarmstadt.ukp.dkpro.core.io.text.TextReader;
+import de.tudarmstadt.ukp.dkpro.core.io.text.TokenizedTextWriter;
 import de.tudarmstadt.ukp.dkpro.core.tokit.BreakIteratorSegmenter;
-import org.apache.commons.compress.archivers.zip.StreamCompressor;
 import org.apache.commons.compress.compressors.CompressorException;
-import org.apache.commons.compress.compressors.CompressorStreamFactory;
-import org.apache.uima.cas.impl.TypeSystemUtils;
+import org.apache.uima.cas.impl.XmiCasDeserializer;
+import org.apache.uima.cas.impl.XmiCasSerializer;
 import org.apache.uima.collection.CollectionReader;
 import org.apache.uima.collection.CollectionReaderDescription;
 import org.apache.uima.fit.factory.AnalysisEngineFactory;
 import org.apache.uima.fit.factory.CollectionReaderFactory;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.fit.factory.TypeSystemDescriptionFactory;
+import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.apache.uima.util.CasCreationUtils;
+import org.apache.uima.util.FileUtils;
+import org.luaj.vm2.Globals;
+import org.luaj.vm2.LuaValue;
+import org.luaj.vm2.lib.jse.CoerceJavaToLua;
+import org.luaj.vm2.lib.jse.JsePlatform;
 import org.xml.sax.SAXException;
-import javax.sql.rowset.spi.XmlWriter;
-import java.io.IOException;
+
+import java.io.*;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.security.InvalidParameterException;
 import java.util.*;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -97,6 +108,8 @@ public class DUUIComposer {
         _pipeline = new Vector<IDUUIPipelineComponent>();
         _workers = 1;
         _cas_poolsize = null;
+        Globals globals = JsePlatform.standardGlobals();
+        System.out.println("[Composer] Initialised LUA scripting layer with version "+ globals.get("_VERSION"));
     }
 
     public DUUIComposer withCasPoolsize(int poolsize) {
@@ -218,7 +231,7 @@ public class DUUIComposer {
 
     public void run(CollectionReaderDescription reader) throws Exception {
         Exception catched = null;
-        System.out.println("[Composer] Instantiation the collection reader...");
+        System.out.println("[Composer] Instantiating the collection reader...");
         CollectionReader collectionReader = CollectionReaderFactory.createReader(reader);
         System.out.println("[Composer] Instantiated the collection reader.");
 
@@ -343,7 +356,7 @@ public class DUUIComposer {
 
 
     public static void main(String[] args) throws Exception {
-        // Use two worker threads, at most 2 concurrent pipelines can run
+        // create an environment to run in
         DUUIComposer composer = new DUUIComposer().withCompressionMethod("none");
 
         // Instantiate drivers with options
@@ -363,13 +376,14 @@ public class DUUIComposer {
 
         // Every component needs a driver which instantiates and runs them
         // Local driver manages local docker container and pulls docker container from remote repositories
-        /*composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.DUUILocalDriver.Component("kava-i.de:5000/secure/test_image")
-    /*    composer.add(new DUUILocalDriver.Component("kava-i.de:5000/secure/test_image")
-                        .withScale(2)
-                        .withImageFetching()
-                        .withRunningAfterDestroy(false)
-                        .withRegistryAuth("SET_USERNAME_HERE","SET_PASSWORD_HERE")
-                , org.texttechnologylab.DockerUnifiedUIMAInterface.DUUILocalDriver.class);*/
+        /*composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.DUUILocalDriver.Component("kava-i.de:5000/secure/test_image")*/
+        composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class)),
+                org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIUIMADriver.class);
+
+        composer.add(new DUUILocalDriver.Component("new:latest")
+                        .withScale(1)
+                        .withRunningAfterDestroy(true)
+                , org.texttechnologylab.DockerUnifiedUIMAInterface.DUUILocalDriver.class);
 
         // Remote driver handles all pure URL endpoints
        /* composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIRemoteDriver.Component("http://127.0.0.1:9714")
@@ -380,7 +394,7 @@ public class DUUIComposer {
                 DUUIRemoteDriver.class);*/
 
         // UIMA Driver handles all native UIMA Analysis Engine Descriptions
-        composer.add(new DUUIUIMADriver.Component(
+        /*composer.add(new DUUIUIMADriver.Component(
                 AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class,
                         BreakIteratorSegmenter.PARAM_LANGUAGE,"en")
         ).withScale(2), DUUIUIMADriver.class);
@@ -395,7 +409,7 @@ public class DUUIComposer {
 
         // This takes a bit of time since the full pipeline is begin build and evaluatd.
         //composer.printConcurrencyGraph();
-
+*/
 
 
         JCas jc = JCasFactory.createJCas();
@@ -403,12 +417,25 @@ public class DUUIComposer {
         jc.setDocumentText("Hello World!");
 
         // Run single document
-        //composer.run(jc);
+        composer.run(jc);
+
+
+        /*String val = Files.readString(Path.of(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/uima_xmi_communication_token_only.lua").toURI()));
+        DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(val,"remote");
+        OutputStream out = new ByteArrayOutputStream();
+        lua.serialize(jc,out);
+        System.out.println(out.toString());
+
+        OutputStream out2 = new ByteArrayOutputStream();
+        XmiCasSerializer.serialize(jc.getCas(),out2);
+        System.out.println(out2.toString());*/
 
         // Run Collection Reader
-        composer.run(createReaderDescription(TextReader.class,
+
+        /*composer.run(createReaderDescription(TextReader.class,
                 TextReader.PARAM_SOURCE_LOCATION, "test_corpora/**.txt",
                 TextReader.PARAM_LANGUAGE, "en"));
+         */
 
   }
 }

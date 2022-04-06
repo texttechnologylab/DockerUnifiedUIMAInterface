@@ -21,6 +21,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.InvalidParameterException;
 import java.util.HashMap;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -46,7 +47,9 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
 
     private static class InstantiatedComponent extends IDUUIPipelineComponent {
         private String _url;
-        private AtomicInteger _maximum_concurrency;
+        private int _maximum_concurrency;
+        private ConcurrentLinkedQueue<IDUUICommunicationLayer> _communication;
+
 
         InstantiatedComponent(IDUUIPipelineComponent comp) {
             _url = comp.getOption("url");
@@ -56,31 +59,30 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
 
             String max = comp.getOption("scale");
             if(max != null) {
-                _maximum_concurrency = new AtomicInteger(Integer.valueOf(max));
+                _maximum_concurrency = Integer.valueOf(max);
             }
             else {
-                _maximum_concurrency = new AtomicInteger(1);
+                _maximum_concurrency = 1;
+                _communication = new ConcurrentLinkedQueue<>();
             }
         }
 
-        public void enter() {
-            while(true) {
-                int before = _maximum_concurrency.get();
-                while (before < 1) {
-                    before = _maximum_concurrency.get();
-                }
-                int result = _maximum_concurrency.compareAndExchange(before,before-1);
-                if(result==before)
-                    return;
+        public void addCommunicationLayer(IDUUICommunicationLayer layer) {
+            for(int i = 0; i < _maximum_concurrency; i++) {
+                _communication.add(layer.copy());
             }
         }
 
-        public void leave() {
-            _maximum_concurrency.addAndGet(1);
+        public ConcurrentLinkedQueue<IDUUICommunicationLayer> getInstances() {
+            return _communication;
+        }
+
+        public void returnCommunicationLayer(IDUUICommunicationLayer layer) {
+            _communication.add(layer);
         }
 
         public int getScale() {
-            return _maximum_concurrency.get();
+            return _maximum_concurrency;
         }
 
         public String getUrl() {
@@ -108,38 +110,26 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         return component.getClass().getCanonicalName() == component.getClass().getCanonicalName();
     }
 
-    public String instantiate(IDUUIPipelineComponent component) throws InterruptedException, TimeoutException, UIMAException, SAXException, CompressorException, IOException {
+    public String instantiate(IDUUIPipelineComponent component) throws Exception {
         String uuid = UUID.randomUUID().toString();
         while (_components.containsKey(uuid)) {
             uuid = UUID.randomUUID().toString();
         }
         InstantiatedComponent comp = new InstantiatedComponent(component);
         JCas _basic = JCasFactory.createJCas();
-        DUUIEither aCas = new DUUIEither(_basic,"none");
+        _basic.setDocumentLanguage("de");
+        _basic.setDocumentText("Halo Welt!");
         System.out.printf("[RemoteDriver] Assigned new pipeline component unique id %s\n", uuid);
 
-        String cas = aCas.getAsString();
-        String typesystem = aCas.getTypesystem();
 
-        JSONObject obj = new JSONObject();
-        obj.put("cas", cas);
-        obj.put("typesystem", typesystem);
-        obj.put("typesystem_hash", typesystem.hashCode());
-        obj.put("cas_hash", cas.hashCode());
-        obj.put("compression",aCas.getCompressionMethod());
-
-        String ok = obj.toString();
-        RequestBody bod = RequestBody.create(obj.toString().getBytes(StandardCharsets.UTF_8));
-
-        if (DUUILocalDriver.responsiveAfterTime(comp.getUrl(), bod, 100000, _client)) {
-            _components.put(uuid, comp);
-            System.out.printf("[RemoteDriver][%s] Remote URL %s is online and seems to understand DUUI V1 format!\n", uuid, comp.getUrl());
-            System.out.printf("[RemoteDriver][%s] Maximum concurrency for this endpoint %d\n", uuid, comp.getScale());
-
-        } else {
-            throw new TimeoutException(format("The URL %s did not provide one succesful answer! Aborting...", comp.getUrl()));
-        }
-
+        final String uuidCopy = uuid;
+        IDUUICommunicationLayer layer = DUUILocalDriver.responsiveAfterTime(comp.getUrl(), _basic, 100000, _client, (msg) -> {
+            System.out.printf("[RemoteDriver][%s] %s\n", uuidCopy,msg);
+        });
+        comp.addCommunicationLayer(layer);
+        _components.put(uuid, comp);
+        System.out.printf("[RemoteDriver][%s] Remote URL %s is online and seems to understand DUUI V1 format!\n", uuid, comp.getUrl());
+        System.out.printf("[RemoteDriver][%s] Maximum concurrency for this endpoint %d\n", uuid, comp.getScale());
         return uuid;
     }
 
@@ -180,17 +170,14 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         if (comp == null) {
             throw new InvalidParameterException("The given instantiated component uuid was not instantiated by the remote driver");
         }
-        String cas = aCas.getAsString();
-        String typesystem = aCas.getTypesystem();
 
-        JSONObject obj = new JSONObject();
-        obj.put("cas", cas);
-        obj.put("typesystem", typesystem);
-        obj.put("typesystem_hash", typesystem.hashCode());
-        obj.put("cas_hash", cas.hashCode());
-        obj.put("compression",aCas.getCompressionMethod());
-        String ok = obj.toString();
-
+        IDUUICommunicationLayer inst = comp.getInstances().poll();
+        while(inst == null) {
+            inst = comp.getInstances().poll();
+        }
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        inst.serialize(aCas.getAsJCas(),out);
+        String ok = out.toString();
         RequestBody bod = RequestBody.create(ok.getBytes(StandardCharsets.UTF_8));
 
         Request request = new Request.Builder()
@@ -198,22 +185,17 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
                 .post(bod)
                 .header("Content-Length", String.valueOf(ok.length()))
                 .build();
-        comp.enter();
+
         Response resp = _client.newCall(request).execute();
-        comp.leave();
         if (resp.code() == 200) {
-            String body = new String(resp.body().bytes(), Charset.defaultCharset());
-            JSONObject response = new JSONObject(body);
-            if (response.has("cas") || response.has("error")) {
-                aCas.updateStringBuffer(response.getString("cas"));
-                return aCas;
-            } else {
-                System.out.println("The response is not in the expected format!");
-                throw new InvalidObjectException("Response is not in the right format!");
-            }
+            InputStream stream = resp.body().byteStream();
+            inst.deserialize(aCas.getAsJCas(),stream);
+            comp.returnCommunicationLayer(inst);
         } else {
+            comp.returnCommunicationLayer(inst);
             throw new InvalidObjectException("Response code != 200, error");
         }
+        return aCas;
     }
 
     public void destroy(String uuid) {

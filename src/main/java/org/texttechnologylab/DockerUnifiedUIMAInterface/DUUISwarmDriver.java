@@ -13,6 +13,7 @@ import org.apache.uima.fit.factory.TypeSystemDescriptionFactory;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.apache.uima.util.TypeSystemUtil;
+import org.bouncycastle.cert.ocsp.Req;
 import org.json.JSONObject;
 import org.xml.sax.SAXException;
 
@@ -35,9 +36,6 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
     private OkHttpClient _client;
 
     private HashMap<String, DUUISwarmDriver.InstantiatedComponent> _active_components;
-
-    private String _testCas;
-    private String _testTypesystem;
     private int _container_timeout;
 
 
@@ -50,19 +48,8 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
                 .readTimeout(timeout, TimeUnit.SECONDS)
                 .build();
 
-        JCas _basic = JCasFactory.createJCas();
-        _basic.setDocumentLanguage("en");
-        _basic.setDocumentText("Hello World!");
         _container_timeout = 10000;
 
-        ByteArrayOutputStream arr = new ByteArrayOutputStream();
-        XmiCasSerializer.serialize(_basic.getCas(), _basic.getTypeSystem(), arr);
-        _testCas = arr.toString();
-
-        TypeSystemDescription desc = TypeSystemUtil.typeSystem2TypeSystemDescription(_basic.getTypeSystem());
-        StringWriter wr = new StringWriter();
-        desc.toXML(wr);
-        _testTypesystem = wr.getBuffer().toString();
         _active_components = new HashMap<String, DUUISwarmDriver.InstantiatedComponent>();
     }
 
@@ -79,14 +66,7 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         _basic.setDocumentText("Hello World!");
         _container_timeout = 10000;
 
-        ByteArrayOutputStream arr = new ByteArrayOutputStream();
-        XmiCasSerializer.serialize(_basic.getCas(), _basic.getTypeSystem(), arr);
-        _testCas = arr.toString();
 
-        TypeSystemDescription desc = TypeSystemUtil.typeSystem2TypeSystemDescription(_basic.getTypeSystem());
-        StringWriter wr = new StringWriter();
-        desc.toXML(wr);
-        _testTypesystem = wr.getBuffer().toString();
         _active_components = new HashMap<String, DUUISwarmDriver.InstantiatedComponent>();
     }
 
@@ -99,7 +79,7 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         return comp.getClass().getName().toString() == DUUISwarmDriver.Component.class.getName().toString();
     }
 
-    public String instantiate(IDUUIPipelineComponent component) throws InterruptedException, TimeoutException, ClassNotFoundException, InvocationTargetException, NoSuchMethodException, InstantiationException, IllegalAccessException {
+    public String instantiate(IDUUIPipelineComponent component) throws Exception {
         String uuid = UUID.randomUUID().toString();
         while (_active_components.containsKey(uuid.toString())) {
             uuid = UUID.randomUUID().toString();
@@ -109,12 +89,10 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
             throw new InvalidParameterException("This node is not a Docker Swarm Manager, thus cannot create and schedule new services!");
         }
 
-        JSONObject obj = new JSONObject();
-        obj.put("cas", _testCas);
-        obj.put("typesystem", _testTypesystem);
-        String ok = obj.toString();
+        JCas basic = JCasFactory.createJCas();
+        basic.setDocumentLanguage("en");
+        basic.setDocumentText("Hello World!");
 
-        RequestBody bod = RequestBody.create(obj.toString().getBytes(StandardCharsets.UTF_8));
         DUUISwarmDriver.InstantiatedComponent comp = new DUUISwarmDriver.InstantiatedComponent(component);
 
         if(comp.isBackedByLocalImage()) {
@@ -132,14 +110,13 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
             if (port == 0) {
                 throw new UnknownError("Could not read the service port!");
             }
-            if (DUUILocalDriver.responsiveAfterTime("http://localhost:" + String.valueOf(port), bod, _container_timeout, _client)) {
-                System.out.printf("[DockerSwarmDriver][%s][%d Replicas] Service for image %s is online (URL http://localhost:%d) and seems to understand DUUI V1 format!\n", uuid, comp.getScale(),comp.getImageName(), port);
-                comp.initialise(serviceid,port);
-                Thread.sleep(500);
-            } else {
-                _interface.rm_service(serviceid);
-                throw new TimeoutException(format("The Service %s did not provide one succesful answer! Aborting...", serviceid));
-            }
+            final String uuidCopy = uuid;
+            IDUUICommunicationLayer layer = DUUILocalDriver.responsiveAfterTime("http://localhost:" + String.valueOf(port), basic, _container_timeout, _client, (msg) -> {
+                System.out.printf("[DockerSwarmDriver][%s][%d Replicas] %s\n", uuidCopy, comp.getScale(),msg);
+            });
+            System.out.printf("[DockerSwarmDriver][%s][%d Replicas] Service for image %s is online (URL http://localhost:%d) and seems to understand DUUI V1 format!\n", uuid, comp.getScale(),comp.getImageName(), port);
+            comp.initialise(serviceid,port);
+            Thread.sleep(500);
 
         _active_components.put(uuid, comp);
         return uuid;
@@ -181,42 +158,31 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         if (comp == null) {
             throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
         }
-        comp.enter();
+        IDUUICommunicationLayer inst = comp.getInstances().poll();
+        while(inst == null) {
+            inst = comp.getInstances().poll();
+        }
 
-        String cas = aCas.getAsString();
-        String typesystem = aCas.getTypesystem();
-
-        JSONObject obj = new JSONObject();
-
-        obj.put("cas", cas);
-        obj.put("typesystem", typesystem);
-        obj.put("typesystem_hash", typesystem.hashCode());
-        obj.put("cas_hash", cas.hashCode());
-        obj.put("compression",aCas.getCompressionMethod());
-
-        String ok = obj.toString();
-        RequestBody bod = RequestBody.create(ok.getBytes(StandardCharsets.UTF_8));
+        OutputStream out = new ByteArrayOutputStream();
+        inst.serialize(aCas.getAsJCas(),out);
+        String ok = out.toString();
+        RequestBody body = RequestBody.create(ok.getBytes(StandardCharsets.UTF_8));
         Request request = new Request.Builder()
                 .url(comp.getServiceUrl()+ "/v1/process")
-                .post(bod)
+                .post(body)
                 .header("Content-Length", String.valueOf(ok.length()))
                 .build();
         Response resp = _client.newCall(request).execute();
-        comp.leave();
 
         if (resp.code() == 200) {
-            String body = new String(resp.body().bytes(), Charset.defaultCharset());
-            JSONObject response = new JSONObject(body);
-            if (response.has("cas") || response.has("error")) {
-                aCas.updateStringBuffer(response.getString("cas"));
-                return aCas;
-            } else {
-                System.out.println("The response is not in the expected format!");
-                throw new InvalidObjectException("Response is not in the right format!");
-            }
+            InputStream st = new ByteArrayInputStream(resp.body().bytes());
+            inst.deserialize(aCas.getAsJCas(),st);
+            comp.returnCommunicationLayer(inst);
         } else {
+            comp.returnCommunicationLayer(inst);
             throw new InvalidObjectException("Response code != 200, error");
         }
+        return aCas;
     }
 
     public void destroy(String uuid) {
@@ -236,27 +202,24 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         private int _service_port;
         private boolean _keep_runnging_after_exit;
         private int _scale;
-        private AtomicInteger _maximum_concurrency;
         private String _fromLocalImage;
-        private IDUUIMapper _mapper;
+        private ConcurrentLinkedQueue<IDUUICommunicationLayer> _communication;
 
         private String _reg_password;
         private String _reg_username;
 
-        public void enter() {
-            while(true) {
-                int before = _maximum_concurrency.get();
-                while (before < 1) {
-                    before = _maximum_concurrency.get();
-                }
-                int result = _maximum_concurrency.compareAndExchange(before,before-1);
-                if(result==before)
-                    return;
+        public ConcurrentLinkedQueue<IDUUICommunicationLayer> getInstances() {
+            return _communication;
+        }
+
+        public void addCommunicationLayer(IDUUICommunicationLayer layer) {
+            for(int i = 0; i < _scale; i++) {
+                _communication.add(layer.copy());
             }
         }
 
-        public void leave() {
-            _maximum_concurrency.addAndGet(1);
+        public void returnCommunicationLayer(IDUUICommunicationLayer layer) {
+            _communication.add(layer);
         }
 
         InstantiatedComponent(IDUUIPipelineComponent comp) throws ClassNotFoundException, NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
@@ -271,7 +234,7 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
             } else {
                 _scale = Integer.parseInt(scale);
             }
-            _maximum_concurrency = new AtomicInteger(_scale);
+            _communication = new ConcurrentLinkedQueue<>();
 
             String with_running_after = comp.getOption("run_after_exit");
             if (with_running_after == null) {
@@ -285,15 +248,9 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
             _reg_username = comp.getOption("reg_username");
 
             String classname = comp.getOption("mapper_class_name");
-            if(classname==null) {
-                _mapper = new DUUIIdentityMapper();
-            }
-            else {
-                Class<? extends IDUUIMapper> x = (Class<? extends IDUUIMapper>) this.getClass().getClassLoader().loadClass(classname);
-                _mapper = x.getConstructor().newInstance();
-            }
+            _communication = null;
         }
-        public IDUUIMapper getMapper() {return _mapper;}
+
 
         public String getPassword() {return _reg_password;}
 

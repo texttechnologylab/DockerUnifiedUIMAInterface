@@ -4,11 +4,13 @@ token = luajava.bindClass("de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.T
 util = luajava.bindClass("org.apache.uima.fit.util.JCasUtil")
 
 function serialize(inputCas,outputStream)
-  for token in util:select(inputCas,token.class) do
-    print(token)
-    outputStream:write(token:getBegin():toString())
-    outputStream:write(token:getBegin():toString())
-  end
+    local result = util:select(inputCas,token):iterator()
+    while result:hasNext() do
+        local x = result:next()
+	    outputStream:write("Token: ")
+	    outputStream:write(x:getText())
+	    outputStream:write("\n")
+    end
 end
 
 function deserialize(inputCas,inputStream)

@@ -31,14 +31,15 @@ import java.util.logging.Logger;
 
 import static java.lang.String.format;
 
+interface ResponsiveMessageCallback {
+    public void operation(String message);
+}
+
 public class DUUILocalDriver implements IDUUIDriverInterface {
     private DUUIDockerInterface _interface;
     private OkHttpClient _client;
 
     private HashMap<String, InstantiatedComponent> _active_components;
-
-    private String _testCas;
-    private String _testTypesystem;
     private int _container_timeout;
 
     private final static Logger LOGGER = Logger.getLogger(DUUIComposer.class.getName());
@@ -52,14 +53,10 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
         _basic.setDocumentText("Hello World!");
         _container_timeout = 10000;
 
-        ByteArrayOutputStream arr = new ByteArrayOutputStream();
-        XmiCasSerializer.serialize(_basic.getCas(), _basic.getTypeSystem(), arr);
-        _testCas = arr.toString();
 
         TypeSystemDescription desc = TypeSystemUtil.typeSystem2TypeSystemDescription(_basic.getTypeSystem());
         StringWriter wr = new StringWriter();
         desc.toXML(wr);
-        _testTypesystem = wr.getBuffer().toString();
         _active_components = new HashMap<String, InstantiatedComponent>();
     }
 
@@ -71,19 +68,8 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
                 .readTimeout(timeout, TimeUnit.SECONDS)
                 .build();
 
-        JCas _basic = JCasFactory.createJCas();
-        _basic.setDocumentLanguage("en");
-        _basic.setDocumentText("Hello World!");
         _container_timeout = 10000;
 
-        ByteArrayOutputStream arr = new ByteArrayOutputStream();
-        XmiCasSerializer.serialize(_basic.getCas(), _basic.getTypeSystem(), arr);
-        _testCas = arr.toString();
-
-        TypeSystemDescription desc = TypeSystemUtil.typeSystem2TypeSystemDescription(_basic.getTypeSystem());
-        StringWriter wr = new StringWriter();
-        desc.toXML(wr);
-        _testTypesystem = wr.getBuffer().toString();
         _active_components = new HashMap<String, InstantiatedComponent>();
     }
 
@@ -92,54 +78,89 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
         return this;
     }
 
-    public static boolean responsiveAfterTime(String url, RequestBody body, int timeout_ms, OkHttpClient client) {
+    public static IDUUICommunicationLayer responsiveAfterTime(String url, JCas jc, int timeout_ms, OkHttpClient client,ResponsiveMessageCallback printfunc) throws Exception {
         long start = System.currentTimeMillis();
-        while (true) {
+        IDUUICommunicationLayer layer = new DUUIFallbackCommunicationLayer();
+        boolean fatal_error = false;
+        while(true) {
             Request request = new Request.Builder()
-                    .url(url + "/v1/process")
-                    .post(body)
+                    .url(url + "/v1/communication_layer")
+                    .get()
                     .build();
             try {
                 Response resp = client.newCall(request).execute();
                 if (resp.code() == 200) {
                     String body2 = new String(resp.body().bytes(), Charset.defaultCharset());
-                    JSONObject response = new JSONObject(body2);
-                    if (response.has("cas") || response.has("error")) {
+                    try {
+                        printfunc.operation("Component lua communication layer, loading...");
+                        System.out.printf("Got script %s\n",body2);
+                        IDUUICommunicationLayer lua_com = new DUUILuaCommunicationLayer(body2,"requester");
+                        layer = lua_com;
+                        printfunc.operation("Component lua communication layer, loaded.");
                         break;
-                    } else {
-                        LOGGER.info("The response is not in the expected format!");
                     }
+                    catch(Exception e) {
+                        fatal_error = true;
+                        e.printStackTrace();
+                        throw new Exception("Component provided a lua script which is not runnable.");
+                    }
+                } else if (resp.code() == 404) {
+                    printfunc.operation("Component provided no own communication layer implementation using fallback.");
+                    break;
+                }
+                long finish = System.currentTimeMillis();
+                long timeElapsed = finish - start;
+                if (timeElapsed > timeout_ms) {
+                    throw new TimeoutException(format("The Container did not provide one succesful answer in %d milliseconds",timeout_ms));
                 }
 
             } catch (Exception e) {
-                //e.printStackTrace();
-            }
-            long finish = System.currentTimeMillis();
-            long timeElapsed = finish - start;
-            if (timeElapsed > timeout_ms) {
-                return false;
+                if(fatal_error) {
+                    throw e;
+                }
             }
         }
-        return true;
+        OutputStream stream = new ByteArrayOutputStream();
+        try {
+            layer.serialize(jc, stream);
+        }
+        catch(Exception e) {
+            e.printStackTrace();
+            throw new Exception(format("The serialization step of the communication layer fails for implementing class %s", layer.getClass().getCanonicalName()));
+        }
+
+        RequestBody body = RequestBody.create(stream.toString().getBytes(StandardCharsets.UTF_8));
+
+        Request request = new Request.Builder()
+                .url(url + "/v1/process")
+                .post(body)
+                .build();
+                Response resp = client.newCall(request).execute();
+                if (resp.code() == 200) {
+                    InputStream inputStream = new ByteArrayInputStream(resp.body().bytes());
+                    layer.deserialize(jc,inputStream);
+                    return layer;
+                }
+                else {
+                    throw new Exception(format("The container returned response with code != 200\nResponse %s",resp.body().bytes().toString()));
+                }
     }
 
     public boolean canAccept(IDUUIPipelineComponent comp) {
         return comp.getClass().getName().toString() == Component.class.getName().toString();
     }
 
-    public String instantiate(IDUUIPipelineComponent component) throws InterruptedException, TimeoutException {
+    public String instantiate(IDUUIPipelineComponent component) throws Exception {
         String uuid = UUID.randomUUID().toString();
         while (_active_components.containsKey(uuid.toString())) {
             uuid = UUID.randomUUID().toString();
         }
 
-        JSONObject obj = new JSONObject();
-        obj.put("cas", _testCas);
-        obj.put("typesystem", _testTypesystem);
-        String ok = obj.toString();
 
-        RequestBody bod = RequestBody.create(obj.toString().getBytes(StandardCharsets.UTF_8));
         InstantiatedComponent comp = new InstantiatedComponent(component);
+        JCas _basic = JCasFactory.createJCas();
+        _basic.setDocumentLanguage("en");
+        _basic.setDocumentText("Hello World!");
 
 
         if (!comp.isLocal()) {
@@ -155,22 +176,28 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
             }
         }
         System.out.printf("[DockerLocalDriver] Assigned new pipeline component unique id %s\n", uuid);
+        _active_components.put(uuid, comp);
         for (int i = 0; i < comp.getScale(); i++) {
             String containerid = _interface.run(comp.getImageName(), false, true);
             int port = _interface.extract_port_mapping(containerid);
 
-            if (port == 0) {
-                throw new UnknownError("Could not read the container port!");
-            }
-            if (responsiveAfterTime("http://127.0.0.1:" + String.valueOf(port), bod, _container_timeout, _client)) {
+            try {
+                if (port == 0) {
+                    throw new UnknownError("Could not read the container port!");
+                }
+                final int iCopy = i;
+                final String uuidCopy = uuid;
+                IDUUICommunicationLayer layer = responsiveAfterTime("http://127.0.0.1:" + String.valueOf(port), _basic, _container_timeout, _client, (msg) -> {
+                    System.out.printf("[DockerLocalDriver][%s][Docker Replication %d/%d] %s\n", uuidCopy, iCopy + 1, comp.getScale(), msg);
+                });
                 System.out.printf("[DockerLocalDriver][%s][Docker Replication %d/%d] Container for image %s is online (URL http://127.0.0.1:%d) and seems to understand DUUI V1 format!\n", uuid, i + 1, comp.getScale(), comp.getImageName(), port);
-                comp.addInstance(new ComponentInstance(containerid, port));
-            } else {
+                comp.addInstance(new ComponentInstance(containerid, port, layer));
+            }
+            catch(Exception e) {
                 _interface.stop_container(containerid);
-                throw new TimeoutException(format("The Container %s did not provide one succesful answer! Aborting...", containerid));
+                throw e;
             }
         }
-        _active_components.put(uuid, comp);
         return uuid;
     }
 
@@ -202,6 +229,8 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
             File tmp = File.createTempFile("duui.composer","_type");
             FileWriter writer = new FileWriter(tmp);
             writer.write(body);
+            writer.flush();
+            writer.close();
             return TypeSystemDescriptionFactory.createTypeSystemDescriptionFromPath(tmp.getAbsolutePath());
         } else {
             throw new InvalidObjectException("Response code != 200, error");
@@ -218,17 +247,10 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
             inst = comp.getInstances().poll();
         }
 
-        String cas = aCas.getAsString();
-        String typesystem = aCas.getTypesystem();
 
-        JSONObject obj = new JSONObject();
-        obj.put("cas", cas);
-        obj.put("typesystem", typesystem);
-        obj.put("typesystem_hash", typesystem.hashCode());
-        obj.put("cas_hash", cas.hashCode());
-        obj.put("compression",aCas.getCompressionMethod());
-        String ok = obj.toString();
-
+        OutputStream outputStream = new ByteArrayOutputStream();
+        inst.getCommunicationLayer().serialize(aCas.getAsJCas(),outputStream);
+        String ok = outputStream.toString();
         RequestBody bod = RequestBody.create(ok.getBytes(StandardCharsets.UTF_8));
         Request request = new Request.Builder()
                 .url(inst.getContainerUrl() + "/v1/process")
@@ -236,20 +258,16 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
                 .header("Content-Length", String.valueOf(ok.length()))
                 .build();
         Response resp = _client.newCall(request).execute();
-        comp.addInstance(inst);
+
         if (resp.code() == 200) {
-            String body = new String(resp.body().bytes(), Charset.defaultCharset());
-            JSONObject response = new JSONObject(body);
-            if (response.has("cas") || response.has("error")) {
-                aCas.updateStringBuffer(response.getString("cas"));
-                return aCas;
-            } else {
-                System.out.println("The response is not in the expected format!");
-                throw new InvalidObjectException("Response is not in the right format!");
-            }
+            InputStream inputStream = new ByteArrayInputStream(resp.body().bytes());
+            inst.getCommunicationLayer().deserialize(aCas.getAsJCas(),inputStream);
+            comp.addInstance(inst);
         } else {
+            comp.addInstance(inst);
             throw new InvalidObjectException("Response code != 200, error");
         }
+        return aCas;
     }
 
     public void destroy(String uuid) {
@@ -270,10 +288,12 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
     static class ComponentInstance {
         private String _container_id;
         private int _port;
+        private IDUUICommunicationLayer _communication;
 
-        ComponentInstance(String id, int port) {
+        ComponentInstance(String id, int port, IDUUICommunicationLayer layer) {
             _container_id = id;
             _port = port;
+            _communication = layer;
         }
 
         String getContainerId() {
@@ -282,6 +302,10 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
 
         int getContainerPort() {
             return _port;
+        }
+
+        IDUUICommunicationLayer getCommunicationLayer() {
+            return _communication;
         }
 
         String getContainerUrl() {
