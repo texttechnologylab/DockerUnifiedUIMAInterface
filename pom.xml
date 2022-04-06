@@ -92,6 +92,13 @@
             <artifactId>de.tudarmstadt.ukp.dkpro.core.tokit-asl</artifactId>
             <version>1.10.0</version>
         </dependency>
+
+        <dependency>
+            <groupId>com.github.texttechnologylab</groupId>
+            <artifactId>UIMADatabaseInterface</artifactId>
+            <version>50d301e895</version>
+        </dependency>
+
     </dependencies>
 
 
