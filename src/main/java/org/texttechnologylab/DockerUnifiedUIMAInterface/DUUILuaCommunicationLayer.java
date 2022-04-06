@@ -31,7 +31,6 @@ public class DUUILuaCommunicationLayer implements IDUUICommunicationLayer {
         for(Map.Entry<String,String> val : globalContext.getGlobalScripts().entrySet()) {
             LuaValue valsec = _globals.load(val.getValue(),"global_script"+val.getKey(),_globals);
             _globals.set(val.getKey(),valsec.call());
-            //_globals.get("package").get("preload").set(val.getKey(), valsec);
         }
         LuaValue chunk = _globals.load(script, origin+"remote_lua_script",_globals);
         chunk.call();
