@@ -100,6 +100,7 @@ public class DUUIComposer {
     private int _workers;
     public Integer _cas_poolsize;
     private String _compressionMethod;
+    private DUUILuaContext _context;
 
     private static final String DRIVER_OPTION_NAME = "duuid.composer.driver";
 
@@ -109,7 +110,13 @@ public class DUUIComposer {
         _workers = 1;
         _cas_poolsize = null;
         Globals globals = JsePlatform.standardGlobals();
+        _context = new DUUILuaContext();
         System.out.println("[Composer] Initialised LUA scripting layer with version "+ globals.get("_VERSION"));
+    }
+
+    public DUUIComposer withLuaContext(DUUILuaContext context) {
+        _context = context;
+        return this;
     }
 
     public DUUIComposer withCasPoolsize(int poolsize) {
@@ -128,6 +135,7 @@ public class DUUIComposer {
     }
 
     public DUUIComposer addDriver(IDUUIDriverInterface driver) {
+        driver.setLuaContext(_context);
         _drivers.put(driver.getClass().getCanonicalName().toString(), driver);
         return this;
     }
@@ -420,7 +428,8 @@ public class DUUIComposer {
         composer.run(jc);
 
 
-        /*String val = Files.readString(Path.of(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/uima_xmi_communication_token_only.lua").toURI()));
+        /*
+        String val = Files.readString(Path.of(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/uima_xmi_communication_token_only.lua").toURI()));
         DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(val,"remote");
         OutputStream out = new ByteArrayOutputStream();
         lua.serialize(jc,out);

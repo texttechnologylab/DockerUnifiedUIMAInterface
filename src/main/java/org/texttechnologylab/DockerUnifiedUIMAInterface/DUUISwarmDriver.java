@@ -37,6 +37,7 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
 
     private HashMap<String, DUUISwarmDriver.InstantiatedComponent> _active_components;
     private int _container_timeout;
+    private DUUILuaContext _luaContext;
 
 
     DUUISwarmDriver() throws IOException, SAXException, UIMAException {
@@ -66,8 +67,11 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         _basic.setDocumentText("Hello World!");
         _container_timeout = 10000;
 
-
         _active_components = new HashMap<String, DUUISwarmDriver.InstantiatedComponent>();
+    }
+
+    public void setLuaContext(DUUILuaContext luaContext) {
+        _luaContext = luaContext;
     }
 
     DUUISwarmDriver withTimeout(int container_timeout_ms) {
@@ -113,7 +117,7 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
             final String uuidCopy = uuid;
             IDUUICommunicationLayer layer = DUUILocalDriver.responsiveAfterTime("http://localhost:" + String.valueOf(port), basic, _container_timeout, _client, (msg) -> {
                 System.out.printf("[DockerSwarmDriver][%s][%d Replicas] %s\n", uuidCopy, comp.getScale(),msg);
-            });
+            },_luaContext);
             System.out.printf("[DockerSwarmDriver][%s][%d Replicas] Service for image %s is online (URL http://localhost:%d) and seems to understand DUUI V1 format!\n", uuid, comp.getScale(),comp.getImageName(), port);
             comp.initialise(serviceid,port);
             Thread.sleep(500);

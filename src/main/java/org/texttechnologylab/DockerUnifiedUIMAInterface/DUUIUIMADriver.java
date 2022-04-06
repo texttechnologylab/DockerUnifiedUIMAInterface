@@ -39,6 +39,10 @@ public class DUUIUIMADriver implements IDUUIDriverInterface {
         _enable_debug = false;
     }
 
+    public void setLuaContext(DUUILuaContext luaContext) {
+        // Not needed for the uima driver
+    }
+
     public DUUIUIMADriver withDebug(boolean enableDebug) {
         _enable_debug = enableDebug;
         return this;

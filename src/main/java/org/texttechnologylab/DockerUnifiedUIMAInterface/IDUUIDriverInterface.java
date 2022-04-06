@@ -13,10 +13,9 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.concurrent.TimeoutException;
 
 public interface IDUUIDriverInterface {
+    public void setLuaContext(DUUILuaContext luaContext);
     public boolean canAccept(IDUUIPipelineComponent component);
-
     public String instantiate(IDUUIPipelineComponent component) throws Exception;
-
     public void printConcurrencyGraph(String uuid);
 
     public TypeSystemDescription get_typesystem(String uuid) throws InterruptedException, IOException, SAXException, CompressorException, ResourceInitializationException;

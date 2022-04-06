@@ -41,6 +41,7 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
 
     private HashMap<String, InstantiatedComponent> _active_components;
     private int _container_timeout;
+    private DUUILuaContext _luaContext;
 
     private final static Logger LOGGER = Logger.getLogger(DUUIComposer.class.getName());
 
@@ -58,6 +59,7 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
         StringWriter wr = new StringWriter();
         desc.toXML(wr);
         _active_components = new HashMap<String, InstantiatedComponent>();
+        _luaContext = null;
     }
 
     DUUILocalDriver(int timeout) throws IOException, UIMAException, SAXException {
@@ -73,12 +75,16 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
         _active_components = new HashMap<String, InstantiatedComponent>();
     }
 
+    public void setLuaContext(DUUILuaContext luaContext) {
+        _luaContext = luaContext;
+    }
+
     DUUILocalDriver withTimeout(int container_timeout_ms) {
         _container_timeout = container_timeout_ms;
         return this;
     }
 
-    public static IDUUICommunicationLayer responsiveAfterTime(String url, JCas jc, int timeout_ms, OkHttpClient client,ResponsiveMessageCallback printfunc) throws Exception {
+    public static IDUUICommunicationLayer responsiveAfterTime(String url, JCas jc, int timeout_ms, OkHttpClient client,ResponsiveMessageCallback printfunc, DUUILuaContext context) throws Exception {
         long start = System.currentTimeMillis();
         IDUUICommunicationLayer layer = new DUUIFallbackCommunicationLayer();
         boolean fatal_error = false;
@@ -94,7 +100,7 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
                     try {
                         printfunc.operation("Component lua communication layer, loading...");
                         System.out.printf("Got script %s\n",body2);
-                        IDUUICommunicationLayer lua_com = new DUUILuaCommunicationLayer(body2,"requester");
+                        IDUUICommunicationLayer lua_com = new DUUILuaCommunicationLayer(body2,"requester",context);
                         layer = lua_com;
                         printfunc.operation("Component lua communication layer, loaded.");
                         break;
@@ -189,7 +195,7 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
                 final String uuidCopy = uuid;
                 IDUUICommunicationLayer layer = responsiveAfterTime("http://127.0.0.1:" + String.valueOf(port), _basic, _container_timeout, _client, (msg) -> {
                     System.out.printf("[DockerLocalDriver][%s][Docker Replication %d/%d] %s\n", uuidCopy, iCopy + 1, comp.getScale(), msg);
-                });
+                },_luaContext);
                 System.out.printf("[DockerLocalDriver][%s][Docker Replication %d/%d] Container for image %s is online (URL http://127.0.0.1:%d) and seems to understand DUUI V1 format!\n", uuid, i + 1, comp.getScale(), comp.getImageName(), port);
                 comp.addInstance(new ComponentInstance(containerid, port, layer));
             }

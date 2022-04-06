@@ -32,6 +32,7 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
     private HashMap<String, InstantiatedComponent> _components;
     private OkHttpClient _client;
     private DUUICompressionHelper _helper;
+    private DUUILuaContext _luaContext;
 
 
     public static class Component extends IDUUIPipelineComponent {
@@ -43,6 +44,10 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
             setOption("scale", String.valueOf(scale));
             return this;
         }
+    }
+
+    public void setLuaContext(DUUILuaContext luaContext) {
+        _luaContext = luaContext;
     }
 
     private static class InstantiatedComponent extends IDUUIPipelineComponent {
@@ -125,7 +130,7 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         final String uuidCopy = uuid;
         IDUUICommunicationLayer layer = DUUILocalDriver.responsiveAfterTime(comp.getUrl(), _basic, 100000, _client, (msg) -> {
             System.out.printf("[RemoteDriver][%s] %s\n", uuidCopy,msg);
-        });
+        },_luaContext);
         comp.addCommunicationLayer(layer);
         _components.put(uuid, comp);
         System.out.printf("[RemoteDriver][%s] Remote URL %s is online and seems to understand DUUI V1 format!\n", uuid, comp.getUrl());

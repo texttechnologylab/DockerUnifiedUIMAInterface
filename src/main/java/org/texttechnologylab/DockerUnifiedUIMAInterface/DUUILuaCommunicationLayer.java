@@ -13,6 +13,7 @@ import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
 
 public class DUUILuaCommunicationLayer implements IDUUICommunicationLayer {
     private Globals _globals;
@@ -20,12 +21,19 @@ public class DUUILuaCommunicationLayer implements IDUUICommunicationLayer {
     private LuaValue _deserialize;
     private String _script;
     private String _origin;
+    private DUUILuaContext _globalContext;
 
-    public DUUILuaCommunicationLayer(String script, String origin) {
+    public DUUILuaCommunicationLayer(String script, String origin, DUUILuaContext globalContext) {
         _script = script;
         _origin = origin;
         _globals = JsePlatform.standardGlobals();
-        LuaValue chunk = _globals.load(script, origin+"remote_lua_script");
+        _globalContext = globalContext;
+        for(Map.Entry<String,String> val : globalContext.getGlobalScripts().entrySet()) {
+            LuaValue valsec = _globals.load(val.getValue(),"global_script"+val.getKey(),_globals);
+            _globals.set(val.getKey(),valsec.call());
+            //_globals.get("package").get("preload").set(val.getKey(), valsec);
+        }
+        LuaValue chunk = _globals.load(script, origin+"remote_lua_script",_globals);
         chunk.call();
         _serialize = _globals.get("serialize");
         _deserialize = _globals.get("deserialize");
@@ -40,6 +48,6 @@ public class DUUILuaCommunicationLayer implements IDUUICommunicationLayer {
     }
 
     public IDUUICommunicationLayer copy() {
-        return new DUUILuaCommunicationLayer(_script,_origin);
+        return new DUUILuaCommunicationLayer(_script,_origin,_globalContext);
     }
 }
