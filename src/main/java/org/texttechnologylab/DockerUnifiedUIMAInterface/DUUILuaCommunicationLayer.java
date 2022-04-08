@@ -16,34 +16,24 @@ import java.nio.file.Path;
 import java.util.Map;
 
 public class DUUILuaCommunicationLayer implements IDUUICommunicationLayer {
-    private Globals _globals;
-    private LuaValue _serialize;
-    private LuaValue _deserialize;
     private String _script;
     private String _origin;
     private DUUILuaContext _globalContext;
+    private DUUILuaCompiledFile _file;
 
     public DUUILuaCommunicationLayer(String script, String origin, DUUILuaContext globalContext) {
         _script = script;
         _origin = origin;
-        _globals = JsePlatform.standardGlobals();
+        _file = globalContext.compileFile(script);
         _globalContext = globalContext;
-        for(Map.Entry<String,String> val : globalContext.getGlobalScripts().entrySet()) {
-            LuaValue valsec = _globals.load(val.getValue(),"global_script"+val.getKey(),_globals);
-            _globals.set(val.getKey(),valsec.call());
-        }
-        LuaValue chunk = _globals.load(script, origin+"remote_lua_script",_globals);
-        chunk.call();
-        _serialize = _globals.get("serialize");
-        _deserialize = _globals.get("deserialize");
     }
 
     public void serialize(JCas jc, OutputStream out) throws CompressorException, IOException, SAXException {
-        _serialize.call(CoerceJavaToLua.coerce(jc),CoerceJavaToLua.coerce(out));
+        _file.call("serialize",CoerceJavaToLua.coerce(jc),CoerceJavaToLua.coerce(out));
     }
 
     public void deserialize(JCas jc, InputStream input) throws IOException, SAXException {
-        _deserialize.call(CoerceJavaToLua.coerce(jc),CoerceJavaToLua.coerce(input));
+        _file.call("deserialize",CoerceJavaToLua.coerce(jc),CoerceJavaToLua.coerce(input));
     }
 
     public IDUUICommunicationLayer copy() {

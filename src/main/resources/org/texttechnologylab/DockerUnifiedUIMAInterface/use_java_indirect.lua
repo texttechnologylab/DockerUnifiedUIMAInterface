@@ -1,10 +1,8 @@
 serial = luajava.bindClass("org.apache.uima.cas.impl.XmiCasSerializer")
-deserial = luajava.bindClass("org.apache.uima.cas.impl.XmiCasDeserializer")
+newval = luajava.newInstance("java.lang.String","hello World!")
 
 function serialize(inputCas,outputStream)
-  outputStream:write(json.encode({1,2,3,4}))
-  print('works right?')
-  print('seems right?')
+  outputStream:write('try')
 end
 
 function deserialize(inputCas,inputStream)

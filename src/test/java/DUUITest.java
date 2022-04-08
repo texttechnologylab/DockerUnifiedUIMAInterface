@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUILuaCommunicationLayer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUILuaContext;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUILuaSandbox;
 import org.xml.sax.SAXException;
 
 import java.io.ByteArrayOutputStream;
@@ -15,6 +16,9 @@ import java.io.OutputStream;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class DUUITest {
     @Test
@@ -38,12 +42,118 @@ public class DUUITest {
         String val = Files.readString(Path.of(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/uima_xmi_communication_json.lua").toURI()));
 
         DUUILuaContext ctxt = new DUUILuaContext();
-        ctxt.addGlobalLibrary("json",DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/json.lua").toURI());
+        ctxt.withGlobalLibrary("json",DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/json.lua").toURI());
         DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(val,"remote",ctxt);
         OutputStream out = new ByteArrayOutputStream();
         lua.serialize(jc,out);
         System.out.println(out.toString());
     }
+
+    @Test
+    public void LuaLibTestSandboxInstructionOverflow() throws UIMAException, CompressorException, IOException, SAXException, URISyntaxException {
+        JCas jc = JCasFactory.createJCas();
+        jc.setDocumentText("Hallo Welt!");
+        jc.setDocumentLanguage("de");
+        String val = Files.readString(Path.of(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/only_loaded_classes.lua").toURI()));
+
+        DUUILuaContext ctxt = new DUUILuaContext();
+        ctxt.withSandbox((new DUUILuaSandbox())
+                .withLimitInstructionCount(1));
+        ctxt.withGlobalLibrary("json",DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/json.lua").toURI());
+
+        assertThrows(RuntimeException.class, () -> {
+                    DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(val, "remote", ctxt);
+                });
+    }
+
+    @Test
+    public void LuaLibTestSandboxInstructionOk() throws UIMAException, CompressorException, IOException, SAXException, URISyntaxException {
+        JCas jc = JCasFactory.createJCas();
+        jc.setDocumentText("Hallo Welt!");
+        jc.setDocumentLanguage("de");
+        String val = Files.readString(Path.of(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/only_loaded_classes.lua").toURI()));
+
+        DUUILuaContext ctxt = new DUUILuaContext();
+        ctxt.withSandbox((new DUUILuaSandbox())
+                .withLimitInstructionCount(10000));
+        ctxt.withGlobalLibrary("json",DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/json.lua").toURI());
+
+
+        DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(val, "remote", ctxt);
+        OutputStream out = new ByteArrayOutputStream();
+        lua.serialize(jc,out);
+        assertEquals(out.toString(),"");
+    }
+
+    @Test
+    public void LuaLibTestSandboxForbidLoadJavaClasses() throws UIMAException, CompressorException, IOException, SAXException, URISyntaxException {
+        JCas jc = JCasFactory.createJCas();
+        jc.setDocumentText("Hallo Welt!");
+        jc.setDocumentLanguage("de");
+        String val = Files.readString(Path.of(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/uima_xmi_communication.lua").toURI()));
+
+        DUUILuaContext ctxt = new DUUILuaContext();
+        ctxt.withSandbox(new DUUILuaSandbox());
+        ctxt.withGlobalLibrary("json",DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/json.lua").toURI());
+
+
+        assertThrows(RuntimeException.class,()->{DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(val, "remote", ctxt);});
+    }
+
+    @Test
+    public void LuaLibTestSandboxForbidLoadJavaIndirectCall() throws UIMAException, CompressorException, IOException, SAXException, URISyntaxException {
+        JCas jc = JCasFactory.createJCas();
+        jc.setDocumentText("Hallo Welt!");
+        jc.setDocumentLanguage("de");
+        String val = Files.readString(Path.of(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/use_java_indirect.lua").toURI()));
+
+        DUUILuaContext ctxt = new DUUILuaContext();
+        ctxt.withSandbox(new DUUILuaSandbox());
+        ctxt.withGlobalLibrary("json",DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/json.lua").toURI());
+
+
+        assertThrows(RuntimeException.class,()->{
+            DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(val, "remote", ctxt);
+            OutputStream out = new ByteArrayOutputStream();
+            lua.serialize(jc,out);
+        });
+    }
+
+    @Test
+    public void LuaLibTestSandboxEnableLoadJavaIndirectCall() throws UIMAException, CompressorException, IOException, SAXException, URISyntaxException {
+        JCas jc = JCasFactory.createJCas();
+        jc.setDocumentText("Hallo Welt!");
+        jc.setDocumentLanguage("de");
+        String val = Files.readString(Path.of(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/use_java_indirect.lua").toURI()));
+
+        DUUILuaContext ctxt = new DUUILuaContext();
+        ctxt.withSandbox(new DUUILuaSandbox().withAllJavaClasses(true));
+        ctxt.withGlobalLibrary("json",DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/json.lua").toURI());
+
+
+        DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(val, "remote", ctxt);
+        OutputStream out = new ByteArrayOutputStream();
+        lua.serialize(jc,out);
+    }
+
+    @Test
+    public void LuaLibTestSandboxSelectiveJavaClasses() throws UIMAException, CompressorException, IOException, SAXException, URISyntaxException {
+        JCas jc = JCasFactory.createJCas();
+        jc.setDocumentText("Hallo Welt!");
+        jc.setDocumentLanguage("de");
+        String val = Files.readString(Path.of(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/use_java_indirect.lua").toURI()));
+
+        DUUILuaContext ctxt = new DUUILuaContext();
+        ctxt.withSandbox(new DUUILuaSandbox().withAllowedJavaClass("org.apache.uima.cas.impl.XmiCasSerializer")
+                .withAllowedJavaClass("java.lang.String"));
+        ctxt.withGlobalLibrary("json",DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/json.lua").toURI());
+
+
+        DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(val, "remote", ctxt);
+        OutputStream out = new ByteArrayOutputStream();
+        lua.serialize(jc,out);
+    }
+
 
 //    @Test
 //    public void XMIWriterTest() throws ResourceInitializationException, IOException, SAXException {

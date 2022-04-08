@@ -31,7 +31,7 @@ with open('dkpro-core-types.xml', 'rb') as f:
             self.wfile.write(json.dumps(new_obj).encode('utf-8'))
         def do_GET(self):
             if self.path == '/v1/communication_layer':
-                # Sending an '200 OK' response
+                # Sending an '404 Not found' response
                 self.send_response(404)
                 self.end_headers()
                 self.wfile.close()
