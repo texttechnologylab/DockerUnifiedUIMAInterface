@@ -154,6 +154,23 @@ public class DUUITest {
         lua.serialize(jc,out);
     }
 
+    @Test
+    public void LuaLibTestSandboxFailureSelectiveJavaClasses() throws UIMAException, CompressorException, IOException, SAXException, URISyntaxException {
+        JCas jc = JCasFactory.createJCas();
+        jc.setDocumentText("Hallo Welt!");
+        jc.setDocumentLanguage("de");
+        String val = Files.readString(Path.of(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/use_java_indirect.lua").toURI()));
+
+        DUUILuaContext ctxt = new DUUILuaContext();
+        ctxt.withSandbox(new DUUILuaSandbox().withAllowedJavaClass("org.apache.uima.cas.impl.XmiCasSerializer"));
+        ctxt.withGlobalLibrary("json",DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/json.lua").toURI());
+
+
+        assertThrows(RuntimeException.class,()-> {
+            DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(val, "remote", ctxt);
+        });
+    }
+
 
 //    @Test
 //    public void XMIWriterTest() throws ResourceInitializationException, IOException, SAXException {
