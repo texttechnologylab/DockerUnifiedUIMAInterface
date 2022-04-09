@@ -1,15 +1,15 @@
-package org.texttechnologylab.DockerUnifiedUIMAInterface;
+package org.texttechnologylab.DockerUnifiedUIMAInterface.driver;
 
 import java.util.HashMap;
 
 public class IDUUIPipelineComponent {
     private HashMap<String, String> _options;
 
-    IDUUIPipelineComponent() {
+    public IDUUIPipelineComponent() {
         _options = new HashMap<>();
     }
 
-    IDUUIPipelineComponent(IDUUIPipelineComponent other) {
+    public IDUUIPipelineComponent(IDUUIPipelineComponent other) {
         _options = other._options;
     }
 

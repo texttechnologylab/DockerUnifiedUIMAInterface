@@ -1,4 +1,4 @@
-package org.texttechnologylab.DockerUnifiedUIMAInterface;
+package org.texttechnologylab.DockerUnifiedUIMAInterface.lua;
 
 import java.util.HashSet;
 import java.util.Set;

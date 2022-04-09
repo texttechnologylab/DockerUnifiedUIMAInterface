@@ -1,4 +1,4 @@
-package org.texttechnologylab.DockerUnifiedUIMAInterface;
+package org.texttechnologylab.DockerUnifiedUIMAInterface.lua;
 
 /*******************************************************************************
  * Copyright (c) 2009 Luaj.org. All rights reserved.

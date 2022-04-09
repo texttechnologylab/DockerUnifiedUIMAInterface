@@ -1,21 +1,19 @@
-package org.texttechnologylab.DockerUnifiedUIMAInterface;
+package org.texttechnologylab.DockerUnifiedUIMAInterface.driver;
 
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
 import org.apache.commons.compress.compressors.CompressorException;
-import org.apache.commons.compress.compressors.CompressorStreamFactory;
 import org.apache.uima.UIMAException;
-import org.apache.uima.cas.TypeSystem;
-import org.apache.uima.cas.impl.XmiCasDeserializer;
-import org.apache.uima.cas.impl.XmiCasSerializer;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.fit.factory.TypeSystemDescriptionFactory;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.apache.uima.util.TypeSystemUtil;
-import org.json.JSONObject;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.*;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaCommunicationLayer;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.xml.sax.SAXException;
 
 import java.io.*;
@@ -45,7 +43,7 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
 
     private final static Logger LOGGER = Logger.getLogger(DUUIComposer.class.getName());
 
-    DUUILocalDriver() throws IOException, UIMAException, SAXException {
+    public DUUILocalDriver() throws IOException, UIMAException, SAXException {
         _interface = new DUUIDockerInterface();
         _client = new OkHttpClient();
 
@@ -62,7 +60,7 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
         _luaContext = null;
     }
 
-    DUUILocalDriver(int timeout) throws IOException, UIMAException, SAXException {
+    public DUUILocalDriver(int timeout) throws IOException, UIMAException, SAXException {
         _interface = new DUUIDockerInterface();
         _client = new OkHttpClient.Builder()
                 .connectTimeout(timeout, TimeUnit.SECONDS)
@@ -79,12 +77,12 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
         _luaContext = luaContext;
     }
 
-    DUUILocalDriver withTimeout(int container_timeout_ms) {
+    public DUUILocalDriver withTimeout(int container_timeout_ms) {
         _container_timeout = container_timeout_ms;
         return this;
     }
 
-    public static IDUUICommunicationLayer responsiveAfterTime(String url, JCas jc, int timeout_ms, OkHttpClient client,ResponsiveMessageCallback printfunc, DUUILuaContext context) throws Exception {
+    public static IDUUICommunicationLayer responsiveAfterTime(String url, JCas jc, int timeout_ms, OkHttpClient client, ResponsiveMessageCallback printfunc, DUUILuaContext context) throws Exception {
         long start = System.currentTimeMillis();
         IDUUICommunicationLayer layer = new DUUIFallbackCommunicationLayer();
         boolean fatal_error = false;
@@ -291,12 +289,12 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
         }
     }
 
-    static class ComponentInstance {
+    public static class ComponentInstance {
         private String _container_id;
         private int _port;
         private IDUUICommunicationLayer _communication;
 
-        ComponentInstance(String id, int port, IDUUICommunicationLayer layer) {
+        public ComponentInstance(String id, int port, IDUUICommunicationLayer layer) {
             _container_id = id;
             _port = port;
             _communication = layer;
@@ -407,7 +405,7 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
         private int _with_scale;
 
 
-        Component(String target) {
+        public Component(String target) {
             setOption("container", target);
             setOption("local", "yes");
         }

@@ -1,4 +1,4 @@
-package org.texttechnologylab.DockerUnifiedUIMAInterface;
+package org.texttechnologylab.DockerUnifiedUIMAInterface.driver;
 
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -6,13 +6,12 @@ import okhttp3.RequestBody;
 import okhttp3.Response;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.commons.compress.compressors.CompressorStreamFactory;
-import org.apache.uima.UIMAException;
-import org.apache.uima.cas.impl.XmiCasSerializer;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.fit.factory.TypeSystemDescriptionFactory;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
-import org.json.JSONObject;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.*;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.xml.sax.SAXException;
 
 import java.io.*;
@@ -23,8 +22,6 @@ import java.util.HashMap;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static java.lang.String.format;
 
@@ -36,7 +33,7 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
 
 
     public static class Component extends IDUUIPipelineComponent {
-        Component(String url) {
+        public Component(String url) {
             setOption("url", url);
         }
 
@@ -56,7 +53,7 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         private ConcurrentLinkedQueue<IDUUICommunicationLayer> _communication;
 
 
-        InstantiatedComponent(IDUUIPipelineComponent comp) {
+        public InstantiatedComponent(IDUUIPipelineComponent comp) {
             _url = comp.getOption("url");
             if (_url == null) {
                 throw new InvalidParameterException("Missing parameter URL in the pipeline component descriptor");
@@ -95,7 +92,7 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         }
     }
 
-    DUUIRemoteDriver(int timeout) {
+    public DUUIRemoteDriver(int timeout) {
         _client = new OkHttpClient.Builder()
                 .connectTimeout(timeout, TimeUnit.SECONDS)
                 .writeTimeout(timeout, TimeUnit.SECONDS)
@@ -105,7 +102,7 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         _helper = new DUUICompressionHelper(CompressorStreamFactory.ZSTANDARD);
     }
 
-    DUUIRemoteDriver() {
+    public DUUIRemoteDriver() {
         _components = new HashMap<String, InstantiatedComponent>();
         _client = new OkHttpClient();
         _helper = new DUUICompressionHelper(CompressorStreamFactory.ZSTANDARD);

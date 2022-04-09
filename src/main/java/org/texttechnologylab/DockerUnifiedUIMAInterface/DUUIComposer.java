@@ -1,37 +1,27 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface;
 
-import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
-import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token_Type;
 import de.tudarmstadt.ukp.dkpro.core.io.text.TextReader;
-import de.tudarmstadt.ukp.dkpro.core.io.text.TokenizedTextWriter;
 import de.tudarmstadt.ukp.dkpro.core.tokit.BreakIteratorSegmenter;
 import io.prometheus.client.Counter;
 import io.prometheus.client.Summary;
-import io.prometheus.client.exporter.HTTPServer;
 import org.apache.commons.compress.compressors.CompressorException;
-import org.apache.uima.cas.impl.XmiCasDeserializer;
-import org.apache.uima.cas.impl.XmiCasSerializer;
 import org.apache.uima.collection.CollectionReader;
 import org.apache.uima.collection.CollectionReaderDescription;
 import org.apache.uima.fit.factory.AnalysisEngineFactory;
 import org.apache.uima.fit.factory.CollectionReaderFactory;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.fit.factory.TypeSystemDescriptionFactory;
-import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.apache.uima.util.CasCreationUtils;
-import org.apache.uima.util.FileUtils;
 import org.luaj.vm2.Globals;
-import org.luaj.vm2.LuaValue;
-import org.luaj.vm2.lib.jse.CoerceJavaToLua;
 import org.luaj.vm2.lib.jse.JsePlatform;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.*;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.DUUIPrometheusInterface;
 import org.xml.sax.SAXException;
 
 import java.io.*;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.security.InvalidParameterException;
 import java.util.*;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -433,19 +423,19 @@ public class DUUIComposer {
 
         // Every component needs a driver which instantiates and runs them
         // Local driver manages local docker container and pulls docker container from remote repositories
-        /*composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.DUUILocalDriver.Component("kava-i.de:5000/secure/test_image")*/
+        /*composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUILocalDriver.Component("kava-i.de:5000/secure/test_image")*/
         composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class)),
-                org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIUIMADriver.class);
+                DUUIUIMADriver.class);
 
         composer.add(new DUUILocalDriver.Component("new:latest")
                         .withScale(1)
                         .withRunningAfterDestroy(false)
-                , org.texttechnologylab.DockerUnifiedUIMAInterface.DUUILocalDriver.class);
+                , DUUILocalDriver.class);
 
         // Remote driver handles all pure URL endpoints
-       /* composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIRemoteDriver.Component("http://127.0.0.1:9714")
+       /* composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.Component("http://127.0.0.1:9714")
                         .withScale(2),
-                org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIRemoteDriver.class);*/
+                org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.class);*/
         /*composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9714")
                         .withScale(2),
                 DUUIRemoteDriver.class);*/
@@ -456,11 +446,11 @@ public class DUUIComposer {
                         BreakIteratorSegmenter.PARAM_LANGUAGE,"en")
         ).withScale(2), DUUIUIMADriver.class);
 
-        composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.DUUISwarmDriver.Component("localhost:5000/pushed")
+        composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUISwarmDriver.Component("localhost:5000/pushed")
                         .withFromLocalImage("new:latest")
                         .withScale(3)
                         .withRunningAfterDestroy(true)
-                , org.texttechnologylab.DockerUnifiedUIMAInterface.DUUISwarmDriver.class);
+                , org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUISwarmDriver.class);
 
         //System.out.println("Generating full concurrency graph. WARNING: This needs a full pipeline instantiation.");
 

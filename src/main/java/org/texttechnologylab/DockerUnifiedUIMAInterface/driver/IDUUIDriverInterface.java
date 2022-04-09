@@ -1,16 +1,15 @@
-package org.texttechnologylab.DockerUnifiedUIMAInterface;
+package org.texttechnologylab.DockerUnifiedUIMAInterface.driver;
 
 import org.apache.commons.compress.compressors.CompressorException;
 
-import org.apache.uima.UIMAException;
 import org.apache.uima.analysis_engine.AnalysisEngineProcessException;
 import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIEither;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.xml.sax.SAXException;
 
 import java.io.IOException;
-import java.lang.reflect.InvocationTargetException;
-import java.util.concurrent.TimeoutException;
 
 public interface IDUUIDriverInterface {
     public void setLuaContext(DUUILuaContext luaContext);

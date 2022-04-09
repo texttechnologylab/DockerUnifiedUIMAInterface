@@ -1,4 +1,4 @@
-package org.texttechnologylab.DockerUnifiedUIMAInterface;
+package org.texttechnologylab.DockerUnifiedUIMAInterface.lua;
 
 import org.luaj.vm2.*;
 import org.luaj.vm2.compiler.LuaC;

@@ -1,4 +1,4 @@
-package org.texttechnologylab.DockerUnifiedUIMAInterface;
+package org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring;
 
 import com.github.dockerjava.api.command.*;
 import com.github.dockerjava.api.model.ExposedPort;
@@ -6,8 +6,9 @@ import com.github.dockerjava.api.model.HostConfig;
 import com.github.dockerjava.api.model.Ports;
 import com.github.dockerjava.core.util.CompressArchiveUtil;
 import io.prometheus.client.exporter.HTTPServer;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIDockerInterface;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.InetAddress;
@@ -44,7 +45,7 @@ public class DUUIPrometheusInterface {
     private Thread _prometheusThread;
     private DUUIDockerInterface _docker;
 
-    DUUIPrometheusInterface(int prometheusExposedDataPort) {
+    public DUUIPrometheusInterface(int prometheusExposedDataPort) {
         _prometheusThread = new DUUIPrometheusThread(prometheusExposedDataPort);
         _prometheusThread.start();
         _prometheusExposedDataPort = prometheusExposedDataPort;
@@ -55,11 +56,11 @@ public class DUUIPrometheusInterface {
         _prometheusThread.interrupt();
     }
 
-    DUUIPrometheusInterface withAutoStartPrometheus(int prometheusPort) throws IOException, InterruptedException, URISyntaxException {
+    public DUUIPrometheusInterface withAutoStartPrometheus(int prometheusPort) throws IOException, InterruptedException, URISyntaxException {
         return withAutoStartPrometheus(prometheusPort,null);
     }
 
-    String generateURL() throws UnknownHostException {
+    public String generateURL() throws UnknownHostException {
         if(_prometheusPort==-1) {
             return null;
         }

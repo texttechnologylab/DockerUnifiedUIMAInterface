@@ -1,6 +1,4 @@
-package org.texttechnologylab.DockerUnifiedUIMAInterface;
-import okhttp3.Request;
-import okhttp3.Response;
+package org.texttechnologylab.DockerUnifiedUIMAInterface.driver;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.UIMAException;
 import org.apache.uima.analysis_engine.AnalysisEngine;
@@ -15,11 +13,11 @@ import org.apache.uima.resource.metadata.ConfigurationParameter;
 import org.apache.uima.resource.metadata.NameValuePair;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.apache.uima.util.InvalidXMLException;
-import org.json.JSONObject;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIEither;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.xml.sax.SAXException;
 
 import java.io.*;
-import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;

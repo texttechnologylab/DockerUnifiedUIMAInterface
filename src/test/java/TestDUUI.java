@@ -1,13 +1,12 @@
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.UIMAException;
-import org.apache.uima.cas.impl.XmiCasSerializer;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.jcas.JCas;
 import org.junit.jupiter.api.Test;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUILuaCommunicationLayer;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUILuaContext;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUILuaSandbox;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaCommunicationLayer;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaSandbox;
 import org.xml.sax.SAXException;
 
 import java.io.ByteArrayOutputStream;
@@ -20,7 +19,8 @@ import java.nio.file.Path;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-public class DUUITest {
+
+public class TestDUUI {
     @Test
     public void LuaBaseTest() throws UIMAException, CompressorException, IOException, SAXException, URISyntaxException {
         JCas jc = JCasFactory.createJCas();

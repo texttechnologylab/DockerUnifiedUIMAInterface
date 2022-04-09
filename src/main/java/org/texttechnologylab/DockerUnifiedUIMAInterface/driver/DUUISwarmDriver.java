@@ -1,20 +1,17 @@
-package org.texttechnologylab.DockerUnifiedUIMAInterface;
+package org.texttechnologylab.DockerUnifiedUIMAInterface.driver;
 
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
 import org.apache.commons.compress.compressors.CompressorException;
-import org.apache.commons.compress.compressors.CompressorStreamFactory;
 import org.apache.uima.UIMAException;
-import org.apache.uima.cas.impl.XmiCasSerializer;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.fit.factory.TypeSystemDescriptionFactory;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
-import org.apache.uima.util.TypeSystemUtil;
-import org.bouncycastle.cert.ocsp.Req;
-import org.json.JSONObject;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.*;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.xml.sax.SAXException;
 
 import java.io.*;
@@ -26,8 +23,6 @@ import java.util.HashMap;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static java.lang.String.format;
 
@@ -40,7 +35,7 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
     private DUUILuaContext _luaContext;
 
 
-    DUUISwarmDriver() throws IOException, SAXException, UIMAException {
+    public DUUISwarmDriver() throws IOException, SAXException, UIMAException {
         int timeout = 10;
         _interface = new DUUIDockerInterface();
         _client = new OkHttpClient.Builder()
@@ -54,7 +49,7 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         _active_components = new HashMap<String, DUUISwarmDriver.InstantiatedComponent>();
     }
 
-    DUUISwarmDriver(int timeout) throws IOException, UIMAException, SAXException {
+    public DUUISwarmDriver(int timeout) throws IOException, UIMAException, SAXException {
         _interface = new DUUIDockerInterface();
         _client = new OkHttpClient.Builder()
                 .connectTimeout(timeout, TimeUnit.SECONDS)

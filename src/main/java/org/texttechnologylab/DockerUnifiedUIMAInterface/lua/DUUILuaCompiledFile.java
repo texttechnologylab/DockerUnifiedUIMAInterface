@@ -1,10 +1,11 @@
-package org.texttechnologylab.DockerUnifiedUIMAInterface;
+package org.texttechnologylab.DockerUnifiedUIMAInterface.lua;
 
 import org.luaj.vm2.Globals;
 import org.luaj.vm2.LuaThread;
 import org.luaj.vm2.LuaValue;
 import org.luaj.vm2.Varargs;
 import org.luaj.vm2.lib.ZeroArgFunction;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaSandbox;
 
 public class DUUILuaCompiledFile {
     private Globals _globals;
