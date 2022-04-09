@@ -5,6 +5,9 @@ import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token_Type;
 import de.tudarmstadt.ukp.dkpro.core.io.text.TextReader;
 import de.tudarmstadt.ukp.dkpro.core.io.text.TokenizedTextWriter;
 import de.tudarmstadt.ukp.dkpro.core.tokit.BreakIteratorSegmenter;
+import io.prometheus.client.Counter;
+import io.prometheus.client.Summary;
+import io.prometheus.client.exporter.HTTPServer;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.cas.impl.XmiCasDeserializer;
 import org.apache.uima.cas.impl.XmiCasSerializer;
@@ -97,21 +100,39 @@ class DUUIWorker extends Thread {
 public class DUUIComposer {
     private Map<String, IDUUIDriverInterface> _drivers;
     private Vector<IDUUIPipelineComponent> _pipeline;
+    private Vector<Summary> _pipelineSummary;
+
     private int _workers;
     public Integer _cas_poolsize;
     private String _compressionMethod;
     private DUUILuaContext _context;
+    private DUUIPrometheusInterface _prometheusInterface;
 
     private static final String DRIVER_OPTION_NAME = "duuid.composer.driver";
+
+    static final Counter files = Counter.build()
+            .name("documents_processed").help("Total number of documents processed.").register();
+
+    static final Summary documentSize = Summary.build()
+            .name("document_size").help("Document size.").register();
+
+    static final Summary pipelineRuntime = Summary.build()
+            .name("pipeline_runtime").help("Pipeline runtime without factoring in concurrency").register();
 
     public DUUIComposer() {
         _drivers = new HashMap<String, IDUUIDriverInterface>();
         _pipeline = new Vector<IDUUIPipelineComponent>();
+        _pipelineSummary = new Vector<Summary>();
         _workers = 1;
         _cas_poolsize = null;
         Globals globals = JsePlatform.standardGlobals();
         _context = new DUUILuaContext();
         System.out.println("[Composer] Initialised LUA scripting layer with version "+ globals.get("_VERSION"));
+    }
+
+    public DUUIComposer withPrometheus(DUUIPrometheusInterface prometheus) {
+        _prometheusInterface = prometheus;
+        return this;
     }
 
     public DUUIComposer withLuaContext(DUUILuaContext context) {
@@ -150,7 +171,10 @@ public class DUUIComposer {
                 throw new InvalidParameterException(format("The driver %s cannot accept %s as input!", t.getCanonicalName().toString(), object.getClass().getCanonicalName().toString()));
             }
         }
+        int len = _pipeline.size();
         _pipeline.add(object);
+        _pipelineSummary.add(Summary.build()
+                .name("pipeline_component_"+len).help("Pipeline component runtime").register());
         return this;
     }
 
@@ -208,6 +232,7 @@ public class DUUIComposer {
                 while(jc == null) {
                     jc = emptyCasDocuments.poll();
                 }
+                files.inc();
                 collectionReader.getNext(jc.getCas());
                 loadedCasDocuments.add(jc);
             }
@@ -243,6 +268,7 @@ public class DUUIComposer {
         CollectionReader collectionReader = CollectionReaderFactory.createReader(reader);
         System.out.println("[Composer] Instantiated the collection reader.");
 
+
         if(_workers == 1) {
             System.out.println("[Composer] Running in synchronous mode, 1 thread at most!");
             _cas_poolsize = 1;
@@ -258,6 +284,7 @@ public class DUUIComposer {
             JCas jc = JCasFactory.createJCas(desc);
             while(collectionReader.hasNext()) {
                 collectionReader.getNext(jc.getCas());
+                files.inc();
                 run_pipeline(jc,idPipeline);
                 jc.reset();
             }
@@ -291,11 +318,17 @@ public class DUUIComposer {
     }
 
     private DUUIEither run_pipeline(JCas jc, Vector<PipelinePart> pipeline) throws Exception {
+        documentSize.observe(jc.getDocumentText().length());
+        long time = System.currentTimeMillis();
         DUUIEither start = new DUUIEither(jc,_compressionMethod);
 
-        for (PipelinePart comp : pipeline) {
+        for(int i = 0; i < pipeline.size(); i++) {
+            PipelinePart comp = pipeline.get(i);
+            long timeInt = System.currentTimeMillis();
             start = comp.getDriver().run(comp.getUUID(), start);
+            _pipelineSummary.get(i).observe(System.currentTimeMillis()-timeInt);
         }
+        pipelineRuntime.observe(System.currentTimeMillis()-time);
         return start;
     }
 
@@ -304,7 +337,15 @@ public class DUUIComposer {
             System.out.printf("[Composer] Shutting down %s...\n", comp.getUUID());
             comp.getDriver().destroy(comp.getUUID());
         }
-        System.out.println("[Composer] Shut down complete.\n");
+        System.out.println("[Composer] Shut down complete.");
+        if(_prometheusInterface != null) {
+            System.out.println("[Composer] Kepping the program open for another 30 seconds, for prometheus to finish scraping.");
+            String url = _prometheusInterface.generateURL();
+            if(url!=null) {
+                System.out.printf("[Composer] Prometheus panel is opened at %s\n",url);
+            }
+            Thread.sleep(30000);
+        }
     }
 
     public void printConcurrencyGraph() throws Exception {
@@ -362,10 +403,18 @@ public class DUUIComposer {
         }
     }
 
+    public void shutdown() {
+        if(_prometheusInterface != null) {
+            _prometheusInterface.shutdown();
+        }
+    }
+
 
     public static void main(String[] args) throws Exception {
         // create an environment to run in
-        DUUIComposer composer = new DUUIComposer().withCompressionMethod("none");
+        DUUIComposer composer = new DUUIComposer().withCompressionMethod("none")
+                .withPrometheus(new DUUIPrometheusInterface(2334)
+                        .withAutoStartPrometheus(9090));
 
         // Instantiate drivers with options
         DUUILocalDriver driver = new DUUILocalDriver()
@@ -390,7 +439,7 @@ public class DUUIComposer {
 
         composer.add(new DUUILocalDriver.Component("new:latest")
                         .withScale(1)
-                        .withRunningAfterDestroy(true)
+                        .withRunningAfterDestroy(false)
                 , org.texttechnologylab.DockerUnifiedUIMAInterface.DUUILocalDriver.class);
 
         // Remote driver handles all pure URL endpoints
@@ -425,7 +474,7 @@ public class DUUIComposer {
         jc.setDocumentText("Hello World!");
 
         // Run single document
-        composer.run(jc);
+        //composer.run(jc);
 
 
         /*
@@ -441,10 +490,11 @@ public class DUUIComposer {
 
         // Run Collection Reader
 
-        /*composer.run(createReaderDescription(TextReader.class,
+        composer.run(createReaderDescription(TextReader.class,
                 TextReader.PARAM_SOURCE_LOCATION, "test_corpora/**.txt",
                 TextReader.PARAM_LANGUAGE, "en"));
-         */
 
+        // Needed to clean up dangling containers/threads
+        composer.shutdown();
   }
 }

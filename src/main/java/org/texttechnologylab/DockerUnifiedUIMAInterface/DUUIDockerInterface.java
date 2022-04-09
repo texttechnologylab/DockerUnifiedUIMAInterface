@@ -19,6 +19,7 @@ import java.util.concurrent.TimeUnit;
 
 import static java.lang.String.format;
 
+//TODO: Enable different tags here
 class PullImageStdout extends PullImageResultCallback {
     private String _status;
 
@@ -162,6 +163,28 @@ public class DUUIDockerInterface {
         int innerport = 0;
         for (Map.Entry<ExposedPort, Ports.Binding[]> port : container.getNetworkSettings().getPorts().getBindings().entrySet()) {
             if (port.getValue().length > 0 && port.getKey().getPort() == 9714) {
+                innerport = Integer.parseInt(port.getValue()[0].getHostPortSpec());
+            }
+        }
+
+        return innerport;
+    }
+
+    /**
+     * Extracts port mapping from the container with the given containerid, this is important since docker does auto allocate
+     * ports when not explicitly specifying the port number. This will only work on a DockerWrapper constructed container.
+     *
+     * @param containerid The running containerid to read the port mapping from
+     * @return The port it was mapped to.
+     * @throws InterruptedException
+     */
+    public int extract_port_mapping(String containerid, int portMapping) throws InterruptedException {
+        InspectContainerResponse container
+                = _docker.inspectContainerCmd(containerid).exec();
+
+        int innerport = 0;
+        for (Map.Entry<ExposedPort, Ports.Binding[]> port : container.getNetworkSettings().getPorts().getBindings().entrySet()) {
+            if (port.getValue().length > 0 && port.getKey().getPort() == portMapping) {
                 innerport = Integer.parseInt(port.getValue()[0].getHostPortSpec());
             }
         }
@@ -343,6 +366,10 @@ public class DUUIDockerInterface {
         return false;
     }
 
+    public DockerClient getDockerClient() {
+        return _docker;
+    }
+
     public String build(Path builddir, List<String> buildArgs) {
         BuildImageCmd buildCmd = _docker.buildImageCmd().withPull(true)
                 .withBaseDirectory(builddir.toFile())
@@ -365,7 +392,6 @@ public class DUUIDockerInterface {
     }
 
     public String pullImage(String tag,String username, String password) throws InterruptedException {
-
         if(username!=null && password!=null) {
             AuthConfig cfg = new AuthConfig();
             cfg.withUsername(username);
