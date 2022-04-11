@@ -29,10 +29,16 @@ import java.util.logging.Logger;
 
 import static java.lang.String.format;
 
+/**
+ * @author Alexander Leonhardt
+ */
 interface ResponsiveMessageCallback {
     public void operation(String message);
 }
 
+/**
+ * @author Alexander Leonhardt
+ */
 public class DUUILocalDriver implements IDUUIDriverInterface {
     private DUUIDockerInterface _interface;
     private OkHttpClient _client;

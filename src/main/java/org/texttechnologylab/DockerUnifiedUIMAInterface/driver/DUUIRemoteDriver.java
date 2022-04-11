@@ -25,34 +25,61 @@ import java.util.concurrent.TimeUnit;
 
 import static java.lang.String.format;
 
+/**
+ * @author Alexander Leonhardt
+ */
 public class DUUIRemoteDriver implements IDUUIDriverInterface {
     private HashMap<String, InstantiatedComponent> _components;
     private OkHttpClient _client;
     private DUUICompressionHelper _helper;
     private DUUILuaContext _luaContext;
 
-
+    /**
+     *
+     * @author Alexander Leonhardt
+     */
     public static class Component extends IDUUIPipelineComponent {
+
+        /**
+         *
+         * @param url
+         */
         public Component(String url) {
             setOption("url", url);
         }
 
+        /**
+         *
+         * @param scale
+         * @return
+         */
         public Component withScale(int scale) {
             setOption("scale", String.valueOf(scale));
             return this;
         }
     }
 
+    /**
+     *
+     * @param luaContext
+     */
     public void setLuaContext(DUUILuaContext luaContext) {
         _luaContext = luaContext;
     }
 
+    /**
+     *
+     * @author Alexander Leonhardt
+     */
     private static class InstantiatedComponent extends IDUUIPipelineComponent {
         private String _url;
         private int _maximum_concurrency;
         private ConcurrentLinkedQueue<IDUUICommunicationLayer> _communication;
 
-
+        /**
+         *
+         * @param comp
+         */
         public InstantiatedComponent(IDUUIPipelineComponent comp) {
             _url = comp.getOption("url");
             if (_url == null) {
@@ -69,29 +96,53 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
             }
         }
 
+        /**
+         *
+         * @param layer
+         */
         public void addCommunicationLayer(IDUUICommunicationLayer layer) {
             for(int i = 0; i < _maximum_concurrency; i++) {
                 _communication.add(layer.copy());
             }
         }
 
+        /**
+         *
+         * @return
+         */
         public ConcurrentLinkedQueue<IDUUICommunicationLayer> getInstances() {
             return _communication;
         }
 
+        /**
+         *
+         * @param layer
+         */
         public void returnCommunicationLayer(IDUUICommunicationLayer layer) {
             _communication.add(layer);
         }
 
+        /**
+         *
+         * @return
+         */
         public int getScale() {
             return _maximum_concurrency;
         }
 
+        /**
+         *
+         * @return
+         */
         public String getUrl() {
             return _url;
         }
     }
 
+    /**
+     *
+     * @param timeout
+     */
     public DUUIRemoteDriver(int timeout) {
         _client = new OkHttpClient.Builder()
                 .connectTimeout(timeout, TimeUnit.SECONDS)
@@ -102,16 +153,30 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         _helper = new DUUICompressionHelper(CompressorStreamFactory.ZSTANDARD);
     }
 
+    /**
+     *
+     */
     public DUUIRemoteDriver() {
         _components = new HashMap<String, InstantiatedComponent>();
         _client = new OkHttpClient();
         _helper = new DUUICompressionHelper(CompressorStreamFactory.ZSTANDARD);
     }
 
+    /**
+     *
+     * @param component
+     * @return
+     */
     public boolean canAccept(IDUUIPipelineComponent component) {
         return component.getClass().getCanonicalName() == component.getClass().getCanonicalName();
     }
 
+    /**
+     *
+     * @param component
+     * @return
+     * @throws Exception
+     */
     public String instantiate(IDUUIPipelineComponent component) throws Exception {
         String uuid = UUID.randomUUID().toString();
         while (_components.containsKey(uuid)) {
@@ -135,6 +200,10 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         return uuid;
     }
 
+    /**
+     *
+     * @param uuid
+     */
     public void printConcurrencyGraph(String uuid) {
         InstantiatedComponent component = _components.get(uuid);
         if (component == null) {
@@ -143,6 +212,15 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         System.out.printf("[RemoteDriver][%s]: Maximum concurrency %d\n",uuid,component.getScale());
     }
 
+    /**
+     *
+     * @param uuid
+     * @return
+     * @throws InterruptedException
+     * @throws IOException
+     * @throws SAXException
+     * @throws CompressorException
+     */
     public TypeSystemDescription get_typesystem(String uuid) throws InterruptedException, IOException, SAXException, CompressorException {
         DUUIRemoteDriver.InstantiatedComponent comp = _components.get(uuid);
         if (comp == null) {
@@ -167,6 +245,16 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         }
     }
 
+    /**
+     *
+     * @param uuid
+     * @param aCas
+     * @return
+     * @throws InterruptedException
+     * @throws IOException
+     * @throws SAXException
+     * @throws CompressorException
+     */
     public DUUIEither run(String uuid, DUUIEither aCas) throws InterruptedException, IOException, SAXException, CompressorException {
         InstantiatedComponent comp = _components.get(uuid);
         if (comp == null) {
@@ -200,6 +288,10 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         return aCas;
     }
 
+    /**
+     * Destroy
+     * @param uuid
+     */
     public void destroy(String uuid) {
         _components.remove(uuid);
     }

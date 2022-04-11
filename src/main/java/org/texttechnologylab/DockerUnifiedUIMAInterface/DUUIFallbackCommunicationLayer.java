@@ -12,7 +12,19 @@ import java.io.*;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 
+/**
+ * @author Alexander Leonhardt
+ */
 public class DUUIFallbackCommunicationLayer implements IDUUICommunicationLayer {
+
+    /**
+     *
+     * @param jc
+     * @param out
+     * @throws CompressorException
+     * @throws IOException
+     * @throws SAXException
+     */
     public void serialize(JCas jc, OutputStream out) throws CompressorException, IOException, SAXException {
         JSONObject obj = new JSONObject();
         ByteArrayOutputStream arr = new ByteArrayOutputStream();
@@ -27,10 +39,17 @@ public class DUUIFallbackCommunicationLayer implements IDUUICommunicationLayer {
         obj.put("typesystem", typesystem);
         obj.put("typesystem_hash", typesystem.hashCode());
         obj.put("cas_hash", cas.hashCode());
-        obj.put("compression","none");
+        obj.put("compression","none"); // TODO: enum
         out.write(obj.toString().getBytes(StandardCharsets.UTF_8));
     }
 
+    /**
+     *
+     * @param jc
+     * @param input
+     * @throws IOException
+     * @throws SAXException
+     */
     public void deserialize(JCas jc, InputStream input) throws IOException, SAXException {
         String body = new String(input.readAllBytes(), Charset.defaultCharset());
         JSONObject response = new JSONObject(body);

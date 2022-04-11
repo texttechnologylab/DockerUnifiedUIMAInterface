@@ -31,6 +31,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static java.lang.String.format;
 import static org.apache.uima.fit.factory.CollectionReaderFactory.createReaderDescription;
 
+/**
+ *
+ *  @author Alexander Leonhardt
+ */
 class DUUIWorker extends Thread {
     Vector<DUUIComposer.PipelinePart> _flow;
     ConcurrentLinkedQueue<JCas> _instancesToBeLoaded;
@@ -38,6 +42,8 @@ class DUUIWorker extends Thread {
     AtomicInteger _threadsAlive;
     AtomicBoolean _shutdown;
     String _compressionMethod;
+
+    enum COMPRESSION{none}
 
     DUUIWorker(Vector<DUUIComposer.PipelinePart> engineFlow, ConcurrentLinkedQueue<JCas> emptyInstance, ConcurrentLinkedQueue<JCas> loadedInstances, AtomicBoolean shutdown, AtomicInteger error, String compression) {
         super();
@@ -86,7 +92,10 @@ class DUUIWorker extends Thread {
     }
 }
 
-
+/**
+ *
+ * @author Alexander Leonhardt
+ */
 public class DUUIComposer {
     private Map<String, IDUUIDriverInterface> _drivers;
     private Vector<IDUUIPipelineComponent> _pipeline;
@@ -94,7 +103,7 @@ public class DUUIComposer {
 
     private int _workers;
     public Integer _cas_poolsize;
-    private String _compressionMethod;
+    private String _compressionMethod; // TODO: Enum
     private DUUILuaContext _context;
     private DUUIPrometheusInterface _prometheusInterface;
 
@@ -120,37 +129,84 @@ public class DUUIComposer {
         System.out.println("[Composer] Initialised LUA scripting layer with version "+ globals.get("_VERSION"));
     }
 
+    /**
+     *
+     * @param prometheus
+     * @return
+     */
     public DUUIComposer withPrometheus(DUUIPrometheusInterface prometheus) {
         _prometheusInterface = prometheus;
         return this;
     }
 
+    /**
+     *
+     * @param context
+     * @return
+     */
     public DUUIComposer withLuaContext(DUUILuaContext context) {
         _context = context;
         return this;
     }
 
+    /**
+     *
+     * @param poolsize
+     * @return
+     */
     public DUUIComposer withCasPoolsize(int poolsize) {
         _cas_poolsize = poolsize;
         return this;
     }
 
-    public DUUIComposer withCompressionMethod(String method) {
-        _compressionMethod = method;
+    /**
+     *
+     * @param pMethod
+     * @return
+     */
+    public DUUIComposer withCompressionMethod(DUUIWorker.COMPRESSION pMethod) {
+        _compressionMethod = pMethod.toString();
         return this;
     }
 
+    /**
+     * Specifying compression for the composer.
+     * @param sMethod
+     * @return
+     */
+    public DUUIComposer withCompressionMethod(String sMethod) {
+        _compressionMethod = sMethod;
+        return this;
+    }
+
+    /**
+     * Specification of the workers which are to be used.
+     * @param workers
+     * @return
+     */
     public DUUIComposer withWorkers(int workers) {
         _workers = workers;
         return this;
     }
 
+    /**
+     * Method for adding a driver.
+     * @param driver
+     * @return
+     */
     public DUUIComposer addDriver(IDUUIDriverInterface driver) {
         driver.setLuaContext(_context);
         _drivers.put(driver.getClass().getCanonicalName().toString(), driver);
         return this;
     }
 
+    /**
+     * Method for adding a component
+     * @param object
+     * @param t
+     * @param <Y>
+     * @return
+     */
     public <Y> DUUIComposer add(IDUUIPipelineComponent object, Class<Y> t) {
         object.setOption(DRIVER_OPTION_NAME, t.getCanonicalName().toString());
         IDUUIDriverInterface driver = _drivers.get(t.getCanonicalName().toString());
@@ -168,6 +224,10 @@ public class DUUIComposer {
         return this;
     }
 
+    /**
+     *
+     * @author Alexander Leonhardt
+     */
     public static class PipelinePart {
         private IDUUIDriverInterface _driver;
         private String _uuid;
@@ -177,15 +237,28 @@ public class DUUIComposer {
             _uuid = uuid;
         }
 
+        /**
+         * Return the current driver of the pipeline
+         * @return
+         */
         public IDUUIDriverInterface getDriver() {
             return _driver;
         }
 
+        /**
+         * Return the UUID
+         * @return
+         */
         public String getUUID() {
             return _uuid;
         }
     }
 
+    /**
+     * Start the composer asynchronously.
+     * @param collectionReader
+     * @throws Exception
+     */
     public void run_async(CollectionReader collectionReader) throws Exception {
         ConcurrentLinkedQueue<JCas> emptyCasDocuments = new ConcurrentLinkedQueue<>();
         ConcurrentLinkedQueue<JCas> loadedCasDocuments = new ConcurrentLinkedQueue<>();
@@ -252,6 +325,11 @@ public class DUUIComposer {
         }
     }
 
+    /**
+     * Start the composer synchronously.
+     * @param reader
+     * @throws Exception
+     */
     public void run(CollectionReaderDescription reader) throws Exception {
         Exception catched = null;
         System.out.println("[Composer] Instantiating the collection reader...");
@@ -290,6 +368,12 @@ public class DUUIComposer {
         }
     }
 
+    /**
+     *
+     * @param idPipeline
+     * @return
+     * @throws Exception
+     */
     private TypeSystemDescription instantiate_pipeline(Vector<PipelinePart> idPipeline) throws Exception {
         List<TypeSystemDescription> descriptions = new LinkedList<>();
         descriptions.add(TypeSystemDescriptionFactory.createTypeSystemDescription());
@@ -307,6 +391,13 @@ public class DUUIComposer {
         return CasCreationUtils.mergeTypeSystems(descriptions);
     }
 
+    /**
+     *
+     * @param jc
+     * @param pipeline
+     * @return
+     * @throws Exception
+     */
     private DUUIEither run_pipeline(JCas jc, Vector<PipelinePart> pipeline) throws Exception {
         documentSize.observe(jc.getDocumentText().length());
         long time = System.currentTimeMillis();
@@ -322,6 +413,11 @@ public class DUUIComposer {
         return start;
     }
 
+    /**
+     * Method to terminate a pipeline.
+     * @param pipeline
+     * @throws Exception
+     */
     private void shutdown_pipeline(Vector<PipelinePart> pipeline) throws Exception {
         for (PipelinePart comp : pipeline) {
             System.out.printf("[Composer] Shutting down %s...\n", comp.getUUID());
@@ -338,6 +434,10 @@ public class DUUIComposer {
         }
     }
 
+    /**
+     * Display of the current Composer configuration.
+     * @throws Exception
+     */
     public void printConcurrencyGraph() throws Exception {
         Exception catched = null;
         Vector<PipelinePart> idPipeline = new Vector<PipelinePart>();
@@ -366,6 +466,11 @@ public class DUUIComposer {
         }
     }
 
+    /**
+     * Start the composer for a single JCAS document.
+     * @param jc
+     * @throws Exception
+     */
     public void run(JCas jc) throws Exception {
         Exception catched = null;
         Vector<PipelinePart> idPipeline = new Vector<PipelinePart>();
@@ -393,6 +498,9 @@ public class DUUIComposer {
         }
     }
 
+    /**
+     * Shutdown the composer
+     */
     public void shutdown() {
         if(_prometheusInterface != null) {
             _prometheusInterface.shutdown();
@@ -402,7 +510,7 @@ public class DUUIComposer {
 
     public static void main(String[] args) throws Exception {
         // create an environment to run in
-        DUUIComposer composer = new DUUIComposer().withCompressionMethod("none")
+        DUUIComposer composer = new DUUIComposer().withCompressionMethod(DUUIWorker.COMPRESSION.none)
                 .withPrometheus(new DUUIPrometheusInterface(2334)
                         .withAutoStartPrometheus(9090));
 

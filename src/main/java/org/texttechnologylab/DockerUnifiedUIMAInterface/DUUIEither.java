@@ -19,7 +19,11 @@ import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
-//Taken from https://stackoverflow.com/questions/26162407/is-there-an-equivalent-of-scalas-either-in-java-8
+/**
+ * //Taken from https://stackoverflow.com/questions/26162407/is-there-an-equivalent-of-scalas-either-in-java-8
+ * @author Alexander Leonhardt
+ */
+
 public class DUUIEither {
     private String _string_buffer;
     private JCas _jcas_buffer;
@@ -29,6 +33,14 @@ public class DUUIEither {
     private int _transform_steps;
     private DUUICompressionHelper _compression;
 
+    /**
+     *
+     * @param jc
+     * @param compression
+     * @throws IOException
+     * @throws SAXException
+     * @throws CompressorException
+     */
     public DUUIEither(JCas jc, String compression) throws IOException, SAXException, CompressorException {
         _jcas_buffer = jc;
         _string_buffer = "";
@@ -45,6 +57,13 @@ public class DUUIEither {
         _typesystem_buffer = compress(writer.getBuffer().toString());
     }
 
+    /**
+     *
+     * @param tocompress
+     * @return
+     * @throws CompressorException
+     * @throws IOException
+     */
     private String compress(String tocompress) throws CompressorException, IOException {
         if(_compression != null) {
             return new String(Base64.getEncoder().encode(_compression.compress(tocompress).getBytes(StandardCharsets.UTF_8)));
@@ -54,6 +73,13 @@ public class DUUIEither {
         }
     }
 
+    /**
+     *
+     * @param compressed
+     * @return
+     * @throws CompressorException
+     * @throws IOException
+     */
     private String decompress(String compressed) throws CompressorException, IOException {
         if(_compression != null) {
             return _compression.decompress(new String(Base64.getDecoder().decode(compressed)));
@@ -63,6 +89,10 @@ public class DUUIEither {
         }
     }
 
+    /**
+     *
+     * @return
+     */
     public String getCompressionMethod() {
         if(_compression==null) {
             return "none";
@@ -72,10 +102,21 @@ public class DUUIEither {
         }
     }
 
+    /**
+     *
+     * @return
+     */
     public String getTypesystem() {
         return _typesystem_buffer;
     }
 
+    /**
+     *
+     * @return
+     * @throws SAXException
+     * @throws CompressorException
+     * @throws IOException
+     */
     public String getAsString() throws SAXException, CompressorException, IOException {
         if (_current_selected_jcas) {
             ByteArrayOutputStream arr = new ByteArrayOutputStream();
@@ -87,20 +128,39 @@ public class DUUIEither {
         return _string_buffer;
     }
 
+    /**
+     *
+     * @param jc
+     */
     public void updateJCas(JCas jc) {
         _jcas_buffer = jc;
         _current_selected_jcas = true;
     }
 
+    /**
+     *
+     * @param buffer
+     */
     public void updateStringBuffer(String buffer) {
         _string_buffer = buffer;
         _current_selected_jcas = false;
     }
 
+    /**
+     *
+     * @return
+     */
     public int getTransformSteps() {
         return _transform_steps;
     }
 
+    /**
+     *
+     * @return
+     * @throws SAXException
+     * @throws IOException
+     * @throws CompressorException
+     */
     public JCas getAsJCas() throws SAXException, IOException, CompressorException {
         if (!_current_selected_jcas) {
             _jcas_buffer.reset();

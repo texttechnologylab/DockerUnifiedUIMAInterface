@@ -26,6 +26,10 @@ import java.util.concurrent.TimeUnit;
 
 import static java.lang.String.format;
 
+/**
+ *
+ * @author Alexander Leonhardt
+ */
 public class DUUISwarmDriver implements IDUUIDriverInterface {
     private DUUIDockerInterface _interface;
     private OkHttpClient _client;
@@ -34,7 +38,12 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
     private int _container_timeout;
     private DUUILuaContext _luaContext;
 
-
+    /**
+     *
+     * @throws IOException
+     * @throws SAXException
+     * @throws UIMAException
+     */
     public DUUISwarmDriver() throws IOException, SAXException, UIMAException {
         int timeout = 10;
         _interface = new DUUIDockerInterface();
@@ -49,6 +58,13 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         _active_components = new HashMap<String, DUUISwarmDriver.InstantiatedComponent>();
     }
 
+    /**
+     *
+     * @param timeout
+     * @throws IOException
+     * @throws UIMAException
+     * @throws SAXException
+     */
     public DUUISwarmDriver(int timeout) throws IOException, UIMAException, SAXException {
         _interface = new DUUIDockerInterface();
         _client = new OkHttpClient.Builder()
@@ -65,19 +81,39 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         _active_components = new HashMap<String, DUUISwarmDriver.InstantiatedComponent>();
     }
 
+    /**
+     *
+     * @param luaContext
+     */
     public void setLuaContext(DUUILuaContext luaContext) {
         _luaContext = luaContext;
     }
 
+    /**
+     *
+     * @param container_timeout_ms
+     * @return
+     */
     DUUISwarmDriver withTimeout(int container_timeout_ms) {
         _container_timeout = container_timeout_ms;
         return this;
     }
 
+    /**
+     *
+     * @param comp
+     * @return
+     */
     public boolean canAccept(IDUUIPipelineComponent comp) {
         return comp.getClass().getName().toString() == DUUISwarmDriver.Component.class.getName().toString();
     }
 
+    /**
+     *
+     * @param component
+     * @return
+     * @throws Exception
+     */
     public String instantiate(IDUUIPipelineComponent component) throws Exception {
         String uuid = UUID.randomUUID().toString();
         while (_active_components.containsKey(uuid.toString())) {
@@ -121,6 +157,10 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         return uuid;
     }
 
+    /**
+     *
+     * @param uuid
+     */
     public void printConcurrencyGraph(String uuid) {
         DUUISwarmDriver.InstantiatedComponent component = _active_components.get(uuid);
         if (component == null) {
@@ -129,6 +169,15 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         System.out.printf("[DockerSwarmDriver][%s]: Maximum concurrency %d\n",uuid,component.getScale());
     }
 
+    /**
+     *
+     * @param uuid
+     * @return
+     * @throws InterruptedException
+     * @throws IOException
+     * @throws SAXException
+     * @throws CompressorException
+     */
     public TypeSystemDescription get_typesystem(String uuid) throws InterruptedException, IOException, SAXException, CompressorException {
         DUUISwarmDriver.InstantiatedComponent comp = _active_components.get(uuid);
         if (comp == null) {
@@ -152,6 +201,16 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         }
     }
 
+    /**
+     *
+     * @param uuid
+     * @param aCas
+     * @return
+     * @throws InterruptedException
+     * @throws IOException
+     * @throws SAXException
+     * @throws CompressorException
+     */
     public DUUIEither run(String uuid, DUUIEither aCas) throws InterruptedException, IOException, SAXException, CompressorException {
         DUUISwarmDriver.InstantiatedComponent comp = _active_components.get(uuid);
         if (comp == null) {
@@ -184,6 +243,10 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         return aCas;
     }
 
+    /**
+     * Destroy
+     * @param uuid
+     */
     public void destroy(String uuid) {
         DUUISwarmDriver.InstantiatedComponent comp = _active_components.remove(uuid);
         if (comp == null) {
@@ -195,6 +258,10 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         }
     }
 
+    /**
+     *
+     * @author Alexander Leonhardt
+     */
     private static class InstantiatedComponent {
         private String _image_name;
         private String _service_id;
@@ -207,20 +274,41 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         private String _reg_password;
         private String _reg_username;
 
+        /**
+         *
+         * @return
+         */
         public ConcurrentLinkedQueue<IDUUICommunicationLayer> getInstances() {
             return _communication;
         }
 
+        /**
+         *
+         * @param layer
+         */
         public void addCommunicationLayer(IDUUICommunicationLayer layer) {
             for(int i = 0; i < _scale; i++) {
                 _communication.add(layer.copy());
             }
         }
 
+        /**
+         *
+         * @param layer
+         */
         public void returnCommunicationLayer(IDUUICommunicationLayer layer) {
             _communication.add(layer);
         }
 
+        /**
+         *
+         * @param comp
+         * @throws ClassNotFoundException
+         * @throws NoSuchMethodException
+         * @throws InvocationTargetException
+         * @throws InstantiationException
+         * @throws IllegalAccessException
+         */
         InstantiatedComponent(IDUUIPipelineComponent comp) throws ClassNotFoundException, NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
             _image_name = comp.getOption("container");
             if (_image_name == null) {
@@ -250,32 +338,58 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
             _communication = null;
         }
 
-
+        /**
+         *
+         * @return
+         */
         public String getPassword() {return _reg_password;}
 
+        /**
+         *
+         * @return
+         */
         public String getUsername() {return _reg_username;}
 
+        /**
+         *
+         * @return
+         */
         public boolean isBackedByLocalImage() {
             return _fromLocalImage!=null;
         }
 
+        /**
+         *
+         * @return
+         */
         public String getLocalImageName() {
             return _fromLocalImage;
         }
 
-
+        /**
+         *
+         * @param service_id
+         * @param container_port
+         * @return
+         */
         public InstantiatedComponent initialise(String service_id, int container_port) {
             _service_id = service_id;
             _service_port = container_port;
             return this;
         }
 
+        /**
+         *
+         * @return
+         */
         public String getServiceUrl() {
             return format("http://localhost:%d",_service_port);
         }
 
-
-
+        /**
+         *
+         * @return
+         */
         public String getImageName() {
             return _image_name;
         }

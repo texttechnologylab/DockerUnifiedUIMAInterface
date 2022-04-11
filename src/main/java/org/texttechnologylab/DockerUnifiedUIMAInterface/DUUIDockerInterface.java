@@ -43,6 +43,9 @@ class PullImageStdout extends PullImageResultCallback {
     }
 }
 
+/**
+ * @author Alexander Leonhardt
+ */
 class PushImageStdout extends ResultCallback.Adapter<PushResponseItem> {
     private String _status;
 
@@ -129,6 +132,7 @@ class BuildImageProgress extends BuildImageResultCallback {
     }
 }
 
+// Todo: Author?
 /**
  * This is the general docker interface which interacts with the docker daemon.
  */

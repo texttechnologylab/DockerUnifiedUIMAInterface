@@ -21,6 +21,9 @@ import java.nio.file.Paths;
 
 import static java.lang.String.format;
 
+/**
+ * @author Alexander Leonhardt
+ */
 class DUUIPrometheusThread extends Thread {
     private int _port;
 
@@ -38,6 +41,9 @@ class DUUIPrometheusThread extends Thread {
     }
 }
 
+/**
+ * @author Alexander Leonhardt
+ */
 public class DUUIPrometheusInterface {
     private int _prometheusExposedDataPort;
     private int _prometheusPort;
@@ -45,6 +51,10 @@ public class DUUIPrometheusInterface {
     private Thread _prometheusThread;
     private DUUIDockerInterface _docker;
 
+    /**
+     *
+     * @param prometheusExposedDataPort
+     */
     public DUUIPrometheusInterface(int prometheusExposedDataPort) {
         _prometheusThread = new DUUIPrometheusThread(prometheusExposedDataPort);
         _prometheusThread.start();
@@ -52,14 +62,30 @@ public class DUUIPrometheusInterface {
         _prometheusPort = -1;
     }
 
+    /**
+     * Shutdown Prometheus
+     */
     public void shutdown() {
         _prometheusThread.interrupt();
     }
 
+    /**
+     *
+     * @param prometheusPort
+     * @return
+     * @throws IOException
+     * @throws InterruptedException
+     * @throws URISyntaxException
+     */
     public DUUIPrometheusInterface withAutoStartPrometheus(int prometheusPort) throws IOException, InterruptedException, URISyntaxException {
         return withAutoStartPrometheus(prometheusPort,null);
     }
 
+    /**
+     *
+     * @return
+     * @throws UnknownHostException
+     */
     public String generateURL() throws UnknownHostException {
         if(_prometheusPort==-1) {
             return null;
@@ -68,16 +94,28 @@ public class DUUIPrometheusInterface {
         return format("http://%s:%d",IP.getHostAddress().toString(),_prometheusPort);
     }
 
+    /**
+     *
+     * @return
+     * @throws UnknownHostException
+     */
     String generateExposedAddrURL() throws UnknownHostException {
         InetAddress IP = InetAddress.getLocalHost();
         return format("host.docker.internal:%d",_prometheusExposedDataPort);
     }
 
+    /**
+     *
+     * @param containerId
+     * @throws IOException
+     * @throws URISyntaxException
+     */
     void copyConfigToContainer(String containerId) throws IOException, URISyntaxException {
         Path configuration = Files.createTempDirectory("duui");
         configuration = Paths.get(configuration.toString(),"prometheus.yml");
         if(_configurationYML == null) {
             _configurationYML = format(Files.readString(Path.of(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/prometheus.yml").toURI())),generateExposedAddrURL());
+            // TODO: Konstante?
         }
         Files.write(configuration,_configurationYML.getBytes(StandardCharsets.UTF_8));
         System.out.println(format("[PrometheusInterface] Wrote temporary prometheus configuration file into %s.",configuration.toString()));
@@ -92,6 +130,15 @@ public class DUUIPrometheusInterface {
                 .exec();
     }
 
+    /**
+     *
+     * @param prometheusPort
+     * @param configurationYML
+     * @return
+     * @throws IOException
+     * @throws InterruptedException
+     * @throws URISyntaxException
+     */
     DUUIPrometheusInterface withAutoStartPrometheus(int prometheusPort, String configurationYML) throws IOException, InterruptedException, URISyntaxException {
         if(_docker == null) {
             _docker = new DUUIDockerInterface();
