@@ -14,6 +14,7 @@ import org.apache.uima.util.TypeSystemUtil;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.*;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaCommunicationLayer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
 import org.xml.sax.SAXException;
 
 import java.io.*;
@@ -160,7 +161,6 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
             uuid = UUID.randomUUID().toString();
         }
 
-
         InstantiatedComponent comp = new InstantiatedComponent(component);
         JCas _basic = JCasFactory.createJCas();
         _basic.setDocumentLanguage("en");
@@ -241,7 +241,8 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
         }
     }
 
-    public DUUIEither run(String uuid, DUUIEither aCas) throws InterruptedException, IOException, SAXException, CompressorException {
+    public JCas run(String uuid, JCas aCas, DUUIPipelineDocumentPerformance perf) throws InterruptedException, IOException, SAXException, CompressorException {
+        long mutexStart = System.nanoTime();
         InstantiatedComponent comp = _active_components.get(uuid);
         if (comp == null) {
             throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
@@ -250,11 +251,16 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
         while(inst == null) {
             inst = comp.getInstances().poll();
         }
+        long mutexEnd = System.nanoTime();
 
 
+        long serializeStart = System.nanoTime();
         OutputStream outputStream = new ByteArrayOutputStream();
-        inst.getCommunicationLayer().serialize(aCas.getAsJCas(),outputStream);
+        inst.getCommunicationLayer().serialize(aCas,outputStream);
         String ok = outputStream.toString();
+        long serializeEnd = System.nanoTime();
+
+        long annotatorStart = serializeEnd;
         RequestBody bod = RequestBody.create(ok.getBytes(StandardCharsets.UTF_8));
         Request request = new Request.Builder()
                 .url(inst.getContainerUrl() + "/v1/process")
@@ -265,7 +271,11 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
 
         if (resp.code() == 200) {
             InputStream inputStream = new ByteArrayInputStream(resp.body().bytes());
-            inst.getCommunicationLayer().deserialize(aCas.getAsJCas(),inputStream);
+            long annotatorEnd = System.nanoTime();
+            long deserializeStart = annotatorEnd;
+            inst.getCommunicationLayer().deserialize(aCas,inputStream);
+            long deserializeEnd = System.nanoTime();
+            perf.addData(serializeEnd-serializeStart,deserializeEnd-deserializeStart,annotatorEnd-annotatorStart,mutexEnd-mutexStart,deserializeEnd-mutexStart,comp.getUniqueComponentKey());
             comp.addInstance(inst);
         } else {
             comp.addInstance(inst);
@@ -327,12 +337,15 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
 
         private String _reg_password;
         private String _reg_username;
+        private String _uniqueComponentKey;
 
         InstantiatedComponent(IDUUIPipelineComponent comp) {
             _image_name = comp.getOption("container");
             if (_image_name == null) {
                 throw new InvalidParameterException("The image name was not set! This is mandatory for the DockerLocalDriver Class.");
             }
+
+            _uniqueComponentKey = comp.getOption(DUUIComposer.COMPONENT_COMPONENT_UNIQUE_KEY);
 
             String local = comp.getOption("local");
             if (local != null && local.equals("yes")) {
@@ -367,6 +380,7 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
             _reg_username = comp.getOption("reg_username");
         }
 
+        public String getUniqueComponentKey() {return _uniqueComponentKey;}
         public String getPassword() {return _reg_password;}
 
         public String getUsername() {return _reg_username;}

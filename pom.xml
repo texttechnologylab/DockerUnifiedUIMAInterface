@@ -55,6 +55,11 @@
         </plugins>
     </build>
     <dependencies>
+        <dependency>
+            <groupId>com.influxdb</groupId>
+            <artifactId>influxdb-client-java</artifactId>
+            <version>5.0.0</version>
+        </dependency>
     <dependency>
         <groupId>com.github.docker-java</groupId>
         <artifactId>docker-java</artifactId>
@@ -108,30 +113,21 @@
             <artifactId>json</artifactId>
             <version>20211205</version>
         </dependency>
-        <!-- The client -->
+
         <dependency>
-            <groupId>io.prometheus</groupId>
-            <artifactId>simpleclient</artifactId>
-            <version>0.15.0</version>
+            <groupId>com.arangodb</groupId>
+            <artifactId>arangodb-java-driver</artifactId>
+            <version>6.16.1</version>
         </dependency>
-        <!-- Hotspot JVM metrics-->
+
+        <!-- https://mvnrepository.com/artifact/com.arangodb/jackson-dataformat-velocypack -->
         <dependency>
-            <groupId>io.prometheus</groupId>
-            <artifactId>simpleclient_hotspot</artifactId>
-            <version>0.15.0</version>
+            <groupId>com.arangodb</groupId>
+            <artifactId>jackson-dataformat-velocypack</artifactId>
+            <version>3.0.0</version>
         </dependency>
-        <!-- Exposition HTTPServer-->
-        <dependency>
-            <groupId>io.prometheus</groupId>
-            <artifactId>simpleclient_httpserver</artifactId>
-            <version>0.15.0</version>
-        </dependency>
-        <!-- Pushgateway exposition-->
-        <dependency>
-            <groupId>io.prometheus</groupId>
-            <artifactId>simpleclient_pushgateway</artifactId>
-            <version>0.15.0</version>
-        </dependency>
+
+
 
         <dependency>
             <groupId>de.tudarmstadt.ukp.dkpro.core</groupId>

@@ -39,7 +39,9 @@ with open('dkpro-core-types.xml', 'rb') as f:
                 self.end_headers()
                 self.wfile.write(communication.encode('utf-8'))
 
+
             else:
+                # /v1/typesystem
                 # Sending an '200 OK' response
                 self.send_response(200)
 

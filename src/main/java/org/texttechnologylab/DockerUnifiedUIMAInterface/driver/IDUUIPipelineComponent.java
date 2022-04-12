@@ -1,6 +1,7 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.driver;
 
 import java.util.HashMap;
+import java.util.Map;
 
 public class IDUUIPipelineComponent {
     private HashMap<String, String> _options;
@@ -9,6 +10,12 @@ public class IDUUIPipelineComponent {
         _options = new HashMap<>();
     }
 
+    public IDUUIPipelineComponent(Map<String,Object> options) {
+        _options = new HashMap<>();
+        for(Map.Entry<String,Object> entry : options.entrySet()) {
+            _options.put(entry.getKey(),String.valueOf(entry.getValue()));
+        }
+    }
     public IDUUIPipelineComponent(IDUUIPipelineComponent other) {
         _options = other._options;
     }
@@ -23,6 +30,16 @@ public class IDUUIPipelineComponent {
 
     public boolean hasOption(String key) {
         return _options.containsKey(key);
+    }
+
+    public Map<String,String> getOptions() {return _options;}
+
+    public void withName(String name) {
+        setOption("name",name);
+    }
+
+    public String getName() {
+        return getOption("name");
     }
 
     public String removeOption(String key) {

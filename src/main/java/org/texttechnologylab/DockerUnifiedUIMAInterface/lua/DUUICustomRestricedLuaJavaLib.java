@@ -156,6 +156,10 @@ public class DUUICustomRestricedLuaJavaLib extends VarArgFunction {
         }
     }
 
+    // InfluxDB -> CPU, Memory, Logs
+    // Postgres -> Document time, run information etc.
+    // Grafana -> Show informations
+
     // load classes using app loader to allow luaj to be used as an extension
     protected Class classForName(String name) throws ClassNotFoundException {
         if(_allowedClasses.contains(name)) {

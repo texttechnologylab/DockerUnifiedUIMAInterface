@@ -8,6 +8,7 @@ with open('dkpro-core-types.xml', 'rb') as f:
     typesystem = load_typesystem(f)
 
     class MyHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
+        # /v1/process
         def do_POST(self):
             content_len = int(self.headers.get('Content-Length'))
             post_body = self.rfile.read(content_len).decode("utf-8")

@@ -13,8 +13,9 @@ import org.apache.uima.resource.metadata.ConfigurationParameter;
 import org.apache.uima.resource.metadata.NameValuePair;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.apache.uima.util.InvalidXMLException;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIEither;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
 import org.xml.sax.SAXException;
 
 import java.io.*;
@@ -48,9 +49,15 @@ public class DUUIUIMADriver implements IDUUIDriverInterface {
 
     public static class InstantiatedComponent {
         private ConcurrentLinkedQueue<AnalysisEngine> _engines;
+        private String _uniqueComponentKey;
 
-        public InstantiatedComponent() {
+        public InstantiatedComponent(String uniqueComponentKey) {
             _engines = new ConcurrentLinkedQueue<AnalysisEngine>();
+            _uniqueComponentKey = uniqueComponentKey;
+        }
+
+        public String getUniqueComponentKey() {
+            return _uniqueComponentKey;
         }
 
         public InstantiatedComponent add(AnalysisEngine engine) {
@@ -216,7 +223,7 @@ public class DUUIUIMADriver implements IDUUIDriverInterface {
                 System.out.println(x);
             }
         }
-        InstantiatedComponent comp = new InstantiatedComponent();
+        InstantiatedComponent comp = new InstantiatedComponent(component.getOption(DUUIComposer.COMPONENT_COMPONENT_UNIQUE_KEY));
         for(int i = 0; i < scale; i++) {
             AnalysisEngine ana = AnalysisEngineFactory.createEngine(analysis_engine_desc);
             String annotator = analysis_engine_desc.getAnnotatorImplementationName();
@@ -236,7 +243,9 @@ public class DUUIUIMADriver implements IDUUIDriverInterface {
         return TypeSystemDescriptionFactory.createTypeSystemDescription();
     }
 
-    public DUUIEither run(String uuid, DUUIEither aCas) throws InterruptedException, IOException, SAXException, AnalysisEngineProcessException, CompressorException {
+    public JCas run(String uuid, JCas aCas, DUUIPipelineDocumentPerformance perf) throws InterruptedException, IOException, SAXException, AnalysisEngineProcessException, CompressorException {
+        long mutexStart = System.nanoTime();
+
         InstantiatedComponent component = _engines.get(uuid);
         if (component == null) {
             throw new InvalidParameterException("The given instantiated component uuid was not instantiated by the remote driver");
@@ -245,10 +254,14 @@ public class DUUIUIMADriver implements IDUUIDriverInterface {
         while(engine==null) {
             engine = component.getEngines().poll();
         }
+        long mutexEnd = System.nanoTime();
         try {
-            JCas jc = aCas.getAsJCas();
+            long annotatorStart = mutexEnd;
+            JCas jc = aCas;
             engine.process(jc.getCas());
-            aCas.updateJCas(jc);
+            long annotatorEnd = System.nanoTime();
+            perf.addData(0,0,annotatorEnd-annotatorStart,mutexEnd-mutexStart,annotatorEnd-mutexStart, component.getUniqueComponentKey());
+
             component.add(engine);
         }
         catch(Exception e) {

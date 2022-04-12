@@ -12,6 +12,7 @@ import org.apache.uima.jcas.JCas;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.*;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
 import org.xml.sax.SAXException;
 
 import java.io.*;
@@ -152,7 +153,8 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         }
     }
 
-    public DUUIEither run(String uuid, DUUIEither aCas) throws InterruptedException, IOException, SAXException, CompressorException {
+    public JCas run(String uuid, JCas aCas, DUUIPipelineDocumentPerformance perf) throws InterruptedException, IOException, SAXException, CompressorException {
+        long mutexStart = System.nanoTime();
         DUUISwarmDriver.InstantiatedComponent comp = _active_components.get(uuid);
         if (comp == null) {
             throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
@@ -161,10 +163,16 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         while(inst == null) {
             inst = comp.getInstances().poll();
         }
+        long mutexEnd = System.nanoTime();
+        long serializeStart = System.nanoTime();
 
         OutputStream out = new ByteArrayOutputStream();
-        inst.serialize(aCas.getAsJCas(),out);
+        inst.serialize(aCas,out);
         String ok = out.toString();
+        long serializeEnd = System.nanoTime();
+
+        long annotatorStart = serializeEnd;
+
         RequestBody body = RequestBody.create(ok.getBytes(StandardCharsets.UTF_8));
         Request request = new Request.Builder()
                 .url(comp.getServiceUrl()+ "/v1/process")
@@ -175,7 +183,11 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
 
         if (resp.code() == 200) {
             InputStream st = new ByteArrayInputStream(resp.body().bytes());
-            inst.deserialize(aCas.getAsJCas(),st);
+            long annotatorEnd = System.nanoTime();
+            long deserializeStart = annotatorEnd;
+            inst.deserialize(aCas,st);
+            long deserializeEnd = System.nanoTime();
+            perf.addData(serializeEnd-serializeStart,deserializeEnd-deserializeStart,annotatorEnd-annotatorStart,mutexEnd-mutexStart,deserializeEnd-mutexStart,comp.getUniqueComponentKey());
             comp.returnCommunicationLayer(inst);
         } else {
             comp.returnCommunicationLayer(inst);
@@ -206,6 +218,7 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
 
         private String _reg_password;
         private String _reg_username;
+        private String _uniqueComponentKey;
 
         public ConcurrentLinkedQueue<IDUUICommunicationLayer> getInstances() {
             return _communication;
@@ -227,6 +240,7 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
                 throw new InvalidParameterException("The image name was not set! This is mandatory for the DockerLocalDriver Class.");
             }
 
+            _uniqueComponentKey = comp.getOption(DUUIComposer.COMPONENT_COMPONENT_UNIQUE_KEY);
             String scale = comp.getOption("scale");
             if (scale == null) {
                 _scale = 1;
@@ -251,6 +265,7 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         }
 
 
+        public String getUniqueComponentKey() {return _uniqueComponentKey;}
         public String getPassword() {return _reg_password;}
 
         public String getUsername() {return _reg_username;}
