@@ -151,7 +151,8 @@ public class DUUIArangoDBStorageBackend implements IDUUIStorageBackend {
             }
     }
 
-    public void shutdown() {
+    public void shutdown() throws UnknownHostException {
+        System.out.printf("[DUUIArangoDBStorageBackend] To inspect the metrics visit ArangoDB at %s\n",generateURL());
         _client.shutdown();
     }
 

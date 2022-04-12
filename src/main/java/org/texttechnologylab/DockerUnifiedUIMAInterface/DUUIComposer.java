@@ -436,7 +436,7 @@ public class DUUIComposer {
     }
 
 
-    public void shutdown() {
+    public void shutdown() throws UnknownHostException {
         if(_monitor!=null) {
             _monitor.shutdown();
         }
@@ -527,8 +527,7 @@ public class DUUIComposer {
 
         composer.run(createReaderDescription(TextReader.class,
                 TextReader.PARAM_SOURCE_LOCATION, "test_corpora/**.txt",
-                TextReader.PARAM_LANGUAGE, "en"),"next7");
+                TextReader.PARAM_LANGUAGE, "en"),"next8");
         composer.shutdown();
-        System.out.println("At the end!");
   }
 }
