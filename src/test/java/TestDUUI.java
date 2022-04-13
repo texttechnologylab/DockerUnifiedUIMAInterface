@@ -204,7 +204,7 @@ public class TestDUUI {
         long start = System.currentTimeMillis();
         lua.serialize(jc,out);
         long end = System.currentTimeMillis();
-        System.out.printf("Serialize large in %d ms time," +
+        System.out.printf("Serialize large Lua JSON in %d ms time," +
                 " total bytes %d\n",end-start,out.toString().length());
         JSONArray arr = new JSONArray(out.toString());
         assertEquals(expectedNumberOfTokens,arr.getJSONArray(1).length());
@@ -232,7 +232,7 @@ public class TestDUUI {
         long start = System.currentTimeMillis();
         lua.serialize(jc,out);
         long end = System.currentTimeMillis();
-        System.out.printf("Serialize large in %d ms time," +
+        System.out.printf("Serialize large Lua MsgPack in %d ms time," +
                 " total bytes %d, total tokens %d\n",end-start,out.toString().length(),expectedNumberOfTokens);
         MessageUnpacker unpacker = MessagePack.newDefaultUnpacker(out.toByteArray());
         String text = unpacker.unpackString();
@@ -256,7 +256,7 @@ public class TestDUUI {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
 
         long start = System.currentTimeMillis();
-        MessageBufferPacker packer = MessagePack.newDefaultBufferPacker();
+        MessageBufferPacker packer = MessagePack.newDefaultBufferPacker();g
         packer.packString(jc.getDocumentText());
         packer.packArrayHeader(JCasUtil.select(jc,Token.class).size()*2);
         for(Token t : JCasUtil.select(jc,Token.class)) {
@@ -265,7 +265,7 @@ public class TestDUUI {
         }
         out.write(packer.toByteArray());
         long end = System.currentTimeMillis();
-        System.out.printf("Serialize large in %d ms time," +
+        System.out.printf("Serialize large Java MsgPack in %d ms time," +
                 " total bytes %d, total tokens %d\n",end-start,out.toString().length(),expectedNumberOfTokens);
         MessageUnpacker unpacker = MessagePack.newDefaultUnpacker(out.toByteArray());
         String text = unpacker.unpackString();
@@ -301,7 +301,7 @@ public class TestDUUI {
         arr2.put(endt);
         out.write(arr2.toString().getBytes(StandardCharsets.UTF_8));
         long end = System.currentTimeMillis();
-        System.out.printf("Serialize large in %d ms time," +
+        System.out.printf("Serialize large Java JSON in %d ms time," +
                 " total bytes %d, total tokens %d\n",end-start,out.toString().length(),expectedNumberOfTokens);
         JSONArray arr = new JSONArray(out.toString());
         assertEquals(expectedNumberOfTokens,arr.getJSONArray(1).length());
