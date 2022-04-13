@@ -16,6 +16,7 @@ with open('dkpro-core-types.xml', 'rb') as f:
             content_len = int(self.headers.get('Content-Length'))
             post_body = self.rfile.read(content_len).decode("utf-8")
             print(post_body)
+            # Hier weiß der Container, dass Sentence: SATZ\n
 
             cas = load_cas_from_xmi(post_body, typesystem=typesystem,lenient=True)
             #loaded = json.loads(post_body)

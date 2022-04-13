@@ -13,6 +13,9 @@ import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * @author Alexander Leonhardt
+ */
 public class DUUILuaContext {
     private Map<String,String> _luaScripts;
     private DUUILuaSandbox _sandbox;
