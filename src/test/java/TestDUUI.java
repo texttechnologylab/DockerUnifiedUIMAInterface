@@ -1,6 +1,10 @@
+import de.tudarmstadt.ukp.dkpro.core.tokit.BreakIteratorSegmenter;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.UIMAException;
+import org.apache.uima.analysis_engine.AnalysisEngineDescription;
+import org.apache.uima.fit.factory.AnalysisEngineFactory;
 import org.apache.uima.fit.factory.JCasFactory;
+import org.apache.uima.fit.pipeline.SimplePipeline;
 import org.apache.uima.jcas.JCas;
 import org.junit.jupiter.api.Test;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
@@ -171,6 +175,25 @@ public class TestDUUI {
         });
     }
 
+    @Test
+    public void LuaLargeSerialize() throws UIMAException, CompressorException, IOException, SAXException, URISyntaxException {
+        JCas jc = JCasFactory.createJCas();
+        String val2 = Files.readString(Path.of(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/large_texts/1000.txt").toURI()));
+        jc.setDocumentText(val2);
+        jc.setDocumentLanguage("de");
+        AnalysisEngineDescription desc = AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class);
+        SimplePipeline.runPipeline(jc,desc);
+
+        String val = Files.readString(Path.of(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/rust_communication_json.lua").toURI()));
+        DUUILuaContext ctxt = new DUUILuaContext();
+        DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(val,"remote",ctxt);
+        OutputStream out = new ByteArrayOutputStream();
+        long start = System.currentTimeMillis();
+        lua.serialize(jc,out);
+        long end = System.currentTimeMillis();
+        System.out.printf("Serialize large in %d ms time," +
+                " total bytes %d\n",end-start,out.toString().length());
+    }
 
 //    @Test
 //    public void XMIWriterTest() throws ResourceInitializationException, IOException, SAXException {

@@ -1,7 +1,8 @@
 sentence = luajava.bindClass("de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Sentence")
+util = luajava.bindClass("org.apache.uima.fit.util.JCasUtil")
+
 
 function serialize(inputCas,outputStream)
-  sentences = luajava.newInstance("org.json.JSONArray")
   beginsent = luajava.newInstance("org.json.JSONArray")
   endsent = luajava.newInstance("org.json.JSONArray")
   send = luajava.newInstance("org.json.JSONArray")
@@ -9,13 +10,13 @@ function serialize(inputCas,outputStream)
   local result = util:select(inputCas,sentence):iterator()
   while result:hasNext() do
     local x = result:next()
-	  sentences:put(x:getCoveredText())
 	  beginsent:put(x:getBegin())
-    endsent:put(x:getEnd())
+      endsent:put(x:getEnd())
   end
-  send:put(sentences)
+  send:put(inputCas:getDocumentText())
   send:put(beginsent)
-  send:out(endsent)
+  send:put(endsent)
+  outputStream:write(send:toString())
 end
 
 function deserialize(inputCas,inputStream)
