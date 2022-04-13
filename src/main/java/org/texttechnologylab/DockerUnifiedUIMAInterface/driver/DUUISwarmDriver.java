@@ -136,7 +136,7 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
             throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
         }
         Request request = new Request.Builder()
-                .url(comp.getServiceUrl() + "/v1/typesystem")
+                .url(comp.getServiceUrl() + DUUIComposer.V1_COMPONENT_ENDPOINT_TYPESYSTEM)
                 .get()
                 .build();
         Response resp = _client.newCall(request).execute();
@@ -175,7 +175,7 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
 
         RequestBody body = RequestBody.create(ok.getBytes(StandardCharsets.UTF_8));
         Request request = new Request.Builder()
-                .url(comp.getServiceUrl()+ "/v1/process")
+                .url(comp.getServiceUrl()+ DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS)
                 .post(body)
                 .header("Content-Length", String.valueOf(ok.length()))
                 .build();

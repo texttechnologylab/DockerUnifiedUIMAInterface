@@ -9,6 +9,7 @@ import org.apache.uima.UIMAException;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.fit.factory.TypeSystemDescriptionFactory;
 import org.apache.uima.jcas.JCas;
+import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.apache.uima.util.TypeSystemUtil;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.*;
@@ -89,7 +90,7 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
         boolean fatal_error = false;
         while(true) {
             Request request = new Request.Builder()
-                    .url(url + "/v1/communication_layer")
+                    .url(url + DUUIComposer.V1_COMPONENT_ENDPOINT_COMMUNICATION_LAYER)
                     .get()
                     .build();
             try {
@@ -137,7 +138,7 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
         RequestBody body = RequestBody.create(stream.toString().getBytes(StandardCharsets.UTF_8));
 
         Request request = new Request.Builder()
-                .url(url + "/v1/process")
+                .url(url + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS)
                 .post(body)
                 .build();
                 Response resp = client.newCall(request).execute();
@@ -213,7 +214,7 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
         System.out.printf("[DockerLocalDriver][%s]: Maximum concurrency %d\n",uuid,component.getInstances().size());
     }
 
-    public TypeSystemDescription get_typesystem(String uuid) throws InterruptedException, IOException, SAXException, CompressorException {
+    public TypeSystemDescription get_typesystem(String uuid) throws InterruptedException, IOException, SAXException, CompressorException, ResourceInitializationException {
         InstantiatedComponent comp = _active_components.get(uuid);
         if (comp == null) {
             throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
@@ -223,7 +224,7 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
             inst = comp.getInstances().poll();
         }
         Request request = new Request.Builder()
-                .url(inst.getContainerUrl() + "/v1/typesystem")
+                .url(inst.getContainerUrl() + DUUIComposer.V1_COMPONENT_ENDPOINT_TYPESYSTEM)
                 .get()
                 .build();
         Response resp = _client.newCall(request).execute();
@@ -237,7 +238,8 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
             writer.close();
             return TypeSystemDescriptionFactory.createTypeSystemDescriptionFromPath(tmp.getAbsolutePath());
         } else {
-            throw new InvalidObjectException("Response code != 200, error");
+            System.out.printf("[DockerLocalDriver][%s]: Endpoint did not provide typesystem, using default one...\n",uuid);
+            return TypeSystemDescriptionFactory.createTypeSystemDescription();
         }
     }
 
@@ -263,7 +265,7 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
         long annotatorStart = serializeEnd;
         RequestBody bod = RequestBody.create(ok.getBytes(StandardCharsets.UTF_8));
         Request request = new Request.Builder()
-                .url(inst.getContainerUrl() + "/v1/process")
+                .url(inst.getContainerUrl() + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS)
                 .post(bod)
                 .header("Content-Length", String.valueOf(ok.length()))
                 .build();

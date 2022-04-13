@@ -9,6 +9,7 @@ import org.apache.commons.compress.compressors.CompressorStreamFactory;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.fit.factory.TypeSystemDescriptionFactory;
 import org.apache.uima.jcas.JCas;
+import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.*;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
@@ -148,13 +149,13 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         System.out.printf("[RemoteDriver][%s]: Maximum concurrency %d\n",uuid,component.getScale());
     }
 
-    public TypeSystemDescription get_typesystem(String uuid) throws InterruptedException, IOException, SAXException, CompressorException {
+    public TypeSystemDescription get_typesystem(String uuid) throws InterruptedException, IOException, SAXException, CompressorException, ResourceInitializationException {
         DUUIRemoteDriver.InstantiatedComponent comp = _components.get(uuid);
         if (comp == null) {
             throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
         }
         Request request = new Request.Builder()
-                .url(comp.getUrl() + "/v1/typesystem")
+                .url(comp.getUrl() + DUUIComposer.V1_COMPONENT_ENDPOINT_TYPESYSTEM)
                 .get()
                 .build();
         Response resp = _client.newCall(request).execute();
@@ -168,7 +169,8 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
             writer.close();
             return TypeSystemDescriptionFactory.createTypeSystemDescriptionFromPath(tmp.getAbsolutePath());
         } else {
-            throw new InvalidObjectException("Response code != 200, error");
+            System.out.printf("[RemoteDriver][%s]: Endpoint did not provide typesystem, using default one...\n",uuid);
+            return TypeSystemDescriptionFactory.createTypeSystemDescription();
         }
     }
 
@@ -195,7 +197,7 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         RequestBody bod = RequestBody.create(ok.getBytes(StandardCharsets.UTF_8));
 
         Request request = new Request.Builder()
-                .url(comp.getUrl() + "/v1/process")
+                .url(comp.getUrl() + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS)
                 .post(bod)
                 .header("Content-Length", String.valueOf(ok.length()))
                 .build();

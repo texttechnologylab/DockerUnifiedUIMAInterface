@@ -104,6 +104,11 @@ public class DUUIComposer {
     private static final String DRIVER_OPTION_NAME = "duuid.composer.driver";
     public static final String COMPONENT_COMPONENT_UNIQUE_KEY = "duuid.storage.componentkey";
 
+    public static final String V1_COMPONENT_ENDPOINT_PROCESS = "/v1/process";
+    public static final String V1_COMPONENT_ENDPOINT_TYPESYSTEM = "/v1/typesystem";
+    public static final String V1_COMPONENT_ENDPOINT_COMMUNICATION_LAYER = "/v1/communication_layer";
+
+
 
     public DUUIComposer() {
         _drivers = new HashMap<String, IDUUIDriverInterface>();
