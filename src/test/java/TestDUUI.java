@@ -1,3 +1,4 @@
+import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
 import de.tudarmstadt.ukp.dkpro.core.tokit.BreakIteratorSegmenter;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.UIMAException;
@@ -5,7 +6,9 @@ import org.apache.uima.analysis_engine.AnalysisEngineDescription;
 import org.apache.uima.fit.factory.AnalysisEngineFactory;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.fit.pipeline.SimplePipeline;
+import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
+import org.json.JSONArray;
 import org.junit.jupiter.api.Test;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaCommunicationLayer;
@@ -184,6 +187,11 @@ public class TestDUUI {
         AnalysisEngineDescription desc = AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class);
         SimplePipeline.runPipeline(jc,desc);
 
+        int expectedNumberOfTokens = 0;
+        for(Token t : JCasUtil.select(jc,Token.class)) {
+            expectedNumberOfTokens+=1;
+        }
+
         String val = Files.readString(Path.of(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/rust_communication_json.lua").toURI()));
         DUUILuaContext ctxt = new DUUILuaContext();
         DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(val,"remote",ctxt);
@@ -193,6 +201,8 @@ public class TestDUUI {
         long end = System.currentTimeMillis();
         System.out.printf("Serialize large in %d ms time," +
                 " total bytes %d\n",end-start,out.toString().length());
+        JSONArray arr = new JSONArray(out.toString());
+        assertEquals(expectedNumberOfTokens,arr.getJSONArray(1).length());
     }
 
 //    @Test
