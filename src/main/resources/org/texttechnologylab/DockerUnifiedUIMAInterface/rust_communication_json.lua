@@ -17,7 +17,8 @@ function serialize(inputCas,outputStream)
   send:put(inputCas:getDocumentText())
   send:put(beginsent)
   send:put(endsent)
-  outputStream:write(send:toString())
+  -- Differentiate function call to prevent best effort lookup
+  outputStream:write(send:toString(0))
 end
 
 function deserialize(inputCas,inputStream)
