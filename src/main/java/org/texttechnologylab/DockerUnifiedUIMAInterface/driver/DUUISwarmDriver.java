@@ -168,7 +168,7 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         long mutexEnd = System.nanoTime();
         long serializeStart = System.nanoTime();
 
-        OutputStream out = new ByteArrayOutputStream();
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
         inst.serialize(aCas,out);
         String ok = out.toString();
         long serializeEnd = System.nanoTime();
@@ -184,7 +184,7 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         Response resp = _client.newCall(request).execute();
 
         if (resp.code() == 200) {
-            InputStream st = new ByteArrayInputStream(resp.body().bytes());
+            ByteArrayInputStream st = new ByteArrayInputStream(resp.body().bytes());
             long annotatorEnd = System.nanoTime();
             long deserializeStart = annotatorEnd;
             inst.deserialize(aCas,st);

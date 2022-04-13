@@ -204,7 +204,7 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
 
         Response resp = _client.newCall(request).execute();
         if (resp.code() == 200) {
-            InputStream stream = resp.body().byteStream();
+            ByteArrayInputStream stream = new ByteArrayInputStream(resp.body().bytes());
             long annotatorEnd = System.nanoTime();
             long deserializeStart = annotatorEnd;
             inst.deserialize(aCas,stream);

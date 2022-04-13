@@ -21,11 +21,11 @@ public class DUUILuaCommunicationLayer implements IDUUICommunicationLayer {
         _globalContext = globalContext;
     }
 
-    public void serialize(JCas jc, OutputStream out) throws CompressorException, IOException, SAXException {
+    public void serialize(JCas jc, ByteArrayOutputStream out) throws CompressorException, IOException, SAXException {
         _file.call("serialize",CoerceJavaToLua.coerce(jc),CoerceJavaToLua.coerce(out));
     }
 
-    public void deserialize(JCas jc, InputStream input) throws IOException, SAXException {
+    public void deserialize(JCas jc, ByteArrayInputStream input) throws IOException, SAXException {
         _file.call("deserialize",CoerceJavaToLua.coerce(jc),CoerceJavaToLua.coerce(input));
     }
 

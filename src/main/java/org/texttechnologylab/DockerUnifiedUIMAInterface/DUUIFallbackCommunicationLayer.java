@@ -13,7 +13,7 @@ import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 
 public class DUUIFallbackCommunicationLayer implements IDUUICommunicationLayer {
-    public void serialize(JCas jc, OutputStream out) throws CompressorException, IOException, SAXException {
+    public void serialize(JCas jc, ByteArrayOutputStream out) throws CompressorException, IOException, SAXException {
         JSONObject obj = new JSONObject();
         ByteArrayOutputStream arr = new ByteArrayOutputStream();
         XmiCasSerializer.serialize(jc.getCas(), null, arr);
@@ -31,7 +31,7 @@ public class DUUIFallbackCommunicationLayer implements IDUUICommunicationLayer {
         out.write(obj.toString().getBytes(StandardCharsets.UTF_8));
     }
 
-    public void deserialize(JCas jc, InputStream input) throws IOException, SAXException {
+    public void deserialize(JCas jc, ByteArrayInputStream input) throws IOException, SAXException {
         String body = new String(input.readAllBytes(), Charset.defaultCharset());
         JSONObject response = new JSONObject(body);
         if (response.has("cas") || response.has("error")) {

@@ -5,12 +5,10 @@ import org.apache.uima.jcas.JCas;
 import org.json.JSONObject;
 import org.xml.sax.SAXException;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.io.*;
 
 public interface IDUUICommunicationLayer {
-    public void serialize(JCas jc, OutputStream out) throws CompressorException, IOException, SAXException;
-    public void deserialize(JCas jc, InputStream input) throws IOException, SAXException;
+    public void serialize(JCas jc, ByteArrayOutputStream out) throws CompressorException, IOException, SAXException;
+    public void deserialize(JCas jc, ByteArrayInputStream input) throws IOException, SAXException;
     public IDUUICommunicationLayer copy();
 }

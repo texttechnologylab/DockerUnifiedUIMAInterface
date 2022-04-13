@@ -10,6 +10,10 @@ import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.json.JSONArray;
 import org.junit.jupiter.api.Test;
+import org.msgpack.core.MessageBufferPacker;
+import org.msgpack.core.MessagePack;
+import org.msgpack.core.MessagePacker;
+import org.msgpack.core.MessageUnpacker;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaCommunicationLayer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
@@ -20,6 +24,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -36,7 +41,7 @@ public class TestDUUI {
         String val = Files.readString(Path.of(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/uima_xmi_communication.lua").toURI()));
         DUUILuaContext ctxt = new DUUILuaContext();
         DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(val,"remote",ctxt);
-        OutputStream out = new ByteArrayOutputStream();
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
         lua.serialize(jc,out);
         System.out.println(out.toString());
     }
@@ -51,7 +56,7 @@ public class TestDUUI {
         DUUILuaContext ctxt = new DUUILuaContext();
         ctxt.withGlobalLibrary("json",DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/json.lua").toURI());
         DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(val,"remote",ctxt);
-        OutputStream out = new ByteArrayOutputStream();
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
         lua.serialize(jc,out);
         System.out.println(out.toString());
     }
@@ -87,7 +92,7 @@ public class TestDUUI {
 
 
         DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(val, "remote", ctxt);
-        OutputStream out = new ByteArrayOutputStream();
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
         lua.serialize(jc,out);
         assertEquals(out.toString(),"");
     }
@@ -121,7 +126,7 @@ public class TestDUUI {
 
         assertThrows(RuntimeException.class,()->{
             DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(val, "remote", ctxt);
-            OutputStream out = new ByteArrayOutputStream();
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
             lua.serialize(jc,out);
         });
     }
@@ -139,7 +144,7 @@ public class TestDUUI {
 
 
         DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(val, "remote", ctxt);
-        OutputStream out = new ByteArrayOutputStream();
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
         lua.serialize(jc,out);
     }
 
@@ -157,7 +162,7 @@ public class TestDUUI {
 
 
         DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(val, "remote", ctxt);
-        OutputStream out = new ByteArrayOutputStream();
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
         lua.serialize(jc,out);
     }
 
@@ -195,7 +200,7 @@ public class TestDUUI {
         String val = Files.readString(Path.of(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/rust_communication_json.lua").toURI()));
         DUUILuaContext ctxt = new DUUILuaContext();
         DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(val,"remote",ctxt);
-        OutputStream out = new ByteArrayOutputStream();
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
         long start = System.currentTimeMillis();
         lua.serialize(jc,out);
         long end = System.currentTimeMillis();
@@ -203,6 +208,36 @@ public class TestDUUI {
                 " total bytes %d\n",end-start,out.toString().length());
         JSONArray arr = new JSONArray(out.toString());
         assertEquals(expectedNumberOfTokens,arr.getJSONArray(1).length());
+        assertEquals(expectedNumberOfTokens,JCasUtil.select(jc,Token.class).size());
+    }
+
+    @Test
+    public void LuaLargeSerializeMsgpack() throws UIMAException, CompressorException, IOException, SAXException, URISyntaxException {
+        JCas jc = JCasFactory.createJCas();
+        String val2 = Files.readString(Path.of(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/large_texts/1000.txt").toURI()));
+        jc.setDocumentText(val2);
+        jc.setDocumentLanguage("de");
+        AnalysisEngineDescription desc = AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class);
+        SimplePipeline.runPipeline(jc,desc);
+
+        int expectedNumberOfTokens = 0;
+        for(Token t : JCasUtil.select(jc,Token.class)) {
+            expectedNumberOfTokens+=1;
+        }
+
+        String val = Files.readString(Path.of(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/rust_communication_msgpack.lua").toURI()));
+        DUUILuaContext ctxt = new DUUILuaContext();
+        DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(val,"remote",ctxt);
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        long start = System.currentTimeMillis();
+        lua.serialize(jc,out);
+        long end = System.currentTimeMillis();
+        System.out.printf("Serialize large in %d ms time," +
+                " total bytes %d\n",end-start,out.toString().length());
+        MessageUnpacker unpacker = MessagePack.newDefaultUnpacker(out.toByteArray());
+        String text = unpacker.unpackString();
+        int numTokensTimes2_2 = unpacker.unpackArrayHeader();
+        assertEquals(expectedNumberOfTokens*2,numTokensTimes2_2);
     }
 
 //    @Test

@@ -126,7 +126,7 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
                 }
             }
         }
-        OutputStream stream = new ByteArrayOutputStream();
+        ByteArrayOutputStream stream = new ByteArrayOutputStream();
         try {
             layer.serialize(jc, stream);
         }
@@ -143,7 +143,7 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
                 .build();
                 Response resp = client.newCall(request).execute();
                 if (resp.code() == 200) {
-                    InputStream inputStream = new ByteArrayInputStream(resp.body().bytes());
+                    ByteArrayInputStream inputStream = new ByteArrayInputStream(resp.body().bytes());
                     layer.deserialize(jc,inputStream);
                     return layer;
                 }
@@ -257,7 +257,7 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
 
 
         long serializeStart = System.nanoTime();
-        OutputStream outputStream = new ByteArrayOutputStream();
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         inst.getCommunicationLayer().serialize(aCas,outputStream);
         String ok = outputStream.toString();
         long serializeEnd = System.nanoTime();
@@ -272,7 +272,7 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
         Response resp = _client.newCall(request).execute();
 
         if (resp.code() == 200) {
-            InputStream inputStream = new ByteArrayInputStream(resp.body().bytes());
+            ByteArrayInputStream inputStream = new ByteArrayInputStream(resp.body().bytes());
             long annotatorEnd = System.nanoTime();
             long deserializeStart = annotatorEnd;
             inst.getCommunicationLayer().deserialize(aCas,inputStream);
