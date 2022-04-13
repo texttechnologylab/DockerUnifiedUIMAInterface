@@ -233,11 +233,79 @@ public class TestDUUI {
         lua.serialize(jc,out);
         long end = System.currentTimeMillis();
         System.out.printf("Serialize large in %d ms time," +
-                " total bytes %d\n",end-start,out.toString().length());
+                " total bytes %d, total tokens %d\n",end-start,out.toString().length(),expectedNumberOfTokens);
         MessageUnpacker unpacker = MessagePack.newDefaultUnpacker(out.toByteArray());
         String text = unpacker.unpackString();
         int numTokensTimes2_2 = unpacker.unpackArrayHeader();
         assertEquals(expectedNumberOfTokens*2,numTokensTimes2_2);
+    }
+
+    @Test
+    public void JavaSerializeMsgpack() throws UIMAException, CompressorException, IOException, SAXException, URISyntaxException {
+        JCas jc = JCasFactory.createJCas();
+        String val2 = Files.readString(Path.of(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/large_texts/1000.txt").toURI()));
+        jc.setDocumentText(val2);
+        jc.setDocumentLanguage("de");
+        AnalysisEngineDescription desc = AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class);
+        SimplePipeline.runPipeline(jc,desc);
+
+        int expectedNumberOfTokens = 0;
+        for(Token t : JCasUtil.select(jc,Token.class)) {
+            expectedNumberOfTokens+=1;
+        }
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+
+        long start = System.currentTimeMillis();
+        MessageBufferPacker packer = MessagePack.newDefaultBufferPacker();
+        packer.packString(jc.getDocumentText());
+        packer.packArrayHeader(JCasUtil.select(jc,Token.class).size()*2);
+        for(Token t : JCasUtil.select(jc,Token.class)) {
+            packer.packInt(t.getBegin());
+            packer.packInt(t.getEnd());
+        }
+        out.write(packer.toByteArray());
+        long end = System.currentTimeMillis();
+        System.out.printf("Serialize large in %d ms time," +
+                " total bytes %d, total tokens %d\n",end-start,out.toString().length(),expectedNumberOfTokens);
+        MessageUnpacker unpacker = MessagePack.newDefaultUnpacker(out.toByteArray());
+        String text = unpacker.unpackString();
+        int numTokensTimes2_2 = unpacker.unpackArrayHeader();
+        assertEquals(expectedNumberOfTokens*2,numTokensTimes2_2);
+    }
+
+    @Test
+    public void JavaSerializeJSON() throws UIMAException, CompressorException, IOException, SAXException, URISyntaxException {
+        JCas jc = JCasFactory.createJCas();
+        String val2 = Files.readString(Path.of(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/large_texts/1000.txt").toURI()));
+        jc.setDocumentText(val2);
+        jc.setDocumentLanguage("de");
+        AnalysisEngineDescription desc = AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class);
+        SimplePipeline.runPipeline(jc,desc);
+
+        int expectedNumberOfTokens = 0;
+        for(Token t : JCasUtil.select(jc,Token.class)) {
+            expectedNumberOfTokens+=1;
+        }
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+
+        long start = System.currentTimeMillis();
+        JSONArray begin = new JSONArray();
+        JSONArray endt = new JSONArray();
+        for(Token t : JCasUtil.select(jc,Token.class)) {
+            begin.put(t.getBegin());
+            endt.put(t.getEnd());
+        }
+        JSONArray arr2 = new JSONArray();
+        arr2.put(jc.getDocumentText());
+        arr2.put(begin);
+        arr2.put(endt);
+        out.write(arr2.toString().getBytes(StandardCharsets.UTF_8));
+        long end = System.currentTimeMillis();
+        System.out.printf("Serialize large in %d ms time," +
+                " total bytes %d, total tokens %d\n",end-start,out.toString().length(),expectedNumberOfTokens);
+        JSONArray arr = new JSONArray(out.toString());
+        assertEquals(expectedNumberOfTokens,arr.getJSONArray(1).length());
+        assertEquals(expectedNumberOfTokens,JCasUtil.select(jc,Token.class).size());
     }
 
 //    @Test
