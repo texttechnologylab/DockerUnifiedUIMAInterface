@@ -6,6 +6,6 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-#rust-bert = "0.17.0"
+rust-bert = "0.14.0"
 tokio = { version = "1", features = ["full"] }
 warp = "0.3"
