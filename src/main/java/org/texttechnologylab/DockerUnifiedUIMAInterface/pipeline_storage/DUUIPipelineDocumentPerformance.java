@@ -41,18 +41,18 @@ public class DUUIPipelineDocumentPerformance {
         _points.add(new DUUIPipelinePerformancePoint(durationSerialize,durationDeserialize,durationAnnotator,durationMutexWait,durationComponentTotal,componentKey));
     }
 
-    public Vector<BaseEdgeDocument> generateComponentPerformanceEdges(String docKey) {
-        Vector<BaseEdgeDocument> docs = new Vector<>();
-        int index = 0;
+    public Vector<BaseDocument> generateComponentPerformance(String docKey) {
+        Vector<BaseDocument> docs = new Vector<>();
         for(DUUIPipelinePerformancePoint point : _points) {
             Map<String, Object> props = new HashMap<>();
-            props.put("index", index);
-            BaseEdgeDocument edge = new BaseEdgeDocument();
-            edge.setFrom(point.getKey());
-            edge.setTo(docKey);
-            edge.setProperties(props);
-            docs.add(edge);
-            index+=1;
+            props.put("run", _runKey);
+            props.put("compkey", point.getKey());
+            props.put("performance",point.getProperties());
+            props.put("docsize",_documentSize);
+            BaseDocument doc = new BaseDocument();
+            doc.setProperties(props);
+
+            docs.add(doc);
         }
         return docs;
     }
@@ -68,7 +68,6 @@ public class DUUIPipelineDocumentPerformance {
         props.put("serialize",_durationTotalSerialize);
         props.put("deserialize",_durationTotalDeserialize);
         props.put("docsize",_documentSize);
-        props.put("components",_points.stream().map((e)->e.getProperties()).collect(Collectors.toList()));
         doc.setProperties(props);
         return doc;
     }

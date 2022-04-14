@@ -40,7 +40,7 @@ public class DUUIArangoDBStorageBackend implements IDUUIStorageBackend {
     private ArangoCollection _pipelineComponentCollection;
     private ArangoCollection _pipelineComponentEdge;
 
-    private ArangoCollection _pipelineComponentToDocumentPerformance;
+    private ArangoCollection _pipelineComponentDocumentPerformance;
     private ArangoCollection _pipelineDocumentPerformance;
 
 
@@ -81,11 +81,10 @@ public class DUUIArangoDBStorageBackend implements IDUUIStorageBackend {
             _pipelineDocumentPerformance.create();
         }
 
-        _pipelineComponentToDocumentPerformance = _db.collection("pipeline_component_to_document_performance_edges");
-        if(!_pipelineComponentToDocumentPerformance.exists()) {
-            _db.createCollection("pipeline_component_to_document_performance_edges", new CollectionCreateOptions().type(CollectionType.EDGES));
-            _pipelineComponentToDocumentPerformance = _db.collection("pipeline_component_to_document_performance_edges");
-            System.out.println("[DUUIArangoDBStorageBackend] Creating edge collection pipeline_component_to_document_performance_edges...");
+        _pipelineComponentDocumentPerformance = _db.collection("pipeline_component_document_performance");
+        if(!_pipelineComponentDocumentPerformance.exists()) {
+            System.out.println("[DUUIArangoDBStorageBackend] Creating edge collection pipeline_component_document_performance_edges...");
+            _pipelineComponentDocumentPerformance.create();
         }
 
         _pipelineComponentEdge = _db.collection("pipeline_component_edges");
@@ -194,8 +193,8 @@ public class DUUIArangoDBStorageBackend implements IDUUIStorageBackend {
     @Override
     public void addMetricsForDocument(DUUIPipelineDocumentPerformance perf) {
         String key = _pipelineDocumentPerformance.insertDocument(perf.toArangoDocument()).getId();
-        for(BaseEdgeDocument x : perf.generateComponentPerformanceEdges(key)) {
-            _pipelineComponentToDocumentPerformance.insertDocument(x);
+        for(BaseDocument x : perf.generateComponentPerformance(key)) {
+            _pipelineComponentDocumentPerformance.insertDocument(x);
         }
     }
 
