@@ -1,0 +1,6 @@
+FROM rust:buster
+ADD Cargo.toml Cargo.toml
+ADD src src
+ADD rust_communication_msgpack.lua rust_communication_msgpack.lua
+RUN cargo build
+CMD cargo run

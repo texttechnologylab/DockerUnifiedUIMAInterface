@@ -1,13 +1,18 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.driver;
 
+import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Sentence;
+import de.tudarmstadt.ukp.dkpro.core.tokit.BreakIteratorSegmenter;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.commons.compress.compressors.CompressorStreamFactory;
+import org.apache.uima.fit.factory.AnalysisEngineFactory;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.fit.factory.TypeSystemDescriptionFactory;
+import org.apache.uima.fit.pipeline.SimplePipeline;
+import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
@@ -67,6 +72,7 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
             String max = comp.getOption("scale");
             if(max != null) {
                 _maximum_concurrency = Integer.valueOf(max);
+                _communication = new ConcurrentLinkedQueue<>();
             }
             else {
                 _maximum_concurrency = 1;
@@ -127,6 +133,9 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         JCas _basic = JCasFactory.createJCas();
         _basic.setDocumentLanguage("de");
         _basic.setDocumentText("Halo Welt!");
+
+        //TODO: Fix this!!! Pass a document through the pipeline instead of generating test documents!
+        SimplePipeline.runPipeline(_basic, AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class));
         System.out.printf("[RemoteDriver] Assigned new pipeline component unique id %s\n", uuid);
 
 
@@ -190,16 +199,16 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         inst.serialize(aCas,out);
-        String ok = out.toString();
         long serializeEnd = System.nanoTime();
 
         long annotatorStart = serializeEnd;
-        RequestBody bod = RequestBody.create(ok.getBytes(StandardCharsets.UTF_8));
+        byte []ok = out.toByteArray();
+        RequestBody bod = RequestBody.create(ok);
 
         Request request = new Request.Builder()
                 .url(comp.getUrl() + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS)
                 .post(bod)
-                .header("Content-Length", String.valueOf(ok.length()))
+                .header("Content-Length", String.valueOf(ok.length))
                 .build();
 
         Response resp = _client.newCall(request).execute();

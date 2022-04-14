@@ -126,6 +126,13 @@
             <artifactId>jackson-dataformat-velocypack</artifactId>
             <version>3.0.0</version>
         </dependency>
+        <!-- https://mvnrepository.com/artifact/org.apache.bcel/bcel -->
+        <dependency>
+            <groupId>org.apache.bcel</groupId>
+            <artifactId>bcel</artifactId>
+            <version>6.5.0</version>
+        </dependency>
+
 
         <!-- https://mvnrepository.com/artifact/org.msgpack/msgpack-core -->
         <dependency>

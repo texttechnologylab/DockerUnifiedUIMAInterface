@@ -4,6 +4,7 @@ import org.luaj.vm2.*;
 import org.luaj.vm2.compiler.LuaC;
 import org.luaj.vm2.lib.*;
 import org.luaj.vm2.lib.jse.*;
+import org.luaj.vm2.luajc.LuaJC;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -43,7 +44,22 @@ public class DUUILuaContext {
 
     public DUUILuaCompiledFile compileFile(String file) {
         if(_sandbox==null) {
-            Globals globals = JsePlatform.standardGlobals();
+            Globals globals = new Globals();
+            globals.load(new JseBaseLib());
+            globals.load(new PackageLib());
+            globals.load(new Bit32Lib());
+            globals.load(new TableLib());
+            globals.load(new StringLib());
+            globals.load(new JseMathLib());
+            //globals.load(new DebugLib());
+            globals.load(new CoroutineLib());
+            globals.load(new JseIoLib());
+            globals.load(new JseOsLib());
+            globals.load(new LuajavaLib());
+            LoadState.install(globals);
+            LuaC.install(globals);
+            LuaJC.install(globals);
+
             for (Map.Entry<String, String> val : _luaScripts.entrySet()) {
                 LuaValue valsec = globals.load(val.getValue(), "global_script" + val.getKey(), globals);
                 globals.set(val.getKey(), valsec.call());
@@ -82,6 +98,7 @@ public class DUUILuaContext {
             }
             LoadState.install(user_globals);
             LuaC.install(user_globals);
+            LuaJC.install(user_globals);
             LuaValue sethook = user_globals.get("debug").get("sethook");
 
             user_globals.set("debug", LuaValue.NIL);

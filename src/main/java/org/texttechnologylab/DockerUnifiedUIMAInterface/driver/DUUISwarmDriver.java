@@ -170,16 +170,16 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         inst.serialize(aCas,out);
-        String ok = out.toString();
+        byte[] ok = out.toByteArray();
         long serializeEnd = System.nanoTime();
 
         long annotatorStart = serializeEnd;
 
-        RequestBody body = RequestBody.create(ok.getBytes(StandardCharsets.UTF_8));
+        RequestBody body = RequestBody.create(ok);
         Request request = new Request.Builder()
                 .url(comp.getServiceUrl()+ DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS)
                 .post(body)
-                .header("Content-Length", String.valueOf(ok.length()))
+                .header("Content-Length", String.valueOf(ok.length))
                 .build();
         Response resp = _client.newCall(request).execute();
 

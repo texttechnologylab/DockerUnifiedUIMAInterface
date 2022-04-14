@@ -135,7 +135,7 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
             throw new Exception(format("The serialization step of the communication layer fails for implementing class %s", layer.getClass().getCanonicalName()));
         }
 
-        RequestBody body = RequestBody.create(stream.toString().getBytes(StandardCharsets.UTF_8));
+        RequestBody body = RequestBody.create(stream.toByteArray());
 
         Request request = new Request.Builder()
                 .url(url + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS)
@@ -259,15 +259,15 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
         long serializeStart = System.nanoTime();
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         inst.getCommunicationLayer().serialize(aCas,outputStream);
-        String ok = outputStream.toString();
         long serializeEnd = System.nanoTime();
 
+        byte []ok = outputStream.toByteArray();
         long annotatorStart = serializeEnd;
-        RequestBody bod = RequestBody.create(ok.getBytes(StandardCharsets.UTF_8));
+        RequestBody bod = RequestBody.create(ok);
         Request request = new Request.Builder()
                 .url(inst.getContainerUrl() + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS)
                 .post(bod)
-                .header("Content-Length", String.valueOf(ok.length()))
+                .header("Content-Length", String.valueOf(ok.length))
                 .build();
         Response resp = _client.newCall(request).execute();
 

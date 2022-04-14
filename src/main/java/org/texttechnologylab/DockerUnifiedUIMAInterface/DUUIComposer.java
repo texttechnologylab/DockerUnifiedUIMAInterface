@@ -456,8 +456,8 @@ public class DUUIComposer {
 
     public static void main(String[] args) throws Exception {
         // create an environment to run in
-        DUUIComposer composer = new DUUIComposer()
-                .withStorageBackend(new DUUIArangoDBStorageBackend("password",8888));
+        DUUIComposer composer = new DUUIComposer();
+                //.withStorageBackend(new DUUIArangoDBStorageBackend("password",8888));
 
         // Instantiate drivers with options
         DUUILocalDriver driver = new DUUILocalDriver()
@@ -477,18 +477,18 @@ public class DUUIComposer {
         // Every component needs a driver which instantiates and runs them
         // Local driver manages local docker container and pulls docker container from remote repositories
         /*composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUILocalDriver.Component("kava-i.de:5000/secure/test_image")*/
-        composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class,BreakIteratorSegmenter.PARAM_LANGUAGE, "de")),
+        composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class)),
                 DUUIUIMADriver.class);
 
-        composer.add(new DUUILocalDriver.Component("new:latest")
+       /* composer.add(new DUUILocalDriver.Component("new:latest")
                         .withScale(1)
                         .withRunningAfterDestroy(false)
-                , DUUILocalDriver.class);
+                , DUUILocalDriver.class);*/
 
         // Remote driver handles all pure URL endpoints
-       /* composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.Component("http://127.0.0.1:9714")
-                        .withScale(2),
-                org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.class);*/
+        composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.Component("http://127.0.0.1:9714")
+                        .withScale(1),
+                org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.class);
         /*composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9714")
                         .withScale(2),
                 DUUIRemoteDriver.class);*/
