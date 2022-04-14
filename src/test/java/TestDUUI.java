@@ -16,6 +16,7 @@ import org.apache.uima.jcas.JCas;
 import org.apache.uima.util.CasIOUtils;
 import org.apache.uima.util.XmlCasSerializer;
 import org.json.JSONArray;
+import org.json.JSONObject;
 import org.junit.jupiter.api.Test;
 import org.msgpack.core.MessageBufferPacker;
 import org.msgpack.core.MessagePack;

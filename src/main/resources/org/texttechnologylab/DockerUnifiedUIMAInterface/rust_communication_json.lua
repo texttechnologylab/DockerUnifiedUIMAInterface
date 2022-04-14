@@ -6,20 +6,21 @@ util = luajava.bindClass("org.apache.uima.fit.util.JCasUtil")
 function serialize(inputCas,outputStream)
   local beginsent = luajava.newInstance("org.json.JSONArray")
   local endsent = luajava.newInstance("org.json.JSONArray")
-  local send = luajava.newInstance("org.json.JSONArray")
+  local sending = luajava.newInstance("org.json.JSONArray")
 
+  local result = util:select(inputCas,token):iterator()
   while result:hasNext() do
     local x = result:next()
 	beginsent:put(x:getBegin())
     endsent:put(x:getEnd())
   end
 
-  send:put(inputCas:getDocumentText())
-  send:put(beginsent)
+  sending:put(inputCas:getDocumentText())
+  sending:put(beginsent)
 
-  send:put(endsent)
+  sending:put(endsent)
   -- Differentiate function call to prevent best effort lookup
-  local ok = send:toString(0)
+  local ok = sending:toString()
   outputStream:write(ok)
 end
 
