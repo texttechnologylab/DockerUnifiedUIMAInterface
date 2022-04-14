@@ -80,7 +80,7 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         return comp.getClass().getName().toString() == DUUISwarmDriver.Component.class.getName().toString();
     }
 
-    public String instantiate(IDUUIPipelineComponent component) throws Exception {
+    public String instantiate(IDUUIPipelineComponent component, JCas jc) throws Exception {
         String uuid = UUID.randomUUID().toString();
         while (_active_components.containsKey(uuid.toString())) {
             uuid = UUID.randomUUID().toString();
@@ -89,11 +89,6 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         if(!_interface.isSwarmManagerNode()) {
             throw new InvalidParameterException("This node is not a Docker Swarm Manager, thus cannot create and schedule new services!");
         }
-
-        JCas basic = JCasFactory.createJCas();
-        basic.setDocumentLanguage("en");
-        basic.setDocumentText("Hello World!");
-
         DUUISwarmDriver.InstantiatedComponent comp = new DUUISwarmDriver.InstantiatedComponent(component);
 
         if(comp.isBackedByLocalImage()) {
@@ -112,7 +107,7 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
                 throw new UnknownError("Could not read the service port!");
             }
             final String uuidCopy = uuid;
-            IDUUICommunicationLayer layer = DUUILocalDriver.responsiveAfterTime("http://localhost:" + String.valueOf(port), basic, _container_timeout, _client, (msg) -> {
+            IDUUICommunicationLayer layer = DUUILocalDriver.responsiveAfterTime("http://localhost:" + String.valueOf(port), jc, _container_timeout, _client, (msg) -> {
                 System.out.printf("[DockerSwarmDriver][%s][%d Replicas] %s\n", uuidCopy, comp.getScale(),msg);
             },_luaContext);
             System.out.printf("[DockerSwarmDriver][%s][%d Replicas] Service for image %s is online (URL http://localhost:%d) and seems to understand DUUI V1 format!\n", uuid, comp.getScale(),comp.getImageName(), port);

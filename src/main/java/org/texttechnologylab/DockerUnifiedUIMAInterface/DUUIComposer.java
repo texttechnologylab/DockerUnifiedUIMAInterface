@@ -16,6 +16,7 @@ import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.apache.uima.util.CasCreationUtils;
+import org.apache.uima.util.XmlCasSerializer;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.luaj.vm2.Globals;
@@ -332,11 +333,15 @@ public class DUUIComposer {
     }
 
     private TypeSystemDescription instantiate_pipeline(Vector<PipelinePart> idPipeline) throws Exception {
+        JCas jc = JCasFactory.createJCas();
+        jc.setDocumentLanguage("en");
+        jc.setDocumentText("Hello World!");
+
         List<TypeSystemDescription> descriptions = new LinkedList<>();
         descriptions.add(TypeSystemDescriptionFactory.createTypeSystemDescription());
         for (IDUUIPipelineComponent comp : _pipeline) {
             IDUUIDriverInterface driver = _drivers.get(comp.getOption(DRIVER_OPTION_NAME));
-            String uuid = driver.instantiate(comp);
+            String uuid = driver.instantiate(comp,jc);
 
             TypeSystemDescription desc = driver.get_typesystem(uuid);
             if(desc!=null) {
@@ -456,8 +461,8 @@ public class DUUIComposer {
 
     public static void main(String[] args) throws Exception {
         // create an environment to run in
-        DUUIComposer composer = new DUUIComposer()
-                .withStorageBackend(new DUUIArangoDBStorageBackend("password",8888));
+        DUUIComposer composer = new DUUIComposer();
+               // .withStorageBackend(new DUUIArangoDBStorageBackend("password",8888));
 
         // Instantiate drivers with options
         DUUILocalDriver driver = new DUUILocalDriver()
@@ -480,18 +485,18 @@ public class DUUIComposer {
         composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class)),
                 DUUIUIMADriver.class);
 
-        composer.add(new DUUILocalDriver.Component("new:latest")
+        /*composer.add(new DUUILocalDriver.Component("new:latest")
                         .withScale(1)
                         .withRunningAfterDestroy(false)
-                , DUUILocalDriver.class);
+                , DUUILocalDriver.class);*/
 
         // Remote driver handles all pure URL endpoints
       //  composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.Component("http://127.0.0.1:9714")
       //                  .withScale(1),
       //          org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.class);
-        /*composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9714")
-                        .withScale(2),
-                DUUIRemoteDriver.class);*/
+        composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9714")
+                        .withScale(1),
+                DUUIRemoteDriver.class);
 
         // UIMA Driver handles all native UIMA Analysis Engine Descriptions
         /*composer.add(new DUUIUIMADriver.Component(
@@ -517,8 +522,11 @@ public class DUUIComposer {
         jc.setDocumentText("Hello World!");
 
         // Run single document
-        //composer.run(jc);
+        composer.run(jc);
 
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        XmlCasSerializer.serialize(jc.getCas(),out);
+        System.out.println(new String(out.toByteArray()));
 
         /*
         String val = Files.readString(Path.of(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/uima_xmi_communication_token_only.lua").toURI()));
@@ -533,9 +541,9 @@ public class DUUIComposer {
 
         // Run Collection Reader
 
-        composer.run(createReaderDescription(TextReader.class,
+        /*composer.run(createReaderDescription(TextReader.class,
                 TextReader.PARAM_SOURCE_LOCATION, "test_corpora/**.txt",
-                TextReader.PARAM_LANGUAGE, "en"),"next8");
+                TextReader.PARAM_LANGUAGE, "en"),"next8");*/
         composer.shutdown();
   }
 }

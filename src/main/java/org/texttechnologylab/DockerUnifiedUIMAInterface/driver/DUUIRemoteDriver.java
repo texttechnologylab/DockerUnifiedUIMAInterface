@@ -124,23 +124,15 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         return component.getClass().getCanonicalName() == component.getClass().getCanonicalName();
     }
 
-    public String instantiate(IDUUIPipelineComponent component) throws Exception {
+    public String instantiate(IDUUIPipelineComponent component, JCas jc) throws Exception {
         String uuid = UUID.randomUUID().toString();
         while (_components.containsKey(uuid)) {
             uuid = UUID.randomUUID().toString();
         }
         InstantiatedComponent comp = new InstantiatedComponent(component);
-        JCas _basic = JCasFactory.createJCas();
-        _basic.setDocumentLanguage("de");
-        _basic.setDocumentText("Halo Welt!");
-
-        //TODO: Fix this!!! Pass a document through the pipeline instead of generating test documents!
-        SimplePipeline.runPipeline(_basic, AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class));
-        System.out.printf("[RemoteDriver] Assigned new pipeline component unique id %s\n", uuid);
-
 
         final String uuidCopy = uuid;
-        IDUUICommunicationLayer layer = DUUILocalDriver.responsiveAfterTime(comp.getUrl(), _basic, 100000, _client, (msg) -> {
+        IDUUICommunicationLayer layer = DUUILocalDriver.responsiveAfterTime(comp.getUrl(), jc, 100000, _client, (msg) -> {
             System.out.printf("[RemoteDriver][%s] %s\n", uuidCopy,msg);
         },_luaContext);
         comp.addCommunicationLayer(layer);

@@ -15,6 +15,7 @@ import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.util.CasIOUtils;
 import org.apache.uima.util.XmlCasSerializer;
+import org.hucompute.textimager.uima.type.Sentiment;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.junit.jupiter.api.Test;

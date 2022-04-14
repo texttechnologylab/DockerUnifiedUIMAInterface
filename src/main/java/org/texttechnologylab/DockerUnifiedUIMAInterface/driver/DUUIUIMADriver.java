@@ -196,7 +196,7 @@ public class DUUIUIMADriver implements IDUUIDriverInterface {
         return arr;
     }
 
-    public String instantiate(IDUUIPipelineComponent component) throws InterruptedException, TimeoutException, UIMAException, SAXException, IOException {
+    public String instantiate(IDUUIPipelineComponent component, JCas jc) throws InterruptedException, TimeoutException, UIMAException, SAXException, IOException {
         String uuid = UUID.randomUUID().toString();
         while ((_engines.containsKey(uuid))) {
             uuid = UUID.randomUUID().toString();
@@ -228,8 +228,10 @@ public class DUUIUIMADriver implements IDUUIDriverInterface {
             AnalysisEngine ana = AnalysisEngineFactory.createEngine(analysis_engine_desc);
             String annotator = analysis_engine_desc.getAnnotatorImplementationName();
             if (annotator != null) {
+                ana.process(jc);
                 System.out.printf("[UIMADriver][%s][Replication %d/%d] Instantiated native UIMA Analysis Engine Annotator %s without problems\n", uuid,i+1,scale, annotator);
             } else {
+                ana.process(jc);
                 System.out.printf("[UIMADriver][%s][Replication %d/%d] Instantiated native UIMA Analysis Engine without problems\n",uuid,i+1,scale);
             }
             comp.add(ana);

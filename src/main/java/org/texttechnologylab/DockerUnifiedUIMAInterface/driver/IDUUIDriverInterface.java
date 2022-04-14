@@ -15,7 +15,7 @@ import java.io.IOException;
 public interface IDUUIDriverInterface {
     public void setLuaContext(DUUILuaContext luaContext);
     public boolean canAccept(IDUUIPipelineComponent component);
-    public String instantiate(IDUUIPipelineComponent component) throws Exception;
+    public String instantiate(IDUUIPipelineComponent component, JCas jc) throws Exception;
     public void printConcurrencyGraph(String uuid);
 
     public TypeSystemDescription get_typesystem(String uuid) throws InterruptedException, IOException, SAXException, CompressorException, ResourceInitializationException;

@@ -58,7 +58,6 @@ public class DUUILuaContext {
             globals.load(new LuajavaLib());
             LoadState.install(globals);
             LuaC.install(globals);
-            LuaJC.install(globals);
 
             for (Map.Entry<String, String> val : _luaScripts.entrySet()) {
                 LuaValue valsec = globals.load(val.getValue(), "global_script" + val.getKey(), globals);

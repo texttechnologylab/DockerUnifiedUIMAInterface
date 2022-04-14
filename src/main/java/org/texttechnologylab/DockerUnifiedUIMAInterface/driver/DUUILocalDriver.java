@@ -156,17 +156,13 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
         return comp.getClass().getName().toString() == Component.class.getName().toString();
     }
 
-    public String instantiate(IDUUIPipelineComponent component) throws Exception {
+    public String instantiate(IDUUIPipelineComponent component, JCas jc) throws Exception {
         String uuid = UUID.randomUUID().toString();
         while (_active_components.containsKey(uuid.toString())) {
             uuid = UUID.randomUUID().toString();
         }
 
         InstantiatedComponent comp = new InstantiatedComponent(component);
-        JCas _basic = JCasFactory.createJCas();
-        _basic.setDocumentLanguage("en");
-        _basic.setDocumentText("Hello World!");
-
 
         if (!comp.isLocal()) {
             if(comp.getUsername() != null) {
@@ -192,7 +188,7 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
                 }
                 final int iCopy = i;
                 final String uuidCopy = uuid;
-                IDUUICommunicationLayer layer = responsiveAfterTime("http://127.0.0.1:" + String.valueOf(port), _basic, _container_timeout, _client, (msg) -> {
+                IDUUICommunicationLayer layer = responsiveAfterTime("http://127.0.0.1:" + String.valueOf(port), jc, _container_timeout, _client, (msg) -> {
                     System.out.printf("[DockerLocalDriver][%s][Docker Replication %d/%d] %s\n", uuidCopy, iCopy + 1, comp.getScale(), msg);
                 },_luaContext);
                 System.out.printf("[DockerLocalDriver][%s][Docker Replication %d/%d] Container for image %s is online (URL http://127.0.0.1:%d) and seems to understand DUUI V1 format!\n", uuid, i + 1, comp.getScale(), comp.getImageName(), port);
