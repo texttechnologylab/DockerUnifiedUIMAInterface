@@ -339,7 +339,6 @@ public class TestDUUI {
         long start = System.currentTimeMillis();
         JSONArray begin = new JSONArray();
         JSONArray endt = new JSONArray();
-        begin.putAll(JCasUtil.select(jc,Token.class).stream().map((a) -> a.getBegin()));
 
         for(Token t : JCasUtil.select(jc,Token.class)) {
             begin.put(t.getBegin());

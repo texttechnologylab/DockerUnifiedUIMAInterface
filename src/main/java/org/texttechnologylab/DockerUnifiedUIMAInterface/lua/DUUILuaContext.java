@@ -98,7 +98,6 @@ public class DUUILuaContext {
             }
             LoadState.install(user_globals);
             LuaC.install(user_globals);
-            LuaJC.install(user_globals);
             LuaValue sethook = user_globals.get("debug").get("sethook");
 
             user_globals.set("debug", LuaValue.NIL);
