@@ -11,9 +11,10 @@ import org.xml.sax.SAXException;
 import java.io.*;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
 
 public class DUUIFallbackCommunicationLayer implements IDUUICommunicationLayer {
-    public void serialize(JCas jc, ByteArrayOutputStream out) throws CompressorException, IOException, SAXException {
+    public void serialize(JCas jc, ByteArrayOutputStream out, Map<String,String> parameters) throws CompressorException, IOException, SAXException {
         JSONObject obj = new JSONObject();
         ByteArrayOutputStream arr = new ByteArrayOutputStream();
         XmiCasSerializer.serialize(jc.getCas(), null, arr);
@@ -28,6 +29,7 @@ public class DUUIFallbackCommunicationLayer implements IDUUICommunicationLayer {
         obj.put("typesystem_hash", typesystem.hashCode());
         obj.put("cas_hash", cas.hashCode());
         obj.put("compression","none");
+        obj.put("params",parameters);
         out.write(obj.toString().getBytes(StandardCharsets.UTF_8));
     }
 

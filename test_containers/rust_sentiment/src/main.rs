@@ -4,11 +4,17 @@ use axum::{
     response::IntoResponse,
     Json, Router, middleware::AddExtension, Extension,
 };
-use rust_bert::pipelines::sentiment::{SentimentModel, SentimentPolarity};
+use rust_bert::pipelines::{sentiment::{SentimentModel, SentimentPolarity}, sequence_classification::SequenceClassificationConfig, common::ModelType};
 use rust_bert::pipelines::sentiment::Sentiment;
 use bytes::buf::Reader;
 use bytes::Buf;
 use rmp;
+use serde::{Deserialize};
+use rust_bert::resources::{Resource,LocalResource, RemoteResource};
+use std::path::PathBuf;
+
+#[derive(Debug,Deserialize)]
+pub struct Message<'a>(&'a str, Vec<usize>);
 
 struct AppState {
     tx: tokio::sync::mpsc::UnboundedSender<(bytes::Bytes,tokio::sync::oneshot::Sender<Vec<Sentiment>>)>,
@@ -19,20 +25,21 @@ async fn main() {
     let lua : String = std::fs::read_to_string("rust_communication_msgpack.lua").unwrap();
     let (tx,mut rx) = tokio::sync::mpsc::unbounded_channel::<(bytes::Bytes,tokio::sync::oneshot::Sender<Vec<Sentiment>>)>();
     let thread = std::thread::spawn(move || {
-        let sentiment_classifier =  SentimentModel::new(Default::default()).unwrap();
+        let sentiment_classifier =  SentimentModel::new(SequenceClassificationConfig::new(ModelType::DistilBert, Resource::Local(LocalResource{local_path: PathBuf::from(r"rust_model.ot")}), Resource::Local(LocalResource{local_path: PathBuf::from(r"config.json")}), Resource::Local(LocalResource{local_path: PathBuf::from(r"vocab.txt")}), None, false, None, None)).unwrap();
         loop {
             let str = rx.blocking_recv();
             if let Some((vals, sender)) = str {
-                let (st,mut tail) = rmp::decode::read_str_from_slice(vals.as_ref()).unwrap();
-                    let arraylen = rmp::decode::read_array_len(&mut tail).unwrap() as usize >> 1;
-                    let mut vec = Vec::with_capacity(arraylen);
-                    for _ in 0..arraylen {
-                        let start = rmp::decode::read_pfix(&mut tail).unwrap() as usize;
-                        let end= rmp::decode::read_pfix(&mut tail).unwrap() as usize;
-                        vec.push(&st[start..end]);
+                if let Ok(message) = rmp_serde::from_slice::<Message>(vals.as_ref()) {
+                    let mut strvec = Vec::with_capacity(message.1.len());
+                    for x in (0..message.1.len()).step_by(2) {
+                        strvec.push(&message.0[message.1[x]..message.1[x+1]]);
                     }
-                    let res = sentiment_classifier.predict(vec);
+                    let res = sentiment_classifier.predict(strvec);
                     let _ = sender.send(res);
+                }
+                else {
+                    let _ = sender.send(Vec::new());
+                }
             }
         }
     });

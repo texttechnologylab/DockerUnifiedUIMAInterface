@@ -4,7 +4,7 @@ msgpack = luajava.bindClass("org.msgpack.core.MessagePack")
 
 
 -- Serialize all tokens as performance test
-function serialize(inputCas,outputStream)
+function serialize(inputCas,outputStream,params)
   packer = msgpack:newDefaultPacker(outputStream)
   packer:packString(inputCas:getDocumentText())
 

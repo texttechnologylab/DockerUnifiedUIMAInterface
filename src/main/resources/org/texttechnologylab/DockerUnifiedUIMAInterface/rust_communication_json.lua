@@ -3,7 +3,7 @@ util = luajava.bindClass("org.apache.uima.fit.util.JCasUtil")
 
 
 -- Serialize all tokens as performance test
-function serialize(inputCas,outputStream)
+function serialize(inputCas,outputStream,params)
   local beginsent = luajava.newInstance("org.json.JSONArray")
   local endsent = luajava.newInstance("org.json.JSONArray")
   local sending = luajava.newInstance("org.json.JSONArray")

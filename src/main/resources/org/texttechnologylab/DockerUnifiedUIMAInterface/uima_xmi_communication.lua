@@ -1,7 +1,7 @@
 serial = luajava.bindClass("org.apache.uima.cas.impl.XmiCasSerializer")
 deserial = luajava.bindClass("org.apache.uima.cas.impl.XmiCasDeserializer")
 
-function serialize(inputCas,outputStream)
+function serialize(inputCas,outputStream,params)
   serial:serialize(inputCas:getCas(),outputStream)
 end
 

@@ -7,6 +7,7 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUICommunicationLayer;
 import org.xml.sax.SAXException;
 
 import java.io.*;
+import java.util.Map;
 
 public class DUUILuaCommunicationLayer implements IDUUICommunicationLayer {
     private String _script;
@@ -21,8 +22,8 @@ public class DUUILuaCommunicationLayer implements IDUUICommunicationLayer {
         _globalContext = globalContext;
     }
 
-    public void serialize(JCas jc, ByteArrayOutputStream out) throws CompressorException, IOException, SAXException {
-        _file.call("serialize",CoerceJavaToLua.coerce(jc),CoerceJavaToLua.coerce(out));
+    public void serialize(JCas jc, ByteArrayOutputStream out, Map<String,String> parameters) throws CompressorException, IOException, SAXException {
+        _file.call("serialize",CoerceJavaToLua.coerce(jc),CoerceJavaToLua.coerce(out), CoerceJavaToLua.coerce(parameters));
     }
 
     public void deserialize(JCas jc, ByteArrayInputStream input) throws IOException, SAXException {

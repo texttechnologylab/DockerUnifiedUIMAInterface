@@ -1323,6 +1323,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "rmp-serde"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f3eedffbfcc6a428f230c04baf8f59bd73c1781361e4286111fe900849aaddaf"
+dependencies = [
+ "byteorder",
+ "rmp",
+ "serde",
+]
+
+[[package]]
 name = "rust-bert"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1348,7 +1359,9 @@ dependencies = [
  "axum",
  "bytes",
  "rmp",
+ "rmp-serde",
  "rust-bert",
+ "serde",
  "tokio",
 ]
 

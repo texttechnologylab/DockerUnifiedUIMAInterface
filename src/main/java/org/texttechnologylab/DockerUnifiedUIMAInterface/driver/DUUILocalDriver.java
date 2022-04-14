@@ -23,6 +23,7 @@ import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidParameterException;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
@@ -128,7 +129,8 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
         }
         ByteArrayOutputStream stream = new ByteArrayOutputStream();
         try {
-            layer.serialize(jc, stream);
+            //TODO: Make this accept options to better check the instantiation!
+            layer.serialize(jc, stream,null);
         }
         catch(Exception e) {
             e.printStackTrace();
@@ -254,7 +256,7 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
 
         long serializeStart = System.nanoTime();
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-        inst.getCommunicationLayer().serialize(aCas,outputStream);
+        inst.getCommunicationLayer().serialize(aCas,outputStream,comp.getParameters());
         long serializeEnd = System.nanoTime();
 
         byte []ok = outputStream.toByteArray();
@@ -336,9 +338,11 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
         private String _reg_password;
         private String _reg_username;
         private String _uniqueComponentKey;
+        private Map<String,String> _parameters;
 
         InstantiatedComponent(IDUUIPipelineComponent comp) {
             _image_name = comp.getOption("container");
+            _parameters = comp.getParameters();
             if (_image_name == null) {
                 throw new InvalidParameterException("The image name was not set! This is mandatory for the DockerLocalDriver Class.");
             }
@@ -407,6 +411,8 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
         public ConcurrentLinkedQueue<ComponentInstance> getInstances() {
             return _instances;
         }
+
+        public Map<String,String> getParameters() {return _parameters;}
     }
 
     public static class Component extends IDUUIPipelineComponent {

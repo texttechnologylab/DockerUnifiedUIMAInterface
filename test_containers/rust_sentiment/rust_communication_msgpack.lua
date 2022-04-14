@@ -4,8 +4,9 @@ msgpack = luajava.bindClass("org.msgpack.core.MessagePack")
 
 
 -- Serialize all tokens as performance test
-function serialize(inputCas,outputStream)
+function serialize(inputCas,outputStream,params)
   packer = msgpack:newDefaultPacker(outputStream)
+  packer:packArrayHeader(2)
   packer:packString(inputCas:getDocumentText())
 
   local size = util:select(inputCas,sentence):size()
@@ -30,13 +31,18 @@ function deserialize(inputCas,inputStream)
   local size = unpack:unpackArrayHeader()
   while result:hasNext() do
       local x = result:next()
-      local beg = x:getBegin())
+      local beg = x:getBegin()
       local endv = x:getEnd()
       local pol = unpack:unpackInt()
       local score =unpack:unpackFloat()
-      print(x)
-      print(beg)
-      print(endv)
-      print(score)
+      local sent = luajava.newInstance("org.hucompute.textimager.uima.type.Sentiment",inputCas)
+      sent:setBegin(beg)
+      sent:setEnd(endv)
+      if pol == 0 then
+        sent:setSentiment(-score)
+      else
+        sent:setSentiment(score)
+      end
+      sent:addToIndexes()
   end
 end

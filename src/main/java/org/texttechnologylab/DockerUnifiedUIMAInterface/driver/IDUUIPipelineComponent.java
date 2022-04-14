@@ -5,6 +5,7 @@ import java.util.Map;
 
 public class IDUUIPipelineComponent {
     private HashMap<String, String> _options;
+    private HashMap<String,String> _parameters;
 
     public IDUUIPipelineComponent() {
         _options = new HashMap<>();
@@ -16,6 +17,20 @@ public class IDUUIPipelineComponent {
             _options.put(entry.getKey(),String.valueOf(entry.getValue()));
         }
     }
+
+    public IDUUIPipelineComponent withParameter(String key, String value) {
+        //TODO: Add this to the ArangoDB backend!!! Only options are serialized at the moment
+        if(_parameters==null) {
+            _parameters = new HashMap<>();
+        }
+        _parameters.put(key,value);
+        return this;
+    }
+
+    public Map<String,String> getParameters() {
+        return _parameters;
+    }
+
     public IDUUIPipelineComponent(IDUUIPipelineComponent other) {
         _options = other._options;
     }

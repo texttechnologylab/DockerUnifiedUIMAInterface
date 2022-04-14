@@ -1,4 +1,4 @@
-function serialize(inputCas,outputStream)
+function serialize(inputCas,outputStream,params)
   json.encode({1,2,3,4})
 end
 

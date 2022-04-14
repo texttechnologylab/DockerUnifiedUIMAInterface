@@ -9,5 +9,7 @@ edition = "2021"
 rust-bert = "0.13.0"
 bytes = "1.1.0"
 rmp = "0.8.10"
+rmp-serde = "1.0.0"
+serde = { version = "1.0", features = ["derive"] }
 tokio = { version = "1", features = ["full"] }
 axum = "0.5.1"

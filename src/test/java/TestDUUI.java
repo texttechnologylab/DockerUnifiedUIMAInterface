@@ -51,7 +51,7 @@ public class TestDUUI {
         DUUILuaContext ctxt = new DUUILuaContext();
         DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(val,"remote",ctxt);
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        lua.serialize(jc,out);
+        lua.serialize(jc,out,null);
         System.out.println(out.toString());
     }
 
@@ -66,7 +66,7 @@ public class TestDUUI {
         ctxt.withGlobalLibrary("json",DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/json.lua").toURI());
         DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(val,"remote",ctxt);
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        lua.serialize(jc,out);
+        lua.serialize(jc,out,null);
         System.out.println(out.toString());
     }
 
@@ -102,7 +102,7 @@ public class TestDUUI {
 
         DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(val, "remote", ctxt);
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        lua.serialize(jc,out);
+        lua.serialize(jc,out,null);
         assertEquals(out.toString(),"");
     }
 
@@ -136,7 +136,7 @@ public class TestDUUI {
         assertThrows(RuntimeException.class,()->{
             DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(val, "remote", ctxt);
             ByteArrayOutputStream out = new ByteArrayOutputStream();
-            lua.serialize(jc,out);
+            lua.serialize(jc,out,null);
         });
     }
 
@@ -154,7 +154,7 @@ public class TestDUUI {
 
         DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(val, "remote", ctxt);
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        lua.serialize(jc,out);
+        lua.serialize(jc,out,null);
     }
 
     @Test
@@ -172,7 +172,7 @@ public class TestDUUI {
 
         DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(val, "remote", ctxt);
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        lua.serialize(jc,out);
+        lua.serialize(jc,out,null);
     }
 
     @Test
@@ -211,7 +211,7 @@ public class TestDUUI {
         DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(val,"remote",ctxt);
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         long start = System.currentTimeMillis();
-        lua.serialize(jc,out);
+        lua.serialize(jc,out,null);
         long end = System.currentTimeMillis();
         System.out.printf("Serialize large Lua JSON in %d ms time," +
                 " total bytes %d\n",end-start,out.toString().length());
@@ -241,7 +241,7 @@ public class TestDUUI {
         DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(val,"remote",ctxt);
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         long start = System.currentTimeMillis();
-        lua.serialize(jc,out);
+        lua.serialize(jc,out,null);
         long end = System.currentTimeMillis();
         System.out.printf("Serialize large Lua MsgPack in %d ms time," +
                 " total bytes %d, total tokens %d\n",end-start,out.toString().length(),expectedNumberOfTokens);
@@ -380,7 +380,7 @@ public class TestDUUI {
         DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(val, "remote", ctxt);
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         long start = System.currentTimeMillis();
-        lua.serialize(jc,out);
+        lua.serialize(jc,out,null);
         long end = System.currentTimeMillis();
         System.out.printf("Serialize large Lua Native MsgPack in %d ms time," +
                 " total bytes %d, total tokens %d\n",end-start,out.toString().length(),expectedNumberOfTokens);

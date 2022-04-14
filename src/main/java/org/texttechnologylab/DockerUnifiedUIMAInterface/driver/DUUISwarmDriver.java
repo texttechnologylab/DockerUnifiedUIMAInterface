@@ -22,6 +22,7 @@ import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidParameterException;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
@@ -164,7 +165,7 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         long serializeStart = System.nanoTime();
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        inst.serialize(aCas,out);
+        inst.serialize(aCas,out,comp.getParameters());
         byte[] ok = out.toByteArray();
         long serializeEnd = System.nanoTime();
 
@@ -216,6 +217,7 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         private String _reg_password;
         private String _reg_username;
         private String _uniqueComponentKey;
+        private Map<String,String> _parameters;
 
         public ConcurrentLinkedQueue<IDUUICommunicationLayer> getInstances() {
             return _communication;
@@ -237,6 +239,7 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
                 throw new InvalidParameterException("The image name was not set! This is mandatory for the DockerLocalDriver Class.");
             }
 
+            _parameters = comp.getParameters();
             _uniqueComponentKey = comp.getOption(DUUIComposer.COMPONENT_COMPONENT_UNIQUE_KEY);
             String scale = comp.getOption("scale");
             if (scale == null) {
@@ -307,6 +310,8 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         public boolean getRunningAfterExit() {
             return _keep_runnging_after_exit;
         }
+
+        public Map<String,String> getParameters() {return _parameters;}
     }
 
     public static class Component extends IDUUIPipelineComponent {

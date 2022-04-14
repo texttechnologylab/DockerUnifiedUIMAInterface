@@ -26,6 +26,7 @@ import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidParameterException;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
@@ -59,6 +60,7 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         private int _maximum_concurrency;
         private ConcurrentLinkedQueue<IDUUICommunicationLayer> _communication;
         private String _uniqueComponentKey;
+        private Map<String,String> _parameters;
 
 
         public InstantiatedComponent(IDUUIPipelineComponent comp) {
@@ -66,6 +68,7 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
             if (_url == null) {
                 throw new InvalidParameterException("Missing parameter URL in the pipeline component descriptor");
             }
+            _parameters = comp.getParameters();
 
             _uniqueComponentKey = comp.getOption(DUUIComposer.COMPONENT_COMPONENT_UNIQUE_KEY);
 
@@ -102,6 +105,8 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         public String getUrl() {
             return _url;
         }
+
+        public Map<String,String> getParameters() {return _parameters;}
     }
 
     public DUUIRemoteDriver(int timeout) {
@@ -190,7 +195,7 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         long serializeStart = System.nanoTime();
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        inst.serialize(aCas,out);
+        inst.serialize(aCas,out,comp.getParameters());
         long serializeEnd = System.nanoTime();
 
         long annotatorStart = serializeEnd;
