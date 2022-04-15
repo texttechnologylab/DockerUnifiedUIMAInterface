@@ -12,6 +12,7 @@ import org.apache.uima.jcas.JCas;
 import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.apache.uima.util.TypeSystemUtil;
+import org.javatuples.Triplet;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.*;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaCommunicationLayer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
@@ -194,7 +195,8 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
                     System.out.printf("[DockerLocalDriver][%s][Docker Replication %d/%d] %s\n", uuidCopy, iCopy + 1, comp.getScale(), msg);
                 },_luaContext);
                 System.out.printf("[DockerLocalDriver][%s][Docker Replication %d/%d] Container for image %s is online (URL http://127.0.0.1:%d) and seems to understand DUUI V1 format!\n", uuid, i + 1, comp.getScale(), comp.getImageName(), port);
-                comp.addInstance(new ComponentInstance(containerid, port, layer));
+                comp.addInstance(new ComponentInstance(containerid, port));
+                comp.setCommunicationLayer(layer);
             }
             catch(Exception e) {
                 _interface.stop_container(containerid);
@@ -217,71 +219,16 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
         if (comp == null) {
             throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
         }
-        ComponentInstance inst = comp.getInstances().poll();
-        while(inst == null) {
-            inst = comp.getInstances().poll();
-        }
-        Request request = new Request.Builder()
-                .url(inst.getContainerUrl() + DUUIComposer.V1_COMPONENT_ENDPOINT_TYPESYSTEM)
-                .get()
-                .build();
-        Response resp = _client.newCall(request).execute();
-        comp.addInstance(inst);
-        if (resp.code() == 200) {
-            String body = new String(resp.body().bytes(), Charset.defaultCharset());
-            File tmp = File.createTempFile("duui.composer","_type");
-            FileWriter writer = new FileWriter(tmp);
-            writer.write(body);
-            writer.flush();
-            writer.close();
-            return TypeSystemDescriptionFactory.createTypeSystemDescriptionFromPath(tmp.getAbsolutePath());
-        } else {
-            System.out.printf("[DockerLocalDriver][%s]: Endpoint did not provide typesystem, using default one...\n",uuid);
-            return TypeSystemDescriptionFactory.createTypeSystemDescription();
-        }
+        return IDUUIInstantiatedPipelineComponent.getTypesystem(uuid,comp);
     }
 
-    public JCas run(String uuid, JCas aCas, DUUIPipelineDocumentPerformance perf) throws InterruptedException, IOException, SAXException, CompressorException {
+    public void run(String uuid, JCas aCas, DUUIPipelineDocumentPerformance perf) throws InterruptedException, IOException, SAXException, CompressorException {
         long mutexStart = System.nanoTime();
         InstantiatedComponent comp = _active_components.get(uuid);
         if (comp == null) {
             throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
         }
-        ComponentInstance inst = comp.getInstances().poll();
-        while(inst == null) {
-            inst = comp.getInstances().poll();
-        }
-        long mutexEnd = System.nanoTime();
-
-
-        long serializeStart = System.nanoTime();
-        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-        inst.getCommunicationLayer().serialize(aCas,outputStream,comp.getParameters());
-        long serializeEnd = System.nanoTime();
-
-        byte []ok = outputStream.toByteArray();
-        long annotatorStart = serializeEnd;
-        RequestBody bod = RequestBody.create(ok);
-        Request request = new Request.Builder()
-                .url(inst.getContainerUrl() + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS)
-                .post(bod)
-                .header("Content-Length", String.valueOf(ok.length))
-                .build();
-        Response resp = _client.newCall(request).execute();
-
-        if (resp.code() == 200) {
-            ByteArrayInputStream inputStream = new ByteArrayInputStream(resp.body().bytes());
-            long annotatorEnd = System.nanoTime();
-            long deserializeStart = annotatorEnd;
-            inst.getCommunicationLayer().deserialize(aCas,inputStream);
-            long deserializeEnd = System.nanoTime();
-            perf.addData(serializeEnd-serializeStart,deserializeEnd-deserializeStart,annotatorEnd-annotatorStart,mutexEnd-mutexStart,deserializeEnd-mutexStart,comp.getUniqueComponentKey());
-            comp.addInstance(inst);
-        } else {
-            comp.addInstance(inst);
-            throw new InvalidObjectException("Response code != 200, error");
-        }
-        return aCas;
+        IDUUIInstantiatedPipelineComponent.process(aCas,comp,perf);
     }
 
     public void destroy(String uuid) {
@@ -299,15 +246,13 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
         }
     }
 
-    public static class ComponentInstance {
+    public static class ComponentInstance implements IDUUIUrlAccessible {
         private String _container_id;
         private int _port;
-        private IDUUICommunicationLayer _communication;
 
-        public ComponentInstance(String id, int port, IDUUICommunicationLayer layer) {
+        public ComponentInstance(String id, int port) {
             _container_id = id;
             _port = port;
-            _communication = layer;
         }
 
         String getContainerId() {
@@ -318,8 +263,8 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
             return _port;
         }
 
-        IDUUICommunicationLayer getCommunicationLayer() {
-            return _communication;
+        public String generateURL() {
+            return format("http://127.0.0.1:%d", _port);
         }
 
         String getContainerUrl() {
@@ -327,7 +272,7 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
         }
     }
 
-    static class InstantiatedComponent {
+    static class InstantiatedComponent implements IDUUIInstantiatedPipelineComponent {
         private String _image_name;
         private boolean _local;
         private ConcurrentLinkedQueue<ComponentInstance> _instances;
@@ -338,7 +283,32 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
         private String _reg_password;
         private String _reg_username;
         private String _uniqueComponentKey;
+        private IDUUICommunicationLayer _layer;
         private Map<String,String> _parameters;
+
+        public IDUUICommunicationLayer getCommunicationLayer() {
+            return _layer;
+        }
+
+        public void setCommunicationLayer(IDUUICommunicationLayer layer) {
+            _layer = layer;
+        }
+
+
+
+        public Triplet<IDUUIUrlAccessible,Long,Long> getComponent() {
+            long mutexStart = System.nanoTime();
+            ComponentInstance inst = _instances.poll();
+            while(inst == null) {
+                inst = _instances.poll();
+            }
+            long mutexEnd = System.nanoTime();
+            return Triplet.with(inst,mutexStart,mutexEnd);
+        }
+
+        public void addComponent(IDUUIUrlAccessible access) {
+            _instances.add((ComponentInstance) access);
+        }
 
         InstantiatedComponent(IDUUIPipelineComponent comp) {
             _image_name = comp.getOption("container");

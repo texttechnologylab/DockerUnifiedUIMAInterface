@@ -16,6 +16,7 @@ import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
+import org.javatuples.Triplet;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.*;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
@@ -55,13 +56,45 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         _luaContext = luaContext;
     }
 
-    private static class InstantiatedComponent extends IDUUIPipelineComponent {
+    private static class ComponentInstance implements IDUUIUrlAccessible {
+        String _url;
+
+        ComponentInstance(String val) {
+            _url = val;
+        }
+
+        public String generateURL() {
+            return _url;
+        }
+    }
+    private static class InstantiatedComponent implements IDUUIInstantiatedPipelineComponent {
         private String _url;
         private int _maximum_concurrency;
-        private ConcurrentLinkedQueue<IDUUICommunicationLayer> _communication;
+        private ConcurrentLinkedQueue<ComponentInstance> _components;
+        private IDUUICommunicationLayer _layer;
         private String _uniqueComponentKey;
         private Map<String,String> _parameters;
 
+        public IDUUICommunicationLayer getCommunicationLayer() {
+            return _layer;
+        }
+        public Triplet<IDUUIUrlAccessible,Long,Long> getComponent() {
+            long mutexStart = System.nanoTime();
+            ComponentInstance inst = _components.poll();
+            while(inst == null) {
+                inst = _components.poll();
+            }
+            long mutexEnd = System.nanoTime();
+            return Triplet.with(inst,mutexStart,mutexEnd);
+        }
+
+        public void addComponent(IDUUIUrlAccessible item) {
+            _components.add((ComponentInstance) item);
+        }
+
+        public void setCommunicationLayer(IDUUICommunicationLayer layer) {
+            _layer = layer;
+        }
 
         public InstantiatedComponent(IDUUIPipelineComponent comp) {
             _url = comp.getOption("url");
@@ -73,30 +106,16 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
             _uniqueComponentKey = comp.getOption(DUUIComposer.COMPONENT_COMPONENT_UNIQUE_KEY);
 
             String max = comp.getOption("scale");
+            _components = new ConcurrentLinkedQueue<>();
             if(max != null) {
                 _maximum_concurrency = Integer.valueOf(max);
-                _communication = new ConcurrentLinkedQueue<>();
             }
             else {
                 _maximum_concurrency = 1;
-                _communication = new ConcurrentLinkedQueue<>();
             }
         }
 
         public String getUniqueComponentKey() {return _uniqueComponentKey;}
-        public void addCommunicationLayer(IDUUICommunicationLayer layer) {
-            for(int i = 0; i < _maximum_concurrency; i++) {
-                _communication.add(layer.copy());
-            }
-        }
-
-        public ConcurrentLinkedQueue<IDUUICommunicationLayer> getInstances() {
-            return _communication;
-        }
-
-        public void returnCommunicationLayer(IDUUICommunicationLayer layer) {
-            _communication.add(layer);
-        }
 
         public int getScale() {
             return _maximum_concurrency;
@@ -140,7 +159,10 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         IDUUICommunicationLayer layer = DUUILocalDriver.responsiveAfterTime(comp.getUrl(), jc, 100000, _client, (msg) -> {
             System.out.printf("[RemoteDriver][%s] %s\n", uuidCopy,msg);
         },_luaContext);
-        comp.addCommunicationLayer(layer);
+        comp.setCommunicationLayer(layer);
+        for(int i = 0; i < comp.getScale(); i++) {
+            comp.addComponent(new ComponentInstance(comp.getUrl()));
+        }
         _components.put(uuid, comp);
         System.out.printf("[RemoteDriver][%s] Remote URL %s is online and seems to understand DUUI V1 format!\n", uuid, comp.getUrl());
         System.out.printf("[RemoteDriver][%s] Maximum concurrency for this endpoint %d\n", uuid, comp.getScale());
@@ -160,68 +182,16 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         if (comp == null) {
             throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
         }
-        Request request = new Request.Builder()
-                .url(comp.getUrl() + DUUIComposer.V1_COMPONENT_ENDPOINT_TYPESYSTEM)
-                .get()
-                .build();
-        Response resp = _client.newCall(request).execute();
-        if (resp.code() == 200) {
-            String body = new String(resp.body().bytes(), Charset.defaultCharset());
-            File tmp = File.createTempFile("duui.composer","_type");
-            tmp.deleteOnExit();
-            FileWriter writer = new FileWriter(tmp);
-            writer.write(body);
-            writer.flush();
-            writer.close();
-            return TypeSystemDescriptionFactory.createTypeSystemDescriptionFromPath(tmp.getAbsolutePath());
-        } else {
-            System.out.printf("[RemoteDriver][%s]: Endpoint did not provide typesystem, using default one...\n",uuid);
-            return TypeSystemDescriptionFactory.createTypeSystemDescription();
-        }
+        return IDUUIInstantiatedPipelineComponent.getTypesystem(uuid,comp);
     }
 
-    public JCas run(String uuid, JCas aCas, DUUIPipelineDocumentPerformance perf) throws InterruptedException, IOException, SAXException, CompressorException {
+    public void run(String uuid, JCas aCas, DUUIPipelineDocumentPerformance perf) throws InterruptedException, IOException, SAXException, CompressorException {
         long mutexStart = System.nanoTime();
         InstantiatedComponent comp = _components.get(uuid);
         if (comp == null) {
             throw new InvalidParameterException("The given instantiated component uuid was not instantiated by the remote driver");
         }
-
-        IDUUICommunicationLayer inst = comp.getInstances().poll();
-        while(inst == null) {
-            inst = comp.getInstances().poll();
-        }
-        long mutexEnd = System.nanoTime();
-        long serializeStart = System.nanoTime();
-
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        inst.serialize(aCas,out,comp.getParameters());
-        long serializeEnd = System.nanoTime();
-
-        long annotatorStart = serializeEnd;
-        byte []ok = out.toByteArray();
-        RequestBody bod = RequestBody.create(ok);
-
-        Request request = new Request.Builder()
-                .url(comp.getUrl() + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS)
-                .post(bod)
-                .header("Content-Length", String.valueOf(ok.length))
-                .build();
-
-        Response resp = _client.newCall(request).execute();
-        if (resp.code() == 200) {
-            ByteArrayInputStream stream = new ByteArrayInputStream(resp.body().bytes());
-            long annotatorEnd = System.nanoTime();
-            long deserializeStart = annotatorEnd;
-            inst.deserialize(aCas,stream);
-            long deserializeEnd = System.nanoTime();
-            perf.addData(serializeEnd-serializeStart,deserializeEnd-deserializeStart,annotatorEnd-annotatorStart,mutexEnd-mutexStart,deserializeEnd-mutexStart,comp.getUniqueComponentKey());
-            comp.returnCommunicationLayer(inst);
-        } else {
-            comp.returnCommunicationLayer(inst);
-            throw new InvalidObjectException("Response code != 200, error");
-        }
-        return aCas;
+        IDUUIInstantiatedPipelineComponent.process(aCas,comp,perf);
     }
 
     public void destroy(String uuid) {

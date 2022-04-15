@@ -245,7 +245,7 @@ public class DUUIUIMADriver implements IDUUIDriverInterface {
         return TypeSystemDescriptionFactory.createTypeSystemDescription();
     }
 
-    public JCas run(String uuid, JCas aCas, DUUIPipelineDocumentPerformance perf) throws InterruptedException, IOException, SAXException, AnalysisEngineProcessException, CompressorException {
+    public void run(String uuid, JCas aCas, DUUIPipelineDocumentPerformance perf) throws InterruptedException, IOException, SAXException, AnalysisEngineProcessException, CompressorException {
         long mutexStart = System.nanoTime();
 
         InstantiatedComponent component = _engines.get(uuid);
@@ -270,7 +270,6 @@ public class DUUIUIMADriver implements IDUUIDriverInterface {
             component.add(engine);
             throw e;
         }
-        return aCas;
     }
 
     public void destroy(String uuid) {

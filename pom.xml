@@ -145,6 +145,13 @@
             <artifactId>msgpack-core</artifactId>
             <version>0.9.1</version>
         </dependency>
+        <!-- https://mvnrepository.com/artifact/org.javatuples/javatuples -->
+        <dependency>
+            <groupId>org.javatuples</groupId>
+            <artifactId>javatuples</artifactId>
+            <version>1.2</version>
+        </dependency>
+
 
         <dependency>
             <groupId>de.tudarmstadt.ukp.dkpro.core</groupId>

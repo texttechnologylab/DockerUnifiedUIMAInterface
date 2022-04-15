@@ -79,7 +79,7 @@ class DUUIWorker extends Thread {
             DUUIPipelineDocumentPerformance perf = new DUUIPipelineDocumentPerformance(_runKey,object);
             for (DUUIComposer.PipelinePart i : _flow) {
                 try {
-                    object = i.getDriver().run(i.getUUID(),object,perf);
+                    i.getDriver().run(i.getUUID(),object,perf);
                 } catch (Exception e) {
                     //Ignore errors at the moment
                     e.printStackTrace();
@@ -358,7 +358,7 @@ public class DUUIComposer {
         DUUIPipelineDocumentPerformance perf = new DUUIPipelineDocumentPerformance(name,jc);
         for(int i = 0; i < pipeline.size(); i++) {
             PipelinePart comp = pipeline.get(i);
-            jc = comp.getDriver().run(comp.getUUID(), jc,perf);
+            comp.getDriver().run(comp.getUUID(), jc,perf);
         }
 
         if(_storage!=null) {
@@ -485,18 +485,18 @@ public class DUUIComposer {
         composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class)),
                 DUUIUIMADriver.class);
 
-        /*composer.add(new DUUILocalDriver.Component("new:latest")
+        composer.add(new DUUILocalDriver.Component("new:latest")
                         .withScale(1)
                         .withRunningAfterDestroy(false)
-                , DUUILocalDriver.class);*/
+                , DUUILocalDriver.class);
 
         // Remote driver handles all pure URL endpoints
       //  composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.Component("http://127.0.0.1:9714")
       //                  .withScale(1),
       //          org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.class);
-        composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9714")
+      /*  composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9714")
                         .withScale(1),
-                DUUIRemoteDriver.class);
+                DUUIRemoteDriver.class);*/
 
         // UIMA Driver handles all native UIMA Analysis Engine Descriptions
         /*composer.add(new DUUIUIMADriver.Component(

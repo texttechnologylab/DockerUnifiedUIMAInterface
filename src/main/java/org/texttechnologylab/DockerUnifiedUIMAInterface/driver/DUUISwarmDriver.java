@@ -11,6 +11,7 @@ import org.apache.uima.fit.factory.TypeSystemDescriptionFactory;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
+import org.javatuples.Triplet;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.*;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
@@ -132,66 +133,16 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         if (comp == null) {
             throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
         }
-        Request request = new Request.Builder()
-                .url(comp.getServiceUrl() + DUUIComposer.V1_COMPONENT_ENDPOINT_TYPESYSTEM)
-                .get()
-                .build();
-        Response resp = _client.newCall(request).execute();
-        if (resp.code() == 200) {
-            String body = new String(resp.body().bytes(), Charset.defaultCharset());
-            File tmp = File.createTempFile("duui.composer","_type");
-            FileWriter writer = new FileWriter(tmp);
-            writer.write(body);
-            writer.flush();
-            writer.close();
-            return TypeSystemDescriptionFactory.createTypeSystemDescriptionFromPath(tmp.getAbsolutePath());
-        } else {
-            System.out.printf("[DockerSwarmDriver][%s]: Endpoint did not provide typesystem, using default one...\n",uuid);
-            return TypeSystemDescriptionFactory.createTypeSystemDescription();
-        }
+        return IDUUIInstantiatedPipelineComponent.getTypesystem(uuid,comp);
     }
 
-    public JCas run(String uuid, JCas aCas, DUUIPipelineDocumentPerformance perf) throws InterruptedException, IOException, SAXException, CompressorException {
+    public void run(String uuid, JCas aCas, DUUIPipelineDocumentPerformance perf) throws InterruptedException, IOException, SAXException, CompressorException {
         long mutexStart = System.nanoTime();
         DUUISwarmDriver.InstantiatedComponent comp = _active_components.get(uuid);
         if (comp == null) {
             throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
         }
-        IDUUICommunicationLayer inst = comp.getInstances().poll();
-        while(inst == null) {
-            inst = comp.getInstances().poll();
-        }
-        long mutexEnd = System.nanoTime();
-        long serializeStart = System.nanoTime();
-
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        inst.serialize(aCas,out,comp.getParameters());
-        byte[] ok = out.toByteArray();
-        long serializeEnd = System.nanoTime();
-
-        long annotatorStart = serializeEnd;
-
-        RequestBody body = RequestBody.create(ok);
-        Request request = new Request.Builder()
-                .url(comp.getServiceUrl()+ DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS)
-                .post(body)
-                .header("Content-Length", String.valueOf(ok.length))
-                .build();
-        Response resp = _client.newCall(request).execute();
-
-        if (resp.code() == 200) {
-            ByteArrayInputStream st = new ByteArrayInputStream(resp.body().bytes());
-            long annotatorEnd = System.nanoTime();
-            long deserializeStart = annotatorEnd;
-            inst.deserialize(aCas,st);
-            long deserializeEnd = System.nanoTime();
-            perf.addData(serializeEnd-serializeStart,deserializeEnd-deserializeStart,annotatorEnd-annotatorStart,mutexEnd-mutexStart,deserializeEnd-mutexStart,comp.getUniqueComponentKey());
-            comp.returnCommunicationLayer(inst);
-        } else {
-            comp.returnCommunicationLayer(inst);
-            throw new InvalidObjectException("Response code != 200, error");
-        }
-        return aCas;
+        IDUUIInstantiatedPipelineComponent.process(aCas,comp,perf);
     }
 
     public void destroy(String uuid) {
@@ -205,33 +156,33 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         }
     }
 
-    private static class InstantiatedComponent {
+    private static class ComponentInstance implements IDUUIUrlAccessible {
+        String _url;
+
+        public ComponentInstance(String url) {
+            _url = url;
+        }
+
+        public String generateURL() {
+            return _url;
+        }
+    }
+
+    private static class InstantiatedComponent implements IDUUIInstantiatedPipelineComponent {
         private String _image_name;
         private String _service_id;
         private int _service_port;
         private boolean _keep_runnging_after_exit;
         private int _scale;
         private String _fromLocalImage;
-        private ConcurrentLinkedQueue<IDUUICommunicationLayer> _communication;
+        private ConcurrentLinkedQueue<ComponentInstance> _components;
 
         private String _reg_password;
         private String _reg_username;
         private String _uniqueComponentKey;
         private Map<String,String> _parameters;
+        private IDUUICommunicationLayer _layer;
 
-        public ConcurrentLinkedQueue<IDUUICommunicationLayer> getInstances() {
-            return _communication;
-        }
-
-        public void addCommunicationLayer(IDUUICommunicationLayer layer) {
-            for(int i = 0; i < _scale; i++) {
-                _communication.add(layer.copy());
-            }
-        }
-
-        public void returnCommunicationLayer(IDUUICommunicationLayer layer) {
-            _communication.add(layer);
-        }
 
         InstantiatedComponent(IDUUIPipelineComponent comp) throws ClassNotFoundException, NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
             _image_name = comp.getOption("container");
@@ -247,7 +198,7 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
             } else {
                 _scale = Integer.parseInt(scale);
             }
-            _communication = new ConcurrentLinkedQueue<>();
+            _components = new ConcurrentLinkedQueue<>();
 
             String with_running_after = comp.getOption("run_after_exit");
             if (with_running_after == null) {
@@ -261,7 +212,6 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
             _reg_username = comp.getOption("reg_username");
 
             String classname = comp.getOption("mapper_class_name");
-            _communication = null;
         }
 
 
@@ -312,6 +262,29 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         }
 
         public Map<String,String> getParameters() {return _parameters;}
+
+        public IDUUICommunicationLayer getCommunicationLayer() {
+            return _layer;
+        }
+
+        public Triplet<IDUUIUrlAccessible,Long,Long> getComponent() {
+            long mutexStart = System.nanoTime();
+            ComponentInstance inst = _components.poll();
+            while(inst == null) {
+                inst = _components.poll();
+            }
+            long mutexEnd = System.nanoTime();
+            return Triplet.with(inst,mutexStart,mutexEnd);
+        }
+
+        public void addComponent(IDUUIUrlAccessible item) {
+            _components.add((ComponentInstance) item);
+        }
+
+
+        public void setCommunicationLayer(IDUUICommunicationLayer layer) {
+            _layer = layer;
+        }
     }
 
     public static class Component extends IDUUIPipelineComponent {
