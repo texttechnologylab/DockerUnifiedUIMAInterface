@@ -155,7 +155,7 @@ public class DUUIArangoDBStorageBackend implements IDUUIStorageBackend {
         _client.shutdown();
     }
 
-    public Vector<String> addNewRun(String name, DUUIComposer composer) throws SQLException {
+    public void addNewRun(String name, DUUIComposer composer) throws SQLException {
         Vector<String> stringvec = new Vector<>();
         stringvec.add(_pipelineCollection.insertDocument(new DUUIArangoComposerConfiguration(name, composer.getWorkerCount())).getId());
         for (IDUUIPipelineComponent comp : composer.getPipeline()) {
@@ -185,9 +185,6 @@ public class DUUIArangoDBStorageBackend implements IDUUIStorageBackend {
         for (int i = 0; i < (stringvec.size()-1); i++) {
             _pipelineComponentEdge.insertDocument(new DUUIArangoPipelineEdge(stringvec.get(i),stringvec.get(i+1),name).edge());
         }
-        //Remove non component
-        stringvec.remove(0);
-        return stringvec;
     }
 
     @Override

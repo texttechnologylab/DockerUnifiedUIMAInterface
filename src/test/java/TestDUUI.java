@@ -7,6 +7,7 @@ import org.apache.uima.cas.SerialFormat;
 import org.apache.uima.cas.impl.CASCompleteSerializer;
 import org.apache.uima.cas.impl.CASMgrSerializer;
 import org.apache.uima.cas.impl.CASSerializer;
+import org.apache.uima.cas.impl.XmiCasSerializer;
 import org.apache.uima.fit.factory.AnalysisEngineFactory;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.fit.factory.TypeSystemDescriptionFactory;
@@ -24,9 +25,11 @@ import org.msgpack.core.MessagePack;
 import org.msgpack.core.MessagePacker;
 import org.msgpack.core.MessageUnpacker;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIUIMADriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaCommunicationLayer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaSandbox;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIMockStorageBackend;
 import org.xml.sax.SAXException;
 
 import java.io.ByteArrayOutputStream;
@@ -384,6 +387,50 @@ public class TestDUUI {
         long end = System.currentTimeMillis();
         System.out.printf("Serialize large Lua Native MsgPack in %d ms time," +
                 " total bytes %d, total tokens %d\n",end-start,out.toString().length(),expectedNumberOfTokens);
+    }
+
+    @Test
+    public void ComposerTest() throws Exception {
+        JCas jc = JCasFactory.createJCas();
+        jc.setDocumentText("Dies ist der erste Testatz. Hier ist der zweite Testsatz!");
+        jc.setDocumentLanguage("de");
+        AnalysisEngineDescription desc = AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class);
+        SimplePipeline.runPipeline(jc,desc);
+
+        JCas jc2 = JCasFactory.createJCas();
+        jc2.setDocumentText("Dies ist der erste Testatz. Hier ist der zweite Testsatz!");
+        jc2.setDocumentLanguage("de");
+        AnalysisEngineDescription desc2 = AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class);
+        DUUIComposer composer = new DUUIComposer();
+        composer.addDriver(new DUUIUIMADriver());
+        composer.add(new DUUIUIMADriver.Component(desc2),DUUIUIMADriver.class);
+
+        composer.run(jc2);
+
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ByteArrayOutputStream out2 = new ByteArrayOutputStream();
+        XmiCasSerializer.serialize(jc.getCas(),out);
+        XmiCasSerializer.serialize(jc2.getCas(),out2);
+        assertEquals(out.toString(),out2.toString());
+        composer.shutdown();
+    }
+
+    @Test
+    public void ComposerTestStorage() throws Exception {
+        JCas jc2 = JCasFactory.createJCas();
+        jc2.setDocumentText("Dies ist der erste Testatz. Hier ist der zweite Testsatz!");
+        jc2.setDocumentLanguage("de");
+        AnalysisEngineDescription desc2 = AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class);
+        DUUIMockStorageBackend mock = new DUUIMockStorageBackend();
+        DUUIComposer composer = new DUUIComposer().withStorageBackend(mock);
+        composer.addDriver(new DUUIUIMADriver());
+        composer.add(new DUUIUIMADriver.Component(desc2),DUUIUIMADriver.class);
+
+        composer.run(jc2,"hallo");
+
+        assertEquals(mock.getRunMap().contains("hallo"),true);
+        assertEquals(mock.getPerformanceMonitoring().size(),1);
+        composer.shutdown();
     }
 
 //    @Test

@@ -125,9 +125,7 @@ public class DUUIPostgresSQLStorageBackend implements IDUUIStorageBackend {
         System.out.printf("[DUUIArangoDBStorageBackend] To inspect the metrics visit ArangoDB at %s\n",generateURL());
     }
 
-    public Vector<String> addNewRun(String name, DUUIComposer composer) throws SQLException {
-        Vector<String> stringvec = new Vector<>();
-        return stringvec;
+    public void addNewRun(String name, DUUIComposer composer) throws SQLException {
     }
 
     @Override

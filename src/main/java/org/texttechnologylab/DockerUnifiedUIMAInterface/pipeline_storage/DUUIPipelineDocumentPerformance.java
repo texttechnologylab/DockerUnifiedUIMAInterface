@@ -31,6 +31,10 @@ public class DUUIPipelineDocumentPerformance {
         _documentSize = jc.getDocumentText().length();
     }
 
+    public String getRunKey() {
+        return _runKey;
+    }
+
 
     public void addData(long durationSerialize, long durationDeserialize, long durationAnnotator, long durationMutexWait, long durationComponentTotal, String componentKey) {
         _durationTotalDeserialize += durationDeserialize;

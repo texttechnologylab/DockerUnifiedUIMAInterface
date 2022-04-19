@@ -10,7 +10,7 @@ import java.time.Instant;
 import java.util.Vector;
 
 public interface IDUUIStorageBackend {
-    public Vector<String> addNewRun(String name, DUUIComposer composer) throws SQLException;
+    public void addNewRun(String name, DUUIComposer composer) throws SQLException;
     public IDUUIPipelineComponent loadComponent(String id);
     public void addMetricsForDocument(DUUIPipelineDocumentPerformance perf);
     public void finalizeRun(String name, Instant start, Instant end) throws SQLException;
