@@ -2,10 +2,6 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface;
 
 import de.tudarmstadt.ukp.dkpro.core.io.text.TextReader;
 import de.tudarmstadt.ukp.dkpro.core.tokit.BreakIteratorSegmenter;
-import org.apache.commons.compress.archivers.zip.StreamCompressor;
-import org.apache.commons.compress.compressors.CompressorException;
-import org.apache.commons.compress.compressors.CompressorStreamFactory;
-import org.apache.uima.cas.impl.TypeSystemUtils;
 import org.apache.uima.collection.CollectionReader;
 import org.apache.uima.collection.CollectionReaderDescription;
 import org.apache.uima.fit.factory.AnalysisEngineFactory;
@@ -15,10 +11,23 @@ import org.apache.uima.fit.factory.TypeSystemDescriptionFactory;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.apache.uima.util.CasCreationUtils;
-import org.xml.sax.SAXException;
-import javax.sql.rowset.spi.XmlWriter;
-import java.io.IOException;
+import org.apache.uima.util.XmlCasSerializer;
+import org.luaj.vm2.Globals;
+import org.luaj.vm2.lib.jse.JsePlatform;
+import org.luaj.vm2.script.LuajContext;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.*;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.DUUIMonitor;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.IDUUIStorageBackend;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.arangodb.DUUIArangoDBStorageBackend;
+
+import java.io.ByteArrayOutputStream;
+import java.net.UnknownHostException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.security.InvalidParameterException;
+import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -33,22 +42,26 @@ class DUUIWorker extends Thread {
     ConcurrentLinkedQueue<JCas> _loadedInstances;
     AtomicInteger _threadsAlive;
     AtomicBoolean _shutdown;
-    String _compressionMethod;
+    IDUUIStorageBackend _backend;
+    String _runKey;
 
-    DUUIWorker(Vector<DUUIComposer.PipelinePart> engineFlow, ConcurrentLinkedQueue<JCas> emptyInstance, ConcurrentLinkedQueue<JCas> loadedInstances, AtomicBoolean shutdown, AtomicInteger error, String compression) {
+    DUUIWorker(Vector<DUUIComposer.PipelinePart> engineFlow, ConcurrentLinkedQueue<JCas> emptyInstance, ConcurrentLinkedQueue<JCas> loadedInstances, AtomicBoolean shutdown, AtomicInteger error,
+               IDUUIStorageBackend backend, String runKey) {
         super();
         _flow = engineFlow;
         _instancesToBeLoaded = emptyInstance;
         _loadedInstances = loadedInstances;
         _shutdown = shutdown;
         _threadsAlive = error;
-        _compressionMethod = compression;
+        _backend = backend;
+        _runKey = runKey;
     }
 
     @Override
     public void run() {
         _threadsAlive.addAndGet(1);
         while(true) {
+
             JCas object = null;
             while(object == null) {
                 object = _loadedInstances.poll();
@@ -58,19 +71,10 @@ class DUUIWorker extends Thread {
                 }
             }
 
-            DUUIEither either = null;
-            try {
-                either = new DUUIEither(object, _compressionMethod);
-            } catch (IOException e) {
-                e.printStackTrace();
-            } catch (SAXException e) {
-                e.printStackTrace();
-            } catch (CompressorException e) {
-                e.printStackTrace();
-            }
+            DUUIPipelineDocumentPerformance perf = new DUUIPipelineDocumentPerformance(_runKey,object);
             for (DUUIComposer.PipelinePart i : _flow) {
                 try {
-                    either = i.getDriver().run(i.getUUID(),either);
+                    i.getDriver().run(i.getUUID(),object,perf);
                 } catch (Exception e) {
                     //Ignore errors at the moment
                     e.printStackTrace();
@@ -78,25 +82,59 @@ class DUUIWorker extends Thread {
             }
             object.reset();
             _instancesToBeLoaded.add(object);
+            if(_backend!=null) {
+                _backend.addMetricsForDocument(perf);
+            }
         }
     }
 }
 
 
 public class DUUIComposer {
-    private Map<String, IDUUIDriverInterface> _drivers;
-    private Vector<IDUUIPipelineComponent> _pipeline;
+    private final Map<String, IDUUIDriverInterface> _drivers;
+    private final Vector<IDUUIPipelineComponent> _pipeline;
+
     private int _workers;
     public Integer _cas_poolsize;
-    private String _compressionMethod;
+    private DUUILuaContext _context;
+    private DUUIMonitor _monitor;
+    private IDUUIStorageBackend _storage;
 
     private static final String DRIVER_OPTION_NAME = "duuid.composer.driver";
+    public static final String COMPONENT_COMPONENT_UNIQUE_KEY = "duuid.storage.componentkey";
+
+    public static final String V1_COMPONENT_ENDPOINT_PROCESS = "/v1/process";
+    public static final String V1_COMPONENT_ENDPOINT_TYPESYSTEM = "/v1/typesystem";
+    public static final String V1_COMPONENT_ENDPOINT_COMMUNICATION_LAYER = "/v1/communication_layer";
+
+
 
     public DUUIComposer() {
-        _drivers = new HashMap<String, IDUUIDriverInterface>();
-        _pipeline = new Vector<IDUUIPipelineComponent>();
+        _drivers = new HashMap<>();
+        _pipeline = new Vector<>();
         _workers = 1;
         _cas_poolsize = null;
+        Globals globals = JsePlatform.standardGlobals();
+        _context = new DUUILuaContext();
+        _monitor = null;
+        _storage = null;
+        System.out.println("[Composer] Initialised LUA scripting layer with version "+ globals.get("_VERSION"));
+    }
+
+    public DUUIComposer withMonitor(DUUIMonitor monitor) throws UnknownHostException, InterruptedException {
+        _monitor = monitor;
+        _monitor.setup();
+        return this;
+    }
+
+    public DUUIComposer withStorageBackend(IDUUIStorageBackend storage) throws UnknownHostException, InterruptedException {
+        _storage = storage;
+        return this;
+    }
+
+    public DUUIComposer withLuaContext(DUUILuaContext context) {
+        _context = context;
+        return this;
     }
 
     public DUUIComposer withCasPoolsize(int poolsize) {
@@ -104,10 +142,6 @@ public class DUUIComposer {
         return this;
     }
 
-    public DUUIComposer withCompressionMethod(String method) {
-        _compressionMethod = method;
-        return this;
-    }
 
     public DUUIComposer withWorkers(int workers) {
         _workers = workers;
@@ -115,18 +149,31 @@ public class DUUIComposer {
     }
 
     public DUUIComposer addDriver(IDUUIDriverInterface driver) {
-        _drivers.put(driver.getClass().getCanonicalName().toString(), driver);
+        driver.setLuaContext(_context);
+        _drivers.put(driver.getClass().getCanonicalName(), driver);
         return this;
     }
 
-    public <Y> DUUIComposer add(IDUUIPipelineComponent object, Class<Y> t) {
-        object.setOption(DRIVER_OPTION_NAME, t.getCanonicalName().toString());
-        IDUUIDriverInterface driver = _drivers.get(t.getCanonicalName().toString());
+    public IDUUIPipelineComponent addFromBackend(String id) {
+        if(_storage == null) {
+            throw new RuntimeException("[DUUIComposer] No storage backend specified but trying to load component from it!");
+        }
+        _pipeline.add(_storage.loadComponent(id));
+        IDUUIDriverInterface driver = _drivers.get(_pipeline.lastElement().getOption(DUUIComposer.DRIVER_OPTION_NAME));
         if (driver == null) {
-            throw new InvalidParameterException(format("No driver %s in the composer installed!", t.getCanonicalName().toString()));
+            throw new InvalidParameterException(format("[DUUIComposer] No driver %s in the composer installed!", _pipeline.lastElement().getOption(DUUIComposer.DRIVER_OPTION_NAME)));
+        }
+        return _pipeline.lastElement();
+    }
+
+    public <Y> DUUIComposer add(IDUUIPipelineComponent object, Class<Y> t) {
+        object.setOption(DRIVER_OPTION_NAME, t.getCanonicalName());
+        IDUUIDriverInterface driver = _drivers.get(t.getCanonicalName());
+        if (driver == null) {
+            throw new InvalidParameterException(format("[DUUIComposer] No driver %s in the composer installed!", t.getCanonicalName()));
         } else {
             if (!driver.canAccept(object)) {
-                throw new InvalidParameterException(format("The driver %s cannot accept %s as input!", t.getCanonicalName().toString(), object.getClass().getCanonicalName().toString()));
+                throw new InvalidParameterException(format("[DUUIComposer] The driver %s cannot accept %s as input!", t.getCanonicalName(), object.getClass().getCanonicalName()));
             }
         }
         _pipeline.add(object);
@@ -134,8 +181,8 @@ public class DUUIComposer {
     }
 
     public static class PipelinePart {
-        private IDUUIDriverInterface _driver;
-        private String _uuid;
+        private final IDUUIDriverInterface _driver;
+        private final String _uuid;
 
         PipelinePart(IDUUIDriverInterface driver, String uuid) {
             _driver = driver;
@@ -151,7 +198,8 @@ public class DUUIComposer {
         }
     }
 
-    public void run_async(CollectionReader collectionReader) throws Exception {
+
+    private void run_async(CollectionReader collectionReader, String name) throws Exception {
         ConcurrentLinkedQueue<JCas> emptyCasDocuments = new ConcurrentLinkedQueue<>();
         ConcurrentLinkedQueue<JCas> loadedCasDocuments = new ConcurrentLinkedQueue<>();
         AtomicInteger aliveThreads = new AtomicInteger(0);
@@ -160,9 +208,13 @@ public class DUUIComposer {
         Exception catched = null;
 
         System.out.printf("[Composer] Running in asynchronous mode, %d threads at most!\n", _workers);
-        Vector<PipelinePart> idPipeline = new Vector<PipelinePart>();
+        Vector<PipelinePart> idPipeline = new Vector<>();
 
         try {
+            if(_storage!=null) {
+                _storage.addNewRun(name,this);
+            }
+            Instant starttime = Instant.now();
             TypeSystemDescription desc = instantiate_pipeline(idPipeline);
             if (_cas_poolsize == null) {
                 _cas_poolsize = _workers;
@@ -179,7 +231,7 @@ public class DUUIComposer {
             Thread []arr = new Thread[_workers];
             for(int i = 0; i < _workers; i++) {
                 System.out.printf("[Composer] Starting worker thread [%d/%d]\n",i+1,_workers);
-                arr[i] = new DUUIWorker(idPipeline,emptyCasDocuments,loadedCasDocuments,shutdown,aliveThreads,_compressionMethod);
+                arr[i] = new DUUIWorker(idPipeline,emptyCasDocuments,loadedCasDocuments,shutdown,aliveThreads,_storage,name);
                 arr[i].start();
             }
             while(collectionReader.hasNext()) {
@@ -203,6 +255,9 @@ public class DUUIComposer {
                 arr[i].join();
                 System.out.printf("[Composer] Thread %d returned.\n",i);
             }
+            if(_storage!=null) {
+                _storage.finalizeRun(name,starttime,Instant.now());
+            }
             System.out.println("[Composer] All threads returned.");
         } catch (Exception e) {
             e.printStackTrace();
@@ -217,28 +272,47 @@ public class DUUIComposer {
     }
 
     public void run(CollectionReaderDescription reader) throws Exception {
+        run(reader,null);
+    }
+
+    public Vector<IDUUIPipelineComponent> getPipeline() {
+        return _pipeline;
+    }
+
+    public void run(CollectionReaderDescription reader, String name) throws Exception {
         Exception catched = null;
-        System.out.println("[Composer] Instantiation the collection reader...");
+        if(_storage!= null && name == null) {
+            throw new RuntimeException("[Composer] When a storage backend is specified a run name is required, since it is the primary key");
+        }
+        System.out.println("[Composer] Instantiating the collection reader...");
         CollectionReader collectionReader = CollectionReaderFactory.createReader(reader);
         System.out.println("[Composer] Instantiated the collection reader.");
+
 
         if(_workers == 1) {
             System.out.println("[Composer] Running in synchronous mode, 1 thread at most!");
             _cas_poolsize = 1;
         }
         else {
-            run_async(collectionReader);
+            run_async(collectionReader,name);
             return;
         }
 
-        Vector<PipelinePart> idPipeline = new Vector<PipelinePart>();
+        Vector<PipelinePart> idPipeline = new Vector<>();
         try {
+            if(_storage!=null) {
+                _storage.addNewRun(name,this);
+            }
+            Instant starttime = Instant.now();
             TypeSystemDescription desc = instantiate_pipeline(idPipeline);
             JCas jc = JCasFactory.createJCas(desc);
             while(collectionReader.hasNext()) {
                 collectionReader.getNext(jc.getCas());
-                run_pipeline(jc,idPipeline);
+                run_pipeline(name,jc,idPipeline);
                 jc.reset();
+            }
+            if(_storage!=null) {
+                _storage.finalizeRun(name,starttime,Instant.now());
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -253,11 +327,15 @@ public class DUUIComposer {
     }
 
     private TypeSystemDescription instantiate_pipeline(Vector<PipelinePart> idPipeline) throws Exception {
+        JCas jc = JCasFactory.createJCas();
+        jc.setDocumentLanguage("en");
+        jc.setDocumentText("Hello World!");
+
         List<TypeSystemDescription> descriptions = new LinkedList<>();
         descriptions.add(TypeSystemDescriptionFactory.createTypeSystemDescription());
         for (IDUUIPipelineComponent comp : _pipeline) {
             IDUUIDriverInterface driver = _drivers.get(comp.getOption(DRIVER_OPTION_NAME));
-            String uuid = driver.instantiate(comp);
+            String uuid = driver.instantiate(comp,jc);
 
             TypeSystemDescription desc = driver.get_typesystem(uuid);
             if(desc!=null) {
@@ -265,17 +343,21 @@ public class DUUIComposer {
             }
             idPipeline.add(new PipelinePart(driver, uuid));
         }
-        System.out.println("");
         return CasCreationUtils.mergeTypeSystems(descriptions);
     }
 
-    private DUUIEither run_pipeline(JCas jc, Vector<PipelinePart> pipeline) throws Exception {
-        DUUIEither start = new DUUIEither(jc,_compressionMethod);
+    private JCas run_pipeline(String name, JCas jc, Vector<PipelinePart> pipeline) throws Exception {
 
+        DUUIPipelineDocumentPerformance perf = new DUUIPipelineDocumentPerformance(name,jc);
         for (PipelinePart comp : pipeline) {
-            start = comp.getDriver().run(comp.getUUID(), start);
+            comp.getDriver().run(comp.getUUID(), jc, perf);
         }
-        return start;
+
+        if(_storage!=null) {
+            _storage.addMetricsForDocument(perf);
+        }
+
+        return jc;
     }
 
     private void shutdown_pipeline(Vector<PipelinePart> pipeline) throws Exception {
@@ -283,25 +365,23 @@ public class DUUIComposer {
             System.out.printf("[Composer] Shutting down %s...\n", comp.getUUID());
             comp.getDriver().destroy(comp.getUUID());
         }
-        System.out.println("[Composer] Shut down complete.\n");
+        System.out.println("[Composer] Shut down complete.");
+
+        if(_monitor!=null) {
+            System.out.printf("[Composer] Visit %s to view the data.\n",_monitor.generateURL());
+        }
     }
 
     public void printConcurrencyGraph() throws Exception {
         Exception catched = null;
-        Vector<PipelinePart> idPipeline = new Vector<PipelinePart>();
+        Vector<PipelinePart> idPipeline = new Vector<>();
         try {
             instantiate_pipeline(idPipeline);
-            if(_cas_poolsize!=null) {
-                System.out.printf("[Composer]: CAS Pool size %d\n", _cas_poolsize);
-            }
-            else {
-                System.out.printf("[Composer]: CAS Pool size %d\n", _workers);
-            }
+            System.out.printf("[Composer]: CAS Pool size %d\n", Objects.requireNonNullElseGet(_cas_poolsize, () -> _workers));
             System.out.printf("[Composer]: Worker threads %d\n", _workers);
             for (PipelinePart comp : idPipeline) {
                 comp.getDriver().printConcurrencyGraph(comp.getUUID());
             }
-            System.out.println("");
         }
         catch(Exception e) {
             e.printStackTrace();
@@ -315,21 +395,30 @@ public class DUUIComposer {
     }
 
     public void run(JCas jc) throws Exception {
+        run(jc,null);
+    }
+
+    public void run(JCas jc, String name) throws Exception {
+        if(_storage!= null && name == null) {
+            throw new RuntimeException("[Composer] When a storage backend is specified a run name is required, since it is the primary key");
+        }
         Exception catched = null;
-        Vector<PipelinePart> idPipeline = new Vector<PipelinePart>();
+        Vector<PipelinePart> idPipeline = new Vector<>();
         if(_workers!=1) {
             System.err.println("[Composer] WARNING: Single document processing runs always single threaded, worker threads are ignored!");
         }
 
         try {
-            TypeSystemDescription desc = instantiate_pipeline(idPipeline);
-            DUUIEither start = run_pipeline(jc,idPipeline);
+            if(_storage!=null) {
+                _storage.addNewRun(name,this);
+            }
+            Instant starttime = Instant.now();
+            instantiate_pipeline(idPipeline);
+            JCas start = run_pipeline(name,jc,idPipeline);
 
-            String cas = start.getAsString();
-            System.out.printf("[Composer] Result %s\n", cas);
-            jc = start.getAsJCas();
-
-            System.out.printf("[Composer] Total number of transforms in pipeline %d\n", start.getTransformSteps());
+            if(_storage!=null) {
+                _storage.finalizeRun(name,starttime,Instant.now());
+            }
         } catch (Exception e) {
             e.printStackTrace();
             System.out.println("[Composer] Something went wrong, shutting down remaining components...");
@@ -341,10 +430,28 @@ public class DUUIComposer {
         }
     }
 
+    public int getWorkerCount() {
+        return _workers;
+    }
+
+
+    public void shutdown() throws UnknownHostException {
+        if(_monitor!=null) {
+            _monitor.shutdown();
+        }
+        else if(_storage!=null) {
+            _storage.shutdown();
+        }
+    }
+
 
     public static void main(String[] args) throws Exception {
-        // Use two worker threads, at most 2 concurrent pipelines can run
-        DUUIComposer composer = new DUUIComposer().withCompressionMethod("none");
+        // create an environment to run in
+        DUUILuaContext ctx = new DUUILuaContext().withGlobalLibrary("json",DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/json.lua").toURI());
+
+        DUUIComposer composer = new DUUIComposer()
+                .withStorageBackend(new DUUIArangoDBStorageBackend("password",8888))
+                .withLuaContext(ctx);
 
         // Instantiate drivers with options
         DUUILocalDriver driver = new DUUILocalDriver()
@@ -363,52 +470,70 @@ public class DUUIComposer {
 
         // Every component needs a driver which instantiates and runs them
         // Local driver manages local docker container and pulls docker container from remote repositories
-        /*composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.DUUILocalDriver.Component("kava-i.de:5000/secure/test_image")
-    /*    composer.add(new DUUILocalDriver.Component("kava-i.de:5000/secure/test_image")
-                        .withScale(2)
-                        .withImageFetching()
+        /*composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUILocalDriver.Component("kava-i.de:5000/secure/test_image")*/
+        //composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class)),
+        //        DUUIUIMADriver.class);
+
+       /* composer.add(new DUUILocalDriver.Component("rust_sentiment:latest")
+                        .withScale(1)
                         .withRunningAfterDestroy(false)
-                        .withRegistryAuth("SET_USERNAME_HERE","SET_PASSWORD_HERE")
-                , org.texttechnologylab.DockerUnifiedUIMAInterface.DUUILocalDriver.class);*/
+                , DUUILocalDriver.class);*/
 
         // Remote driver handles all pure URL endpoints
-       /* composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIRemoteDriver.Component("http://127.0.0.1:9714")
-                        .withScale(2),
-                org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIRemoteDriver.class);*/
-        /*composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9714")
-                        .withScale(2),
+        composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.Component("http://127.0.0.1:9714")
+                        .withScale(1),
+                org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.class);
+      /*  composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9714")
+                        .withScale(1),
                 DUUIRemoteDriver.class);*/
 
         // UIMA Driver handles all native UIMA Analysis Engine Descriptions
-        composer.add(new DUUIUIMADriver.Component(
+        /*composer.add(new DUUIUIMADriver.Component(
                 AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class,
                         BreakIteratorSegmenter.PARAM_LANGUAGE,"en")
         ).withScale(2), DUUIUIMADriver.class);
 
-        composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.DUUISwarmDriver.Component("localhost:5000/pushed")
+        composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUISwarmDriver.Component("localhost:5000/pushed")
                         .withFromLocalImage("new:latest")
                         .withScale(3)
                         .withRunningAfterDestroy(true)
-                , org.texttechnologylab.DockerUnifiedUIMAInterface.DUUISwarmDriver.class);
+                , org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUISwarmDriver.class);
 
         //System.out.println("Generating full concurrency graph. WARNING: This needs a full pipeline instantiation.");
 
         // This takes a bit of time since the full pipeline is begin build and evaluatd.
         //composer.printConcurrencyGraph();
+*/
 
 
-
+        String val2 = Files.readString(Path.of(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/large_texts/1000.txt").toURI()));
         JCas jc = JCasFactory.createJCas();
-        jc.setDocumentLanguage("en");
-        jc.setDocumentText("Hello World!");
+        jc.setDocumentLanguage("de");
+        jc.setDocumentText(val2);
 
         // Run single document
-        //composer.run(jc);
+        composer.run(jc,"final_spacy");
+
+        /*ByteArrayOutputStream out = new ByteArrayOutputStream();
+        XmlCasSerializer.serialize(jc.getCas(),out);
+        System.out.println(new String(out.toByteArray()));*/
+
+        /*
+        String val = Files.readString(Path.of(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/uima_xmi_communication_token_only.lua").toURI()));
+        DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(val,"remote");
+        OutputStream out = new ByteArrayOutputStream();
+        lua.serialize(jc,out);
+        System.out.println(out.toString());
+
+        OutputStream out2 = new ByteArrayOutputStream();
+        XmiCasSerializer.serialize(jc.getCas(),out2);
+        System.out.println(out2.toString());*/
 
         // Run Collection Reader
-        composer.run(createReaderDescription(TextReader.class,
-                TextReader.PARAM_SOURCE_LOCATION, "test_corpora/**.txt",
-                TextReader.PARAM_LANGUAGE, "en"));
 
+        /*composer.run(createReaderDescription(TextReader.class,
+                TextReader.PARAM_SOURCE_LOCATION, "test_corpora/**.txt",
+                TextReader.PARAM_LANGUAGE, "en"),"next11");*/
+        composer.shutdown();
   }
 }
