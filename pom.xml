@@ -129,7 +129,7 @@
         <dependency>
             <groupId>com.github.texttechnologylab.textimager-uima</groupId>
             <artifactId>textimager-uima-types</artifactId>
-            <version>0.3.0.2</version>
+            <version>b10db8275163d19d63b9512cc20ca5872e52499b</version>
         </dependency>
 
         <!-- https://mvnrepository.com/artifact/org.apache.bcel/bcel -->
@@ -137,6 +137,12 @@
             <groupId>org.apache.bcel</groupId>
             <artifactId>bcel</artifactId>
             <version>6.5.0</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.github.texttechnologylab</groupId>
+            <artifactId>UIMATypeSystem</artifactId>
+            <version>29fe3e0ab56c14b1e8af402b3df25d91e1f41d94</version>
         </dependency>
 
         <!-- https://mvnrepository.com/artifact/org.msgpack/msgpack-core -->
@@ -151,6 +157,7 @@
             <artifactId>javatuples</artifactId>
             <version>1.2</version>
         </dependency>
+
 
 
         <dependency>

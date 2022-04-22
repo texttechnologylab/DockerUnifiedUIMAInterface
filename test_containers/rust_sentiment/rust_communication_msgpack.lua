@@ -19,7 +19,7 @@ function serialize(inputCas,outputStream,params)
   local result = util:select(inputCas,sentence):iterator()
   while result:hasNext() do
       local x = result:next()
-	    packer:packInt(x:getBegin())
+	  packer:packInt(x:getBegin())
       packer:packInt(x:getEnd())
   end
   packer:close()

@@ -5,8 +5,6 @@ msgpack = luajava.bindClass("org.msgpack.core.MessagePack")
 
 -- Serialize all tokens as performance test
 function serialize(inputCas,outputStream,params)
-  packer = msgpack:newDefaultPacker(outputStream)
-
   local foo = {}
   table.insert(foo,inputCas:getDocumentText())
   local size = util:select(inputCas,token):size()

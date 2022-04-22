@@ -19,11 +19,13 @@ import org.xml.sax.SAXException;
 import java.io.*;
 import java.nio.charset.Charset;
 import java.security.InvalidParameterException;
+import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 public interface IDUUIInstantiatedPipelineComponent {
-    static OkHttpClient _client = new OkHttpClient();
+    static OkHttpClient _client = new OkHttpClient.Builder().readTimeout(Duration.ofSeconds(1000))
+            .writeTimeout(Duration.ofSeconds(1000)).build();
     public IDUUICommunicationLayer getCommunicationLayer();
     public Triplet<IDUUIUrlAccessible,Long,Long> getComponent();
     public void addComponent(IDUUIUrlAccessible item);

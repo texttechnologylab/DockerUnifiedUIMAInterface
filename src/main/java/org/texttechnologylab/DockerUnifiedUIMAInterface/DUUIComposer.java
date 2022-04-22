@@ -1,5 +1,6 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface;
 
+import de.tudarmstadt.ukp.dkpro.core.io.text.TextReader;
 import de.tudarmstadt.ukp.dkpro.core.tokit.BreakIteratorSegmenter;
 import org.apache.uima.collection.CollectionReader;
 import org.apache.uima.collection.CollectionReaderDescription;
@@ -13,14 +14,18 @@ import org.apache.uima.util.CasCreationUtils;
 import org.apache.uima.util.XmlCasSerializer;
 import org.luaj.vm2.Globals;
 import org.luaj.vm2.lib.jse.JsePlatform;
+import org.luaj.vm2.script.LuajContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.*;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.DUUIMonitor;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.IDUUIStorageBackend;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.arangodb.DUUIArangoDBStorageBackend;
 
 import java.io.ByteArrayOutputStream;
 import java.net.UnknownHostException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.security.InvalidParameterException;
 import java.time.Instant;
 import java.util.*;
@@ -29,6 +34,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static java.lang.String.format;
+import static org.apache.uima.fit.factory.CollectionReaderFactory.createReaderDescription;
 
 class DUUIWorker extends Thread {
     Vector<DUUIComposer.PipelinePart> _flow;
@@ -441,8 +447,11 @@ public class DUUIComposer {
 
     public static void main(String[] args) throws Exception {
         // create an environment to run in
-        DUUIComposer composer = new DUUIComposer();
-               // .withStorageBackend(new DUUIArangoDBStorageBackend("password",8888));
+        DUUILuaContext ctx = new DUUILuaContext().withGlobalLibrary("json",DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/json.lua").toURI());
+
+        DUUIComposer composer = new DUUIComposer()
+                .withStorageBackend(new DUUIArangoDBStorageBackend("password",8888))
+                .withLuaContext(ctx);
 
         // Instantiate drivers with options
         DUUILocalDriver driver = new DUUILocalDriver()
@@ -462,18 +471,18 @@ public class DUUIComposer {
         // Every component needs a driver which instantiates and runs them
         // Local driver manages local docker container and pulls docker container from remote repositories
         /*composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUILocalDriver.Component("kava-i.de:5000/secure/test_image")*/
-        composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class)),
-                DUUIUIMADriver.class);
+        //composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class)),
+        //        DUUIUIMADriver.class);
 
-        composer.add(new DUUILocalDriver.Component("new:latest")
+       /* composer.add(new DUUILocalDriver.Component("rust_sentiment:latest")
                         .withScale(1)
                         .withRunningAfterDestroy(false)
-                , DUUILocalDriver.class);
+                , DUUILocalDriver.class);*/
 
         // Remote driver handles all pure URL endpoints
-      //  composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.Component("http://127.0.0.1:9714")
-      //                  .withScale(1),
-      //          org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.class);
+        composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.Component("http://127.0.0.1:9714")
+                        .withScale(1),
+                org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.class);
       /*  composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9714")
                         .withScale(1),
                 DUUIRemoteDriver.class);*/
@@ -497,16 +506,17 @@ public class DUUIComposer {
 */
 
 
+        String val2 = Files.readString(Path.of(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/large_texts/1000.txt").toURI()));
         JCas jc = JCasFactory.createJCas();
-        jc.setDocumentLanguage("en");
-        jc.setDocumentText("Hello World!");
+        jc.setDocumentLanguage("de");
+        jc.setDocumentText(val2);
 
         // Run single document
-        composer.run(jc);
+        composer.run(jc,"final_spacy");
 
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        /*ByteArrayOutputStream out = new ByteArrayOutputStream();
         XmlCasSerializer.serialize(jc.getCas(),out);
-        System.out.println(new String(out.toByteArray()));
+        System.out.println(new String(out.toByteArray()));*/
 
         /*
         String val = Files.readString(Path.of(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/uima_xmi_communication_token_only.lua").toURI()));
@@ -523,7 +533,7 @@ public class DUUIComposer {
 
         /*composer.run(createReaderDescription(TextReader.class,
                 TextReader.PARAM_SOURCE_LOCATION, "test_corpora/**.txt",
-                TextReader.PARAM_LANGUAGE, "en"),"next8");*/
+                TextReader.PARAM_LANGUAGE, "en"),"next11");*/
         composer.shutdown();
   }
 }
