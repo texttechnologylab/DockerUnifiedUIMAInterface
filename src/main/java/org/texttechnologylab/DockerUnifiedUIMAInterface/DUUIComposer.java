@@ -446,11 +446,11 @@ public class DUUIComposer {
 
 
     public static void main(String[] args) throws Exception {
-        // create an environment to run in
+
         DUUILuaContext ctx = new DUUILuaContext().withGlobalLibrary("json",DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/json.lua").toURI());
 
         DUUIComposer composer = new DUUIComposer()
-                .withStorageBackend(new DUUIArangoDBStorageBackend("password",8888))
+         //       .withStorageBackend(new DUUIArangoDBStorageBackend("password",8888))
                 .withLuaContext(ctx);
 
         // Instantiate drivers with options
@@ -471,52 +471,30 @@ public class DUUIComposer {
         // Every component needs a driver which instantiates and runs them
         // Local driver manages local docker container and pulls docker container from remote repositories
         /*composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUILocalDriver.Component("kava-i.de:5000/secure/test_image")*/
-        //composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class)),
-        //        DUUIUIMADriver.class);
-
-       /* composer.add(new DUUILocalDriver.Component("rust_sentiment:latest")
+       // composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class)),
+       //         DUUIUIMADriver.class);
+        composer.add(new DUUILocalDriver.Component("java_segmentation:latest")
                         .withScale(1)
-                        .withRunningAfterDestroy(false)
-                , DUUILocalDriver.class);*/
+                , DUUILocalDriver.class);
 
         // Remote driver handles all pure URL endpoints
-        composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.Component("http://127.0.0.1:9714")
+        /*composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.Component("http://127.0.0.1:9714")
                         .withScale(1),
-                org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.class);
-      /*  composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9714")
-                        .withScale(1),
-                DUUIRemoteDriver.class);*/
-
-        // UIMA Driver handles all native UIMA Analysis Engine Descriptions
-        /*composer.add(new DUUIUIMADriver.Component(
-                AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class,
-                        BreakIteratorSegmenter.PARAM_LANGUAGE,"en")
-        ).withScale(2), DUUIUIMADriver.class);
-
-        composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUISwarmDriver.Component("localhost:5000/pushed")
-                        .withFromLocalImage("new:latest")
-                        .withScale(3)
-                        .withRunningAfterDestroy(true)
-                , org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUISwarmDriver.class);
-
-        //System.out.println("Generating full concurrency graph. WARNING: This needs a full pipeline instantiation.");
-
-        // This takes a bit of time since the full pipeline is begin build and evaluatd.
-        //composer.printConcurrencyGraph();
-*/
+                org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.class);*/
 
 
-        String val2 = Files.readString(Path.of(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/large_texts/1000.txt").toURI()));
+
+        String val2 = "Dies ist ein kleiner Test Text!";
         JCas jc = JCasFactory.createJCas();
         jc.setDocumentLanguage("de");
         jc.setDocumentText(val2);
 
         // Run single document
-        composer.run(jc,"final_spacy");
+        composer.run(jc);
 
-        /*ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
         XmlCasSerializer.serialize(jc.getCas(),out);
-        System.out.println(new String(out.toByteArray()));*/
+        System.out.println(new String(out.toByteArray()));
 
         /*
         String val = Files.readString(Path.of(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/uima_xmi_communication_token_only.lua").toURI()));
