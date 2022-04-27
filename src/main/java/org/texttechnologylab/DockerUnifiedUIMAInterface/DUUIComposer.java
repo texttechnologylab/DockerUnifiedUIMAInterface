@@ -473,14 +473,14 @@ public class DUUIComposer {
         /*composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUILocalDriver.Component("kava-i.de:5000/secure/test_image")*/
        // composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class)),
        //         DUUIUIMADriver.class);
-        composer.add(new DUUILocalDriver.Component("java_segmentation:latest")
+        /*composer.add(new DUUILocalDriver.Component("java_segmentation:latest")
                         .withScale(1)
-                , DUUILocalDriver.class);
+                , DUUILocalDriver.class);*/
 
         // Remote driver handles all pure URL endpoints
-        /*composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.Component("http://127.0.0.1:9714")
+        composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.Component("http://127.0.0.1:9714")
                         .withScale(1),
-                org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.class);*/
+                org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.class);
 
 
 
