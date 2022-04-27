@@ -8,6 +8,7 @@ import org.apache.uima.fit.factory.AnalysisEngineFactory;
 import org.apache.uima.fit.factory.CollectionReaderFactory;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.fit.factory.TypeSystemDescriptionFactory;
+import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.apache.uima.util.CasCreationUtils;
@@ -21,6 +22,7 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.DUUIMonitor;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.IDUUIStorageBackend;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.arangodb.DUUIArangoDBStorageBackend;
+import org.texttechnologylab.annotation.type.Taxon;
 
 import java.io.ByteArrayOutputStream;
 import java.net.UnknownHostException;
@@ -473,18 +475,24 @@ public class DUUIComposer {
         /*composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUILocalDriver.Component("kava-i.de:5000/secure/test_image")*/
        // composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class)),
        //         DUUIUIMADriver.class);
-        /*composer.add(new DUUILocalDriver.Component("java_segmentation:latest")
+//        composer.add(new DUUILocalDriver.Component("java_segmentation:latest")
+//                        .withScale(1)
+//                , DUUILocalDriver.class);
+        composer.add(new DUUILocalDriver.Component("gnfinder:0.1")
                         .withScale(1)
-                , DUUILocalDriver.class);*/
+                , DUUILocalDriver.class);
+//        composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9714")
+//                        .withScale(1)
+//                , DUUIRemoteDriver.class);
 
         // Remote driver handles all pure URL endpoints
-        composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.Component("http://127.0.0.1:9714")
+        /*composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.Component("http://127.0.0.1:9714")
                         .withScale(1),
-                org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.class);
+                org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.class);*/
 
 
 
-        String val2 = "Dies ist ein kleiner Test Text!";
+        String val2 = "Dies ist ein kleiner Test Text für Abies!";
         JCas jc = JCasFactory.createJCas();
         jc.setDocumentLanguage("de");
         jc.setDocumentText(val2);
@@ -495,6 +503,10 @@ public class DUUIComposer {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         XmlCasSerializer.serialize(jc.getCas(),out);
         System.out.println(new String(out.toByteArray()));
+
+        JCasUtil.select(jc, Taxon.class).forEach(t->{
+            System.out.println(t);
+        });
 
         /*
         String val = Files.readString(Path.of(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/uima_xmi_communication_token_only.lua").toURI()));
