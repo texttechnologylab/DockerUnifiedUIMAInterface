@@ -18,11 +18,15 @@ import org.msgpack.core.MessageBufferPacker;
 import org.msgpack.core.MessagePack;
 import org.msgpack.core.MessageUnpacker;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUILocalDriver;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUISwarmDriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIUIMADriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaCommunicationLayer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaSandbox;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIMockStorageBackend;
+import org.texttechnologylab.annotation.type.Taxon;
 import org.xml.sax.SAXException;
 
 import java.io.ByteArrayOutputStream;
@@ -37,6 +41,79 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 
 public class TestDUUI {
+    @Test
+    public void TestTaxoNERD() throws Exception {
+        JCas jc = JCasFactory.createJCas();
+        jc.setDocumentText("Hallo Welt dies ist ein Abies!");
+        jc.setDocumentLanguage("de");
+
+        DUUILuaContext ctx = new DUUILuaContext().withGlobalLibrary("json",DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/uima_xmi_communication.lua").toURI());
+
+        DUUIComposer composer = new DUUIComposer()
+                //       .withStorageBackend(new DUUIArangoDBStorageBackend("password",8888))
+                .withLuaContext(ctx);
+
+        // Instantiate drivers with options
+        DUUIRemoteDriver remote_driver = new DUUIRemoteDriver(10000);
+
+        // A driver must be added before components can be added for it in the composer.
+        composer.addDriver(remote_driver);
+
+        composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9714")
+                        .withScale(1)
+                , DUUIRemoteDriver.class);
+
+        composer.run(jc);
+
+        JCasUtil.select(jc, Taxon.class).forEach(t->{
+            System.out.println(t);
+        });
+
+
+
+
+    }
+
+    @Test
+    public void RegistryTest() throws Exception {
+        JCas jc = JCasFactory.createJCas();
+        jc.setDocumentText("Hallo Welt dies ist ein Abies!");
+        jc.setDocumentLanguage("de");
+
+        DUUILuaContext ctx = new DUUILuaContext().withGlobalLibrary("json",DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/json.lua").toURI());
+
+        DUUIComposer composer = new DUUIComposer()
+                //       .withStorageBackend(new DUUIArangoDBStorageBackend("password",8888))
+                .withLuaContext(ctx);
+
+        // Instantiate drivers with options
+        DUUILocalDriver driver = new DUUILocalDriver()
+                .withTimeout(10000);
+
+        DUUIRemoteDriver remote_driver = new DUUIRemoteDriver(10000);
+        DUUIUIMADriver uima_driver = new DUUIUIMADriver()
+                .withDebug(true);
+        DUUISwarmDriver swarm_driver = new DUUISwarmDriver();
+
+        // A driver must be added before components can be added for it in the composer.
+        composer.addDriver(driver);
+        composer.addDriver(remote_driver);
+        composer.addDriver(uima_driver);
+        composer.addDriver(swarm_driver);
+
+        composer.add(new DUUILocalDriver.Component("docker.texttechnologylab.org/gnfinder:latest")
+                        .withImageFetching()
+                        .withScale(1)
+                , DUUILocalDriver.class);
+
+        composer.run(jc);
+
+        int iCount = JCasUtil.selectAt(jc, Taxon.class, 24, 30).size();
+
+        assertEquals(iCount, 2);
+
+
+    }
     @Test
     public void LuaBaseTest() throws UIMAException, CompressorException, IOException, SAXException, URISyntaxException {
         JCas jc = JCasFactory.createJCas();
