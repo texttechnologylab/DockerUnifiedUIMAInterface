@@ -1,6 +1,5 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface;
 
-import de.tudarmstadt.ukp.dkpro.core.io.text.TextReader;
 import de.tudarmstadt.ukp.dkpro.core.tokit.BreakIteratorSegmenter;
 import org.apache.uima.collection.CollectionReader;
 import org.apache.uima.collection.CollectionReaderDescription;
@@ -15,19 +14,15 @@ import org.apache.uima.util.CasCreationUtils;
 import org.apache.uima.util.XmlCasSerializer;
 import org.luaj.vm2.Globals;
 import org.luaj.vm2.lib.jse.JsePlatform;
-import org.luaj.vm2.script.LuajContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.*;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.DUUIMonitor;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.IDUUIStorageBackend;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.arangodb.DUUIArangoDBStorageBackend;
 import org.texttechnologylab.annotation.type.Taxon;
 
 import java.io.ByteArrayOutputStream;
 import java.net.UnknownHostException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.security.InvalidParameterException;
 import java.time.Instant;
 import java.util.*;
@@ -153,6 +148,14 @@ public class DUUIComposer {
     public DUUIComposer addDriver(IDUUIDriverInterface driver) {
         driver.setLuaContext(_context);
         _drivers.put(driver.getClass().getCanonicalName(), driver);
+        return this;
+    }
+
+    public DUUIComposer addDriver(IDUUIDriverInterface... drivers) {
+        for (IDUUIDriverInterface driver : drivers) {
+            driver.setLuaContext(_context);
+            _drivers.put(driver.getClass().getCanonicalName(), driver);
+        }
         return this;
     }
 
@@ -456,7 +459,7 @@ public class DUUIComposer {
                 .withLuaContext(ctx);
 
         // Instantiate drivers with options
-        DUUILocalDriver driver = new DUUILocalDriver()
+        DUUIDockerDriver driver = new DUUIDockerDriver()
                 .withTimeout(10000);
 
         DUUIRemoteDriver remote_driver = new DUUIRemoteDriver(10000);
@@ -478,9 +481,9 @@ public class DUUIComposer {
 //        composer.add(new DUUILocalDriver.Component("java_segmentation:latest")
 //                        .withScale(1)
 //                , DUUILocalDriver.class);
-        composer.add(new DUUILocalDriver.Component("gnfinder:0.1")
+        composer.add(new DUUIDockerDriver.Component("gnfinder:0.1")
                         .withScale(1)
-                , DUUILocalDriver.class);
+                , DUUIDockerDriver.class);
 //        composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9714")
 //                        .withScale(1)
 //                , DUUIRemoteDriver.class);

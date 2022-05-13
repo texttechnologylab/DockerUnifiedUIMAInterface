@@ -7,7 +7,6 @@ import okhttp3.Response;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.UIMAException;
 import org.apache.uima.fit.factory.JCasFactory;
-import org.apache.uima.fit.factory.TypeSystemDescriptionFactory;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
@@ -21,7 +20,6 @@ import org.xml.sax.SAXException;
 
 import java.io.*;
 import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
 import java.security.InvalidParameterException;
 import java.util.HashMap;
 import java.util.Map;
@@ -37,7 +35,7 @@ interface ResponsiveMessageCallback {
     public void operation(String message);
 }
 
-public class DUUILocalDriver implements IDUUIDriverInterface {
+public class DUUIDockerDriver implements IDUUIDriverInterface {
     private DUUIDockerInterface _interface;
     private OkHttpClient _client;
 
@@ -47,7 +45,7 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
 
     private final static Logger LOGGER = Logger.getLogger(DUUIComposer.class.getName());
 
-    public DUUILocalDriver() throws IOException, UIMAException, SAXException {
+    public DUUIDockerDriver() throws IOException, UIMAException, SAXException {
         _interface = new DUUIDockerInterface();
         _client = new OkHttpClient();
 
@@ -64,7 +62,7 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
         _luaContext = null;
     }
 
-    public DUUILocalDriver(int timeout) throws IOException, UIMAException, SAXException {
+    public DUUIDockerDriver(int timeout) throws IOException, UIMAException, SAXException {
         _interface = new DUUIDockerInterface();
         _client = new OkHttpClient.Builder()
                 .connectTimeout(timeout, TimeUnit.SECONDS)
@@ -81,7 +79,7 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
         _luaContext = luaContext;
     }
 
-    public DUUILocalDriver withTimeout(int container_timeout_ms) {
+    public DUUIDockerDriver withTimeout(int container_timeout_ms) {
         _container_timeout = container_timeout_ms;
         return this;
     }

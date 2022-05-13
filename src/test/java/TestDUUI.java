@@ -18,13 +18,14 @@ import org.msgpack.core.MessageBufferPacker;
 import org.msgpack.core.MessagePack;
 import org.msgpack.core.MessageUnpacker;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUILocalDriver;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIDockerDriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUISwarmDriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIUIMADriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaCommunicationLayer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaSandbox;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.LuaConsts;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIMockStorageBackend;
 import org.texttechnologylab.annotation.type.Taxon;
 import org.xml.sax.SAXException;
@@ -77,17 +78,20 @@ public class TestDUUI {
     @Test
     public void RegistryTest() throws Exception {
         JCas jc = JCasFactory.createJCas();
+
+        // load content into jc
+        // ...
         jc.setDocumentText("Hallo Welt dies ist ein Abies!");
         jc.setDocumentLanguage("de");
 
-        DUUILuaContext ctx = new DUUILuaContext().withGlobalLibrary("json",DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/json.lua").toURI());
+        DUUILuaContext ctx = LuaConsts.getJSON();
 
         DUUIComposer composer = new DUUIComposer()
                 //       .withStorageBackend(new DUUIArangoDBStorageBackend("password",8888))
                 .withLuaContext(ctx);
 
         // Instantiate drivers with options
-        DUUILocalDriver driver = new DUUILocalDriver()
+        DUUIDockerDriver driver = new DUUIDockerDriver()
                 .withTimeout(10000);
 
         DUUIRemoteDriver remote_driver = new DUUIRemoteDriver(10000);
@@ -96,15 +100,12 @@ public class TestDUUI {
         DUUISwarmDriver swarm_driver = new DUUISwarmDriver();
 
         // A driver must be added before components can be added for it in the composer.
-        composer.addDriver(driver);
-        composer.addDriver(remote_driver);
-        composer.addDriver(uima_driver);
-        composer.addDriver(swarm_driver);
+        composer.addDriver(driver, remote_driver, uima_driver, swarm_driver);
 
-        composer.add(new DUUILocalDriver.Component("docker.texttechnologylab.org/gnfinder:latest")
+        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/gnfinder:latest")
                         .withImageFetching()
                         .withScale(1)
-                , DUUILocalDriver.class);
+                , DUUIDockerDriver.class);
 
         composer.run(jc);
 
