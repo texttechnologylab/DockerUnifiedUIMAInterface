@@ -1,3 +1,4 @@
+import de.tudarmstadt.ukp.dkpro.core.api.ner.type.NamedEntity;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
 import de.tudarmstadt.ukp.dkpro.core.tokit.BreakIteratorSegmenter;
 import org.apache.commons.compress.compressors.CompressorException;
@@ -82,7 +83,7 @@ public class TestDUUI {
         // load content into jc
         // ...
         jc.setDocumentText("Hallo Welt dies ist ein Abies!");
-        jc.setDocumentLanguage("de");
+//        jc.setDocumentLanguage("de");
 
         DUUILuaContext ctx = LuaConsts.getJSON();
 
@@ -102,17 +103,28 @@ public class TestDUUI {
         // A driver must be added before components can be added for it in the composer.
         composer.addDriver(driver, remote_driver, uima_driver, swarm_driver);
 
+        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/languagedetection:0.1")
+                        .withImageFetching()
+                        .withScale(1)
+                , DUUIDockerDriver.class);
+
+        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
+                        .withImageFetching()
+                        .withScale(1)
+                , DUUIDockerDriver.class);
+
         composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/gnfinder:latest")
                         .withImageFetching()
                         .withScale(1)
                 , DUUIDockerDriver.class);
 
+
+
         composer.run(jc);
-
-        int iCount = JCasUtil.selectAt(jc, Taxon.class, 24, 30).size();
-
-        assertEquals(iCount, 2);
-
+        System.out.println(jc.getDocumentLanguage());
+        JCasUtil.select(jc, NamedEntity.class).stream().forEach(f->{
+            System.out.println(f);
+        });
 
     }
     @Test
