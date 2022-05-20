@@ -16,7 +16,6 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPip
 import org.xml.sax.SAXException;
 
 import java.io.IOException;
-import java.lang.reflect.InvocationTargetException;
 import java.security.InvalidParameterException;
 import java.time.Duration;
 import java.util.HashMap;
@@ -98,7 +97,7 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
                 throw new UnknownError("Could not read the service port!");
             }
             final String uuidCopy = uuid;
-            IDUUICommunicationLayer layer = DUUILocalDriver.responsiveAfterTime("http://localhost:" + port, jc, _container_timeout, _client, (msg) -> {
+            IDUUICommunicationLayer layer = DUUIDockerDriver.responsiveAfterTime("http://localhost:" + port, jc, _container_timeout, _client, (msg) -> {
                 System.out.printf("[DockerSwarmDriver][%s][%d Replicas] %s\n", uuidCopy, comp.getScale(),msg);
             },_luaContext);
             System.out.printf("[DockerSwarmDriver][%s][%d Replicas] Service for image %s is online (URL http://localhost:%d) and seems to understand DUUI V1 format!\n", uuid, comp.getScale(),comp.getImageName(), port);

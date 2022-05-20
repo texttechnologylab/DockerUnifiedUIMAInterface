@@ -1,18 +1,8 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.driver;
 
-import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Sentence;
-import de.tudarmstadt.ukp.dkpro.core.tokit.BreakIteratorSegmenter;
 import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.RequestBody;
-import okhttp3.Response;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.commons.compress.compressors.CompressorStreamFactory;
-import org.apache.uima.fit.factory.AnalysisEngineFactory;
-import org.apache.uima.fit.factory.JCasFactory;
-import org.apache.uima.fit.factory.TypeSystemDescriptionFactory;
-import org.apache.uima.fit.pipeline.SimplePipeline;
-import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
@@ -23,8 +13,6 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPip
 import org.xml.sax.SAXException;
 
 import java.io.*;
-import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
 import java.security.InvalidParameterException;
 import java.util.HashMap;
 import java.util.Map;
@@ -156,7 +144,7 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         InstantiatedComponent comp = new InstantiatedComponent(component);
 
         final String uuidCopy = uuid;
-        IDUUICommunicationLayer layer = DUUILocalDriver.responsiveAfterTime(comp.getUrl(), jc, 100000, _client, (msg) -> {
+        IDUUICommunicationLayer layer = DUUIDockerDriver.responsiveAfterTime(comp.getUrl(), jc, 100000, _client, (msg) -> {
             System.out.printf("[RemoteDriver][%s] %s\n", uuidCopy,msg);
         },_luaContext);
         comp.setCommunicationLayer(layer);
