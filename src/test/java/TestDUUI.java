@@ -27,6 +27,7 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaCommunication
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaSandbox;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.LuaConsts;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.DUUIMonitor;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIMockStorageBackend;
 import org.texttechnologylab.annotation.type.Taxon;
 import org.xml.sax.SAXException;

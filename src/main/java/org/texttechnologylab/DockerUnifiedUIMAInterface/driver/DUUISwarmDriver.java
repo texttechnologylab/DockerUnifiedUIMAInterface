@@ -274,7 +274,7 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
     }
 
     public static class Component extends IDUUIPipelineComponent {
-        Component(String globalRegistryImageName) {
+        public Component(String globalRegistryImageName) {
             setOption("container", globalRegistryImageName);
         }
 
