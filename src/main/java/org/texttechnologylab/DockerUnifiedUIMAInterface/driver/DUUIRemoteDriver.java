@@ -23,9 +23,11 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPip
 import org.xml.sax.SAXException;
 
 import java.io.*;
+import java.net.http.HttpClient;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidParameterException;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -36,7 +38,7 @@ import static java.lang.String.format;
 
 public class DUUIRemoteDriver implements IDUUIDriverInterface {
     private HashMap<String, InstantiatedComponent> _components;
-    private OkHttpClient _client;
+    private HttpClient _client;
     private DUUICompressionHelper _helper;
     private DUUILuaContext _luaContext;
 
@@ -129,18 +131,15 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
     }
 
     public DUUIRemoteDriver(int timeout) {
-        _client = new OkHttpClient.Builder()
-                .connectTimeout(timeout, TimeUnit.SECONDS)
-                .writeTimeout(timeout, TimeUnit.SECONDS)
-                .readTimeout(timeout, TimeUnit.SECONDS)
-                .build();
+        _client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(timeout)).build();
+
         _components = new HashMap<String, InstantiatedComponent>();
         _helper = new DUUICompressionHelper(CompressorStreamFactory.ZSTANDARD);
     }
 
     public DUUIRemoteDriver() {
         _components = new HashMap<String, InstantiatedComponent>();
-        _client = new OkHttpClient();
+        _client = HttpClient.newHttpClient();
         _helper = new DUUICompressionHelper(CompressorStreamFactory.ZSTANDARD);
     }
 

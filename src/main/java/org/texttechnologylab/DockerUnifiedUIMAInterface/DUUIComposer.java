@@ -22,6 +22,7 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPip
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.IDUUIStorageBackend;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.arangodb.DUUIArangoDBStorageBackend;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.net.UnknownHostException;
 import java.nio.file.Files;
@@ -280,6 +281,7 @@ public class DUUIComposer {
     }
 
     public void run(CollectionReaderDescription reader, String name) throws Exception {
+
         Exception catched = null;
         if(_storage!= null && name == null) {
             throw new RuntimeException("[Composer] When a storage backend is specified a run name is required, since it is the primary key");
@@ -299,11 +301,24 @@ public class DUUIComposer {
         }
 
         Vector<PipelinePart> idPipeline = new Vector<>();
+        Thread shutdownHook = new Thread()
+        {
+            @Override
+            public void run()
+            {
+                try {
+                    shutdown_pipeline(idPipeline);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        };
         try {
             if(_storage!=null) {
                 _storage.addNewRun(name,this);
             }
             Instant starttime = Instant.now();
+            Runtime.getRuntime().addShutdownHook(shutdownHook);
             TypeSystemDescription desc = instantiate_pipeline(idPipeline);
             JCas jc = JCasFactory.createJCas(desc);
             while(collectionReader.hasNext()) {
@@ -321,6 +336,7 @@ public class DUUIComposer {
         }
 
         shutdown_pipeline(idPipeline);
+        Runtime.getRuntime().removeShutdownHook(shutdownHook);
         if (catched != null) {
             throw catched;
         }
@@ -347,7 +363,6 @@ public class DUUIComposer {
     }
 
     private JCas run_pipeline(String name, JCas jc, Vector<PipelinePart> pipeline) throws Exception {
-
         DUUIPipelineDocumentPerformance perf = new DUUIPipelineDocumentPerformance(name,jc);
         for (PipelinePart comp : pipeline) {
             comp.getDriver().run(comp.getUUID(), jc, perf);
@@ -408,11 +423,25 @@ public class DUUIComposer {
             System.err.println("[Composer] WARNING: Single document processing runs always single threaded, worker threads are ignored!");
         }
 
+        Thread shutdownHook = new Thread()
+        {
+            @Override
+            public void run()
+            {
+                try {
+                    shutdown_pipeline(idPipeline);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        };
         try {
             if(_storage!=null) {
                 _storage.addNewRun(name,this);
             }
             Instant starttime = Instant.now();
+
+            Runtime.getRuntime().addShutdownHook(shutdownHook);
             instantiate_pipeline(idPipeline);
             JCas start = run_pipeline(name,jc,idPipeline);
 
@@ -425,6 +454,7 @@ public class DUUIComposer {
             catched = e;
         }
         shutdown_pipeline(idPipeline);
+        Runtime.getRuntime().removeShutdownHook(shutdownHook);
         if (catched != null) {
             throw catched;
         }
@@ -450,7 +480,7 @@ public class DUUIComposer {
         DUUILuaContext ctx = new DUUILuaContext().withGlobalLibrary("json",DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/json.lua").toURI());
 
         DUUIComposer composer = new DUUIComposer()
-         //       .withStorageBackend(new DUUIArangoDBStorageBackend("password",8888))
+        //        .withStorageBackend(new DUUIArangoDBStorageBackend("password",8888))
                 .withLuaContext(ctx);
 
         // Instantiate drivers with options
@@ -471,18 +501,26 @@ public class DUUIComposer {
         // Every component needs a driver which instantiates and runs them
         // Local driver manages local docker container and pulls docker container from remote repositories
         /*composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUILocalDriver.Component("kava-i.de:5000/secure/test_image")*/
-       // composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class)),
-       //         DUUIUIMADriver.class);
-        /*composer.add(new DUUILocalDriver.Component("java_segmentation:latest")
+        //composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class))
+        //                .withScale(4),
+        //        DUUIUIMADriver.class);
+      /*  composer.add(new DUUILocalDriver.Component("java_segmentation:latest")
                         .withScale(1)
                 , DUUILocalDriver.class);*/
 
         // Remote driver handles all pure URL endpoints
+        composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class))
+                        .withScale(1),
+                org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIUIMADriver.class);
+
         composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.Component("http://127.0.0.1:9714")
                         .withScale(1),
                 org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.class);
 
 
+
+       // ByteArrayInputStream stream;
+       // stream.read
 
         String val2 = "Dies ist ein kleiner Test Text!";
         JCas jc = JCasFactory.createJCas();
@@ -490,7 +528,7 @@ public class DUUIComposer {
         jc.setDocumentText(val2);
 
         // Run single document
-        composer.run(jc);
+        composer.run(jc,"Praktikum2");
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         XmlCasSerializer.serialize(jc.getCas(),out);

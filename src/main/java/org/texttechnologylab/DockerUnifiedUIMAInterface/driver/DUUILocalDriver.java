@@ -1,9 +1,6 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.driver;
 
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.RequestBody;
-import okhttp3.Response;
+
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.UIMAException;
 import org.apache.uima.fit.factory.JCasFactory;
@@ -20,9 +17,15 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPip
 import org.xml.sax.SAXException;
 
 import java.io.*;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidParameterException;
+import java.time.Duration;
+import java.time.temporal.TemporalAmount;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -39,7 +42,8 @@ interface ResponsiveMessageCallback {
 
 public class DUUILocalDriver implements IDUUIDriverInterface {
     private DUUIDockerInterface _interface;
-    private OkHttpClient _client;
+    private HttpClient _client;
+
 
     private HashMap<String, InstantiatedComponent> _active_components;
     private int _container_timeout;
@@ -49,7 +53,7 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
 
     public DUUILocalDriver() throws IOException, UIMAException, SAXException {
         _interface = new DUUIDockerInterface();
-        _client = new OkHttpClient();
+        _client = HttpClient.newHttpClient();
 
         JCas _basic = JCasFactory.createJCas();
         _basic.setDocumentLanguage("en");
@@ -66,11 +70,7 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
 
     public DUUILocalDriver(int timeout) throws IOException, UIMAException, SAXException {
         _interface = new DUUIDockerInterface();
-        _client = new OkHttpClient.Builder()
-                .connectTimeout(timeout, TimeUnit.SECONDS)
-                .writeTimeout(timeout, TimeUnit.SECONDS)
-                .readTimeout(timeout, TimeUnit.SECONDS)
-                .build();
+        _client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(timeout)).build();
 
         _container_timeout = 10000;
 
@@ -86,19 +86,19 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
         return this;
     }
 
-    public static IDUUICommunicationLayer responsiveAfterTime(String url, JCas jc, int timeout_ms, OkHttpClient client, ResponsiveMessageCallback printfunc, DUUILuaContext context) throws Exception {
+    public static IDUUICommunicationLayer responsiveAfterTime(String url, JCas jc, int timeout_ms, HttpClient client, ResponsiveMessageCallback printfunc, DUUILuaContext context) throws Exception {
         long start = System.currentTimeMillis();
         IDUUICommunicationLayer layer = new DUUIFallbackCommunicationLayer();
         boolean fatal_error = false;
         while(true) {
-            Request request = new Request.Builder()
-                    .url(url + DUUIComposer.V1_COMPONENT_ENDPOINT_COMMUNICATION_LAYER)
-                    .get()
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(url + DUUIComposer.V1_COMPONENT_ENDPOINT_COMMUNICATION_LAYER))
+                    .GET()
                     .build();
             try {
-                Response resp = client.newCall(request).execute();
-                if (resp.code() == 200) {
-                    String body2 = new String(resp.body().bytes(), Charset.defaultCharset());
+                HttpResponse<byte[]> resp = client.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray()).join();
+                if (resp.statusCode()== 200) {
+                    String body2 = new String(resp.body(), Charset.defaultCharset());
                     try {
                         printfunc.operation("Component lua communication layer, loading...");
                         System.out.printf("Got script %s\n",body2);
@@ -112,7 +112,7 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
                         e.printStackTrace();
                         throw new Exception("Component provided a lua script which is not runnable.");
                     }
-                } else if (resp.code() == 404) {
+                } else if (resp.statusCode() == 404) {
                     printfunc.operation("Component provided no own communication layer implementation using fallback.");
                     break;
                 }
@@ -138,20 +138,18 @@ public class DUUILocalDriver implements IDUUIDriverInterface {
             throw new Exception(format("The serialization step of the communication layer fails for implementing class %s", layer.getClass().getCanonicalName()));
         }
 
-        RequestBody body = RequestBody.create(stream.toByteArray());
-
-        Request request = new Request.Builder()
-                .url(url + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS)
-                .post(body)
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(url + DUUIComposer.V1_COMPONENT_ENDPOINT_COMMUNICATION_LAYER))
+                .POST(HttpRequest.BodyPublishers.ofByteArray(stream.toByteArray()))
                 .build();
-                Response resp = client.newCall(request).execute();
-                if (resp.code() == 200) {
-                    ByteArrayInputStream inputStream = new ByteArrayInputStream(resp.body().bytes());
+                HttpResponse<byte[]> resp = client.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray()).join();
+                if (resp.statusCode() == 200) {
+                    ByteArrayInputStream inputStream = new ByteArrayInputStream(resp.body());
                     layer.deserialize(jc,inputStream);
                     return layer;
                 }
                 else {
-                    throw new Exception(format("The container returned response with code != 200\nResponse %s",resp.body().bytes().toString()));
+                    throw new Exception(format("The container returned response with code != 200\nResponse %s",resp.body().toString()));
                 }
     }
 

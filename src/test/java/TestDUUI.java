@@ -1,4 +1,6 @@
+import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Sentence;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
+import de.tudarmstadt.ukp.dkpro.core.opennlp.OpenNlpPosTagger;
 import de.tudarmstadt.ukp.dkpro.core.tokit.BreakIteratorSegmenter;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.UIMAException;
@@ -14,6 +16,8 @@ import org.apache.uima.fit.factory.TypeSystemDescriptionFactory;
 import org.apache.uima.fit.pipeline.SimplePipeline;
 import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
+import org.apache.uima.jcas.cas.TOP;
+import org.apache.uima.jcas.tcas.Annotation;
 import org.apache.uima.util.CasIOUtils;
 import org.apache.uima.util.XmlCasSerializer;
 import org.hucompute.textimager.uima.type.Sentiment;
@@ -260,8 +264,33 @@ public class TestDUUI {
         String val2 = Files.readString(Path.of(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/large_texts/1000.txt").toURI()));
         jc.setDocumentText(val2);
         jc.setDocumentLanguage("de");
+        long time = System.nanoTime();
         AnalysisEngineDescription desc = AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class);
-        SimplePipeline.runPipeline(jc,desc);
+        SimplePipeline.runPipeline(jc,desc,
+                AnalysisEngineFactory.createEngineDescription(OpenNlpPosTagger.class));
+        long endtime = System.nanoTime()-time;
+        System.out.printf("Annotator time %d ms\n",(endtime)/1000000);
+
+        time = System.nanoTime();
+        int tokens = 0;
+        for(Annotation i : JCasUtil.selectCovered(jc, Annotation.class,0,jc.getDocumentText().length())) {
+            tokens+=1;
+        }
+        endtime = System.nanoTime()-time;
+        System.out.printf("Select covered %d us\n",(endtime)/1000);
+        System.out.printf("Select covered tokens %d\n",tokens);
+        int last = 0;
+        time = System.nanoTime();
+        int total = 0;
+        int sentences = 0;
+        for(Sentence i : JCasUtil.select(jc,Sentence.class)) {
+            for(Token x : JCasUtil.selectCovered(Token.class,i)) {
+                total+=1;
+            }
+            sentences+=1;
+        }
+        endtime = System.nanoTime()-time;
+        System.out.printf("Select covered tokens %d us, sentences %d tokens %d\n",(endtime)/1000,sentences,total);
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
 

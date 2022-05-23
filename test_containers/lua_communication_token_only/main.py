@@ -5,13 +5,14 @@ import json
 import base64
 
 communication = ''
-with open('communication.lua','r') as f:
+with open('communication_xmi.lua','r') as f:
     communication = f.read()
 
 with open('dkpro-core-types.xml', 'rb') as f:
     typesystem = load_typesystem(f)
 
     class MyHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
+#/v1/process
         def do_POST(self):
             content_len = int(self.headers.get('Content-Length'))
             post_body = self.rfile.read(content_len).decode("utf-8")
@@ -23,7 +24,7 @@ with open('dkpro-core-types.xml', 'rb') as f:
 
             # Whenever using 'send_header', you also have to call 'end_headers'
             self.end_headers()
-            self.wfile.write(b'')
+            self.wfile.write(b'100')
         def do_GET(self):
             if self.path == '/v1/communication_layer':
                 # Sending an '200 OK' response
