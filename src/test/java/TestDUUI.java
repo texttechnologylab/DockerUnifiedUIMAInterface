@@ -1,4 +1,5 @@
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Sentence;
+import de.tudarmstadt.ukp.dkpro.core.api.ner.type.NamedEntity;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
 import de.tudarmstadt.ukp.dkpro.core.opennlp.OpenNlpPosTagger;
 import de.tudarmstadt.ukp.dkpro.core.tokit.BreakIteratorSegmenter;
@@ -6,13 +7,9 @@ import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.UIMAException;
 import org.apache.uima.analysis_engine.AnalysisEngineDescription;
 import org.apache.uima.cas.SerialFormat;
-import org.apache.uima.cas.impl.CASCompleteSerializer;
-import org.apache.uima.cas.impl.CASMgrSerializer;
-import org.apache.uima.cas.impl.CASSerializer;
 import org.apache.uima.cas.impl.XmiCasSerializer;
 import org.apache.uima.fit.factory.AnalysisEngineFactory;
 import org.apache.uima.fit.factory.JCasFactory;
-import org.apache.uima.fit.factory.TypeSystemDescriptionFactory;
 import org.apache.uima.fit.pipeline.SimplePipeline;
 import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
@@ -20,25 +17,26 @@ import org.apache.uima.jcas.cas.TOP;
 import org.apache.uima.jcas.tcas.Annotation;
 import org.apache.uima.util.CasIOUtils;
 import org.apache.uima.util.XmlCasSerializer;
-import org.hucompute.textimager.uima.type.Sentiment;
 import org.json.JSONArray;
-import org.json.JSONObject;
 import org.junit.jupiter.api.Test;
 import org.msgpack.core.MessageBufferPacker;
 import org.msgpack.core.MessagePack;
-import org.msgpack.core.MessagePacker;
 import org.msgpack.core.MessageUnpacker;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIDockerDriver;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUISwarmDriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIUIMADriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaCommunicationLayer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaSandbox;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.LuaConsts;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIMockStorageBackend;
+import org.texttechnologylab.annotation.type.Taxon;
 import org.xml.sax.SAXException;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -49,6 +47,90 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 
 public class TestDUUI {
+    @Test
+    public void TestTaxoNERD() throws Exception {
+        JCas jc = JCasFactory.createJCas();
+        jc.setDocumentText("Hallo Welt dies ist ein Abies!");
+        jc.setDocumentLanguage("de");
+
+        DUUILuaContext ctx = new DUUILuaContext().withGlobalLibrary("json",DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/uima_xmi_communication.lua").toURI());
+
+        DUUIComposer composer = new DUUIComposer()
+                //       .withStorageBackend(new DUUIArangoDBStorageBackend("password",8888))
+                .withLuaContext(ctx);
+
+        // Instantiate drivers with options
+        DUUIRemoteDriver remote_driver = new DUUIRemoteDriver(10000);
+
+        // A driver must be added before components can be added for it in the composer.
+        composer.addDriver(remote_driver);
+
+        composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9714")
+                        .withScale(1)
+                , DUUIRemoteDriver.class);
+
+        composer.run(jc);
+
+        JCasUtil.select(jc, Taxon.class).forEach(t->{
+            System.out.println(t);
+        });
+
+
+
+
+    }
+
+    @Test
+    public void RegistryTest() throws Exception {
+        JCas jc = JCasFactory.createJCas();
+
+        // load content into jc
+        // ...
+        jc.setDocumentText("Hallo Welt dies ist ein Abies!");
+//        jc.setDocumentLanguage("de");
+
+        DUUILuaContext ctx = LuaConsts.getJSON();
+
+        DUUIComposer composer = new DUUIComposer()
+                //       .withStorageBackend(new DUUIArangoDBStorageBackend("password",8888))
+                .withLuaContext(ctx);
+
+        // Instantiate drivers with options
+        DUUIDockerDriver driver = new DUUIDockerDriver()
+                .withTimeout(10000);
+
+        DUUIRemoteDriver remote_driver = new DUUIRemoteDriver(10000);
+        DUUIUIMADriver uima_driver = new DUUIUIMADriver()
+                .withDebug(true);
+        DUUISwarmDriver swarm_driver = new DUUISwarmDriver();
+
+        // A driver must be added before components can be added for it in the composer.
+        composer.addDriver(driver, remote_driver, uima_driver, swarm_driver);
+
+        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/languagedetection:0.1")
+                        .withImageFetching()
+                        .withScale(1)
+                , DUUIDockerDriver.class);
+
+        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
+                        .withImageFetching()
+                        .withScale(1)
+                , DUUIDockerDriver.class);
+
+        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/gnfinder:latest")
+                        .withImageFetching()
+                        .withScale(1)
+                , DUUIDockerDriver.class);
+
+
+
+        composer.run(jc);
+        System.out.println(jc.getDocumentLanguage());
+        JCasUtil.select(jc, NamedEntity.class).stream().forEach(f->{
+            System.out.println(f);
+        });
+
+    }
     @Test
     public void LuaBaseTest() throws UIMAException, CompressorException, IOException, SAXException, URISyntaxException {
         JCas jc = JCasFactory.createJCas();

@@ -1,6 +1,5 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface;
 
-import de.tudarmstadt.ukp.dkpro.core.io.text.TextReader;
 import de.tudarmstadt.ukp.dkpro.core.tokit.BreakIteratorSegmenter;
 import org.apache.uima.collection.CollectionReader;
 import org.apache.uima.collection.CollectionReaderDescription;
@@ -8,25 +7,23 @@ import org.apache.uima.fit.factory.AnalysisEngineFactory;
 import org.apache.uima.fit.factory.CollectionReaderFactory;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.fit.factory.TypeSystemDescriptionFactory;
+import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.apache.uima.util.CasCreationUtils;
 import org.apache.uima.util.XmlCasSerializer;
 import org.luaj.vm2.Globals;
 import org.luaj.vm2.lib.jse.JsePlatform;
-import org.luaj.vm2.script.LuajContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.*;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.DUUIMonitor;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.IDUUIStorageBackend;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.arangodb.DUUIArangoDBStorageBackend;
+import org.texttechnologylab.annotation.type.Taxon;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.net.UnknownHostException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.security.InvalidParameterException;
 import java.time.Instant;
 import java.util.*;
@@ -152,6 +149,14 @@ public class DUUIComposer {
     public DUUIComposer addDriver(IDUUIDriverInterface driver) {
         driver.setLuaContext(_context);
         _drivers.put(driver.getClass().getCanonicalName(), driver);
+        return this;
+    }
+
+    public DUUIComposer addDriver(IDUUIDriverInterface... drivers) {
+        for (IDUUIDriverInterface driver : drivers) {
+            driver.setLuaContext(_context);
+            _drivers.put(driver.getClass().getCanonicalName(), driver);
+        }
         return this;
     }
 
@@ -484,7 +489,7 @@ public class DUUIComposer {
                 .withLuaContext(ctx);
 
         // Instantiate drivers with options
-        DUUILocalDriver driver = new DUUILocalDriver()
+        DUUIDockerDriver driver = new DUUIDockerDriver()
                 .withTimeout(10000);
 
         DUUIRemoteDriver remote_driver = new DUUIRemoteDriver(10000);
@@ -501,18 +506,30 @@ public class DUUIComposer {
         // Every component needs a driver which instantiates and runs them
         // Local driver manages local docker container and pulls docker container from remote repositories
         /*composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUILocalDriver.Component("kava-i.de:5000/secure/test_image")*/
+
         //composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class))
         //                .withScale(4),
         //        DUUIUIMADriver.class);
       /*  composer.add(new DUUILocalDriver.Component("java_segmentation:latest")
+
+        composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class)),
+                DUUIUIMADriver.class);
+//        composer.add(new DUUILocalDriver.Component("java_segmentation:latest")
+//                        .withScale(1)
+//                , DUUILocalDriver.class);
+        composer.add(new DUUIDockerDriver.Component("gnfinder:0.1")
                         .withScale(1)
-                , DUUILocalDriver.class);*/
+                , DUUIDockerDriver.class);
+//        composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9714")
+//                        .withScale(1)
+//                , DUUIRemoteDriver.class);*/
 
         // Remote driver handles all pure URL endpoints
         composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class))
                         .withScale(1),
                 org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIUIMADriver.class);
 
+        //composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.Component("http://127.0.0.1:9714")
         composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.Component("http://127.0.0.1:9714")
                         .withScale(1),
                 org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.class);
@@ -522,7 +539,7 @@ public class DUUIComposer {
        // ByteArrayInputStream stream;
        // stream.read
 
-        String val2 = "Dies ist ein kleiner Test Text!";
+        String val2 = "Dies ist ein kleiner Test Text für Abies!";
         JCas jc = JCasFactory.createJCas();
         jc.setDocumentLanguage("de");
         jc.setDocumentText(val2);
@@ -533,6 +550,10 @@ public class DUUIComposer {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         XmlCasSerializer.serialize(jc.getCas(),out);
         System.out.println(new String(out.toByteArray()));
+
+        JCasUtil.select(jc, Taxon.class).forEach(t->{
+            System.out.println(t);
+        });
 
         /*
         String val = Files.readString(Path.of(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/uima_xmi_communication_token_only.lua").toURI()));
