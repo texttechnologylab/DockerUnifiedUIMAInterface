@@ -14,5 +14,5 @@ function serialize(inputCas,outputStream,params)
 end
 
 function deserialize(inputCas,inputStream)
-  print('Deserialize skipping, nothing to do...')
+  print(inputStream:readAllBytes())
 end

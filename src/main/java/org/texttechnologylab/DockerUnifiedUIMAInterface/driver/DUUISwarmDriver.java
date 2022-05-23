@@ -16,6 +16,8 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPip
 import org.xml.sax.SAXException;
 
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
+import java.net.http.HttpClient;
 import java.security.InvalidParameterException;
 import java.time.Duration;
 import java.util.HashMap;
@@ -27,7 +29,8 @@ import static java.lang.String.format;
 
 public class DUUISwarmDriver implements IDUUIDriverInterface {
     private final DUUIDockerInterface _interface;
-    private final OkHttpClient _client;
+    private HttpClient _client;
+
 
     private final HashMap<String, DUUISwarmDriver.InstantiatedComponent> _active_components;
     private int _container_timeout;
@@ -38,7 +41,7 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         _interface = new DUUIDockerInterface();
 
         _container_timeout = 10000;
-        _client = new OkHttpClient();
+        _client = HttpClient.newHttpClient();
 
         _active_components = new HashMap<>();
     }
@@ -50,9 +53,7 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         _basic.setDocumentLanguage("en");
         _basic.setDocumentText("Hello World!");
         _container_timeout = 10000;
-        _client = new OkHttpClient.Builder().writeTimeout(Duration.ofMillis(timeout))
-                .readTimeout(Duration.ofMillis(timeout)).build();
-
+        _client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(timeout)).build();
 
         _active_components = new HashMap<>();
     }

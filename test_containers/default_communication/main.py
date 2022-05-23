@@ -14,6 +14,7 @@ with open('dkpro-core-types.xml', 'rb') as f:
             post_body = self.rfile.read(content_len).decode("utf-8")
 
             decoded = json.loads(post_body)
+            print(decoded)
 
             cas = load_cas_from_xmi(decoded["cas"], typesystem=typesystem,lenient=True)
             #loaded = json.loads(post_body)

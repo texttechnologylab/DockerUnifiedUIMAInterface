@@ -27,6 +27,16 @@ public class DUUILuaContext {
         return this;
     }
 
+    public DUUILuaContext withJsonLibrary() throws IOException {
+        return this.withGlobalLibrary(
+                "json",
+                DUUILuaContext.class.getClassLoader().getResource(
+                        "org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/json.lua"
+                )
+                .openStream()
+        );
+    }
+
     public DUUILuaContext withSandbox(DUUILuaSandbox sandbox) {
         _sandbox = sandbox;
         return this;

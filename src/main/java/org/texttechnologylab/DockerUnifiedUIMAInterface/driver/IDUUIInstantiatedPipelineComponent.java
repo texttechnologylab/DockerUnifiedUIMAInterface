@@ -17,6 +17,10 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPip
 import org.xml.sax.SAXException;
 
 import java.io.*;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.charset.Charset;
 import java.security.InvalidParameterException;
 import java.time.Duration;
@@ -24,8 +28,8 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 public interface IDUUIInstantiatedPipelineComponent {
-    static OkHttpClient _client = new OkHttpClient.Builder().readTimeout(Duration.ofSeconds(1000))
-            .writeTimeout(Duration.ofSeconds(1000)).build();
+    public static HttpClient _client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(1000)).build();
+
     public IDUUICommunicationLayer getCommunicationLayer();
     public Triplet<IDUUIUrlAccessible,Long,Long> getComponent();
     public void addComponent(IDUUIUrlAccessible item);
@@ -36,13 +40,13 @@ public interface IDUUIInstantiatedPipelineComponent {
 
     public static TypeSystemDescription getTypesystem(String uuid, IDUUIInstantiatedPipelineComponent comp) throws IOException, ResourceInitializationException {
         Triplet<IDUUIUrlAccessible,Long,Long> queue = comp.getComponent();
-        Request request = new Request.Builder()
-                .url(queue.getValue0().generateURL() + DUUIComposer.V1_COMPONENT_ENDPOINT_TYPESYSTEM)
-                .get()
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(queue.getValue0().generateURL() + DUUIComposer.V1_COMPONENT_ENDPOINT_TYPESYSTEM))
+                .GET()
                 .build();
-        Response resp = _client.newCall(request).execute();
-        if (resp.code() == 200) {
-            String body = new String(resp.body().bytes(), Charset.defaultCharset());
+        HttpResponse<byte[]> resp = _client.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray()).join();
+        if (resp.statusCode() == 200) {
+            String body = new String(resp.body(), Charset.defaultCharset());
             File tmp = File.createTempFile("duui.composer","_type");
             FileWriter writer = new FileWriter(tmp);
             writer.write(body);
@@ -62,26 +66,31 @@ public interface IDUUIInstantiatedPipelineComponent {
 
         IDUUICommunicationLayer layer = comp.getCommunicationLayer();
         long serializeStart = System.nanoTime();
+
         ByteArrayOutputStream out = new ByteArrayOutputStream();
+
         layer.serialize(jc,out,comp.getParameters());
+        // lua serialize call()
+
         byte[] ok = out.toByteArray();
         long serializeEnd = System.nanoTime();
 
         long annotatorStart = serializeEnd;
 
-        RequestBody body = RequestBody.create(ok);
-        Request request = new Request.Builder()
-                .url(queue.getValue0().generateURL()+ DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS)
-                .post(body)
-                .header("Content-Length", String.valueOf(ok.length))
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(queue.getValue0().generateURL()+ DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS))
+                .POST(HttpRequest.BodyPublishers.ofByteArray(ok))
+                //.header("Content-Length", String.valueOf(ok.length)
                 .build();
-        Response resp = _client.newCall(request).execute();
+        HttpResponse<byte[]> resp = _client.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray()).join();
 
-        if (resp.code() == 200) {
-            ByteArrayInputStream st = new ByteArrayInputStream(resp.body().bytes());
+        if (resp.statusCode() == 200) {
+            ByteArrayInputStream st = new ByteArrayInputStream(resp.body());
             long annotatorEnd = System.nanoTime();
             long deserializeStart = annotatorEnd;
+
             layer.deserialize(jc,st);
+
             long deserializeEnd = System.nanoTime();
             perf.addData(serializeEnd-serializeStart,deserializeEnd-deserializeStart,annotatorEnd-annotatorStart,queue.getValue2()-queue.getValue1(),deserializeEnd-queue.getValue1(),comp.getUniqueComponentKey());
             comp.addComponent(queue.getValue0());
