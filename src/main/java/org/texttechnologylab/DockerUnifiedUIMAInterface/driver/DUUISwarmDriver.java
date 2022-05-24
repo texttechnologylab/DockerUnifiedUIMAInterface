@@ -106,7 +106,7 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
             Thread.sleep(500);
 
             comp.setCommunicationLayer(layer);
-        _active_components.put(uuid, comp);
+            _active_components.put(uuid, comp);
         return uuid;
     }
 
@@ -219,6 +219,9 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         public InstantiatedComponent initialise(String service_id, int container_port) {
             _service_id = service_id;
             _service_port = container_port;
+            for(int i = 0; i < _scale; i++) {
+                _components.add(new ComponentInstance(getServiceUrl()));
+            }
             return this;
         }
 

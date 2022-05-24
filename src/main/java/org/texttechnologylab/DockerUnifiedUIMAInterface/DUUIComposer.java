@@ -525,15 +525,26 @@ public class DUUIComposer {
 //                , DUUIRemoteDriver.class);*/
 
         // Remote driver handles all pure URL endpoints
-        composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class))
+        /*composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class))
                         .withScale(1),
                 org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIUIMADriver.class);
 
         //composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.Component("http://127.0.0.1:9714")
         composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.Component("http://127.0.0.1:9714")
                         .withScale(1),
-                org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.class);
+                org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.class);*/
 
+        composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/languagedetection:0.3")
+                .withScale(1)
+                , DUUISwarmDriver.class);
+
+        composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
+                .withScale(1)
+                , DUUISwarmDriver.class);
+
+        composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/gnfinder:latest")
+                .withScale(1)
+                , DUUISwarmDriver.class);
 
 
        // ByteArrayInputStream stream;
