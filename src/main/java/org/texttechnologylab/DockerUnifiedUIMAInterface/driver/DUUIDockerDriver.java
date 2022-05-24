@@ -21,6 +21,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.security.InvalidParameterException;
 import java.time.Duration;
 import java.time.temporal.TemporalAmount;
@@ -91,6 +92,7 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
         while(true) {
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(url + DUUIComposer.V1_COMPONENT_ENDPOINT_COMMUNICATION_LAYER))
+                    .version(HttpClient.Version.HTTP_1_1)
                     .GET()
                     .build();
             try {
@@ -137,13 +139,20 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
         }
 
         HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(url + DUUIComposer.V1_COMPONENT_ENDPOINT_COMMUNICATION_LAYER))
+                .uri(URI.create(url + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS))
+                .version(HttpClient.Version.HTTP_1_1)
                 .POST(HttpRequest.BodyPublishers.ofByteArray(stream.toByteArray()))
                 .build();
                 HttpResponse<byte[]> resp = client.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray()).join();
                 if (resp.statusCode() == 200) {
                     ByteArrayInputStream inputStream = new ByteArrayInputStream(resp.body());
-                    layer.deserialize(jc,inputStream);
+                    try {
+                        layer.deserialize(jc, inputStream);
+                    }
+                    catch(Exception e) {
+                        System.err.printf("Caught exception printing response %s\n",new String(resp.body(), StandardCharsets.UTF_8));
+                        throw e;
+                    }
                     return layer;
                 }
                 else {

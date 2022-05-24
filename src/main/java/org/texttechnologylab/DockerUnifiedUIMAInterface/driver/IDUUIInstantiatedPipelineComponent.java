@@ -22,6 +22,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.security.InvalidParameterException;
 import java.time.Duration;
 import java.util.Map;
@@ -42,6 +43,7 @@ public interface IDUUIInstantiatedPipelineComponent {
         Triplet<IDUUIUrlAccessible,Long,Long> queue = comp.getComponent();
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(queue.getValue0().generateURL() + DUUIComposer.V1_COMPONENT_ENDPOINT_TYPESYSTEM))
+                .version(HttpClient.Version.HTTP_1_1)
                 .GET()
                 .build();
         HttpResponse<byte[]> resp = _client.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray()).join();
@@ -80,7 +82,7 @@ public interface IDUUIInstantiatedPipelineComponent {
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(queue.getValue0().generateURL()+ DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS))
                 .POST(HttpRequest.BodyPublishers.ofByteArray(ok))
-                //.header("Content-Length", String.valueOf(ok.length)
+                .version(HttpClient.Version.HTTP_1_1)
                 .build();
         HttpResponse<byte[]> resp = _client.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray()).join();
 
@@ -89,8 +91,13 @@ public interface IDUUIInstantiatedPipelineComponent {
             long annotatorEnd = System.nanoTime();
             long deserializeStart = annotatorEnd;
 
-            layer.deserialize(jc,st);
-
+            try {
+                layer.deserialize(jc, st);
+            }
+            catch(Exception e) {
+                System.err.printf("Caught exception printing response %s\n",new String(resp.body(), StandardCharsets.UTF_8));
+                throw e;
+            }
             long deserializeEnd = System.nanoTime();
             perf.addData(serializeEnd-serializeStart,deserializeEnd-deserializeStart,annotatorEnd-annotatorStart,queue.getValue2()-queue.getValue1(),deserializeEnd-queue.getValue1(),comp.getUniqueComponentKey());
             comp.addComponent(queue.getValue0());
