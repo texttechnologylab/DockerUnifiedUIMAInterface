@@ -187,7 +187,7 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
         System.out.printf("[DockerLocalDriver] Assigned new pipeline component unique id %s\n", uuid);
         _active_components.put(uuid, comp);
         for (int i = 0; i < comp.getScale(); i++) {
-            String containerid = _interface.run(comp.getImageName(), false, true);
+            String containerid = _interface.run(comp.getImageName(), comp.usesGPU(), true);
             int port = _interface.extract_port_mapping(containerid);
 
             try {
@@ -382,6 +382,8 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
         public void addInstance(ComponentInstance inst) {
             _instances.add(inst);
         }
+
+        public boolean usesGPU() {return _gpu;}
 
         public ConcurrentLinkedQueue<ComponentInstance> getInstances() {
             return _instances;
