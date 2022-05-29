@@ -6,7 +6,7 @@
 
     <groupId>org.texttechnologylab</groupId>
     <artifactId>DockerUnifiedUIMAInterface</artifactId>
-    <version>1.0</version>
+    <version>1.1</version>
 
     <properties>
         <maven.compiler.source>11</maven.compiler.source>
@@ -178,6 +178,18 @@
             <artifactId>junit-jupiter</artifactId>
             <version>RELEASE</version>
             <scope>compile</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.github.texttechnologylab.textimager-uima</groupId>
+            <artifactId>textimager-uima-io</artifactId>
+            <version>b10db8275163d19d63b9512cc20ca5872e52499b</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.github.texttechnologylab</groupId>
+                    <artifactId>UIMATypeSystem</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
     </dependencies>
