@@ -9,7 +9,9 @@ mvn clean compile exec:java -Dexec.mainClass="org.texttechnologylab.DockerUnifie
 
 # Small Docker Guide
 
-To build an DUUI-Image
+Please note that you are not in a VPN network, this can influence or prevent the creation of the image.
+
+To build a Docker DUUI image, follow these steps:
 
 ```
 cd /path/of/your/Dockerfile
