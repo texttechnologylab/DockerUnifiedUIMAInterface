@@ -146,6 +146,35 @@ public class TestDUUI {
     }
 
     @Test
+    public void LanguageDetection() throws Exception {
+        JCas jc = JCasFactory.createJCas();
+
+        // load content into jc
+        // ...
+        jc.setDocumentText("Hallo Welt dies ist ein Abies!");
+//        jc.setDocumentLanguage("de");
+
+        DUUILuaContext ctx = LuaConsts.getJSON();
+
+        DUUIComposer composer = new DUUIComposer().withLuaContext(ctx);
+
+        // Instantiate drivers with options
+        DUUIDockerDriver dockerDriver = new DUUIDockerDriver()
+                .withTimeout(10000);
+
+        // A driver must be added before components can be added for it in the composer.
+        composer.addDriver(dockerDriver);
+
+        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/languagedetection:0.2")
+                        .withImageFetching()
+                        .withScale(1)
+                , DUUIDockerDriver.class);
+
+        composer.run(jc);
+        System.out.println(jc.getDocumentLanguage());
+
+    }
+    @Test
     public void RegistryTest() throws Exception {
         JCas jc = JCasFactory.createJCas();
 
