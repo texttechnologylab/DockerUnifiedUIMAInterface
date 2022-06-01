@@ -5,7 +5,7 @@ import json
 import base64
 
 communication = ''
-with open('communication.lua','r') as f:
+with open('communication_xmi.lua','r') as f:
     communication = f.read()
 
 with open('dkpro-core-types.xml', 'rb') as f:
@@ -59,9 +59,9 @@ with open('dkpro-core-types.xml', 'rb') as f:
     # Create an object of the above class
     handler_object = MyHttpRequestHandler
 
-    PORT = 9714
+    PORT = 9715
     my_server = socketserver.TCPServer(("0.0.0.0", PORT), handler_object)
 
-    print("Server started on port 9714\r\n")
+    print("Server started on port 9715\r\n")
     # Star the server
     my_server.serve_forever()

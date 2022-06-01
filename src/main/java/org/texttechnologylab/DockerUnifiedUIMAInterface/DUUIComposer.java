@@ -534,7 +534,23 @@ public class DUUIComposer {
                         .withScale(1),
                 org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.class);*/
 
-        composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/languagedetection:0.3")
+
+        // Engine 1 -> track 1 schreibt
+        // Engine 2 -> track 2 schreibt
+        // Merge -> Vereint das in _InitialView
+
+
+        // SpaCy Lemma, POS, NER besser in NER, Precision
+        // StanfordNlpNER NER
+
+        // ClearNlpPosTagger
+        // OpenNlpPosTagger
+
+        // p
+
+        // Input: [de.org.tudarmstadt.sentence, de.org.tudarmstadt.Token]
+        // Output: []
+        /*composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/languagedetection:0.3")
                 .withScale(1)
                 , DUUISwarmDriver.class);
 
@@ -544,8 +560,11 @@ public class DUUIComposer {
 
         composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/gnfinder:latest")
                 .withScale(1)
-                , DUUISwarmDriver.class);
+                , DUUISwarmDriver.class);*/
 
+        composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.Component("http://127.0.0.1:9715")
+                        .withScale(1),
+                org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.class);
 
        // ByteArrayInputStream stream;
        // stream.read

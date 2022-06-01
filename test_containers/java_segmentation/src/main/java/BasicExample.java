@@ -48,7 +48,9 @@ public class BasicExample {
             try {
                 jc.reset();
                 XmiCasDeserializer.deserialize(t.getRequestBody(),jc.getCas());
+
                 SimplePipeline.runPipeline(jc, AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class));
+
                 ByteArrayOutputStream out = new ByteArrayOutputStream();
                 t.sendResponseHeaders(200,0);
                 XmiCasSerializer.serialize(jc.getCas(),null,t.getResponseBody());

@@ -55,7 +55,7 @@ public interface IDUUIInstantiatedPipelineComponent {
             writer.flush();
             writer.close();
             comp.addComponent(queue.getValue0());
-            return TypeSystemDescriptionFactory.createTypeSystemDescriptionFromPath(tmp.getAbsolutePath());
+            return TypeSystemDescriptionFactory.createTypeSystemDescriptionFromPath(tmp.toURI().toString());
         } else {
             comp.addComponent(queue.getValue0());
             System.out.printf("[%s]: Endpoint did not provide typesystem, using default one...\n",uuid);
