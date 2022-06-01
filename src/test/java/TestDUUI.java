@@ -1,6 +1,7 @@
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Sentence;
 import de.tudarmstadt.ukp.dkpro.core.api.ner.type.NamedEntity;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
+import de.tudarmstadt.ukp.dkpro.core.io.text.TextReader;
 import de.tudarmstadt.ukp.dkpro.core.opennlp.OpenNlpPosTagger;
 import de.tudarmstadt.ukp.dkpro.core.tokit.BreakIteratorSegmenter;
 import org.apache.commons.compress.compressors.CompressorException;
@@ -8,6 +9,7 @@ import org.apache.uima.UIMAException;
 import org.apache.uima.analysis_engine.AnalysisEngineDescription;
 import org.apache.uima.cas.SerialFormat;
 import org.apache.uima.cas.impl.XmiCasSerializer;
+import org.apache.uima.collection.CollectionReaderDescription;
 import org.apache.uima.fit.factory.AnalysisEngineFactory;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.fit.pipeline.SimplePipeline;
@@ -15,8 +17,11 @@ import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.jcas.cas.TOP;
 import org.apache.uima.jcas.tcas.Annotation;
+import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.util.CasIOUtils;
 import org.apache.uima.util.XmlCasSerializer;
+import org.dkpro.core.io.xmi.XmiReader;
+import org.dkpro.core.io.xmi.XmiWriter;
 import org.json.JSONArray;
 import org.junit.jupiter.api.Test;
 import org.msgpack.core.MessageBufferPacker;
@@ -31,6 +36,7 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaCommunication
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaSandbox;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.LuaConsts;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.DUUIMonitor;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIMockStorageBackend;
 import org.texttechnologylab.annotation.type.Taxon;
 import org.xml.sax.SAXException;
@@ -41,12 +47,72 @@ import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 
+import static org.apache.uima.fit.factory.AnalysisEngineFactory.createEngineDescription;
+import static org.apache.uima.fit.factory.CollectionReaderFactory.createReaderDescription;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 
 public class TestDUUI {
+
+    @Test
+    public void SwarmTest() throws Exception {
+
+        System.out.println("Running SwarmTest");
+
+        String sInputPath = TestDUUI.class.getClassLoader().getResource("sample").getPath();
+        String sSuffix = "xmi.gz";
+        String sOutputPath = "/tmp/";
+
+        int iWorkers = Integer.valueOf(2);
+
+        DUUILuaContext ctx = LuaConsts.getJSON();
+
+        DUUIComposer composer = new DUUIComposer()
+                .withLuaContext(ctx);
+
+        DUUISwarmDriver swarm_driver = new DUUISwarmDriver();
+        DUUIUIMADriver uima_driver = new DUUIUIMADriver()
+                .withDebug(true);
+
+        composer.addDriver(swarm_driver, uima_driver);
+
+        composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/languagedetection:0.1")
+                        .withScale(iWorkers)
+                , DUUISwarmDriver.class);
+
+        composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
+                        .withScale(iWorkers)
+                , DUUISwarmDriver.class);
+
+        composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/gnfinder:latest")
+                        .withScale(iWorkers)
+                , DUUISwarmDriver.class);
+
+        composer.add(new DUUIUIMADriver.Component(createEngineDescription(XmiWriter.class,
+                        XmiWriter.PARAM_TARGET_LOCATION, sOutputPath,
+                        XmiWriter.PARAM_PRETTY_PRINT, true,
+                        XmiWriter.PARAM_OVERWRITE, true,
+                        XmiWriter.PARAM_VERSION, "1.1",
+                        XmiWriter.PARAM_COMPRESSION, "GZIP"
+                ))
+                , DUUIUIMADriver.class);
+
+
+        CollectionReaderDescription reader = null;
+
+        reader = createReaderDescription(XmiReader.class,
+                XmiReader.PARAM_SOURCE_LOCATION, sInputPath+"/**"+sSuffix,
+                XmiReader.PARAM_SORT_BY_SIZE, true
+        );
+
+        composer.run(reader);
+
+
+    }
+
     @Test
     public void TestTaxoNERD() throws Exception {
         JCas jc = JCasFactory.createJCas();
@@ -76,6 +142,92 @@ public class TestDUUI {
         });
 
 
+
+
+    }
+
+    @Test
+    public void LanguageDetection() throws Exception {
+        JCas jc = JCasFactory.createJCas();
+
+        // load content into jc
+        // ...
+        jc.setDocumentText("Hallo Welt dies ist ein Abies!");
+//        jc.setDocumentLanguage("de");
+
+        DUUILuaContext ctx = LuaConsts.getJSON();
+
+        DUUIComposer composer = new DUUIComposer().withLuaContext(ctx);
+
+        // Instantiate drivers with options
+        DUUIDockerDriver dockerDriver = new DUUIDockerDriver()
+                .withTimeout(10000);
+        DUUIRemoteDriver remoteDriver = new DUUIRemoteDriver();
+
+        // A driver must be added before components can be added for it in the composer.
+        composer.addDriver(dockerDriver, remoteDriver);
+
+//        composer.add(new DUUIDockerDriver.Component("languagedetection:dev")
+//                        .withScale(1)
+//                , DUUIDockerDriver.class);
+//
+        composer.add(new DUUIRemoteDriver.Component("http://localhost:9714")
+                        .withScale(1)
+                , DUUIRemoteDriver.class);
+
+        composer.run(jc);
+
+        System.out.println(jc.getDocumentLanguage());
+
+    }
+
+    @Test
+    public void CollectionReader() throws Exception {
+
+        String sSuffix = ".txt";
+        String sInputPath = "/home/gabrami/Downloads/BioFIDExample/in/txt";
+        String sOutputPath = "/home/gabrami/Downloads/BioFIDExample/out";
+
+        DUUILuaContext ctx = LuaConsts.getJSON();
+
+        DUUIComposer composer = new DUUIComposer().withLuaContext(ctx);
+
+        // Instantiate drivers with options
+        DUUIDockerDriver dockerDriver = new DUUIDockerDriver()
+                .withTimeout(10000);
+        DUUIRemoteDriver remoteDriver = new DUUIRemoteDriver();
+        DUUIUIMADriver uimaDriver = new DUUIUIMADriver();
+
+        // A driver must be added before components can be added for it in the composer.
+        composer.addDriver(dockerDriver, remoteDriver, uimaDriver);
+
+//        composer.add(new DUUIDockerDriver.Component("languagedetection:dev")
+//                        .withScale(1)
+//                , DUUIDockerDriver.class);
+//
+        composer.add(new DUUIUIMADriver.Component(
+                createEngineDescription(XmiWriter.class,
+                        XmiWriter.PARAM_TARGET_LOCATION, sOutputPath,
+                        XmiWriter.PARAM_PRETTY_PRINT, true,
+                        XmiWriter.PARAM_OVERWRITE, true,
+                        XmiWriter.PARAM_VERSION, "1.1",
+                        XmiWriter.PARAM_COMPRESSION, "GZIP"
+                )).withScale(1), DUUIUIMADriver.class);
+
+
+        if(sSuffix.contains("txt")){
+            composer.run(createReaderDescription(TextReader.class,
+                    TextReader.PARAM_SOURCE_LOCATION, sInputPath+"/**"+sSuffix,
+                    TextReader.PARAM_LANGUAGE, "de"
+            ));
+        }
+        else{
+            composer.run(createReaderDescription(XmiReader.class,
+                    XmiReader.PARAM_SOURCE_LOCATION, sInputPath+"/**"+sSuffix,
+                    XmiReader.PARAM_SORT_BY_SIZE, true,
+                    XmiReader.PARAM_ADD_DOCUMENT_METADATA, true
+            ));
+        }
 
 
     }

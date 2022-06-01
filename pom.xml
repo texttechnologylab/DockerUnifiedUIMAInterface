@@ -180,6 +180,18 @@
             <scope>compile</scope>
         </dependency>
 
+        <dependency>
+            <groupId>com.github.texttechnologylab.textimager-uima</groupId>
+            <artifactId>textimager-uima-io</artifactId>
+            <version>b10db8275163d19d63b9512cc20ca5872e52499b</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.github.texttechnologylab</groupId>
+                    <artifactId>UIMATypeSystem</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
     </dependencies>
 
 
