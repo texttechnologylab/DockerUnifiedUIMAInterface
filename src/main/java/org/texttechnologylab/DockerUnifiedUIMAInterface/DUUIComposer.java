@@ -1,5 +1,6 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface;
 
+import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import de.tudarmstadt.ukp.dkpro.core.tokit.BreakIteratorSegmenter;
 import org.apache.uima.collection.CollectionReader;
 import org.apache.uima.collection.CollectionReaderDescription;
@@ -352,17 +353,27 @@ public class DUUIComposer {
         jc.setDocumentLanguage("en");
         jc.setDocumentText("Hello World!");
 
+//        DocumentMetaData dmd = DocumentMetaData.create(jc);
+//        dmd.setDocumentId("test");
+//        dmd.setDocumentUri("/tmp/test");
+//        dmd.setDocumentBaseUri("/tmp/");
+
         List<TypeSystemDescription> descriptions = new LinkedList<>();
         descriptions.add(TypeSystemDescriptionFactory.createTypeSystemDescription());
-        for (IDUUIPipelineComponent comp : _pipeline) {
-            IDUUIDriverInterface driver = _drivers.get(comp.getOption(DRIVER_OPTION_NAME));
-            String uuid = driver.instantiate(comp,jc);
+        try {
+            for (IDUUIPipelineComponent comp : _pipeline) {
+                IDUUIDriverInterface driver = _drivers.get(comp.getOption(DRIVER_OPTION_NAME));
+                String uuid = driver.instantiate(comp, jc);
 
-            TypeSystemDescription desc = driver.get_typesystem(uuid);
-            if(desc!=null) {
-                descriptions.add(desc);
+                TypeSystemDescription desc = driver.get_typesystem(uuid);
+                if (desc != null) {
+                    descriptions.add(desc);
+                }
+                idPipeline.add(new PipelinePart(driver, uuid));
             }
-            idPipeline.add(new PipelinePart(driver, uuid));
+        }
+        catch (Exception e){
+            System.out.println(e.getMessage());
         }
         return CasCreationUtils.mergeTypeSystems(descriptions);
     }

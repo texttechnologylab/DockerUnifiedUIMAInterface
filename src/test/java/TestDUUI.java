@@ -1,6 +1,7 @@
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Sentence;
 import de.tudarmstadt.ukp.dkpro.core.api.ner.type.NamedEntity;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
+import de.tudarmstadt.ukp.dkpro.core.io.text.TextReader;
 import de.tudarmstadt.ukp.dkpro.core.opennlp.OpenNlpPosTagger;
 import de.tudarmstadt.ukp.dkpro.core.tokit.BreakIteratorSegmenter;
 import org.apache.commons.compress.compressors.CompressorException;
@@ -161,19 +162,76 @@ public class TestDUUI {
         // Instantiate drivers with options
         DUUIDockerDriver dockerDriver = new DUUIDockerDriver()
                 .withTimeout(10000);
+        DUUIRemoteDriver remoteDriver = new DUUIRemoteDriver();
 
         // A driver must be added before components can be added for it in the composer.
-        composer.addDriver(dockerDriver);
+        composer.addDriver(dockerDriver, remoteDriver);
 
-        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/languagedetection:0.2")
-                        .withImageFetching()
+//        composer.add(new DUUIDockerDriver.Component("languagedetection:dev")
+//                        .withScale(1)
+//                , DUUIDockerDriver.class);
+//
+        composer.add(new DUUIRemoteDriver.Component("http://localhost:9714")
                         .withScale(1)
-                , DUUIDockerDriver.class);
+                , DUUIRemoteDriver.class);
 
         composer.run(jc);
+
         System.out.println(jc.getDocumentLanguage());
 
     }
+
+    @Test
+    public void CollectionReader() throws Exception {
+
+        String sSuffix = ".txt";
+        String sInputPath = "/home/gabrami/Downloads/BioFIDExample/in/txt";
+        String sOutputPath = "/home/gabrami/Downloads/BioFIDExample/out";
+
+        DUUILuaContext ctx = LuaConsts.getJSON();
+
+        DUUIComposer composer = new DUUIComposer().withLuaContext(ctx);
+
+        // Instantiate drivers with options
+        DUUIDockerDriver dockerDriver = new DUUIDockerDriver()
+                .withTimeout(10000);
+        DUUIRemoteDriver remoteDriver = new DUUIRemoteDriver();
+        DUUIUIMADriver uimaDriver = new DUUIUIMADriver();
+
+        // A driver must be added before components can be added for it in the composer.
+        composer.addDriver(dockerDriver, remoteDriver, uimaDriver);
+
+//        composer.add(new DUUIDockerDriver.Component("languagedetection:dev")
+//                        .withScale(1)
+//                , DUUIDockerDriver.class);
+//
+        composer.add(new DUUIUIMADriver.Component(
+                createEngineDescription(XmiWriter.class,
+                        XmiWriter.PARAM_TARGET_LOCATION, sOutputPath,
+                        XmiWriter.PARAM_PRETTY_PRINT, true,
+                        XmiWriter.PARAM_OVERWRITE, true,
+                        XmiWriter.PARAM_VERSION, "1.1",
+                        XmiWriter.PARAM_COMPRESSION, "GZIP"
+                )).withScale(1), DUUIUIMADriver.class);
+
+
+        if(sSuffix.contains("txt")){
+            composer.run(createReaderDescription(TextReader.class,
+                    TextReader.PARAM_SOURCE_LOCATION, sInputPath+"/**"+sSuffix,
+                    TextReader.PARAM_LANGUAGE, "de"
+            ));
+        }
+        else{
+            composer.run(createReaderDescription(XmiReader.class,
+                    XmiReader.PARAM_SOURCE_LOCATION, sInputPath+"/**"+sSuffix,
+                    XmiReader.PARAM_SORT_BY_SIZE, true,
+                    XmiReader.PARAM_ADD_DOCUMENT_METADATA, true
+            ));
+        }
+
+
+    }
+
     @Test
     public void RegistryTest() throws Exception {
         JCas jc = JCasFactory.createJCas();
