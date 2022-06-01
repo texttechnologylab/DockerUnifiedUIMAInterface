@@ -353,10 +353,10 @@ public class DUUIComposer {
         jc.setDocumentLanguage("en");
         jc.setDocumentText("Hello World!");
 
-//        DocumentMetaData dmd = DocumentMetaData.create(jc);
-//        dmd.setDocumentId("test");
-//        dmd.setDocumentUri("/tmp/test");
-//        dmd.setDocumentBaseUri("/tmp/");
+        DocumentMetaData dmd = DocumentMetaData.create(jc);
+        dmd.setDocumentId("removeMe");
+        dmd.setDocumentUri("/tmp/removeMe");
+        dmd.setDocumentBaseUri("/tmp/");
 
         List<TypeSystemDescription> descriptions = new LinkedList<>();
         descriptions.add(TypeSystemDescriptionFactory.createTypeSystemDescription());
