@@ -41,6 +41,7 @@ import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -164,6 +165,7 @@ public class TestDUUI {
         JCas jc = JCasFactory.createJCas();
         jc.setDocumentText("Hallo Welt!");
         jc.setDocumentLanguage("de");
+
         String val = Files.readString(Path.of(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/only_loaded_classes.lua").toURI()));
 
         DUUILuaContext ctxt = new DUUILuaContext();
@@ -279,6 +281,27 @@ public class TestDUUI {
         assertThrows(RuntimeException.class,()-> {
             DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(val, "remote", ctxt);
         });
+    }
+
+    @Test
+    public void TestSelectCovered() throws UIMAException, URISyntaxException, IOException, CompressorException, SAXException {
+        JCas jc = JCasFactory.createJCas();
+        jc.setDocumentText("Hallo Welt! Wie geht es dir?");
+        jc.setDocumentLanguage("de");
+        AnalysisEngineDescription desc = AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class);
+        SimplePipeline.runPipeline(jc,desc);
+        for(Sentence i : JCasUtil.select(jc,Sentence.class)) {
+            System.out.println(JCasUtil.selectCovered(Token.class, i).stream().collect(Collectors.toList()));
+        }
+
+        String val = Files.readString(Path.of(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/select_covered.lua").toURI()));
+        DUUILuaContext ctxt = new DUUILuaContext();
+        ctxt.withGlobalLibrary("json",DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/json.lua").toURI());
+        DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(val,"remote",ctxt);
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        long start = System.currentTimeMillis();
+        lua.serialize(jc,out,null);
+        System.out.println(out.toString());
     }
 
     @Test
