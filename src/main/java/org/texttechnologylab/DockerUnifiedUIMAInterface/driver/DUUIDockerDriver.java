@@ -85,7 +85,7 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
         return this;
     }
 
-    public static IDUUICommunicationLayer responsiveAfterTime(String url, JCas jc, int timeout_ms, HttpClient client, ResponsiveMessageCallback printfunc, DUUILuaContext context) throws Exception {
+    public static IDUUICommunicationLayer responsiveAfterTime(String url, JCas jc, int timeout_ms, HttpClient client, ResponsiveMessageCallback printfunc, DUUILuaContext context, boolean skipVerification) throws Exception {
         long start = System.currentTimeMillis();
         IDUUICommunicationLayer layer = new DUUIFallbackCommunicationLayer();
         boolean fatal_error = false;
@@ -128,6 +128,9 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
                 }
             }
         }
+        if(skipVerification) {
+            return layer;
+        }
         ByteArrayOutputStream stream = new ByteArrayOutputStream();
         try {
             //TODO: Make this accept options to better check the instantiation!
@@ -164,7 +167,7 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
         return comp.getClass().getName().toString() == Component.class.getName().toString();
     }
 
-    public String instantiate(IDUUIPipelineComponent component, JCas jc) throws Exception {
+    public String instantiate(IDUUIPipelineComponent component, JCas jc, boolean skipVerification) throws Exception {
         String uuid = UUID.randomUUID().toString();
         while (_active_components.containsKey(uuid.toString())) {
             uuid = UUID.randomUUID().toString();
@@ -198,7 +201,7 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
                 final String uuidCopy = uuid;
                 IDUUICommunicationLayer layer = responsiveAfterTime("http://127.0.0.1:" + String.valueOf(port), jc, _container_timeout, _client, (msg) -> {
                     System.out.printf("[DockerLocalDriver][%s][Docker Replication %d/%d] %s\n", uuidCopy, iCopy + 1, comp.getScale(), msg);
-                },_luaContext);
+                },_luaContext, skipVerification);
                 System.out.printf("[DockerLocalDriver][%s][Docker Replication %d/%d] Container for image %s is online (URL http://127.0.0.1:%d) and seems to understand DUUI V1 format!\n", uuid, i + 1, comp.getScale(), comp.getImageName(), port);
                 comp.addInstance(new ComponentInstance(containerid, port));
                 comp.setCommunicationLayer(layer);

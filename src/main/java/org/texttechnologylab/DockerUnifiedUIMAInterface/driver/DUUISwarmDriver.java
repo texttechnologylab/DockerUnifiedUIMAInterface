@@ -71,7 +71,7 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         return comp.getClass().getName().equals(DUUISwarmDriver.Component.class.getName());
     }
 
-    public String instantiate(IDUUIPipelineComponent component, JCas jc) throws Exception {
+    public String instantiate(IDUUIPipelineComponent component, JCas jc, boolean skipVerification) throws Exception {
         String uuid = UUID.randomUUID().toString();
         while (_active_components.containsKey(uuid)) {
             uuid = UUID.randomUUID().toString();
@@ -100,7 +100,7 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
             final String uuidCopy = uuid;
             IDUUICommunicationLayer layer = DUUIDockerDriver.responsiveAfterTime("http://localhost:" + port, jc, _container_timeout, _client, (msg) -> {
                 System.out.printf("[DockerSwarmDriver][%s][%d Replicas] %s\n", uuidCopy, comp.getScale(),msg);
-            },_luaContext);
+            },_luaContext,skipVerification);
             System.out.printf("[DockerSwarmDriver][%s][%d Replicas] Service for image %s is online (URL http://localhost:%d) and seems to understand DUUI V1 format!\n", uuid, comp.getScale(),comp.getImageName(), port);
             comp.initialise(serviceid,port);
             Thread.sleep(500);

@@ -98,6 +98,7 @@ public class DUUIComposer {
     private DUUILuaContext _context;
     private DUUIMonitor _monitor;
     private IDUUIStorageBackend _storage;
+    private boolean _skipVerification;
 
     private static final String DRIVER_OPTION_NAME = "duuid.composer.driver";
     public static final String COMPONENT_COMPONENT_UNIQUE_KEY = "duuid.storage.componentkey";
@@ -117,12 +118,18 @@ public class DUUIComposer {
         _context = new DUUILuaContext();
         _monitor = null;
         _storage = null;
+        _skipVerification = false;
         System.out.println("[Composer] Initialised LUA scripting layer with version "+ globals.get("_VERSION"));
     }
 
     public DUUIComposer withMonitor(DUUIMonitor monitor) throws UnknownHostException, InterruptedException {
         _monitor = monitor;
         _monitor.setup();
+        return this;
+    }
+
+    public DUUIComposer withSkipVerification(boolean skipVerification) {
+        _skipVerification = skipVerification;
         return this;
     }
 
@@ -358,12 +365,16 @@ public class DUUIComposer {
         dmd.setDocumentUri("/tmp/removeMe");
         dmd.setDocumentBaseUri("/tmp/");
 
+        if(_skipVerification) {
+            System.out.println("[Composer] Running without verification, no process calls will be made during initialization!");
+        }
+
         List<TypeSystemDescription> descriptions = new LinkedList<>();
         descriptions.add(TypeSystemDescriptionFactory.createTypeSystemDescription());
         try {
             for (IDUUIPipelineComponent comp : _pipeline) {
                 IDUUIDriverInterface driver = _drivers.get(comp.getOption(DRIVER_OPTION_NAME));
-                String uuid = driver.instantiate(comp, jc);
+                String uuid = driver.instantiate(comp, jc, _skipVerification);
 
                 TypeSystemDescription desc = driver.get_typesystem(uuid);
                 if (desc != null) {
@@ -497,7 +508,8 @@ public class DUUIComposer {
 
         DUUIComposer composer = new DUUIComposer()
         //        .withStorageBackend(new DUUIArangoDBStorageBackend("password",8888))
-                .withLuaContext(ctx);
+                .withLuaContext(ctx)
+                .withSkipVerification(true);
 
         // Instantiate drivers with options
         DUUIDockerDriver driver = new DUUIDockerDriver()
@@ -521,16 +533,16 @@ public class DUUIComposer {
         //composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class))
         //                .withScale(4),
         //        DUUIUIMADriver.class);
-      /*  composer.add(new DUUILocalDriver.Component("java_segmentation:latest")
+      /*  composer.add(new DUUILocalDriver.Component("java_segmentation:latest")*/
 
         composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class)),
                 DUUIUIMADriver.class);
 //        composer.add(new DUUILocalDriver.Component("java_segmentation:latest")
 //                        .withScale(1)
 //                , DUUILocalDriver.class);
-        composer.add(new DUUIDockerDriver.Component("gnfinder:0.1")
-                        .withScale(1)
-                , DUUIDockerDriver.class);
+//        composer.add(new DUUIDockerDriver.Component("gnfinder:0.1")
+//                        .withScale(1)
+//                , DUUIDockerDriver.class);
 //        composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9714")
 //                        .withScale(1)
 //                , DUUIRemoteDriver.class);*/

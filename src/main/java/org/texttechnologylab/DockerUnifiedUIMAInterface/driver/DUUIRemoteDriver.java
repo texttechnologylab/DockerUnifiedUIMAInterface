@@ -133,7 +133,7 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         return component.getClass().getCanonicalName() == component.getClass().getCanonicalName();
     }
 
-    public String instantiate(IDUUIPipelineComponent component, JCas jc) throws Exception {
+    public String instantiate(IDUUIPipelineComponent component, JCas jc, boolean skipVerification) throws Exception {
         String uuid = UUID.randomUUID().toString();
         while (_components.containsKey(uuid)) {
             uuid = UUID.randomUUID().toString();
@@ -143,7 +143,7 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         final String uuidCopy = uuid;
         IDUUICommunicationLayer layer = DUUIDockerDriver.responsiveAfterTime(comp.getUrl(), jc, 100000, _client, (msg) -> {
             System.out.printf("[RemoteDriver][%s] %s\n", uuidCopy,msg);
-        },_luaContext);
+        },_luaContext, skipVerification);
         comp.setCommunicationLayer(layer);
         for(int i = 0; i < comp.getScale(); i++) {
             comp.addComponent(new ComponentInstance(comp.getUrl()));
