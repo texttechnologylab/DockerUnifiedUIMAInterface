@@ -499,6 +499,9 @@ public class DUUIComposer {
         else if(_storage!=null) {
             _storage.shutdown();
         }
+        for(IDUUIDriverInterface driver : _drivers.values()) {
+            driver.shutdown();
+        }
     }
 
 
@@ -518,7 +521,8 @@ public class DUUIComposer {
         DUUIRemoteDriver remote_driver = new DUUIRemoteDriver(10000);
         DUUIUIMADriver uima_driver = new DUUIUIMADriver()
                 .withDebug(true);
-        DUUISwarmDriver swarm_driver = new DUUISwarmDriver();
+        DUUISwarmDriver swarm_driver = new DUUISwarmDriver()
+                .withSwarmVisualizer();
 
         // A driver must be added before components can be added for it in the composer.
         composer.addDriver(driver);

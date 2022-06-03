@@ -133,6 +133,9 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         return component.getClass().getCanonicalName() == component.getClass().getCanonicalName();
     }
 
+    public void shutdown() {
+    }
+
     public String instantiate(IDUUIPipelineComponent component, JCas jc, boolean skipVerification) throws Exception {
         String uuid = UUID.randomUUID().toString();
         while (_components.containsKey(uuid)) {

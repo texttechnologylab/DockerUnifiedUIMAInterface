@@ -245,6 +245,9 @@ public class DUUIUIMADriver implements IDUUIDriverInterface {
         return uuid;
     }
 
+    public void shutdown() {
+    }
+
     public TypeSystemDescription get_typesystem(String uuid) throws InterruptedException, IOException, SAXException, CompressorException, ResourceInitializationException {
         return TypeSystemDescriptionFactory.createTypeSystemDescription();
     }

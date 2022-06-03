@@ -35,6 +35,7 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
     private final HashMap<String, DUUISwarmDriver.InstantiatedComponent> _active_components;
     private int _container_timeout;
     private DUUILuaContext _luaContext;
+    private String _withSwarmVisualizer;
 
 
     public DUUISwarmDriver() throws IOException {
@@ -44,6 +45,7 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         _client = HttpClient.newHttpClient();
 
         _active_components = new HashMap<>();
+        _withSwarmVisualizer = null;
     }
 
     public DUUISwarmDriver(int timeout) throws IOException, UIMAException {
@@ -56,6 +58,25 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         _client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(timeout)).build();
 
         _active_components = new HashMap<>();
+    }
+
+    public DUUISwarmDriver withSwarmVisualizer() throws InterruptedException {
+        if(_withSwarmVisualizer==null) {
+            _interface.pullImage("dockersamples/visualizer",null,null);
+            _withSwarmVisualizer = _interface.run("dockersamples/visualizer",false,true,8080,true);
+            int port_mapping = _interface.extract_port_mapping(_withSwarmVisualizer,8080);
+            System.out.printf("[DUUISwarmDriver] Running visualizer on address http://localhost:%d\n",port_mapping);
+            Thread.sleep(1500);
+        }
+        return this;
+    }
+
+    public void shutdown() {
+        if(_withSwarmVisualizer!=null) {
+            System.out.println("[DUUISwarmDriver] Shutting down swarm visualizer now!");
+            _interface.stop_container(_withSwarmVisualizer);
+            _withSwarmVisualizer = null;
+        }
     }
 
     public void setLuaContext(DUUILuaContext luaContext) {

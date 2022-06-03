@@ -190,7 +190,7 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
         System.out.printf("[DockerLocalDriver] Assigned new pipeline component unique id %s\n", uuid);
         _active_components.put(uuid, comp);
         for (int i = 0; i < comp.getScale(); i++) {
-            String containerid = _interface.run(comp.getImageName(), comp.usesGPU(), true);
+            String containerid = _interface.run(comp.getImageName(), comp.usesGPU(), true, 9714,false);
             int port = _interface.extract_port_mapping(containerid);
 
             try {
@@ -237,6 +237,8 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
             throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
         }
         IDUUIInstantiatedPipelineComponent.process(aCas,comp,perf);
+    }
+    public void shutdown() {
     }
 
     public void destroy(String uuid) {

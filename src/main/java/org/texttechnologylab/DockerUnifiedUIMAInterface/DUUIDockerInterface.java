@@ -415,7 +415,7 @@ public class DUUIDockerInterface {
      * @return The docker container id
      * @throws InterruptedException
      */
-    public String run(String imageid, boolean gpu, boolean autoremove) throws InterruptedException {
+    public String run(String imageid, boolean gpu, boolean autoremove, int port, boolean mapDaemon) throws InterruptedException {
         HostConfig cfg = new HostConfig();
         if (autoremove) {
             cfg = cfg.withAutoRemove(true);
@@ -425,9 +425,12 @@ public class DUUIDockerInterface {
                     .withCapabilities(ImmutableList.of(ImmutableList.of("gpu")))));
         }
 
+        if(mapDaemon) {
+            cfg = cfg.withBinds(Bind.parse("/var/run/docker.sock:/var/run/docker.sock"));
+        }
         CreateContainerCmd cmd = _docker.createContainerCmd(imageid)
                 .withHostConfig(cfg)
-                .withExposedPorts(ExposedPort.tcp(9714)).withPublishAllPorts(true);
+                .withExposedPorts(ExposedPort.tcp(port)).withPublishAllPorts(true);
 
         CreateContainerResponse feedback = cmd.exec();
         _docker.startContainerCmd(feedback.getId()).exec();

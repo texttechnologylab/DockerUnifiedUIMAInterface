@@ -22,4 +22,5 @@ public interface IDUUIDriverInterface {
     public void run(String uuid, JCas aCas, DUUIPipelineDocumentPerformance perf) throws InterruptedException, IOException, SAXException, AnalysisEngineProcessException, CompressorException;
 
     public void destroy(String uuid);
+    public void shutdown();
 }
