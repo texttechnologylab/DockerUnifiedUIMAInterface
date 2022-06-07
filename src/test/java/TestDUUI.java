@@ -10,6 +10,7 @@ import org.apache.uima.analysis_engine.AnalysisEngineDescription;
 import org.apache.uima.cas.SerialFormat;
 import org.apache.uima.cas.impl.XmiCasSerializer;
 import org.apache.uima.collection.CollectionReaderDescription;
+import org.apache.uima.fit.factory.AggregateBuilder;
 import org.apache.uima.fit.factory.AnalysisEngineFactory;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.fit.pipeline.SimplePipeline;
@@ -39,15 +40,21 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.LuaConsts;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.DUUIMonitor;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIMockStorageBackend;
 import org.texttechnologylab.annotation.type.Taxon;
+import org.texttechnologylab.utilities.helper.FileUtils;
 import org.xml.sax.SAXException;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 
 import static org.apache.uima.fit.factory.AnalysisEngineFactory.createEngineDescription;
 import static org.apache.uima.fit.factory.CollectionReaderFactory.createReaderDescription;
@@ -56,6 +63,77 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 
 public class TestDUUI {
+
+    @Test
+    public void creatingSample() throws IOException, UIMAException {
+
+        String sInputPath = TestDUUI.class.getClassLoader().getResource("Bundestag.txt").getPath();
+        String sOutputPath = "/tmp/sample_splitted/";
+        new File(sOutputPath).mkdir();
+
+        String sContent = FileUtils.getContentFromFile(new File(sInputPath));
+
+        JCas pCas = JCasFactory.createText(sContent, "de");
+
+        AggregateBuilder pipeline = new AggregateBuilder();
+
+        pipeline.add(createEngineDescription(BreakIteratorSegmenter.class,
+                BreakIteratorSegmenter.PARAM_WRITE_SENTENCE, true,
+                BreakIteratorSegmenter.PARAM_LANGUAGE, "de",
+                BreakIteratorSegmenter.PARAM_WRITE_TOKEN, false
+        ));
+
+        SimplePipeline.runPipeline(pCas, pipeline.createAggregateDescription());
+
+        int iMaxLength = pCas.getDocumentText().length();
+        int iMaxSplit = 10;
+
+        int iSplitIterator = iMaxLength/iMaxSplit;
+
+        Map<Integer, String> sMap = new HashMap<>();
+
+        for(int a=0; a<iMaxSplit; a++){
+
+            StringBuilder sb = new StringBuilder();
+            for (Sentence sentence : JCasUtil.selectCovered(pCas, Sentence.class, 0, iSplitIterator * (a+1))) {
+                sb.append(sentence.getCoveredText());
+            }
+            sMap.put(sb.toString().length(), sb.toString());
+
+        }
+
+        Set<Integer> lengthSet = new HashSet<>();
+        lengthSet.add(140);
+        lengthSet.add(250);
+        lengthSet.add(500);
+        lengthSet.add(750);
+        lengthSet.add(1000);
+        lengthSet.add(5000);
+        lengthSet.add(10000);
+
+        for (Integer iLength : lengthSet) {
+            StringBuilder sb = new StringBuilder();
+            for (Sentence sentence : JCasUtil.selectCovered(pCas, Sentence.class, 0, iLength)) {
+                sb.append(sentence.getCoveredText());
+            }
+            sMap.put(sb.toString().length(), sb.toString());
+
+        }
+
+        sMap.put(pCas.getDocumentText().length(), pCas.getDocumentText());
+
+        System.out.println(sMap);
+
+        sMap.keySet().stream().forEach(k->{
+            try {
+                FileUtils.writeContent(sMap.get(k), new File(sOutputPath+"/sample_"+k+".txt"));
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
+
+    }
+
 
     @Test
     public void SwarmTest() throws Exception {
@@ -104,7 +182,7 @@ public class TestDUUI {
         CollectionReaderDescription reader = null;
 
         reader = createReaderDescription(XmiReader.class,
-                XmiReader.PARAM_SOURCE_LOCATION, sInputPath+"/**"+sSuffix,
+                XmiReader.PARAM_SOURCE_LOCATION, sInputPath + "/**" + sSuffix,
                 XmiReader.PARAM_SORT_BY_SIZE, true
         );
 
@@ -119,7 +197,7 @@ public class TestDUUI {
         jc.setDocumentText("Hallo Welt dies ist ein Abies!");
         jc.setDocumentLanguage("de");
 
-        DUUILuaContext ctx = new DUUILuaContext().withGlobalLibrary("json",DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/uima_xmi_communication.lua").toURI());
+        DUUILuaContext ctx = new DUUILuaContext().withGlobalLibrary("json", DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/uima_xmi_communication.lua").toURI());
 
         DUUIComposer composer = new DUUIComposer()
                 //       .withStorageBackend(new DUUIArangoDBStorageBackend("password",8888))
@@ -137,11 +215,9 @@ public class TestDUUI {
 
         composer.run(jc);
 
-        JCasUtil.select(jc, Taxon.class).forEach(t->{
+        JCasUtil.select(jc, Taxon.class).forEach(t -> {
             System.out.println(t);
         });
-
-
 
 
     }
@@ -215,15 +291,14 @@ public class TestDUUI {
                 )).withScale(1), DUUIUIMADriver.class);
 
 
-        if(sSuffix.contains("txt")){
+        if (sSuffix.contains("txt")) {
             composer.run(createReaderDescription(TextReader.class,
-                    TextReader.PARAM_SOURCE_LOCATION, sInputPath+"/**"+sSuffix,
+                    TextReader.PARAM_SOURCE_LOCATION, sInputPath + "/**" + sSuffix,
                     TextReader.PARAM_LANGUAGE, "de"
             ));
-        }
-        else{
+        } else {
             composer.run(createReaderDescription(XmiReader.class,
-                    XmiReader.PARAM_SOURCE_LOCATION, sInputPath+"/**"+sSuffix,
+                    XmiReader.PARAM_SOURCE_LOCATION, sInputPath + "/**" + sSuffix,
                     XmiReader.PARAM_SORT_BY_SIZE, true,
                     XmiReader.PARAM_ADD_DOCUMENT_METADATA, true
             ));
@@ -275,14 +350,14 @@ public class TestDUUI {
                 , DUUIDockerDriver.class);
 
 
-
         composer.run(jc);
         System.out.println(jc.getDocumentLanguage());
-        JCasUtil.select(jc, NamedEntity.class).stream().forEach(f->{
+        JCasUtil.select(jc, NamedEntity.class).stream().forEach(f -> {
             System.out.println(f);
         });
 
     }
+
     @Test
     public void LuaBaseTest() throws UIMAException, CompressorException, IOException, SAXException, URISyntaxException {
         JCas jc = JCasFactory.createJCas();
@@ -290,9 +365,9 @@ public class TestDUUI {
         jc.setDocumentLanguage("de");
         String val = Files.readString(Path.of(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/uima_xmi_communication.lua").toURI()));
         DUUILuaContext ctxt = new DUUILuaContext();
-        DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(val,"remote",ctxt);
+        DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(val, "remote", ctxt);
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        lua.serialize(jc,out,null);
+        lua.serialize(jc, out, null);
         System.out.println(out.toString());
     }
 
@@ -304,10 +379,10 @@ public class TestDUUI {
         String val = Files.readString(Path.of(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/uima_xmi_communication_json.lua").toURI()));
 
         DUUILuaContext ctxt = new DUUILuaContext();
-        ctxt.withGlobalLibrary("json",DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/json.lua").toURI());
-        DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(val,"remote",ctxt);
+        ctxt.withGlobalLibrary("json", DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/json.lua").toURI());
+        DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(val, "remote", ctxt);
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        lua.serialize(jc,out,null);
+        lua.serialize(jc, out, null);
         System.out.println(out.toString());
     }
 
@@ -321,11 +396,11 @@ public class TestDUUI {
         DUUILuaContext ctxt = new DUUILuaContext();
         ctxt.withSandbox((new DUUILuaSandbox())
                 .withLimitInstructionCount(1));
-        ctxt.withGlobalLibrary("json",DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/json.lua").toURI());
+        ctxt.withGlobalLibrary("json", DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/json.lua").toURI());
 
         assertThrows(RuntimeException.class, () -> {
-                    DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(val, "remote", ctxt);
-                });
+            DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(val, "remote", ctxt);
+        });
     }
 
     @Test
@@ -338,13 +413,13 @@ public class TestDUUI {
         DUUILuaContext ctxt = new DUUILuaContext();
         ctxt.withSandbox((new DUUILuaSandbox())
                 .withLimitInstructionCount(10000));
-        ctxt.withGlobalLibrary("json",DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/json.lua").toURI());
+        ctxt.withGlobalLibrary("json", DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/json.lua").toURI());
 
 
         DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(val, "remote", ctxt);
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        lua.serialize(jc,out,null);
-        assertEquals(out.toString(),"");
+        lua.serialize(jc, out, null);
+        assertEquals(out.toString(), "");
     }
 
     @Test
@@ -356,10 +431,12 @@ public class TestDUUI {
 
         DUUILuaContext ctxt = new DUUILuaContext();
         ctxt.withSandbox(new DUUILuaSandbox());
-        ctxt.withGlobalLibrary("json",DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/json.lua").toURI());
+        ctxt.withGlobalLibrary("json", DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/json.lua").toURI());
 
 
-        assertThrows(RuntimeException.class,()->{DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(val, "remote", ctxt);});
+        assertThrows(RuntimeException.class, () -> {
+            DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(val, "remote", ctxt);
+        });
     }
 
     @Test
@@ -371,13 +448,13 @@ public class TestDUUI {
 
         DUUILuaContext ctxt = new DUUILuaContext();
         ctxt.withSandbox(new DUUILuaSandbox());
-        ctxt.withGlobalLibrary("json",DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/json.lua").toURI());
+        ctxt.withGlobalLibrary("json", DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/json.lua").toURI());
 
 
-        assertThrows(RuntimeException.class,()->{
+        assertThrows(RuntimeException.class, () -> {
             DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(val, "remote", ctxt);
             ByteArrayOutputStream out = new ByteArrayOutputStream();
-            lua.serialize(jc,out,null);
+            lua.serialize(jc, out, null);
         });
     }
 
@@ -390,12 +467,12 @@ public class TestDUUI {
 
         DUUILuaContext ctxt = new DUUILuaContext();
         ctxt.withSandbox(new DUUILuaSandbox().withAllJavaClasses(true));
-        ctxt.withGlobalLibrary("json",DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/json.lua").toURI());
+        ctxt.withGlobalLibrary("json", DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/json.lua").toURI());
 
 
         DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(val, "remote", ctxt);
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        lua.serialize(jc,out,null);
+        lua.serialize(jc, out, null);
     }
 
     @Test
@@ -408,12 +485,12 @@ public class TestDUUI {
         DUUILuaContext ctxt = new DUUILuaContext();
         ctxt.withSandbox(new DUUILuaSandbox().withAllowedJavaClass("org.apache.uima.cas.impl.XmiCasSerializer")
                 .withAllowedJavaClass("java.lang.String"));
-        ctxt.withGlobalLibrary("json",DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/json.lua").toURI());
+        ctxt.withGlobalLibrary("json", DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/json.lua").toURI());
 
 
         DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(val, "remote", ctxt);
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        lua.serialize(jc,out,null);
+        lua.serialize(jc, out, null);
     }
 
     @Test
@@ -425,10 +502,10 @@ public class TestDUUI {
 
         DUUILuaContext ctxt = new DUUILuaContext();
         ctxt.withSandbox(new DUUILuaSandbox().withAllowedJavaClass("org.apache.uima.cas.impl.XmiCasSerializer"));
-        ctxt.withGlobalLibrary("json",DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/json.lua").toURI());
+        ctxt.withGlobalLibrary("json", DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/json.lua").toURI());
 
 
-        assertThrows(RuntimeException.class,()-> {
+        assertThrows(RuntimeException.class, () -> {
             DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(val, "remote", ctxt);
         });
     }
@@ -440,26 +517,26 @@ public class TestDUUI {
         jc.setDocumentText(val2);
         jc.setDocumentLanguage("de");
         AnalysisEngineDescription desc = AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class);
-        SimplePipeline.runPipeline(jc,desc);
+        SimplePipeline.runPipeline(jc, desc);
 
         int expectedNumberOfTokens = 0;
-        for(Token t : JCasUtil.select(jc,Token.class)) {
-            expectedNumberOfTokens+=1;
+        for (Token t : JCasUtil.select(jc, Token.class)) {
+            expectedNumberOfTokens += 1;
         }
 
         String val = Files.readString(Path.of(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/rust_communication_json.lua").toURI()));
         DUUILuaContext ctxt = new DUUILuaContext();
-        DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(val,"remote",ctxt);
+        DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(val, "remote", ctxt);
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         long start = System.currentTimeMillis();
-        lua.serialize(jc,out,null);
+        lua.serialize(jc, out, null);
         long end = System.currentTimeMillis();
         System.out.printf("Serialize large Lua JSON in %d ms time," +
-                " total bytes %d\n",end-start,out.toString().length());
+                " total bytes %d\n", end - start, out.toString().length());
         JSONArray arr = new JSONArray(out.toString());
 
-        assertEquals(expectedNumberOfTokens,arr.getJSONArray(1).length());
-        assertEquals(expectedNumberOfTokens,JCasUtil.select(jc,Token.class).size());
+        assertEquals(expectedNumberOfTokens, arr.getJSONArray(1).length());
+        assertEquals(expectedNumberOfTokens, JCasUtil.select(jc, Token.class).size());
     }
 
     @Test
@@ -469,27 +546,27 @@ public class TestDUUI {
         jc.setDocumentText(val2);
         jc.setDocumentLanguage("de");
         AnalysisEngineDescription desc = AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class);
-        SimplePipeline.runPipeline(jc,desc);
+        SimplePipeline.runPipeline(jc, desc);
 
 
         int expectedNumberOfTokens = 0;
-        for(Token t : JCasUtil.select(jc,Token.class)) {
-            expectedNumberOfTokens+=1;
+        for (Token t : JCasUtil.select(jc, Token.class)) {
+            expectedNumberOfTokens += 1;
         }
 
         String val = Files.readString(Path.of(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/rust_communication_msgpack.lua").toURI()));
         DUUILuaContext ctxt = new DUUILuaContext();
-        DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(val,"remote",ctxt);
+        DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(val, "remote", ctxt);
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         long start = System.currentTimeMillis();
-        lua.serialize(jc,out,null);
+        lua.serialize(jc, out, null);
         long end = System.currentTimeMillis();
         System.out.printf("Serialize large Lua MsgPack in %d ms time," +
-                " total bytes %d, total tokens %d\n",end-start,out.toString().length(),expectedNumberOfTokens);
+                " total bytes %d, total tokens %d\n", end - start, out.toString().length(), expectedNumberOfTokens);
         MessageUnpacker unpacker = MessagePack.newDefaultUnpacker(out.toByteArray());
         String text = unpacker.unpackString();
         int numTokensTimes2_2 = unpacker.unpackArrayHeader();
-        assertEquals(expectedNumberOfTokens*2,numTokensTimes2_2);
+        assertEquals(expectedNumberOfTokens * 2, numTokensTimes2_2);
     }
 
     @Test
@@ -500,40 +577,40 @@ public class TestDUUI {
         jc.setDocumentLanguage("de");
         long time = System.nanoTime();
         AnalysisEngineDescription desc = AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class);
-        SimplePipeline.runPipeline(jc,desc,
+        SimplePipeline.runPipeline(jc, desc,
                 AnalysisEngineFactory.createEngineDescription(OpenNlpPosTagger.class));
-        long endtime = System.nanoTime()-time;
-        System.out.printf("Annotator time %d ms\n",(endtime)/1000000);
+        long endtime = System.nanoTime() - time;
+        System.out.printf("Annotator time %d ms\n", (endtime) / 1000000);
 
         time = System.nanoTime();
         int tokens = 0;
-        for(Annotation i : JCasUtil.selectCovered(jc, Annotation.class,0,jc.getDocumentText().length())) {
-            tokens+=1;
+        for (Annotation i : JCasUtil.selectCovered(jc, Annotation.class, 0, jc.getDocumentText().length())) {
+            tokens += 1;
         }
-        endtime = System.nanoTime()-time;
-        System.out.printf("Select covered %d us\n",(endtime)/1000);
-        System.out.printf("Select covered tokens %d\n",tokens);
+        endtime = System.nanoTime() - time;
+        System.out.printf("Select covered %d us\n", (endtime) / 1000);
+        System.out.printf("Select covered tokens %d\n", tokens);
         int last = 0;
         time = System.nanoTime();
         int total = 0;
         int sentences = 0;
-        for(Sentence i : JCasUtil.select(jc,Sentence.class)) {
-            for(Token x : JCasUtil.selectCovered(Token.class,i)) {
-                total+=1;
+        for (Sentence i : JCasUtil.select(jc, Sentence.class)) {
+            for (Token x : JCasUtil.selectCovered(Token.class, i)) {
+                total += 1;
             }
-            sentences+=1;
+            sentences += 1;
         }
-        endtime = System.nanoTime()-time;
-        System.out.printf("Select covered tokens %d us, sentences %d tokens %d\n",(endtime)/1000,sentences,total);
+        endtime = System.nanoTime() - time;
+        System.out.printf("Select covered tokens %d us, sentences %d tokens %d\n", (endtime) / 1000, sentences, total);
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
 
         long start = System.currentTimeMillis();
-        XmlCasSerializer.serialize(jc.getCas(),null,out);
+        XmlCasSerializer.serialize(jc.getCas(), null, out);
         long end = System.currentTimeMillis();
         System.out.printf("Serialize full XML in %d ms time," +
-                " total bytes %d\n",end-start,out.toString().length());
-        Files.write(Path.of("python_benches","large_xmi.xml"),out.toByteArray());
+                " total bytes %d\n", end - start, out.toString().length());
+        Files.write(Path.of("python_benches", "large_xmi.xml"), out.toByteArray());
     }
 
     @Test
@@ -543,15 +620,15 @@ public class TestDUUI {
         jc.setDocumentText(val2);
         jc.setDocumentLanguage("de");
         AnalysisEngineDescription desc = AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class);
-        SimplePipeline.runPipeline(jc,desc);
+        SimplePipeline.runPipeline(jc, desc);
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
 
         long start = System.currentTimeMillis();
-        CasIOUtils.save(jc.getCas(),out, SerialFormat.BINARY);
+        CasIOUtils.save(jc.getCas(), out, SerialFormat.BINARY);
         long end = System.currentTimeMillis();
         System.out.printf("Serialize binary JCas in %d ms time," +
-                " total bytes %d\n",end-start,out.toString().length());
+                " total bytes %d\n", end - start, out.toString().length());
     }
 
     @Test
@@ -561,19 +638,19 @@ public class TestDUUI {
         jc.setDocumentText(val2);
         jc.setDocumentLanguage("de");
         AnalysisEngineDescription desc = AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class);
-        SimplePipeline.runPipeline(jc,desc);
+        SimplePipeline.runPipeline(jc, desc);
 
         int expectedNumberOfTokens = 0;
-        for(Token t : JCasUtil.select(jc,Token.class)) {
-            expectedNumberOfTokens+=1;
+        for (Token t : JCasUtil.select(jc, Token.class)) {
+            expectedNumberOfTokens += 1;
         }
         ByteArrayOutputStream out = new ByteArrayOutputStream();
 
         long start = System.currentTimeMillis();
         MessageBufferPacker packer = MessagePack.newDefaultBufferPacker();
         packer.packString(jc.getDocumentText());
-        packer.packArrayHeader(JCasUtil.select(jc,Token.class).size()*2);
-        for(Token t : JCasUtil.select(jc,Token.class)) {
+        packer.packArrayHeader(JCasUtil.select(jc, Token.class).size() * 2);
+        for (Token t : JCasUtil.select(jc, Token.class)) {
             packer.packInt(t.getBegin());
             packer.packInt(t.getEnd());
         }
@@ -582,11 +659,11 @@ public class TestDUUI {
 
         long end = System.currentTimeMillis();
         System.out.printf("Serialize large Java MsgPack in %d ms time," +
-                " total bytes %d, total tokens %d\n",end-start,out.toString().length(),expectedNumberOfTokens);
+                " total bytes %d, total tokens %d\n", end - start, out.toString().length(), expectedNumberOfTokens);
         MessageUnpacker unpacker = MessagePack.newDefaultUnpacker(out.toByteArray());
         String text = unpacker.unpackString();
         int numTokensTimes2_2 = unpacker.unpackArrayHeader();
-        assertEquals(expectedNumberOfTokens*2,numTokensTimes2_2);
+        assertEquals(expectedNumberOfTokens * 2, numTokensTimes2_2);
     }
 
     @Test
@@ -596,11 +673,11 @@ public class TestDUUI {
         jc.setDocumentText(val2);
         jc.setDocumentLanguage("de");
         AnalysisEngineDescription desc = AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class);
-        SimplePipeline.runPipeline(jc,desc);
+        SimplePipeline.runPipeline(jc, desc);
 
         int expectedNumberOfTokens = 0;
-        for(Token t : JCasUtil.select(jc,Token.class)) {
-            expectedNumberOfTokens+=1;
+        for (Token t : JCasUtil.select(jc, Token.class)) {
+            expectedNumberOfTokens += 1;
         }
         ByteArrayOutputStream out = new ByteArrayOutputStream();
 
@@ -608,7 +685,7 @@ public class TestDUUI {
         JSONArray begin = new JSONArray();
         JSONArray endt = new JSONArray();
 
-        for(Token t : JCasUtil.select(jc,Token.class)) {
+        for (Token t : JCasUtil.select(jc, Token.class)) {
             begin.put(t.getBegin());
             endt.put(t.getEnd());
         }
@@ -619,10 +696,10 @@ public class TestDUUI {
         out.write(arr2.toString().getBytes(StandardCharsets.UTF_8));
         long end = System.currentTimeMillis();
         System.out.printf("Serialize large Java JSON in %d ms time," +
-                " total bytes %d, total tokens %d\n",end-start,out.toString().length(),expectedNumberOfTokens);
+                " total bytes %d, total tokens %d\n", end - start, out.toString().length(), expectedNumberOfTokens);
         JSONArray arr = new JSONArray(out.toString());
-        assertEquals(expectedNumberOfTokens,arr.getJSONArray(1).length());
-        assertEquals(expectedNumberOfTokens,JCasUtil.select(jc,Token.class).size());
+        assertEquals(expectedNumberOfTokens, arr.getJSONArray(1).length());
+        assertEquals(expectedNumberOfTokens, JCasUtil.select(jc, Token.class).size());
     }
 
     @Test
@@ -632,24 +709,24 @@ public class TestDUUI {
         jc.setDocumentText(val2);
         jc.setDocumentLanguage("de");
         AnalysisEngineDescription desc = AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class);
-        SimplePipeline.runPipeline(jc,desc);
+        SimplePipeline.runPipeline(jc, desc);
 
         int expectedNumberOfTokens = 0;
-        for(Token t : JCasUtil.select(jc,Token.class)) {
-            expectedNumberOfTokens+=1;
+        for (Token t : JCasUtil.select(jc, Token.class)) {
+            expectedNumberOfTokens += 1;
         }
 
         DUUILuaContext ctxt = new DUUILuaContext();
-        ctxt.withGlobalLibrary("nativem",DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/MessagePack.lua").toURI());
+        ctxt.withGlobalLibrary("nativem", DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/MessagePack.lua").toURI());
         String val = Files.readString(Path.of(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/rust_communication_msgpack_native.lua").toURI()));
 
         DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(val, "remote", ctxt);
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         long start = System.currentTimeMillis();
-        lua.serialize(jc,out,null);
+        lua.serialize(jc, out, null);
         long end = System.currentTimeMillis();
         System.out.printf("Serialize large Lua Native MsgPack in %d ms time," +
-                " total bytes %d, total tokens %d\n",end-start,out.toString().length(),expectedNumberOfTokens);
+                " total bytes %d, total tokens %d\n", end - start, out.toString().length(), expectedNumberOfTokens);
     }
 
     @Test
@@ -658,7 +735,7 @@ public class TestDUUI {
         jc.setDocumentText("Dies ist der erste Testatz. Hier ist der zweite Testsatz!");
         jc.setDocumentLanguage("de");
         AnalysisEngineDescription desc = AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class);
-        SimplePipeline.runPipeline(jc,desc);
+        SimplePipeline.runPipeline(jc, desc);
 
         JCas jc2 = JCasFactory.createJCas();
         jc2.setDocumentText("Dies ist der erste Testatz. Hier ist der zweite Testsatz!");
@@ -666,15 +743,15 @@ public class TestDUUI {
         AnalysisEngineDescription desc2 = AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class);
         DUUIComposer composer = new DUUIComposer();
         composer.addDriver(new DUUIUIMADriver());
-        composer.add(new DUUIUIMADriver.Component(desc2),DUUIUIMADriver.class);
+        composer.add(new DUUIUIMADriver.Component(desc2), DUUIUIMADriver.class);
 
         composer.run(jc2);
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         ByteArrayOutputStream out2 = new ByteArrayOutputStream();
-        XmiCasSerializer.serialize(jc.getCas(),out);
-        XmiCasSerializer.serialize(jc2.getCas(),out2);
-        assertEquals(out.toString(),out2.toString());
+        XmiCasSerializer.serialize(jc.getCas(), out);
+        XmiCasSerializer.serialize(jc2.getCas(), out2);
+        assertEquals(out.toString(), out2.toString());
         composer.shutdown();
     }
 
@@ -687,12 +764,12 @@ public class TestDUUI {
         DUUIMockStorageBackend mock = new DUUIMockStorageBackend();
         DUUIComposer composer = new DUUIComposer().withStorageBackend(mock);
         composer.addDriver(new DUUIUIMADriver());
-        composer.add(new DUUIUIMADriver.Component(desc2),DUUIUIMADriver.class);
+        composer.add(new DUUIUIMADriver.Component(desc2), DUUIUIMADriver.class);
 
-        composer.run(jc2,"hallo");
+        composer.run(jc2, "hallo");
 
-        assertEquals(mock.getRunMap().contains("hallo"),true);
-        assertEquals(mock.getPerformanceMonitoring().size(),1);
+        assertEquals(mock.getRunMap().contains("hallo"), true);
+        assertEquals(mock.getPerformanceMonitoring().size(), 1);
         composer.shutdown();
     }
 
