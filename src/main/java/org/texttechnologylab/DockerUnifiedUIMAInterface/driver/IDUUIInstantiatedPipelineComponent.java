@@ -99,7 +99,7 @@ public interface IDUUIInstantiatedPipelineComponent {
                 throw e;
             }
             long deserializeEnd = System.nanoTime();
-            perf.addData(serializeEnd-serializeStart,deserializeEnd-deserializeStart,annotatorEnd-annotatorStart,queue.getValue2()-queue.getValue1(),deserializeEnd-queue.getValue1(),comp.getUniqueComponentKey());
+            perf.addData(serializeEnd-serializeStart,deserializeEnd-deserializeStart,annotatorEnd-annotatorStart,queue.getValue2()-queue.getValue1(),deserializeEnd-queue.getValue1(),comp.getUniqueComponentKey(), jc);
             comp.addComponent(queue.getValue0());
         } else {
             comp.addComponent(queue.getValue0());

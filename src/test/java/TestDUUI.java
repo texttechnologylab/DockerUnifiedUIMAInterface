@@ -11,6 +11,7 @@ import org.apache.uima.cas.SerialFormat;
 import org.apache.uima.cas.impl.XmiCasSerializer;
 import org.apache.uima.collection.CollectionReaderDescription;
 import org.apache.uima.fit.factory.AnalysisEngineFactory;
+import org.apache.uima.fit.factory.CollectionReaderFactory;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.fit.pipeline.SimplePipeline;
 import org.apache.uima.fit.util.JCasUtil;
@@ -38,12 +39,16 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaSandbox;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.LuaConsts;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.DUUIMonitor;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIMockStorageBackend;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.sqlite.DUUISqliteStorageBackend;
 import org.texttechnologylab.annotation.type.Taxon;
+import org.w3c.dom.Text;
 import org.xml.sax.SAXException;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.URISyntaxException;
+import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -718,6 +723,92 @@ public class TestDUUI {
         assertEquals(mock.getPerformanceMonitoring().size(),1);
         composer.shutdown();
     }
+
+    @Test
+    public void ComposerPerformanceTest() throws Exception {
+        DUUIMockStorageBackend mock = new DUUIMockStorageBackend();
+
+        DUUILuaContext ctx = new DUUILuaContext().withJsonLibrary();
+        DUUIComposer composer = new DUUIComposer().withStorageBackend(mock).withLuaContext(ctx).withWorkers(4);
+        composer.addDriver(new DUUIUIMADriver());
+        composer.addDriver(new DUUIDockerDriver());
+
+        composer.add(new DUUIUIMADriver.Component(
+                AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class))
+                .withScale(4),DUUIUIMADriver.class);
+        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
+                .withScale(4)
+                        .withImageFetching()
+                , DUUIDockerDriver.class);
+       composer.add(new DUUIUIMADriver.Component(
+                AnalysisEngineFactory.createEngineDescription(XmiWriter.class,
+                        XmiWriter.PARAM_TARGET_LOCATION, "/home/alexander/Documents/Corpora/German-Political-Speeches-Corpus/test_benchmark/",
+                        XmiWriter.PARAM_PRETTY_PRINT, true,
+                        XmiWriter.PARAM_OVERWRITE, true,
+                        XmiWriter.PARAM_VERSION, "1.1"
+                        )
+        ).withScale(4), DUUIUIMADriver.class);
+
+        composer.run(CollectionReaderFactory.createReaderDescription(TextReader.class,
+                TextReader.PARAM_LANGUAGE,"de",
+                TextReader.PARAM_SOURCE_LOCATION,"/home/alexander/Documents/Corpora/German-Political-Speeches-Corpus/output/*.txt"),"run2");
+        composer.shutdown();
+    }
+
+    @Test
+    public void ComposerPerformanceTestPythonJava() throws Exception {
+        DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend("performance.db");
+
+        DUUILuaContext ctx = new DUUILuaContext().withJsonLibrary();
+        DUUIComposer composer = new DUUIComposer()
+                .withSkipVerification(true)
+                .withStorageBackend(sqlite)
+                .withLuaContext(ctx);
+        composer.addDriver(new DUUIRemoteDriver());
+
+        composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9718"),DUUIRemoteDriver.class);
+
+        composer.run(CollectionReaderFactory.createReaderDescription(XmiReader.class,
+                XmiReader.PARAM_LANGUAGE,"de",
+                XmiReader.PARAM_ADD_DOCUMENT_METADATA,false,
+                XmiReader.PARAM_OVERRIDE_DOCUMENT_METADATA,false,
+                XmiReader.PARAM_LENIENT,true,
+                XmiReader.PARAM_SOURCE_LOCATION,"/home/alexander/Documents/Corpora/German-Political-Speeches-Corpus/processed/*.xmi"),"run_python_token");
+        composer.shutdown();
+    }
+
+    @Test
+    public void ComposerPerformanceTestSpacy() throws Exception {
+        DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend("performance.db");
+
+        DUUILuaContext ctx = new DUUILuaContext().withJsonLibrary();
+        DUUIComposer composer = new DUUIComposer().withStorageBackend(sqlite).withLuaContext(ctx);
+        composer.addDriver(new DUUIRemoteDriver());
+        composer.addDriver(new DUUIDockerDriver());
+
+        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
+                        .withImageFetching()
+                , DUUIDockerDriver.class);
+
+        composer.run(CollectionReaderFactory.createReaderDescription(TextReader.class,
+                TextReader.PARAM_LANGUAGE,"de",
+                TextReader.PARAM_SOURCE_LOCATION,"/home/alexander/Documents/Corpora/German-Political-Speeches-Corpus/output/*.txt"),"run_spacy");
+        composer.shutdown();
+    }
+
+   /* @Test
+    public void TestCasIoUtils() throws UIMAException, IOException {
+        JCas jc2 = JCasFactory.createJCas();
+        jc2.setDocumentText("Dies ist der erste Testatz. Hier ist der zweite Testsatz!");
+        jc2.setDocumentLanguage("de");
+        SimplePipeline.runPipeline(jc2,AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class));
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        CasIOUtils.save(jc2.getCas(),out,SerialFormat.SERIALIZED);
+
+        JCas jc_view = JCasFactory.createJCas();
+        jc_view.createView("second");
+        CasIOUtils.load(new ByteArrayInputStream(out.toByteArray()), jc_view.getView("second"));
+    }*/
 
 //    @Test
 //    public void XMIWriterTest() throws ResourceInitializationException, IOException, SAXException {

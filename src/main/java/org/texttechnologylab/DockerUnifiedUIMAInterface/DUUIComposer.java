@@ -58,7 +58,7 @@ class DUUIWorker extends Thread {
 
     @Override
     public void run() {
-        _threadsAlive.addAndGet(1);
+        int num = _threadsAlive.addAndGet(1);
         while(true) {
 
             JCas object = null;
@@ -69,6 +69,7 @@ class DUUIWorker extends Thread {
                     return;
                 }
             }
+            System.out.printf("[Composer] Thread %d still alive and doing work\n",num);
 
             DUUIPipelineDocumentPerformance perf = new DUUIPipelineDocumentPerformance(_runKey,object);
             for (DUUIComposer.PipelinePart i : _flow) {
@@ -77,6 +78,7 @@ class DUUIWorker extends Thread {
                 } catch (Exception e) {
                     //Ignore errors at the moment
                     e.printStackTrace();
+                    System.out.println("Thread continues work!");
                 }
             }
             object.reset();
@@ -360,17 +362,11 @@ public class DUUIComposer {
         jc.setDocumentLanguage("en");
         jc.setDocumentText("Hello World!");
 
-        DocumentMetaData dmd = DocumentMetaData.create(jc);
-        dmd.setDocumentId("removeMe");
-        dmd.setDocumentUri("/tmp/removeMe");
-        dmd.setDocumentBaseUri("/tmp/");
-
         if(_skipVerification) {
             System.out.println("[Composer] Running without verification, no process calls will be made during initialization!");
         }
 
         List<TypeSystemDescription> descriptions = new LinkedList<>();
-        descriptions.add(TypeSystemDescriptionFactory.createTypeSystemDescription());
         try {
             for (IDUUIPipelineComponent comp : _pipeline) {
                 IDUUIDriverInterface driver = _drivers.get(comp.getOption(DRIVER_OPTION_NAME));
@@ -386,7 +382,15 @@ public class DUUIComposer {
         catch (Exception e){
             System.out.println(e.getMessage());
         }
-        return CasCreationUtils.mergeTypeSystems(descriptions);
+        if(descriptions.size() > 1) {
+            return CasCreationUtils.mergeTypeSystems(descriptions);
+        }
+        else if(descriptions.size() == 1) {
+            return descriptions.get(0);
+        }
+        else {
+            return TypeSystemDescriptionFactory.createTypeSystemDescription();
+        }
     }
 
     private JCas run_pipeline(String name, JCas jc, Vector<PipelinePart> pipeline) throws Exception {

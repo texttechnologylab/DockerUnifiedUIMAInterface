@@ -1,5 +1,10 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage;
 
+import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
+import org.apache.uima.fit.util.JCasUtil;
+import org.apache.uima.jcas.JCas;
+import org.apache.uima.jcas.cas.TOP;
+
 import java.util.HashMap;
 import java.util.Map;
 
@@ -10,9 +15,11 @@ public class DUUIPipelinePerformancePoint {
     private Long _durationAnnotator;
     private Long _durationMutexWait;
     private Long _durationComponentTotal;
+    private Long _numberAnnotations;
+    private Long _documentSize;
 
     public DUUIPipelinePerformancePoint(long durationSerialize, long durationDeserialize, long durationAnnotator, long durationMutexWait, long durationComponentTotal,
-                                        String componentKey) {
+                                        String componentKey, JCas jc) {
         _componentKey = componentKey;
 
         _durationAnnotator = durationAnnotator;
@@ -20,10 +27,40 @@ public class DUUIPipelinePerformancePoint {
         _durationSerialize = durationSerialize;
         _durationDeserialize = durationDeserialize;
         _durationMutexWait = durationMutexWait;
+        _numberAnnotations = JCasUtil.select(jc, TOP.class).stream().count();
+        _documentSize = Long.valueOf(jc.getDocumentText().length());
     }
 
     public String getKey() {
         return _componentKey;
+    }
+
+    public Long getDurationAnnotator() {
+        return _durationAnnotator;
+    }
+
+    public Long getDurationComponentTotal() {
+        return _durationComponentTotal;
+    }
+
+    public Long getDurationSerialize() {
+        return _durationSerialize;
+    }
+
+    public Long getDurationDeserialize() {
+        return _durationDeserialize;
+    }
+
+    public Long getDurationMutexWait() {
+        return _durationMutexWait;
+    }
+
+    public Long getNumberOfAnnotations() {
+        return _numberAnnotations;
+    }
+
+    public Long getDocumentSize() {
+        return _documentSize;
     }
 
     public Map<String, Object> getProperties() {

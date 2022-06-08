@@ -35,14 +35,17 @@ public class DUUIPipelineDocumentPerformance {
         return _runKey;
     }
 
+    public Vector<DUUIPipelinePerformancePoint> getPerformancePoints() {
+        return _points;
+    }
 
-    public void addData(long durationSerialize, long durationDeserialize, long durationAnnotator, long durationMutexWait, long durationComponentTotal, String componentKey) {
+    public void addData(long durationSerialize, long durationDeserialize, long durationAnnotator, long durationMutexWait, long durationComponentTotal, String componentKey, JCas jc) {
         _durationTotalDeserialize += durationDeserialize;
         _durationTotalSerialize += durationSerialize;
         _durationTotalAnnotator += durationAnnotator;
         _durationTotalMutexWait += durationMutexWait;
         _durationTotal += durationComponentTotal;
-        _points.add(new DUUIPipelinePerformancePoint(durationSerialize,durationDeserialize,durationAnnotator,durationMutexWait,durationComponentTotal,componentKey));
+        _points.add(new DUUIPipelinePerformancePoint(durationSerialize,durationDeserialize,durationAnnotator,durationMutexWait,durationComponentTotal,componentKey,jc));
     }
 
     public Vector<BaseDocument> generateComponentPerformance(String docKey) {
