@@ -857,20 +857,22 @@ public class TestDUUI {
 
     @Test
     public void ComposerPerformanceTestSpacy() throws Exception {
-        DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend("performance.db");
+        DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend("test.db");
 
         DUUILuaContext ctx = new DUUILuaContext().withJsonLibrary();
         DUUIComposer composer = new DUUIComposer().withStorageBackend(sqlite).withLuaContext(ctx);
-        composer.addDriver(new DUUIRemoteDriver());
-        composer.addDriver(new DUUIDockerDriver());
+        //composer.addDriver(new DUUIRemoteDriver());
+        composer.addDriver(new DUUIUIMADriver());
 
-        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
+      /*  composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
                         .withImageFetching()
-                , DUUIDockerDriver.class);
+                , DUUIDockerDriver.class);*/
+        composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class)),
+        DUUIUIMADriver.class);
 
         composer.run(CollectionReaderFactory.createReaderDescription(TextReader.class,
                 TextReader.PARAM_LANGUAGE,"de",
-                TextReader.PARAM_SOURCE_LOCATION,"/home/alexander/Documents/Corpora/German-Political-Speeches-Corpus/output/*.txt"),"run_spacy");
+                TextReader.PARAM_SOURCE_LOCATION,"/home/alexander/Documents/Corpora/German-Political-Speeches-Corpus/output/*.txt"),"run_test");
         composer.shutdown();
     }
 

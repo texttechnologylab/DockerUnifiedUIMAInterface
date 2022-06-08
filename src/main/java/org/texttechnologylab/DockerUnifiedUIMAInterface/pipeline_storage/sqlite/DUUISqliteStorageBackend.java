@@ -44,6 +44,7 @@ public class DUUISqliteStorageBackend implements IDUUIStorageBackend {
         Connection conn = _client.poll();
         Statement stmt = conn.createStatement();
         stmt.execute("CREATE TABLE IF NOT EXISTS pipeline(name TEXT PRIMARY KEY, workers INT)");
+        stmt.execute("CREATE TABLE IF NOT EXISTS pipeline_perf(name TEXT, startTime INT, endTime INT)");
         stmt.execute("CREATE TABLE IF NOT EXISTS pipeline_component(hash INT, name TEXT, description TEXT)");
         stmt.execute("CREATE TABLE IF NOT EXISTS pipeline_document_perf(pipelinename TEXT, componenthash INT, durationSerialize INT,\n" +
                 "durationDeserialize INT," +
@@ -125,6 +126,16 @@ public class DUUISqliteStorageBackend implements IDUUIStorageBackend {
         return new IDUUIPipelineComponent();
     }
     public void finalizeRun(String name, Instant start, Instant end) throws SQLException {
+        Connection conn = null;
+        while(conn == null) {
+            conn = _client.poll();
+        }
+        PreparedStatement stmt2 = conn.prepareStatement("INSERT INTO pipeline_perf(name,startTime,endTime) VALUES (?,?,?)");
+        stmt2.setString(1,name);
+        stmt2.setLong(2,start.toEpochMilli());
+        stmt2.setLong(3,end.toEpochMilli());
+        stmt2.executeUpdate();
+        _client.add(conn);
     }
 
 }
