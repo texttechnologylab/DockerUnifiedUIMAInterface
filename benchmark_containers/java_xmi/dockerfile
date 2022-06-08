@@ -1,0 +1,5 @@
+FROM maven:3.8.5-jdk-11
+ADD src src
+ADD pom.xml pom.xml
+RUN mvn compile
+CMD mvn exec:java -Dexec.mainClass="BasicExample"
