@@ -23,6 +23,7 @@ end
 function deserialize(inputCas,inputStream)
   inputCas:reset()
   local unpacker = msgpack:newDefaultUnpacker(inputStream:readAllBytes());
+  local arrlen = unpacker:unpackArrayHeader()
   local text = unpacker:unpackString();
 
   inputCas:setDocumentText(text)
