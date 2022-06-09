@@ -1,2 +1,5 @@
 target/*
 .idea/*
+*.png
+*.pgf
+*.db
