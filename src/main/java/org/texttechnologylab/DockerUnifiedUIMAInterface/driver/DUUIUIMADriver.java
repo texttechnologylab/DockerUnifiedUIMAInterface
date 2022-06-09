@@ -269,7 +269,7 @@ public class DUUIUIMADriver implements IDUUIDriverInterface {
             JCas jc = aCas;
             engine.process(jc.getCas());
             long annotatorEnd = System.nanoTime();
-            perf.addData(0,0,annotatorEnd-annotatorStart,mutexEnd-mutexStart,annotatorEnd-mutexStart, component.getUniqueComponentKey(), jc);
+            perf.addData(0,0,annotatorEnd-annotatorStart,mutexEnd-mutexStart,annotatorEnd-mutexStart, component.getUniqueComponentKey(),0, jc);
 
             component.add(engine);
         }

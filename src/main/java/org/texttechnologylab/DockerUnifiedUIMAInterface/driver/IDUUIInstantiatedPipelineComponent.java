@@ -75,6 +75,7 @@ public interface IDUUIInstantiatedPipelineComponent {
         // lua serialize call()
 
         byte[] ok = out.toByteArray();
+        long sizeArray = ok.length;
         long serializeEnd = System.nanoTime();
 
         long annotatorStart = serializeEnd;
@@ -99,7 +100,7 @@ public interface IDUUIInstantiatedPipelineComponent {
                 throw e;
             }
             long deserializeEnd = System.nanoTime();
-            perf.addData(serializeEnd-serializeStart,deserializeEnd-deserializeStart,annotatorEnd-annotatorStart,queue.getValue2()-queue.getValue1(),deserializeEnd-queue.getValue1(),comp.getUniqueComponentKey(), jc);
+            perf.addData(serializeEnd-serializeStart,deserializeEnd-deserializeStart,annotatorEnd-annotatorStart,queue.getValue2()-queue.getValue1(),deserializeEnd-queue.getValue1(), comp.getUniqueComponentKey(), sizeArray, jc);
             comp.addComponent(queue.getValue0());
         } else {
             comp.addComponent(queue.getValue0());

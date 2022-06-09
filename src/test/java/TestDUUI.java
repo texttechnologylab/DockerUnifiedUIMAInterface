@@ -1,3 +1,4 @@
+import com.influxdb.client.JSON;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Sentence;
 import de.tudarmstadt.ukp.dkpro.core.api.ner.type.NamedEntity;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
@@ -8,6 +9,7 @@ import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.UIMAException;
 import org.apache.uima.analysis_engine.AnalysisEngineDescription;
 import org.apache.uima.cas.SerialFormat;
+import org.apache.uima.cas.impl.XCASSerializer;
 import org.apache.uima.cas.impl.XmiCasSerializer;
 import org.apache.uima.collection.CollectionReaderDescription;
 import org.apache.uima.fit.factory.AggregateBuilder;
@@ -19,12 +21,14 @@ import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.jcas.cas.TOP;
 import org.apache.uima.jcas.tcas.Annotation;
+import org.apache.uima.json.JsonCasSerializer;
 import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.util.CasIOUtils;
 import org.apache.uima.util.XmlCasSerializer;
 import org.dkpro.core.io.xmi.XmiReader;
 import org.dkpro.core.io.xmi.XmiWriter;
 import org.json.JSONArray;
+import org.json.JSONObject;
 import org.junit.jupiter.api.Test;
 import org.msgpack.core.MessageBufferPacker;
 import org.msgpack.core.MessagePack;
@@ -805,7 +809,6 @@ public class TestDUUI {
     @Test
     public void ComposerPerformanceTest() throws Exception {
         DUUIMockStorageBackend mock = new DUUIMockStorageBackend();
-
         DUUILuaContext ctx = new DUUILuaContext().withJsonLibrary();
         DUUIComposer composer = new DUUIComposer().withStorageBackend(mock).withLuaContext(ctx).withWorkers(4);
         composer.addDriver(new DUUIUIMADriver());
@@ -835,7 +838,7 @@ public class TestDUUI {
 
     @Test
     public void ComposerPerformanceTestPythonJava() throws Exception {
-        DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend("performance.db");
+        DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend("serialization.db");
 
         DUUILuaContext ctx = new DUUILuaContext().withJsonLibrary();
         DUUIComposer composer = new DUUIComposer()
@@ -844,20 +847,21 @@ public class TestDUUI {
                 .withLuaContext(ctx);
         composer.addDriver(new DUUIRemoteDriver());
 
-        composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9718"),DUUIRemoteDriver.class);
+        composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9716"),DUUIRemoteDriver.class);
 
         composer.run(CollectionReaderFactory.createReaderDescription(XmiReader.class,
                 XmiReader.PARAM_LANGUAGE,"de",
                 XmiReader.PARAM_ADD_DOCUMENT_METADATA,false,
                 XmiReader.PARAM_OVERRIDE_DOCUMENT_METADATA,false,
                 XmiReader.PARAM_LENIENT,true,
-                XmiReader.PARAM_SOURCE_LOCATION,"/home/alexander/Documents/Corpora/German-Political-Speeches-Corpus/processed/*.xmi"),"run_python_token");
+                XmiReader.PARAM_SOURCE_LOCATION,"/home/alexander/Documents/Corpora/German-Political-Speeches-Corpus/processed/*.xmi"),"run_serialize_json");
         composer.shutdown();
     }
 
     @Test
     public void ComposerPerformanceTestSpacy() throws Exception {
-        DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend("test.db");
+        DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend("serialization.db");
+
 
         DUUILuaContext ctx = new DUUILuaContext().withJsonLibrary();
         DUUIComposer composer = new DUUIComposer().withStorageBackend(sqlite).withLuaContext(ctx);
@@ -869,6 +873,7 @@ public class TestDUUI {
                 , DUUIDockerDriver.class);*/
         composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class)),
         DUUIUIMADriver.class);
+
 
         composer.run(CollectionReaderFactory.createReaderDescription(TextReader.class,
                 TextReader.PARAM_LANGUAGE,"de",

@@ -50,7 +50,7 @@ public class DUUISqliteStorageBackend implements IDUUIStorageBackend {
                 "durationDeserialize INT," +
                 "durationAnnotator INT," +
                 "durationMutexWait INT," +
-                "durationComponentTotal INT,totalAnnotations INT, documentSize INT)");
+                "durationComponentTotal INT,totalAnnotations INT, documentSize INT, serializedSize INT)");
 
 
         _client.add(conn);
@@ -103,7 +103,7 @@ public class DUUISqliteStorageBackend implements IDUUIStorageBackend {
         for(DUUIPipelinePerformancePoint points : perf.getPerformancePoints()) {
             PreparedStatement stmt2 = null;
             try {
-                stmt2 = conn.prepareStatement("INSERT INTO pipeline_document_perf(pipelinename,componenthash,durationSerialize,durationDeserialize,durationAnnotator,durationMutexWait,durationComponentTotal,totalAnnotations, documentSize) VALUES (?,?,?,?,?,?,?,?,?)");
+                stmt2 = conn.prepareStatement("INSERT INTO pipeline_document_perf(pipelinename,componenthash,durationSerialize,durationDeserialize,durationAnnotator,durationMutexWait,durationComponentTotal,totalAnnotations, documentSize, serializedSize) VALUES (?,?,?,?,?,?,?,?,?,?)");
 
                 stmt2.setString(1,perf.getRunKey());
                 stmt2.setLong(2,Long.parseLong(points.getKey()));
@@ -114,6 +114,7 @@ public class DUUISqliteStorageBackend implements IDUUIStorageBackend {
                 stmt2.setLong(7,points.getDurationComponentTotal());
                 stmt2.setLong(8,points.getNumberOfAnnotations());
                 stmt2.setLong(9,points.getDocumentSize());
+                stmt2.setLong(10,points.getSerializedSize());
                 stmt2.executeUpdate();
             } catch (SQLException e) {
                 e.printStackTrace();
