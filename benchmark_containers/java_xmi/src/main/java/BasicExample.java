@@ -75,10 +75,12 @@ public class BasicExample {
                 StringWriter writer = new StringWriter();
                 desc.toXML(writer);
                 String response = writer.getBuffer().toString();
+                byte[] arr = response.getBytes();
 
-                t.sendResponseHeaders(200, response.length());
+                System.out.printf("Received %d\n",arr.length);
+                t.sendResponseHeaders(200, arr.length);
                 OutputStream os = t.getResponseBody();
-                os.write(response.getBytes());
+                os.write(arr);
                 os.close();
             } catch (ResourceInitializationException e) {
                 e.printStackTrace();
@@ -96,7 +98,7 @@ public class BasicExample {
         @Override
         public void handle(HttpExchange t) throws IOException {
             String response = "serial = luajava.bindClass(\"org.apache.uima.cas.impl.XmiCasSerializer\")\n" +
-                    "deserial = luajava.bindClass(\"org.apache.uima.cas.impl.XmiCasDeserializer\")" +
+                    "deserial = luajava.bindClass(\"org.apache.uima.cas.impl.XmiCasDeserializer\")\n" +
                     "function serialize(inputCas,outputStream,params)\n" +
                     "  serial:serialize(inputCas:getCas(),outputStream)\n" +
                     "end\n" +

@@ -2,6 +2,10 @@ FROM rustlang/rust:nightly-buster-slim
 ADD Cargo.toml Cargo.toml
 ADD src src
 ADD rust_communication_msgpack.lua rust_communication_msgpack.lua
+ADD rust_communication_binary.lua rust_communication_binary.lua
+ADD rust_communication_json.lua rust_communication_json.lua
+ADD rust_communication_xmi.lua rust_communication_xmi.lua
+ADD token_only_types.xml token_only_types.xml
 RUN rustup target add x86_64-unknown-linux-musl
 RUN cargo build --release --target x86_64-unknown-linux-musl
 

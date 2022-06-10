@@ -392,17 +392,21 @@ public class DUUIDockerInterface {
     }
 
     public String pullImage(String tag,String username, String password) throws InterruptedException {
-        if(username!=null && password!=null) {
-            AuthConfig cfg = new AuthConfig();
-            cfg.withUsername(username);
-            cfg.withPassword(password);
-            _docker.pullImageCmd(tag)
-                    .withAuthConfig(cfg)
-                    .exec(new PullImageStdout()).awaitCompletion();
+        try {
+            if (username != null && password != null) {
+                AuthConfig cfg = new AuthConfig();
+                cfg.withUsername(username);
+                cfg.withPassword(password);
+                _docker.pullImageCmd(tag)
+                        .withAuthConfig(cfg)
+                        .exec(new PullImageStdout()).awaitCompletion();
+            } else {
+                _docker.pullImageCmd(tag)
+                        .exec(new PullImageStdout()).awaitCompletion();
+            }
         }
-        else {
-            _docker.pullImageCmd(tag)
-                    .exec(new PullImageStdout()).awaitCompletion();
+        catch(Exception e) {
+            System.out.printf("Could not fetch image %s, continuing without.\n",tag);
         }
         return tag;
     }

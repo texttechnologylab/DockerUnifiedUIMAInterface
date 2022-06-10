@@ -17,6 +17,7 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPip
 import org.xml.sax.SAXException;
 
 import java.io.*;
+import java.net.ProxySelector;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -29,7 +30,11 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 public interface IDUUIInstantiatedPipelineComponent {
-    public static HttpClient _client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(1000)).build();
+    public static HttpClient _client = HttpClient.newBuilder()
+            .version(HttpClient.Version.HTTP_1_1)
+            .followRedirects(HttpClient.Redirect.ALWAYS)
+            .proxy(ProxySelector.getDefault())
+            .connectTimeout(Duration.ofSeconds(1000)).build();
 
     public IDUUICommunicationLayer getCommunicationLayer();
     public Triplet<IDUUIUrlAccessible,Long,Long> getComponent();
@@ -39,28 +44,39 @@ public interface IDUUIInstantiatedPipelineComponent {
     public String getUniqueComponentKey();
     public void setCommunicationLayer(IDUUICommunicationLayer layer);
 
-    public static TypeSystemDescription getTypesystem(String uuid, IDUUIInstantiatedPipelineComponent comp) throws IOException, ResourceInitializationException {
+    public static TypeSystemDescription getTypesystem(String uuid, IDUUIInstantiatedPipelineComponent comp) throws ResourceInitializationException {
         Triplet<IDUUIUrlAccessible,Long,Long> queue = comp.getComponent();
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(queue.getValue0().generateURL() + DUUIComposer.V1_COMPONENT_ENDPOINT_TYPESYSTEM))
-                .version(HttpClient.Version.HTTP_1_1)
-                .GET()
-                .build();
-        HttpResponse<byte[]> resp = _client.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray()).join();
-        if (resp.statusCode() == 200) {
-            String body = new String(resp.body(), Charset.defaultCharset());
-            File tmp = File.createTempFile("duui.composer","_type");
-            FileWriter writer = new FileWriter(tmp);
-            writer.write(body);
-            writer.flush();
-            writer.close();
-            comp.addComponent(queue.getValue0());
-            return TypeSystemDescriptionFactory.createTypeSystemDescriptionFromPath(tmp.toURI().toString());
-        } else {
-            comp.addComponent(queue.getValue0());
-            System.out.printf("[%s]: Endpoint did not provide typesystem, using default one...\n",uuid);
-            return TypeSystemDescriptionFactory.createTypeSystemDescription();
+        //System.out.printf("Address %s\n",queue.getValue0().generateURL()+ DUUIComposer.V1_COMPONENT_ENDPOINT_TYPESYSTEM);
+
+        int tries = 0;
+        while(tries < 100) {
+            tries++;
+            try {
+                HttpRequest request = HttpRequest.newBuilder()
+                        .uri(URI.create(queue.getValue0().generateURL() + DUUIComposer.V1_COMPONENT_ENDPOINT_TYPESYSTEM))
+                        .version(HttpClient.Version.HTTP_1_1)
+                        .GET()
+                        .build();
+                HttpResponse<byte[]> resp = _client.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray()).join();
+                if (resp.statusCode() == 200) {
+                    String body = new String(resp.body(), Charset.defaultCharset());
+                    File tmp = File.createTempFile("duui.composer", "_type");
+                    FileWriter writer = new FileWriter(tmp);
+                    writer.write(body);
+                    writer.flush();
+                    writer.close();
+                    comp.addComponent(queue.getValue0());
+                    return TypeSystemDescriptionFactory.createTypeSystemDescriptionFromPath(tmp.toURI().toString());
+                } else {
+                    comp.addComponent(queue.getValue0());
+                    System.out.printf("[%s]: Endpoint did not provide typesystem, using default one...\n", uuid);
+                    return TypeSystemDescriptionFactory.createTypeSystemDescription();
+                }
+            } catch (Exception e) {
+                System.out.printf("Cannot reach endpoint trying again %d/%d...\n",tries+1,100);
+            }
         }
+        throw new ResourceInitializationException(new Exception("Endpoint is unreachable!"));
     }
 
     public static void process(JCas jc, IDUUIInstantiatedPipelineComponent comp, DUUIPipelineDocumentPerformance perf) throws CompressorException, IOException, SAXException {
@@ -79,13 +95,28 @@ public interface IDUUIInstantiatedPipelineComponent {
         long serializeEnd = System.nanoTime();
 
         long annotatorStart = serializeEnd;
+        int tries = 0;
+        HttpResponse<byte[]> resp = null;
+        while(tries < 10) {
+            //System.out.printf("Address %s\n",queue.getValue0().generateURL()+ DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS);
+            tries++;
+            try {
+                HttpRequest request = HttpRequest.newBuilder()
+                        .uri(URI.create(queue.getValue0().generateURL() + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS))
+                        .POST(HttpRequest.BodyPublishers.ofByteArray(ok))
+                        .version(HttpClient.Version.HTTP_1_1)
+                        .build();
+                resp = _client.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray()).join();
+                break;
+            }
+            catch(Exception e) {
+                //System.out.printf("Cannot reach endpoint trying again %d/%d...\n",tries+1,10);
+            }
+        }
+        if(resp==null) {
+            throw new IOException("Could not reach endpoint after 10 tries!");
+        }
 
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(queue.getValue0().generateURL()+ DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS))
-                .POST(HttpRequest.BodyPublishers.ofByteArray(ok))
-                .version(HttpClient.Version.HTTP_1_1)
-                .build();
-        HttpResponse<byte[]> resp = _client.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray()).join();
 
         if (resp.statusCode() == 200) {
             ByteArrayInputStream st = new ByteArrayInputStream(resp.body());

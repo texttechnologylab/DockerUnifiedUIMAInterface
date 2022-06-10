@@ -18,8 +18,6 @@ pub struct Message<'a>(&'a str, Vec<usize>);
 
 #[tokio::main]
 async fn main() {
-    let lua : String = std::fs::read_to_string("rust_communication_msgpack.lua").unwrap();
-
     let app = Router::new()
         .route("/v1/process", post(process))
         .route("/v1/communication_layer",get(communication_layer_msgpack))
@@ -27,7 +25,7 @@ async fn main() {
 
     // run our app with hyper
     // `axum::Server` is a re-export of `hyper::Server`
-    let addr = std::net::SocketAddr::from(([0, 0, 0, 0], 9716));
+    let addr = std::net::SocketAddr::from(([0, 0, 0, 0], 9714));
     axum::Server::bind(&addr)
         .serve(app.into_make_service())
         .await

@@ -385,6 +385,29 @@
             <supertypeName>de.tudarmstadt.ukp.dkpro.core.api.lexmorph.type.pos.POS_X</supertypeName>
         </typeDescription>
         <typeDescription>
+            <name>org.texttechnologylab.annotation.DocumentModification</name>
+            <description>A alternative token text which should be used instead of the covered text if set on a token.
+            </description>
+            <supertypeName>uima.tcas.Annotation</supertypeName>
+            <features>
+                <featureDescription>
+                    <name>user</name>
+                    <description/>
+                    <rangeTypeName>uima.cas.String</rangeTypeName>
+                </featureDescription>
+                <featureDescription>
+                    <name>timestamp</name>
+                    <description/>
+                    <rangeTypeName>uima.cas.Long</rangeTypeName>
+                </featureDescription>
+                <featureDescription>
+                    <name>comment</name>
+                    <description/>
+                    <rangeTypeName>uima.cas.String</rangeTypeName>
+                </featureDescription>
+            </features>
+        </typeDescription>
+        <typeDescription>
             <name>de.tudarmstadt.ukp.dkpro.core.api.metadata.type.MetaDataStringField</name>
             <description>&lt;p&gt;A general purpose annotation to store document-wide information in the form of
                 arbitrary key-value string pairs.&lt;/p&gt;

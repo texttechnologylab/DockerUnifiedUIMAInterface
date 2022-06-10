@@ -14,6 +14,8 @@ import org.apache.uima.jcas.JCas;
 import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.xml.sax.SAXException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -24,7 +26,7 @@ import java.net.URISyntaxException;
 
 public class BasicExample {
     public static void main(String[] args) throws Exception {
-        HttpServer server = HttpServer.create(new InetSocketAddress(9717), 0);
+        HttpServer server = HttpServer.create(new InetSocketAddress(9714), 0);
         server.createContext("/v1/communication_layer", new CommunicationLayer());
         server.createContext("/v1/typesystem", new TypesystemHandler());
         server.createContext("/v1/process", new ProcessHandler());
@@ -69,16 +71,13 @@ public class BasicExample {
         @Override
         public void handle(HttpExchange t) throws IOException {
             try {
-                TypeSystemDescription desc = TypeSystemDescriptionFactory.createTypeSystemDescriptionFromPath(ProcessHandler.class.getClassLoader().getResource("token_only_types.xml").toURI().toString());
-                StringWriter writer = new StringWriter();
-                desc.toXML(writer);
-                String response = writer.getBuffer().toString();
+                byte[] response = Files.readAllBytes(Paths.get(ProcessHandler.class.getClassLoader().getResource("token_only_types.xml").toURI()));
 
-                t.sendResponseHeaders(200, response.length());
+                t.sendResponseHeaders(200, response.length);
                 OutputStream os = t.getResponseBody();
-                os.write(response.getBytes());
+                os.write(response);
                 os.close();
-            } catch (SAXException | URISyntaxException e) {
+            } catch (URISyntaxException e) {
                 e.printStackTrace();
             }
 
@@ -89,7 +88,7 @@ public class BasicExample {
         @Override
         public void handle(HttpExchange t) throws IOException {
             String response = "serial = luajava.bindClass(\"org.apache.uima.cas.impl.XmiCasSerializer\")\n" +
-                    "deserial = luajava.bindClass(\"org.apache.uima.cas.impl.XmiCasDeserializer\")" +
+                    "deserial = luajava.bindClass(\"org.apache.uima.cas.impl.XmiCasDeserializer\")\n" +
                     "function serialize(inputCas,outputStream,params)\n" +
                     "  serial:serialize(inputCas:getCas(),outputStream)\n" +
                     "end\n" +

@@ -6,4 +6,5 @@ RUN pip3 install --no-cache --upgrade pip setuptools
 RUN pip3 install --no-cache dkpro-cassis
 ADD main.py main.py
 ADD dkpro-core-types.xml dkpro-core-types.xml
+ADD communication_xmi.lua communication_xmi.lua
 CMD python3 main.py

@@ -1,5 +1,6 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface;
 
+import com.sun.net.httpserver.HttpServer;
 import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import de.tudarmstadt.ukp.dkpro.core.tokit.BreakIteratorSegmenter;
 import org.apache.uima.collection.CollectionReader;
@@ -24,7 +25,9 @@ import org.texttechnologylab.annotation.type.Taxon;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.net.URI;
 import java.net.UnknownHostException;
+import java.nio.file.Files;
 import java.security.InvalidParameterException;
 import java.time.Instant;
 import java.util.*;
@@ -69,7 +72,7 @@ class DUUIWorker extends Thread {
                     return;
                 }
             }
-            System.out.printf("[Composer] Thread %d still alive and doing work\n",num);
+            //System.out.printf("[Composer] Thread %d still alive and doing work\n",num);
 
             DUUIPipelineDocumentPerformance perf = new DUUIPipelineDocumentPerformance(_runKey,object);
             for (DUUIComposer.PipelinePart i : _flow) {
@@ -230,7 +233,6 @@ public class DUUIComposer {
             if(_storage!=null) {
                 _storage.addNewRun(name,this);
             }
-            Instant starttime = Instant.now();
             TypeSystemDescription desc = instantiate_pipeline(idPipeline);
             if (_cas_poolsize == null) {
                 _cas_poolsize = _workers;
@@ -240,9 +242,9 @@ public class DUUIComposer {
                 }
             }
 
-        for(int i = 0; i < _cas_poolsize; i++) {
-            emptyCasDocuments.add(JCasFactory.createJCas(desc));
-        }
+            for(int i = 0; i < _cas_poolsize; i++) {
+                emptyCasDocuments.add(JCasFactory.createJCas(desc));
+            }
 
             Thread []arr = new Thread[_workers];
             for(int i = 0; i < _workers; i++) {
@@ -250,6 +252,7 @@ public class DUUIComposer {
                 arr[i] = new DUUIWorker(idPipeline,emptyCasDocuments,loadedCasDocuments,shutdown,aliveThreads,_storage,name);
                 arr[i].start();
             }
+            Instant starttime = Instant.now();
             while(collectionReader.hasNext()) {
                 JCas jc = emptyCasDocuments.poll();
                 while(jc == null) {
@@ -275,15 +278,12 @@ public class DUUIComposer {
                 _storage.finalizeRun(name,starttime,Instant.now());
             }
             System.out.println("[Composer] All threads returned.");
+            shutdown_pipeline(idPipeline);
         } catch (Exception e) {
             e.printStackTrace();
             System.out.println("[Composer] Something went wrong, shutting down remaining components...");
-            catched = e;
-        }
-
-        shutdown_pipeline(idPipeline);
-        if (catched != null) {
-            throw catched;
+            shutdown_pipeline(idPipeline);
+            throw e;
         }
     }
 
@@ -332,10 +332,10 @@ public class DUUIComposer {
             if(_storage!=null) {
                 _storage.addNewRun(name,this);
             }
-            Instant starttime = Instant.now();
             Runtime.getRuntime().addShutdownHook(shutdownHook);
             TypeSystemDescription desc = instantiate_pipeline(idPipeline);
             JCas jc = JCasFactory.createJCas(desc);
+            Instant starttime = Instant.now();
             while(collectionReader.hasNext()) {
                 collectionReader.getNext(jc.getCas());
                 run_pipeline(name,jc,idPipeline);
@@ -381,6 +381,7 @@ public class DUUIComposer {
         }
         catch (Exception e){
             System.out.println(e.getMessage());
+            throw e;
         }
         if(descriptions.size() > 1) {
             return CasCreationUtils.mergeTypeSystems(descriptions);

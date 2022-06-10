@@ -54,9 +54,9 @@ with open('token_only_types.xml', 'rb') as f:
     # Create an object of the above class
     handler_object = MyHttpRequestHandler
 
-    PORT = 9718
+    PORT = 9714
     my_server = socketserver.TCPServer(("0.0.0.0", PORT), handler_object)
 
-    print("Server started on port 9718\r\n")
+    print("Server started on port 9714\r\n")
     # Star the server
     my_server.serve_forever()

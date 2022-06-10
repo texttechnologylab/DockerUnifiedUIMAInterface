@@ -20,7 +20,8 @@ pub struct Message<'a>(&'a str, Vec<usize>);
 async fn main() {
     let app = Router::new()
         .route("/v1/process", post(process))
-        .route("/v1/communication_layer",get(communication_layer));
+        .route("/v1/communication_layer",get(communication_layer_msgpack))
+        .route("/v1/typesystem",get(typesystem));
 
     // run our app with hyper
     // `axum::Server` is a re-export of `hyper::Server`
@@ -32,22 +33,13 @@ async fn main() {
 }
 
 async fn process(body: bytes::Bytes) -> Vec<u8> {
-    if let Ok(message) = rmp_serde::from_slice::<Message>(body.as_slice()) {
-        let mut msg : Vec<u8> = Vec::new();
-        rmp::encode::write_str(&mut msg, message.0).unwrap();
-
-        rmp::encode::write_array_len(&mut msg, message.1.len() as u32).unwrap();
-        for x in message.1.iter() {
-            rmp::encode::write_u32(&mut msg, *x as u32).unwrap();
-        }
-        msg
-    }
-    else {
-        panic!("this should not be reached!");
-    }
+    body.as_slice().to_vec()
 } 
 
+async fn typesystem() -> &'static str {
+    include_str!("../token_only_types.xml")
+}
 
-async fn communication_layer() -> &'static str {
-    include_str!("../rust_communication_msgpack.lua")
+async fn communication_layer_msgpack() -> &'static str {
+    include_str!("../rust_communication_binary.lua")
 }

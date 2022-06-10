@@ -12,7 +12,17 @@
         <maven.compiler.source>11</maven.compiler.source>
         <maven.compiler.target>11</maven.compiler.target>
     </properties>
+    <repositories>
+        <repository>
+            <id>jitpack.io</id>
+            <url>https://jitpack.io</url>
+        </repository>
 
+        <repository>
+            <id>ukp-oss-model-releases</id>
+            <url>https://zoidberg.ukp.informatik.tu-darmstadt.de/artifactory/public-model-releases-local</url>
+        </repository>
+    </repositories>
     <dependencies>
     <dependency>
         <groupId>org.apache.uima</groupId>
@@ -24,6 +34,11 @@
         <artifactId>uimafit-core</artifactId>
         <version>2.5.0</version>
     </dependency>
+        <dependency>
+            <groupId>com.github.texttechnologylab.textimager-uima</groupId>
+            <artifactId>textimager-uima-types</artifactId>
+            <version>b10db8275163d19d63b9512cc20ca5872e52499b</version>
+        </dependency>
         <dependency>
             <groupId>de.tudarmstadt.ukp.dkpro.core</groupId>
             <artifactId>de.tudarmstadt.ukp.dkpro.core.opennlp-asl</artifactId>
