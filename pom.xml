@@ -28,6 +28,71 @@
     <build>
         <plugins>
             <plugin>
+                <groupId>io.github.git-commit-id</groupId>
+                <artifactId>git-commit-id-maven-plugin</artifactId>
+                <version>5.0.0</version>
+                <executions>
+                    <execution>
+                        <id>get-the-git-infos</id>
+                        <goals>
+                            <goal>revision</goal>
+                        </goals>
+                        <phase>initialize</phase>
+                    </execution>
+                </executions>
+                <configuration>
+                    <generateGitPropertiesFile>true</generateGitPropertiesFile>
+                    <generateGitPropertiesFilename>${project.build.outputDirectory}/git.properties</generateGitPropertiesFilename>
+                    <includeOnlyProperties>
+                        <includeOnlyProperty>^git.build.(time|version)$</includeOnlyProperty>
+                        <includeOnlyProperty>^git.commit.id.(abbrev|full)$</includeOnlyProperty>
+                    </includeOnlyProperties>
+                    <commitIdGenerationMode>full</commitIdGenerationMode>
+                </configuration>
+            </plugin>
+                        <plugin>
+                            <!--generate types dynamically -->
+                            <groupId>org.apache.uima</groupId>
+                            <artifactId>jcasgen-maven-plugin</artifactId>
+                            <version>2.9.0</version>
+                            <configuration>
+                                <limitToProject>true</limitToProject>
+                                <typeSystemIncludes>
+                                    <include>src/main/resources/org/texttechnologylab/types/reproducibleAnnotations.xml</include>
+                                </typeSystemIncludes>
+                            </configuration>
+                            <executions>
+                                <execution>
+                                    <!--call it in the generate-source phase -->
+                                    <phase>generate-sources</phase>
+                                    <goals>
+                                        <goal>generate</goal>
+                                    </goals>
+                                </execution>
+                            </executions>
+                        </plugin>
+                        <plugin>
+                            <groupId>org.codehaus.mojo</groupId>
+                            <artifactId>build-helper-maven-plugin</artifactId>
+                            <version>1.10</version>
+                            <executions>
+                                <execution>
+                                    <id>addToSourceFolder</id>
+                                    <goals>
+                                        <!--add the generated sources -->
+                                        <goal>add-source</goal>
+                                    </goals>
+                                    <phase>process-sources</phase>
+                                    <configuration>
+                                        <sources>
+                                            <!--default path to generated sources -->
+                                            <source>${project.build.directory}/generated-sources/jcasgen</source>
+                                        </sources>
+                                    </configuration>
+                                </execution>
+                            </executions>
+                        </plugin>
+            <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.8.0</version>

@@ -29,7 +29,7 @@ public class TestDUUIBenchmark {
         composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/benchmark_java_xmi:0.1")
                 .withScale(iWorkers)
                 .withImageFetching()
-                ,DUUIDockerDriver.class);
+                .build());
         /*composer.add(new DUUIRemoteDriver.Component("http://localhost:9714")
                         .withScale(1)
                 ,DUUIRemoteDriver.class);*/
@@ -59,7 +59,7 @@ public class TestDUUIBenchmark {
         composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/benchmark_python_xmi:0.1")
                         .withScale(iWorkers)
                         .withImageFetching()
-                ,DUUIDockerDriver.class);
+                        .build());
 
         composer.run(CollectionReaderFactory.createReaderDescription(XmiReader.class,
                 XmiReader.PARAM_LANGUAGE,"de",
@@ -86,7 +86,7 @@ public class TestDUUIBenchmark {
         composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/benchmark_java_xmi_token:0.1")
                         .withScale(iWorkers)
                         .withImageFetching()
-                ,DUUIDockerDriver.class);
+                        .build());
 
         composer.run(CollectionReaderFactory.createReaderDescription(XmiReader.class,
                 XmiReader.PARAM_LANGUAGE,"de",
@@ -113,7 +113,7 @@ public class TestDUUIBenchmark {
         composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/benchmark_python_xmi_token:0.1")
                         .withScale(iWorkers)
                         .withImageFetching()
-                ,DUUIDockerDriver.class);
+                        .build());
 
         composer.run(CollectionReaderFactory.createReaderDescription(XmiReader.class,
                 XmiReader.PARAM_LANGUAGE,"de",
@@ -140,7 +140,7 @@ public class TestDUUIBenchmark {
         composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/benchmark_rust_xmi_token:0.1")
                         .withScale(iWorkers)
                         .withImageFetching()
-                ,DUUIDockerDriver.class);
+                        .build());
 
         composer.run(CollectionReaderFactory.createReaderDescription(XmiReader.class,
                 XmiReader.PARAM_LANGUAGE,"de",
@@ -167,7 +167,7 @@ public class TestDUUIBenchmark {
         composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/benchmark_serde_echo_binary:0.1")
                         .withScale(iWorkers)
                         .withImageFetching()
-                ,DUUIDockerDriver.class);
+                        .build());
 
         composer.run(CollectionReaderFactory.createReaderDescription(XmiReader.class,
                 XmiReader.PARAM_LANGUAGE,"de",
@@ -194,7 +194,7 @@ public class TestDUUIBenchmark {
         composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/benchmark_serde_echo_xmi:0.1")
                         .withScale(iWorkers)
                         .withImageFetching()
-                ,DUUIDockerDriver.class);
+                        .build());
 
         composer.run(CollectionReaderFactory.createReaderDescription(XmiReader.class,
                 XmiReader.PARAM_LANGUAGE,"de",
@@ -221,7 +221,7 @@ public class TestDUUIBenchmark {
         composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/benchmark_serde_echo_msgpack:0.1")
                         .withScale(iWorkers)
                         .withImageFetching()
-                ,DUUIDockerDriver.class);
+                        .build());
 
         composer.run(CollectionReaderFactory.createReaderDescription(XmiReader.class,
                 XmiReader.PARAM_LANGUAGE,"de",
@@ -248,7 +248,7 @@ public class TestDUUIBenchmark {
         composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/benchmark_serde_echo_json:0.1")
                         .withScale(iWorkers)
                         .withImageFetching()
-                ,DUUIDockerDriver.class);
+                        .build());
 
         composer.run(CollectionReaderFactory.createReaderDescription(XmiReader.class,
                 XmiReader.PARAM_LANGUAGE,"de",

@@ -34,10 +34,9 @@ import org.msgpack.core.MessageBufferPacker;
 import org.msgpack.core.MessagePack;
 import org.msgpack.core.MessageUnpacker;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIDockerDriver;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUISwarmDriver;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIUIMADriver;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIPipelineAnnotationComponent;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIPipelineDescription;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.*;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaCommunicationLayer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaSandbox;
@@ -46,6 +45,7 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.DUUIMonitor;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIMockStorageBackend;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.sqlite.DUUISqliteStorageBackend;
 import org.texttechnologylab.annotation.type.Taxon;
+import org.texttechnologylab.duui.ReproducibleAnnotation;
 import org.w3c.dom.Text;
 import org.texttechnologylab.utilities.helper.FileUtils;
 import org.xml.sax.SAXException;
@@ -60,6 +60,7 @@ import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.stream.Collectors;
 import java.nio.file.Paths;
 import java.util.HashMap;
@@ -170,15 +171,15 @@ public class TestDUUI {
 
         composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/languagedetection:0.1")
                         .withScale(iWorkers)
-                , DUUISwarmDriver.class);
+                        .build());
 
         composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
                         .withScale(iWorkers)
-                , DUUISwarmDriver.class);
+                        .build());
 
         composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/gnfinder:latest")
                         .withScale(iWorkers)
-                , DUUISwarmDriver.class);
+                        .build());
 
         composer.add(new DUUIUIMADriver.Component(createEngineDescription(XmiWriter.class,
                         XmiWriter.PARAM_TARGET_LOCATION, sOutputPath,
@@ -186,8 +187,7 @@ public class TestDUUI {
                         XmiWriter.PARAM_OVERWRITE, true,
                         XmiWriter.PARAM_VERSION, "1.1",
                         XmiWriter.PARAM_COMPRESSION, "GZIP"
-                ))
-                , DUUIUIMADriver.class);
+                )).build());
 
 
         CollectionReaderDescription reader = null;
@@ -222,7 +222,7 @@ public class TestDUUI {
 
         composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9714")
                         .withScale(1)
-                , DUUIRemoteDriver.class);
+                        .build());
 
         composer.run(jc);
 
@@ -260,7 +260,7 @@ public class TestDUUI {
 //
         composer.add(new DUUIRemoteDriver.Component("http://localhost:9714")
                         .withScale(1)
-                , DUUIRemoteDriver.class);
+                        .build());
 
         composer.run(jc);
 
@@ -299,7 +299,7 @@ public class TestDUUI {
                         XmiWriter.PARAM_OVERWRITE, true,
                         XmiWriter.PARAM_VERSION, "1.1",
                         XmiWriter.PARAM_COMPRESSION, "GZIP"
-                )).withScale(1), DUUIUIMADriver.class);
+                )).withScale(1).build());
 
 
         if (sSuffix.contains("txt")) {
@@ -348,17 +348,17 @@ public class TestDUUI {
         composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/languagedetection:0.1")
                         .withImageFetching()
                         .withScale(1)
-                , DUUIDockerDriver.class);
+                        .build());
 
         composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
                         .withImageFetching()
                         .withScale(1)
-                , DUUIDockerDriver.class);
+                        .build());
 
         composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/gnfinder:latest")
                         .withImageFetching()
                         .withScale(1)
-                , DUUIDockerDriver.class);
+                        .build());
 
 
         composer.run(jc);
@@ -776,7 +776,7 @@ public class TestDUUI {
         AnalysisEngineDescription desc2 = AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class);
         DUUIComposer composer = new DUUIComposer();
         composer.addDriver(new DUUIUIMADriver());
-        composer.add(new DUUIUIMADriver.Component(desc2), DUUIUIMADriver.class);
+        composer.add(new DUUIUIMADriver.Component(desc2).build());
 
         composer.run(jc2);
 
@@ -797,7 +797,7 @@ public class TestDUUI {
         DUUIMockStorageBackend mock = new DUUIMockStorageBackend();
         DUUIComposer composer = new DUUIComposer().withStorageBackend(mock);
         composer.addDriver(new DUUIUIMADriver());
-        composer.add(new DUUIUIMADriver.Component(desc2), DUUIUIMADriver.class);
+        composer.add(new DUUIUIMADriver.Component(desc2).build());
 
         composer.run(jc2, "hallo");
 
@@ -816,11 +816,11 @@ public class TestDUUI {
 
         composer.add(new DUUIUIMADriver.Component(
                 AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class))
-                .withScale(4),DUUIUIMADriver.class);
+                .withScale(4).build());
         composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
                 .withScale(4)
-                        .withImageFetching()
-                , DUUIDockerDriver.class);
+                .withImageFetching()
+                .build());
        composer.add(new DUUIUIMADriver.Component(
                 AnalysisEngineFactory.createEngineDescription(XmiWriter.class,
                         XmiWriter.PARAM_TARGET_LOCATION, "/home/alexander/Documents/Corpora/German-Political-Speeches-Corpus/test_benchmark/",
@@ -828,7 +828,7 @@ public class TestDUUI {
                         XmiWriter.PARAM_OVERWRITE, true,
                         XmiWriter.PARAM_VERSION, "1.1"
                         )
-        ).withScale(4), DUUIUIMADriver.class);
+        ).withScale(4).build());
 
         composer.run(CollectionReaderFactory.createReaderDescription(TextReader.class,
                 TextReader.PARAM_LANGUAGE,"de",
@@ -847,7 +847,7 @@ public class TestDUUI {
                 .withLuaContext(ctx);
         composer.addDriver(new DUUIRemoteDriver());
 
-        composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9716"),DUUIRemoteDriver.class);
+        composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9716").build());
 
         composer.run(CollectionReaderFactory.createReaderDescription(XmiReader.class,
                 XmiReader.PARAM_LANGUAGE,"de",
@@ -871,8 +871,8 @@ public class TestDUUI {
       /*  composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
                         .withImageFetching()
                 , DUUIDockerDriver.class);*/
-        composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class)),
-        DUUIUIMADriver.class);
+        composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class))
+                .build());
 
 
         composer.run(CollectionReaderFactory.createReaderDescription(TextReader.class,
@@ -881,6 +881,115 @@ public class TestDUUI {
         composer.shutdown();
     }
 
+    @Test
+    public void TestReproducibleAnnotations() throws Exception {
+        JCas jc = JCasFactory.createJCas();
+        jc.setDocumentText("Dies ist ein test Text.");
+        jc.setDocumentLanguage("de");
+
+        DUUIComposer composer = new DUUIComposer();
+        composer.addDriver(new DUUIUIMADriver());
+        composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class)).build());
+        composer.run(jc,"pipeline");
+        composer.shutdown();
+
+        DUUIPipelineDescription desc = DUUIPipelineDescription.fromJCas(jc);
+        assertEquals(desc.getComponents().size(),1);
+        DUUIPipelineAnnotationComponent comp = desc.getComponents().get(0);
+
+        assertEquals(comp.getComponent().getDriver(),DUUIUIMADriver.class.getCanonicalName());
+        assertEquals(comp.getComponent().asUIMADriverComponent().getAnnotatorName(),BreakIteratorSegmenter.class.getCanonicalName());
+    }
+
+    @Test
+    public void TestReproducibleAnnotationsDuplicateMultipleOrder() throws Exception {
+        JCas jc = JCasFactory.createJCas();
+        jc.setDocumentText("Dies ist ein test Text.");
+        jc.setDocumentLanguage("de");
+
+        {
+            DUUIComposer composer = new DUUIComposer();
+            composer.addDriver(new DUUIUIMADriver());
+            composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class)).build());
+            composer.run(jc, "pipeline");
+            composer.shutdown();
+        }
+        {
+            DUUIComposer composer = new DUUIComposer();
+            composer.addDriver(new DUUIUIMADriver());
+            composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(OpenNlpPosTagger.class)).build());
+            composer.run(jc, "pos_tagger");
+            composer.shutdown();
+        }
+
+        DUUIPipelineDescription desc = DUUIPipelineDescription.fromJCas(jc);
+
+        assertEquals(desc.getComponents().size(),2);
+        DUUIPipelineAnnotationComponent comp = desc.getComponents().get(0);
+
+        assertEquals(comp.getComponent().getDriver(),DUUIUIMADriver.class.getCanonicalName());
+        assertEquals(comp.getComponent().asUIMADriverComponent().getAnnotatorName(),BreakIteratorSegmenter.class.getCanonicalName());
+        assertEquals(comp.getAnnotation().getPipelineName(),"pipeline");
+
+        DUUIPipelineAnnotationComponent comp2 = desc.getComponents().get(1);
+
+        assertEquals(comp2.getComponent().getDriver(),DUUIUIMADriver.class.getCanonicalName());
+        assertEquals(comp2.getComponent().asUIMADriverComponent().getAnnotatorName(),OpenNlpPosTagger.class.getCanonicalName());
+        assertEquals(comp2.getAnnotation().getPipelineName(),"pos_tagger");
+
+        JCas jc_dup = JCasFactory.createJCas();
+        jc_dup.setDocumentText("Dies ist ein test Text.");
+        jc_dup.setDocumentLanguage("de");
+
+        {
+            DUUIComposer composer = new DUUIComposer();
+            composer.addDriver(new DUUIUIMADriver());
+            composer.add(DUUIPipelineDescription.fromJCas(jc));
+            composer.run(jc_dup, "pos_tagger");
+            composer.shutdown();
+        }
+
+        assertEquals(JCasUtil.select(jc_dup,TOP.class).size(), JCasUtil.select(jc,TOP.class).size());
+    }
+
+    @Test
+    public void TestReproducibleAnnotationsDuplicateChangeParameter() throws Exception {
+        JCas jc = JCasFactory.createJCas();
+        jc.setDocumentText("Dies ist ein test's Text.");
+        jc.setDocumentLanguage("de");
+
+        {
+            DUUIComposer composer = new DUUIComposer();
+            composer.addDriver(new DUUIUIMADriver());
+            composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class)).build());
+            composer.run(jc, "pipeline");
+            composer.shutdown();
+        }
+
+        DUUIPipelineDescription desc = DUUIPipelineDescription.fromJCas(jc);
+
+        for(DUUIPipelineAnnotationComponent comp : desc.getComponents()) {
+            if(comp.getComponent().asUIMADriverComponent().getAnnotatorName().equals(BreakIteratorSegmenter.class.getCanonicalName())) {
+                comp.getComponent()
+                        .asUIMADriverComponent()
+                        .setAnalysisEngineParameter(BreakIteratorSegmenter.PARAM_SPLIT_AT_APOSTROPHE,true);
+            }
+        }
+
+        JCas jc_dup = JCasFactory.createJCas();
+        jc_dup.setDocumentText("Dies ist ein test's Text.");
+        jc_dup.setDocumentLanguage("de");
+
+        {
+            DUUIComposer composer = new DUUIComposer();
+            composer.addDriver(new DUUIUIMADriver());
+            composer.add(desc);
+            composer.run(jc_dup, "pos_tagger");
+            composer.shutdown();
+        }
+
+        assertEquals(JCasUtil.select(jc_dup,TOP.class).size(), JCasUtil.select(jc,TOP.class).size()+1);
+    }
    /* @Test
     public void TestCasIoUtils() throws UIMAException, IOException {
         JCas jc2 = JCasFactory.createJCas();

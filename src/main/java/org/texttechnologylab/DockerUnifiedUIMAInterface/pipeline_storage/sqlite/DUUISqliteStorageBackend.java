@@ -8,6 +8,7 @@ import com.github.dockerjava.api.model.Ports;
 import org.json.JSONObject;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIDockerInterface;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIPipelineComponent;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.IDUUIPipelineComponent;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelinePerformancePoint;
@@ -79,17 +80,14 @@ public class DUUISqliteStorageBackend implements IDUUIStorageBackend {
         stmt.setLong(2,composer.getWorkerCount());
         stmt.executeUpdate();
 
-        for(IDUUIPipelineComponent comp : composer.getPipeline()) {
-            JSONObject obj = new JSONObject(comp.getOptions());
-            int key = obj.toString().hashCode();
-            String compName = comp.getName();
+        for(DUUIPipelineComponent comp : composer.getPipeline()) {
+            String value = comp.toJson();
 
             PreparedStatement stmt2 = conn.prepareStatement("INSERT INTO pipeline_component (hash,name,description) VALUES (?,?,?)");
-            stmt2.setLong(1,key);
+            stmt2.setLong(1,value.hashCode());
             stmt2.setString(2,name);
-            stmt2.setString(3,obj.toString());
+            stmt2.setString(3,value);
             stmt2.executeUpdate();
-            comp.setOption(DUUIComposer.COMPONENT_COMPONENT_UNIQUE_KEY,String.valueOf(key));
         }
         _client.add(conn);
     }

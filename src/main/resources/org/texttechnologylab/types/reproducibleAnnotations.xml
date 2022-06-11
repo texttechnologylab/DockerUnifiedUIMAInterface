@@ -1,0 +1,39 @@
+<typeSystemDescription xmlns="http://uima.apache.org/resourceSpecifier">
+    <types>
+        <typeDescription>
+            <name>org.texttechnologylab.duui.ReproducibleAnnotation</name>
+            <description>&lt;p&gt;ReproducibleAnnotation stores the information about a composer pipeline component in compressed form.
+                The reproducibility mainly stems from the strict naming of docker containers.&lt;/p&gt;
+            </description>
+            <supertypeName>uima.cas.TOP</supertypeName>
+            <features>
+                <featureDescription>
+                    <name>timestamp</name>
+                    <description>The timestamp at which this annotation was added, this is important for chronological ordering.
+                    </description>
+                    <rangeTypeName>uima.cas.Long</rangeTypeName>
+                </featureDescription>
+                <featureDescription>
+                    <name>pipelineName</name>
+                    <description>Stores the pipeline name, this can be a good way to later group the analysis engines from one pipeline run
+                    </description>
+                    <rangeTypeName>uima.cas.String</rangeTypeName>
+                </featureDescription>
+                <featureDescription>
+                    <name>description</name>
+                    <description>Stores the actual information about the component, most of the time in compressed format with Base85 encoded.
+                    </description>
+                    <rangeTypeName>uima.cas.String</rangeTypeName>
+                </featureDescription>
+                <featureDescription>
+                    <name>compression</name>
+                    <description>The compression used to compress the description, since the compression of the description
+                        happens at initialization time it is most of the time wise to use a compression method with a higher compression
+                        ratio.
+                    </description>
+                    <rangeTypeName>uima.cas.String</rangeTypeName>
+                </featureDescription>
+            </features>
+          </typeDescription>
+  </types>
+</typeSystemDescription>

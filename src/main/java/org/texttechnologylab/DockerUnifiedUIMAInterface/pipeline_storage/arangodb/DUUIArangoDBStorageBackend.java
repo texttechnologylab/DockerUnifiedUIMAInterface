@@ -16,6 +16,7 @@ import org.apache.uima.jcas.JCas;
 import org.json.JSONObject;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIDockerInterface;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIPipelineComponent;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.IDUUIPipelineComponent;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.IDUUIStorageBackend;
@@ -29,6 +30,11 @@ import java.util.*;
 
 import static java.lang.String.format;
 
+/**
+ * Is at the moment not at the newest version, therefore you are advised to not use it until it is up to date
+ * again
+ */
+@Deprecated
 public class DUUIArangoDBStorageBackend implements IDUUIStorageBackend {
     private String _password;
     private int _port;
@@ -158,15 +164,16 @@ public class DUUIArangoDBStorageBackend implements IDUUIStorageBackend {
     public void addNewRun(String name, DUUIComposer composer) throws SQLException {
         Vector<String> stringvec = new Vector<>();
         stringvec.add(_pipelineCollection.insertDocument(new DUUIArangoComposerConfiguration(name, composer.getWorkerCount())).getId());
-        for (IDUUIPipelineComponent comp : composer.getPipeline()) {
-            JSONObject obj = new JSONObject(comp.getOptions());
+        for (DUUIPipelineComponent comp : composer.getPipeline()) {
+            //JSONObject obj = new JSONObject(comp.getOptions());
+            JSONObject obj = new JSONObject();
             String key = String.valueOf(obj.toString().hashCode());
 
             BaseDocument base = _pipelineComponentCollection.getDocument(key, BaseDocument.class);
             if(base!=null) {
                 System.out.printf("[DUUIArangoDBStorageBackend] Found existing pipeline component. Using existing component.\n");
                 stringvec.add(base.getId());
-                comp.setOption(DUUIComposer.COMPONENT_COMPONENT_UNIQUE_KEY,stringvec.lastElement());
+              //  comp.setOption(DUUIComposer.COMPONENT_COMPONENT_UNIQUE_KEY,stringvec.lastElement());
             }
             else {
                 Map<String,Object> map = obj.toMap();
@@ -178,7 +185,7 @@ public class DUUIArangoDBStorageBackend implements IDUUIStorageBackend {
                     map.put("name", named);
                 }
                 stringvec.add(_pipelineComponentCollection.insertDocument(new DUUIArangoPipelineComponent(key, map)).getId());
-                comp.setOption(DUUIComposer.COMPONENT_COMPONENT_UNIQUE_KEY,stringvec.lastElement());
+              //  comp.setOption(DUUIComposer.COMPONENT_COMPONENT_UNIQUE_KEY,stringvec.lastElement());
             }
         }
 

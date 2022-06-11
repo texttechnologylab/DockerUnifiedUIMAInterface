@@ -2,6 +2,7 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface.driver;
 
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.commons.compress.compressors.CompressorStreamFactory;
+import org.apache.uima.cas.CASException;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
@@ -14,10 +15,12 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPip
 import org.xml.sax.SAXException;
 
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.net.http.HttpClient;
 import java.security.InvalidParameterException;
 import java.time.Duration;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -29,14 +32,35 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
     private DUUILuaContext _luaContext;
 
 
-    public static class Component extends IDUUIPipelineComponent {
-        public Component(String url) {
-            setOption("url", url);
+    public static class Component {
+        private DUUIPipelineComponent component;
+        public Component(String url) throws URISyntaxException, IOException {
+            component = new DUUIPipelineComponent();
+            component.withUrl(url);
+        }
+
+        public Component(DUUIPipelineComponent pComponent) throws URISyntaxException, IOException {
+            component = pComponent;
         }
 
         public Component withScale(int scale) {
-            setOption("scale", String.valueOf(scale));
+            component.withScale(scale);
             return this;
+        }
+
+        public Component withDescription(String description) {
+            component.withDescription(description);
+            return this;
+        }
+
+        public Component withParameter(String key, String value) {
+            component.withParameter(key,value);
+            return this;
+        }
+
+        public DUUIPipelineComponent build() {
+            component.withDriver(DUUIRemoteDriver.class);
+            return component;
         }
     }
 
@@ -62,6 +86,7 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         private IDUUICommunicationLayer _layer;
         private String _uniqueComponentKey;
         private Map<String,String> _parameters;
+        private DUUIPipelineComponent _component;
 
         public IDUUICommunicationLayer getCommunicationLayer() {
             return _layer;
@@ -84,23 +109,26 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
             _layer = layer;
         }
 
-        public InstantiatedComponent(IDUUIPipelineComponent comp) {
-            _url = comp.getOption("url");
-            if (_url == null) {
+        public InstantiatedComponent(DUUIPipelineComponent comp) {
+            _component = comp;
+            List<String> urls = comp.getUrl();
+            if (urls == null || urls.size() == 0) {
                 throw new InvalidParameterException("Missing parameter URL in the pipeline component descriptor");
             }
+            else {
+                _url = urls.get(0);
+            }
+
             _parameters = comp.getParameters();
 
-            _uniqueComponentKey = comp.getOption(DUUIComposer.COMPONENT_COMPONENT_UNIQUE_KEY);
+            _uniqueComponentKey = "";
 
-            String max = comp.getOption("scale");
+            _maximum_concurrency = comp.getScale(1);
             _components = new ConcurrentLinkedQueue<>();
-            if(max != null) {
-                _maximum_concurrency = Integer.valueOf(max);
-            }
-            else {
-                _maximum_concurrency = 1;
-            }
+        }
+
+        public DUUIPipelineComponent getPipelineComponent() {
+            return _component;
         }
 
         public String getUniqueComponentKey() {return _uniqueComponentKey;}
@@ -129,14 +157,15 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         _helper = new DUUICompressionHelper(CompressorStreamFactory.ZSTANDARD);
     }
 
-    public boolean canAccept(IDUUIPipelineComponent component) {
-        return component.getClass().getCanonicalName() == component.getClass().getCanonicalName();
+    public boolean canAccept(DUUIPipelineComponent component) {
+        List<String> urls = component.getUrl();
+        return urls != null && urls.size() > 0;
     }
 
     public void shutdown() {
     }
 
-    public String instantiate(IDUUIPipelineComponent component, JCas jc, boolean skipVerification) throws Exception {
+    public String instantiate(DUUIPipelineComponent component, JCas jc, boolean skipVerification) throws Exception {
         String uuid = UUID.randomUUID().toString();
         while (_components.containsKey(uuid)) {
             uuid = UUID.randomUUID().toString();
@@ -173,7 +202,7 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         return IDUUIInstantiatedPipelineComponent.getTypesystem(uuid,comp);
     }
 
-    public void run(String uuid, JCas aCas, DUUIPipelineDocumentPerformance perf) throws InterruptedException, IOException, SAXException, CompressorException {
+    public void run(String uuid, JCas aCas, DUUIPipelineDocumentPerformance perf) throws InterruptedException, IOException, SAXException, CompressorException, CASException {
         long mutexStart = System.nanoTime();
         InstantiatedComponent comp = _components.get(uuid);
         if (comp == null) {

@@ -3,6 +3,7 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface.driver;
 
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.UIMAException;
+import org.apache.uima.cas.CASException;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.resource.ResourceInitializationException;
@@ -17,6 +18,7 @@ import org.xml.sax.SAXException;
 
 import java.io.*;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -163,11 +165,11 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
                 }
     }
 
-    public boolean canAccept(IDUUIPipelineComponent comp) {
-        return comp.getClass().getName().toString() == Component.class.getName().toString();
+    public boolean canAccept(DUUIPipelineComponent comp) {
+        return comp.getDockerImageName()!=null;
     }
 
-    public String instantiate(IDUUIPipelineComponent component, JCas jc, boolean skipVerification) throws Exception {
+    public String instantiate(DUUIPipelineComponent component, JCas jc, boolean skipVerification) throws Exception {
         String uuid = UUID.randomUUID().toString();
         while (_active_components.containsKey(uuid.toString())) {
             uuid = UUID.randomUUID().toString();
@@ -175,7 +177,7 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
 
         InstantiatedComponent comp = new InstantiatedComponent(component);
 
-        if (!comp.isLocal()) {
+        if (!comp.getImageFetching()) {
             if(comp.getUsername() != null) {
                 System.out.printf("[DockerLocalDriver] Attempting image %s download from secure remote registry\n",comp.getImageName());
             }
@@ -230,7 +232,7 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
         return IDUUIInstantiatedPipelineComponent.getTypesystem(uuid,comp);
     }
 
-    public void run(String uuid, JCas aCas, DUUIPipelineDocumentPerformance perf) throws InterruptedException, IOException, SAXException, CompressorException {
+    public void run(String uuid, JCas aCas, DUUIPipelineDocumentPerformance perf) throws InterruptedException, IOException, SAXException, CompressorException, CASException {
         long mutexStart = System.nanoTime();
         InstantiatedComponent comp = _active_components.get(uuid);
         if (comp == null) {
@@ -265,6 +267,7 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
             _port = port;
         }
 
+
         String getContainerId() {
             return _container_id;
         }
@@ -284,17 +287,19 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
 
     static class InstantiatedComponent implements IDUUIInstantiatedPipelineComponent {
         private String _image_name;
-        private boolean _local;
         private ConcurrentLinkedQueue<ComponentInstance> _instances;
         private boolean _gpu;
         private boolean _keep_runnging_after_exit;
         private int _scale;
+        private boolean _withImageFetching;
 
         private String _reg_password;
         private String _reg_username;
         private String _uniqueComponentKey;
+
         private IDUUICommunicationLayer _layer;
         private Map<String,String> _parameters;
+        private DUUIPipelineComponent _component;
 
         public IDUUICommunicationLayer getCommunicationLayer() {
             return _layer;
@@ -320,46 +325,33 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
             _instances.add((ComponentInstance) access);
         }
 
-        InstantiatedComponent(IDUUIPipelineComponent comp) {
-            _image_name = comp.getOption("container");
+        InstantiatedComponent(DUUIPipelineComponent comp) {
+            _component = comp;
+            _image_name = comp.getDockerImageName();
             _parameters = comp.getParameters();
             if (_image_name == null) {
                 throw new InvalidParameterException("The image name was not set! This is mandatory for the DockerLocalDriver Class.");
             }
+            _withImageFetching = comp.getDockerImageFetching(false);
 
-            _uniqueComponentKey = comp.getOption(DUUIComposer.COMPONENT_COMPONENT_UNIQUE_KEY);
+            _uniqueComponentKey = "";
 
-            String local = comp.getOption("local");
-            if (local != null && local.equals("yes")) {
-                _local = true;
-            } else {
-                _local = false;
-            }
+
             _instances = new ConcurrentLinkedQueue<ComponentInstance>();
 
-            String scale = comp.getOption("scale");
-            if (scale == null) {
-                _scale = 1;
-            } else {
-                _scale = Integer.parseInt(scale);
-            }
+            _scale = comp.getScale(1);
 
-            String gpu = comp.getOption("gpu");
-            if (gpu == null) {
-                _gpu = false;
-            } else {
-                _gpu = gpu.equals("yes");
-            }
+            _gpu = comp.getDockerGPU(false);
 
-            String with_running_after = comp.getOption("run_after_exit");
-            if (with_running_after == null) {
-                _keep_runnging_after_exit = false;
-            } else {
-                _keep_runnging_after_exit = with_running_after.equals("yes");
-            }
+            _keep_runnging_after_exit = comp.getDockerRunAfterExit(false);
 
-            _reg_password = comp.getOption("reg_password");
-            _reg_username = comp.getOption("reg_username");
+            _reg_password = comp.getDockerAuthPassword();
+            _reg_username = comp.getDockerAuthUsername();
+        }
+
+
+        public DUUIPipelineComponent getPipelineComponent() {
+            return _component;
         }
 
         public String getUniqueComponentKey() {return _uniqueComponentKey;}
@@ -367,13 +359,10 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
 
         public String getUsername() {return _reg_username;}
 
+        public boolean getImageFetching() {return _withImageFetching;}
 
         public String getImageName() {
             return _image_name;
-        }
-
-        public boolean isLocal() {
-            return _local;
         }
 
         public int getScale() {
@@ -397,43 +386,57 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
         public Map<String,String> getParameters() {return _parameters;}
     }
 
-    public static class Component extends IDUUIPipelineComponent {
-        private String _target_name;
-        private boolean _is_local;
-        private boolean _with_gpu;
-        private boolean _with_keep_runnging_after_exit;
-        private int _with_scale;
+    public static class Component {
+        private DUUIPipelineComponent _component;
 
 
-        public Component(String target) {
-            setOption("container", target);
-            setOption("local", "yes");
+        public Component withParameter(String key, String value) {
+            _component.withParameter(key,value);
+            return this;
+        }
+
+        public Component(String target) throws URISyntaxException, IOException {
+            _component = new DUUIPipelineComponent();
+            _component.withDockerImageName(target);
+        }
+
+        public Component(DUUIPipelineComponent pComponent) throws URISyntaxException, IOException {
+            _component = pComponent;
+        }
+
+        public Component withDescription(String description) {
+            _component.withDescription(description);
+            return this;
         }
 
         public Component withScale(int scale) {
-            setOption("scale", String.valueOf(scale));
+            _component.withScale(scale);
             return this;
         }
 
         public Component withRegistryAuth(String username, String password) {
-            setOption("reg_username",username);
-            setOption("reg_password",password);
+            _component.withDockerAuth(username,password);
             return this;
         }
 
         public Component withImageFetching() {
-            setOption("local", "no");
+            _component.withDockerImageFetching(true);
             return this;
         }
 
         public Component withGPU(boolean gpu) {
-            setOption("gpu", (gpu) ? "yes" : "no");
+            _component.withDockerGPU(gpu);
             return this;
         }
 
         public Component withRunningAfterDestroy(boolean run) {
-            setOption("run_after_exit", (run) ? "yes" : "no");
+            _component.withDockerRunAfterExit(run);
             return this;
+        }
+
+        public DUUIPipelineComponent build() {
+            _component.withDriver(DUUIDockerDriver.class);
+            return _component;
         }
     }
 }

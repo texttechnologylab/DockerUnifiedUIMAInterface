@@ -69,7 +69,7 @@
             <name>org.texttechnologylab.annotation.DocumentModification</name>
             <description>A alternative token text which should be used instead of the covered text if set on a token.
             </description>
-            <supertypeName>uima.tcas.Annotation</supertypeName>
+            <supertypeName>uima.cas.AnnotationBase</supertypeName>
             <features>
                 <featureDescription>
                     <name>user</name>

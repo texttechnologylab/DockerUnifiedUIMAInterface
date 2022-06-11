@@ -3,6 +3,7 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface;
 import com.sun.net.httpserver.HttpServer;
 import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import de.tudarmstadt.ukp.dkpro.core.tokit.BreakIteratorSegmenter;
+import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.collection.CollectionReader;
 import org.apache.uima.collection.CollectionReaderDescription;
 import org.apache.uima.fit.factory.AnalysisEngineFactory;
@@ -13,6 +14,7 @@ import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.apache.uima.util.CasCreationUtils;
+import org.apache.uima.util.InvalidXMLException;
 import org.apache.uima.util.XmlCasSerializer;
 import org.luaj.vm2.Globals;
 import org.luaj.vm2.lib.jse.JsePlatform;
@@ -22,12 +24,16 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.DUUIMonitor;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.IDUUIStorageBackend;
 import org.texttechnologylab.annotation.type.Taxon;
+import org.xml.sax.SAXException;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.UnknownHostException;
 import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.security.InvalidParameterException;
 import java.time.Instant;
 import java.util.*;
@@ -96,7 +102,7 @@ class DUUIWorker extends Thread {
 
 public class DUUIComposer {
     private final Map<String, IDUUIDriverInterface> _drivers;
-    private final Vector<IDUUIPipelineComponent> _pipeline;
+    private final Vector<DUUIPipelineComponent> _pipeline;
 
     private int _workers;
     public Integer _cas_poolsize;
@@ -112,9 +118,10 @@ public class DUUIComposer {
     public static final String V1_COMPONENT_ENDPOINT_TYPESYSTEM = "/v1/typesystem";
     public static final String V1_COMPONENT_ENDPOINT_COMMUNICATION_LAYER = "/v1/communication_layer";
 
+    private TypeSystemDescription _minimalTypesystem;
 
 
-    public DUUIComposer() {
+    public DUUIComposer() throws URISyntaxException {
         _drivers = new HashMap<>();
         _pipeline = new Vector<>();
         _workers = 1;
@@ -124,6 +131,7 @@ public class DUUIComposer {
         _monitor = null;
         _storage = null;
         _skipVerification = false;
+        _minimalTypesystem = TypeSystemDescriptionFactory.createTypeSystemDescriptionFromPath(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/types/reproducibleAnnotations.xml").toURI().toString());
         System.out.println("[Composer] Initialised LUA scripting layer with version "+ globals.get("_VERSION"));
     }
 
@@ -173,7 +181,7 @@ public class DUUIComposer {
         return this;
     }
 
-    public IDUUIPipelineComponent addFromBackend(String id) {
+   /*public IDUUIPipelineComponent addFromBackend(String id) {
         if(_storage == null) {
             throw new RuntimeException("[DUUIComposer] No storage backend specified but trying to load component from it!");
         }
@@ -183,19 +191,27 @@ public class DUUIComposer {
             throw new InvalidParameterException(format("[DUUIComposer] No driver %s in the composer installed!", _pipeline.lastElement().getOption(DUUIComposer.DRIVER_OPTION_NAME)));
         }
         return _pipeline.lastElement();
-    }
+    }*/
 
-    public <Y> DUUIComposer add(IDUUIPipelineComponent object, Class<Y> t) {
-        object.setOption(DRIVER_OPTION_NAME, t.getCanonicalName());
-        IDUUIDriverInterface driver = _drivers.get(t.getCanonicalName());
+    public DUUIComposer add(DUUIPipelineComponent object) throws InvalidXMLException, IOException, SAXException, CompressorException {
+        IDUUIDriverInterface driver = _drivers.get(object.getDriver());
         if (driver == null) {
-            throw new InvalidParameterException(format("[DUUIComposer] No driver %s in the composer installed!", t.getCanonicalName()));
+            throw new InvalidParameterException(format("[DUUIComposer] No driver %s in the composer installed!", object.getDriver()));
         } else {
             if (!driver.canAccept(object)) {
-                throw new InvalidParameterException(format("[DUUIComposer] The driver %s cannot accept %s as input!", t.getCanonicalName(), object.getClass().getCanonicalName()));
+                throw new InvalidParameterException(format("[DUUIComposer] The driver %s cannot accept %s as input!", object.getDriver(), object.getClass().getCanonicalName()));
             }
         }
+        System.out.println("[DUUIComposer] Compressing and finalizing pipeline component...");
+        object.finalizeComponent();
         _pipeline.add(object);
+        return this;
+    }
+
+    public DUUIComposer add(DUUIPipelineDescription desc) throws InvalidXMLException, IOException, SAXException, CompressorException {
+        for(DUUIPipelineAnnotationComponent ann : desc.getComponents()) {
+            add(ann.getComponent());
+        }
         return this;
     }
 
@@ -217,6 +233,10 @@ public class DUUIComposer {
         }
     }
 
+    public DUUIComposer resetPipeline() {
+        _pipeline.clear();
+        return this;
+    }
 
     private void run_async(CollectionReader collectionReader, String name) throws Exception {
         ConcurrentLinkedQueue<JCas> emptyCasDocuments = new ConcurrentLinkedQueue<>();
@@ -291,7 +311,7 @@ public class DUUIComposer {
         run(reader,null);
     }
 
-    public Vector<IDUUIPipelineComponent> getPipeline() {
+    public Vector<DUUIPipelineComponent> getPipeline() {
         return _pipeline;
     }
 
@@ -367,9 +387,10 @@ public class DUUIComposer {
         }
 
         List<TypeSystemDescription> descriptions = new LinkedList<>();
+        descriptions.add(_minimalTypesystem);
         try {
-            for (IDUUIPipelineComponent comp : _pipeline) {
-                IDUUIDriverInterface driver = _drivers.get(comp.getOption(DRIVER_OPTION_NAME));
+            for (DUUIPipelineComponent comp : _pipeline) {
+                IDUUIDriverInterface driver = _drivers.get(comp.getDriver());
                 String uuid = driver.instantiate(comp, jc, _skipVerification);
 
                 TypeSystemDescription desc = driver.get_typesystem(uuid);
@@ -526,8 +547,8 @@ public class DUUIComposer {
         DUUIRemoteDriver remote_driver = new DUUIRemoteDriver(10000);
         DUUIUIMADriver uima_driver = new DUUIUIMADriver()
                 .withDebug(true);
-        DUUISwarmDriver swarm_driver = new DUUISwarmDriver()
-                .withSwarmVisualizer();
+        DUUISwarmDriver swarm_driver = new DUUISwarmDriver();
+            //    .withSwarmVisualizer();
 
         // A driver must be added before components can be added for it in the composer.
         composer.addDriver(driver);
@@ -544,8 +565,12 @@ public class DUUIComposer {
         //        DUUIUIMADriver.class);
       /*  composer.add(new DUUILocalDriver.Component("java_segmentation:latest")*/
 
-        composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class)),
-                DUUIUIMADriver.class);
+        composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class))
+                .withScale(4)
+                .build()
+        );
+        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/benchmark_serde_echo_msgpack:0.2")
+                .build());
 //        composer.add(new DUUILocalDriver.Component("java_segmentation:latest")
 //                        .withScale(1)
 //                , DUUILocalDriver.class);
@@ -594,9 +619,8 @@ public class DUUIComposer {
                 .withScale(1)
                 , DUUISwarmDriver.class);*/
 
-        composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.Component("http://127.0.0.1:9715")
-                        .withScale(1),
-                org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.class);
+        //composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.Component("http://127.0.0.1:9715")
+        //                .withScale(1).build());
 
        // ByteArrayInputStream stream;
        // stream.read
@@ -607,16 +631,45 @@ public class DUUIComposer {
         jc.setDocumentText(val2);
 
         // Run single document
-        composer.run(jc,"Praktikum2");
+        composer.run(jc,"fuchs");
+        composer.run(jc,"fuchs2");
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         XmlCasSerializer.serialize(jc.getCas(),out);
         System.out.println(new String(out.toByteArray()));
 
-        JCasUtil.select(jc, Taxon.class).forEach(t->{
-            System.out.println(t);
-        });
+        DUUIPipelineDescription desc = DUUIPipelineDescription.fromJCas(jc);
+        System.out.println(desc.getComponents().size());
+        for(DUUIPipelineAnnotationComponent comp : desc.getComponents()) {
+            System.out.println(comp.getAnnotation().getTimestamp());
+            System.out.println(comp.getComponent().getDriver());
+            System.out.println(comp.getComponent().getScale());
+            comp.getComponent().withScale(1);
+        }
 
+        for(DUUIPipelineAnnotationComponent comp : desc.getComponents()) {
+            System.out.println(comp.getAnnotation().getTimestamp());
+            System.out.println(comp.getComponent().getDriver());
+            System.out.println(comp.getComponent().getScale());
+            String drivername = comp.getComponent().getDriver();
+
+            //Use the docker image on the swarm
+            if(drivername.equals(DUUIDockerDriver.class.getCanonicalName())) {
+                comp.getComponent().withDriver(DUUISwarmDriver.class);
+            }
+        }
+
+        composer.resetPipeline();
+        composer.add(desc);
+        composer.run(jc);
+
+        DUUIPipelineDescription desc2 = DUUIPipelineDescription.fromJCas(jc);
+        System.out.println(desc2.getComponents().size());
+
+        System.out.println("Final result...");
+        for(DUUIPipelineAnnotationComponent comp : desc2.getComponents()) {
+            System.out.println(comp.getComponent().attemptAutomaticDescription());
+        }
         /*
         String val = Files.readString(Path.of(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/uima_xmi_communication_token_only.lua").toURI()));
         DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(val,"remote");
