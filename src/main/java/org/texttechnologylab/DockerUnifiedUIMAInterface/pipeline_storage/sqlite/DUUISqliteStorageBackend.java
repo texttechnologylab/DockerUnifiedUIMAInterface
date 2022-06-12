@@ -47,6 +47,7 @@ public class DUUISqliteStorageBackend implements IDUUIStorageBackend {
         stmt.execute("CREATE TABLE IF NOT EXISTS pipeline(name TEXT PRIMARY KEY, workers INT)");
         stmt.execute("CREATE TABLE IF NOT EXISTS pipeline_perf(name TEXT, startTime INT, endTime INT)");
         stmt.execute("CREATE TABLE IF NOT EXISTS pipeline_component(hash INT, name TEXT, description TEXT)");
+        stmt.execute("CREATE TABLE IF NOT EXISTS pipeline_document(documentSize INT, waitTime INT, totalTime INT)");
         stmt.execute("CREATE TABLE IF NOT EXISTS pipeline_document_perf(pipelinename TEXT, componenthash INT, durationSerialize INT,\n" +
                 "durationDeserialize INT," +
                 "durationAnnotator INT," +
@@ -98,6 +99,18 @@ public class DUUISqliteStorageBackend implements IDUUIStorageBackend {
         while(conn == null) {
             conn = _client.poll();
         }
+        try {
+            PreparedStatement stmt = null;
+            stmt = conn.prepareStatement("INSERT INTO pipeline_document(documentSize, waitTime, totalTime) VALUES (?,?,?)");
+            stmt.setLong(1, perf.getDocumentSize());
+            stmt.setLong(2, perf.getDocumentWaitTime());
+            stmt.setLong(3, perf.getTotalTime());
+            stmt.executeUpdate();
+        }
+        catch(SQLException e) {
+            e.printStackTrace();
+        }
+
         for(DUUIPipelinePerformancePoint points : perf.getPerformancePoints()) {
             PreparedStatement stmt2 = null;
             try {

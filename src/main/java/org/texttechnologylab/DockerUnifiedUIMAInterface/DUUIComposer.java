@@ -71,6 +71,7 @@ class DUUIWorker extends Thread {
         while(true) {
 
             JCas object = null;
+            long waitTimeStart = System.nanoTime();
             while(object == null) {
                 object = _loadedInstances.poll();
 
@@ -78,9 +79,12 @@ class DUUIWorker extends Thread {
                     return;
                 }
             }
+            long waitTimeEnd = System.nanoTime();
             //System.out.printf("[Composer] Thread %d still alive and doing work\n",num);
 
-            DUUIPipelineDocumentPerformance perf = new DUUIPipelineDocumentPerformance(_runKey,object);
+            DUUIPipelineDocumentPerformance perf = new DUUIPipelineDocumentPerformance(_runKey,
+                    waitTimeEnd-waitTimeStart,
+                    object);
             for (DUUIComposer.PipelinePart i : _flow) {
                 try {
                     i.getDriver().run(i.getUUID(),object,perf);
@@ -373,8 +377,10 @@ public class DUUIComposer {
             JCas jc = JCasFactory.createJCas(desc);
             Instant starttime = Instant.now();
             while(collectionReader.hasNext()) {
+                long waitTimeStart = System.nanoTime();
                 collectionReader.getNext(jc.getCas());
-                run_pipeline(name,jc,idPipeline);
+                long waitTimeEnd = System.nanoTime();
+                run_pipeline(name,jc,waitTimeEnd-waitTimeStart,idPipeline);
                 jc.reset();
             }
             if(_storage!=null) {
@@ -431,8 +437,8 @@ public class DUUIComposer {
         }
     }
 
-    private JCas run_pipeline(String name, JCas jc, Vector<PipelinePart> pipeline) throws Exception {
-        DUUIPipelineDocumentPerformance perf = new DUUIPipelineDocumentPerformance(name,jc);
+    private JCas run_pipeline(String name, JCas jc, long documentWaitTime, Vector<PipelinePart> pipeline) throws Exception {
+        DUUIPipelineDocumentPerformance perf = new DUUIPipelineDocumentPerformance(name,documentWaitTime,jc);
         for (PipelinePart comp : pipeline) {
             comp.getDriver().run(comp.getUUID(), jc, perf);
         }
@@ -512,7 +518,7 @@ public class DUUIComposer {
 
             Runtime.getRuntime().addShutdownHook(shutdownHook);
             instantiate_pipeline(idPipeline);
-            JCas start = run_pipeline(name,jc,idPipeline);
+            JCas start = run_pipeline(name,jc,0,idPipeline);
 
             if(_storage!=null) {
                 _storage.finalizeRun(name,starttime,Instant.now());

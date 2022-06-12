@@ -18,11 +18,13 @@ public class DUUIPipelineDocumentPerformance {
     private Long _durationTotalMutexWait;
     private Long _durationTotal;
     private Integer _documentSize;
+    private Long _documentWaitTime;
 
-    public DUUIPipelineDocumentPerformance(String runKey, JCas jc) {
+    public DUUIPipelineDocumentPerformance(String runKey, long waitDocumentTime, JCas jc) {
         _points = new Vector<>();
         _runKey = runKey;
 
+        _documentWaitTime = waitDocumentTime;
         _durationTotalDeserialize = 0L;
         _durationTotalSerialize = 0L;
         _durationTotalAnnotator = 0L;
@@ -46,6 +48,18 @@ public class DUUIPipelineDocumentPerformance {
         _durationTotalMutexWait += durationMutexWait;
         _durationTotal += durationComponentTotal;
         _points.add(new DUUIPipelinePerformancePoint(durationSerialize,durationDeserialize,durationAnnotator,durationMutexWait,durationComponentTotal,componentKey,serializeSize, jc));
+    }
+
+    public long getDocumentWaitTime() {
+        return _documentWaitTime;
+    }
+
+    public long getTotalTime() {
+        return _durationTotal+_documentWaitTime;
+    }
+
+    public long getDocumentSize() {
+        return _documentSize;
     }
 
     public Vector<BaseDocument> generateComponentPerformance(String docKey) {
