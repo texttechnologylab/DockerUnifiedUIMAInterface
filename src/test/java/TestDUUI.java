@@ -1003,7 +1003,8 @@ public class TestDUUI {
         // The composer is defined and initialized with a standard Lua context.
         DUUIComposer composer = new DUUIComposer().withLuaContext(ctx)
                 .withSkipVerification(true)
-                .withStorageBackend(sqlite);
+                .withStorageBackend(sqlite)
+                .withWorkers(2);
         // Instantiate drivers with options
         DUUIDockerDriver docker_driver = new DUUIDockerDriver()
             .withTimeout(10000);

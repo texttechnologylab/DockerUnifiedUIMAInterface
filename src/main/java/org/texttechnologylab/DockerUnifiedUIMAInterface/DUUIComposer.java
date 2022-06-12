@@ -275,7 +275,8 @@ public class DUUIComposer {
             }
             TypeSystemDescription desc = instantiate_pipeline(idPipeline);
             if (_cas_poolsize == null) {
-                _cas_poolsize = _workers;
+                _cas_poolsize = (int)Math.ceil(_workers*1.5);
+                System.out.printf("[Composer] Calculated CAS poolsize of %d!\n", _cas_poolsize);
             } else {
                 if (_cas_poolsize < _workers) {
                     System.err.println("[Composer] WARNING: Pool size is smaller than the available threads, this is likely a bottleneck.");
