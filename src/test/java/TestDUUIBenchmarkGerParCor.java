@@ -9,15 +9,37 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIDockerDriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUISwarmDriver;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.io.AsyncCollectionReader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.sqlite.DUUISqliteStorageBackend;
 
 import java.io.ByteArrayOutputStream;
 
 public class TestDUUIBenchmarkGerParCor {
-    private static int iWorkers = 2;
+    private static int iWorkers = 4;
     private static String sourceLocation = "/home/alexander/Documents/Corpora/German-Political-Speeches-Corpus/processed_test/*.xmi.gz";
 
+    @Test
+    public void ComposerAsyncCollectionReader() throws Exception {
+        AsyncCollectionReader rd = new AsyncCollectionReader("/home/alexander/Documents/Corpora/German-Political-Speeches-Corpus/processed_test/",".xmi.gz");
+        DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend("serialization_gercorpa.db")
+                .withConnectionPoolSize(iWorkers);
+
+        DUUILuaContext ctx = new DUUILuaContext().withJsonLibrary();
+        DUUIComposer composer = new DUUIComposer()
+                .withSkipVerification(true)
+                .withStorageBackend(sqlite)
+                .withLuaContext(ctx)
+                .withWorkers(iWorkers);
+        composer.addDriver(new DUUIDockerDriver());
+
+        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/benchmark_serde_echo_binary:0.1")
+                .withScale(iWorkers)
+                .withImageFetching());
+
+        composer.run(rd,"async_reader_serde_echo_binary");
+        composer.shutdown();
+    }
 
     @Test
     public void ComposerPerformanceTestEchoSerializeDeserializeBinary() throws Exception {

@@ -19,6 +19,7 @@ import org.apache.uima.util.XmlCasSerializer;
 import org.luaj.vm2.Globals;
 import org.luaj.vm2.lib.jse.JsePlatform;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.*;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.io.AsyncCollectionReader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.DUUIMonitor;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
@@ -52,9 +53,10 @@ class DUUIWorker extends Thread {
     AtomicBoolean _shutdown;
     IDUUIStorageBackend _backend;
     String _runKey;
+    AsyncCollectionReader _reader;
 
     DUUIWorker(Vector<DUUIComposer.PipelinePart> engineFlow, ConcurrentLinkedQueue<JCas> emptyInstance, ConcurrentLinkedQueue<JCas> loadedInstances, AtomicBoolean shutdown, AtomicInteger error,
-               IDUUIStorageBackend backend, String runKey) {
+               IDUUIStorageBackend backend, String runKey, AsyncCollectionReader reader) {
         super();
         _flow = engineFlow;
         _instancesToBeLoaded = emptyInstance;
@@ -63,13 +65,13 @@ class DUUIWorker extends Thread {
         _threadsAlive = error;
         _backend = backend;
         _runKey = runKey;
+        _reader = reader;
     }
 
     @Override
     public void run() {
         int num = _threadsAlive.addAndGet(1);
         while(true) {
-
             JCas object = null;
             long waitTimeStart = System.nanoTime();
             while(object == null) {
@@ -77,6 +79,24 @@ class DUUIWorker extends Thread {
 
                 if(_shutdown.get()) {
                     return;
+                }
+
+                if(object==null && _reader!=null) {
+                    object = _instancesToBeLoaded.poll();
+                    if(object==null)
+                        continue;
+                    try {
+                        if(!_reader.getNextCAS(object)) {
+                            _instancesToBeLoaded.add(object);
+                            return;
+                        }
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    } catch (CompressorException e) {
+                        e.printStackTrace();
+                    } catch (SAXException e) {
+                        e.printStackTrace();
+                    }
                 }
             }
             long waitTimeEnd = System.nanoTime();
@@ -258,6 +278,81 @@ public class DUUIComposer {
         return this;
     }
 
+    public void run(AsyncCollectionReader collectionReader, String name) throws Exception {
+        ConcurrentLinkedQueue<JCas> emptyCasDocuments = new ConcurrentLinkedQueue<>();
+        ConcurrentLinkedQueue<JCas> loadedCasDocuments = new ConcurrentLinkedQueue<>();
+        AtomicInteger aliveThreads = new AtomicInteger(0);
+        AtomicBoolean shutdown = new AtomicBoolean(false);
+
+        Exception catched = null;
+
+        System.out.printf("[Composer] Running in asynchronous mode, %d threads at most!\n", _workers);
+        Vector<PipelinePart> idPipeline = new Vector<>();
+
+        try {
+            if(_storage!=null) {
+                _storage.addNewRun(name,this);
+            }
+            TypeSystemDescription desc = instantiate_pipeline(idPipeline);
+            if (_cas_poolsize == null) {
+                _cas_poolsize = (int)Math.ceil(_workers*1.5);
+                System.out.printf("[Composer] Calculated CAS poolsize of %d!\n", _cas_poolsize);
+            } else {
+                if (_cas_poolsize < _workers) {
+                    System.err.println("[Composer] WARNING: Pool size is smaller than the available threads, this is likely a bottleneck.");
+                }
+            }
+
+            for(int i = 0; i < _cas_poolsize; i++) {
+                emptyCasDocuments.add(JCasFactory.createJCas(desc));
+            }
+
+            Thread []arr = new Thread[_workers];
+            for(int i = 0; i < _workers; i++) {
+                System.out.printf("[Composer] Starting worker thread [%d/%d]\n",i+1,_workers);
+                arr[i] = new DUUIWorker(idPipeline,emptyCasDocuments,loadedCasDocuments,shutdown,aliveThreads,_storage,name,collectionReader);
+                arr[i].start();
+            }
+            Instant starttime = Instant.now();
+            while(true) {
+                JCas jc = emptyCasDocuments.poll();
+                while(jc == null) {
+                    jc = emptyCasDocuments.poll();
+                }
+                if(collectionReader.getNextCAS(jc)) {
+                    loadedCasDocuments.add(jc);
+                }
+                else {
+                    emptyCasDocuments.add(jc);
+                    break;
+                }
+            }
+
+            while(emptyCasDocuments.size() != _cas_poolsize) {
+                System.out.println("[Composer] Waiting for threads to finish document processing...");
+                Thread.sleep(1000);
+            }
+            System.out.println("[Composer] All documents have been processed. Signaling threads to shut down now...");
+            shutdown.set(true);
+
+            for(int i = 0; i < arr.length; i++) {
+                System.out.printf("[Composer] Waiting for thread [%d/%d] to shut down\n",i+1,arr.length);
+                arr[i].join();
+                System.out.printf("[Composer] Thread %d returned.\n",i);
+            }
+            if(_storage!=null) {
+                _storage.finalizeRun(name,starttime,Instant.now());
+            }
+            System.out.println("[Composer] All threads returned.");
+            shutdown_pipeline(idPipeline);
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.out.println("[Composer] Something went wrong, shutting down remaining components...");
+            shutdown_pipeline(idPipeline);
+            throw e;
+        }
+    }
+
     private void run_async(CollectionReader collectionReader, String name) throws Exception {
         ConcurrentLinkedQueue<JCas> emptyCasDocuments = new ConcurrentLinkedQueue<>();
         ConcurrentLinkedQueue<JCas> loadedCasDocuments = new ConcurrentLinkedQueue<>();
@@ -290,7 +385,7 @@ public class DUUIComposer {
             Thread []arr = new Thread[_workers];
             for(int i = 0; i < _workers; i++) {
                 System.out.printf("[Composer] Starting worker thread [%d/%d]\n",i+1,_workers);
-                arr[i] = new DUUIWorker(idPipeline,emptyCasDocuments,loadedCasDocuments,shutdown,aliveThreads,_storage,name);
+                arr[i] = new DUUIWorker(idPipeline,emptyCasDocuments,loadedCasDocuments,shutdown,aliveThreads,_storage,name,null);
                 arr[i].start();
             }
             Instant starttime = Instant.now();
