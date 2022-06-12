@@ -193,6 +193,22 @@ public class DUUIComposer {
         return _pipeline.lastElement();
     }*/
 
+    public DUUIComposer add(DUUIDockerDriver.Component object) throws InvalidXMLException, IOException, SAXException, CompressorException {
+        return add(object.build());
+    }
+
+    public DUUIComposer add(DUUIUIMADriver.Component object) throws InvalidXMLException, IOException, SAXException, CompressorException {
+        return add(object.build());
+    }
+
+    public DUUIComposer add(DUUIRemoteDriver.Component object) throws InvalidXMLException, IOException, SAXException, CompressorException {
+        return add(object.build());
+    }
+
+    public DUUIComposer add(DUUISwarmDriver.Component object) throws InvalidXMLException, IOException, SAXException, CompressorException {
+        return add(object.build());
+    }
+
     public DUUIComposer add(DUUIPipelineComponent object) throws InvalidXMLException, IOException, SAXException, CompressorException {
         IDUUIDriverInterface driver = _drivers.get(object.getDriver());
         if (driver == null) {

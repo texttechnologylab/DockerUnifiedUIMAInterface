@@ -9,7 +9,6 @@ import org.apache.uima.fit.factory.AnalysisEngineFactory;
 import org.apache.uima.util.InvalidXMLException;
 import org.json.JSONArray;
 import org.json.JSONObject;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.xml.sax.SAXException;
 
 
@@ -483,6 +482,11 @@ public class DUUIPipelineComponent {
 
     public final Map<String,String> getParameters() {
         return _parameters;
+    }
+
+    public DUUIPipelineComponent clearParameters() {
+        _parameters.clear();
+        return this;
     }
 
     public boolean isCompatible(IDUUIDriverInterface driver) throws InvalidXMLException, IOException, SAXException {

@@ -1,4 +1,8 @@
+import org.apache.uima.cas.SerialFormat;
 import org.apache.uima.fit.factory.CollectionReaderFactory;
+import org.apache.uima.fit.factory.JCasFactory;
+import org.apache.uima.jcas.JCas;
+import org.apache.uima.util.CasIOUtils;
 import org.dkpro.core.io.xmi.XmiReader;
 import org.junit.jupiter.api.Test;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
@@ -8,12 +12,17 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUISwarmDriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.sqlite.DUUISqliteStorageBackend;
 
+import java.io.ByteArrayOutputStream;
+
 public class TestDUUIBenchmark {
     private static int iWorkers = 2;
-    private static String sourceLocation = "/home/alexander/Documents/Corpora/German-Political-Speeches-Corpus/processed_sample/*.xmi";
+    private static String sourceLocation = "/home/alexander/Documents/Corpora/German-Political-Speeches-Corpus/processed_test/*.xmi.gz";
 
     @Test
     public void ComposerPerformanceTestJava() throws Exception {
+        JCas jc = JCasFactory.createJCas();
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        CasIOUtils.save(jc.getCas(), out, SerialFormat.XMI_1_1);
         DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend("serialization_gercorpa.db")
                 .withConnectionPoolSize(iWorkers);
 
@@ -23,16 +32,16 @@ public class TestDUUIBenchmark {
                 .withStorageBackend(sqlite)
                 .withLuaContext(ctx)
                 .withWorkers(iWorkers);
-        composer.addDriver(new DUUISwarmDriver());
+        composer.addDriver(new DUUIRemoteDriver());
         composer.addDriver(new DUUIDockerDriver());
 
-        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/benchmark_java_xmi:0.1")
+        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
                 .withScale(iWorkers)
                 .withImageFetching()
                 .build());
-        /*composer.add(new DUUIRemoteDriver.Component("http://localhost:9714")
-                        .withScale(1)
-                ,DUUIRemoteDriver.class);*/
+        //composer.add(new DUUIRemoteDriver.Component("http://localhost:9714")
+        //                .withScale(1)
+        //                .build());
         composer.run(CollectionReaderFactory.createReaderDescription(XmiReader.class,
                 XmiReader.PARAM_LANGUAGE,"de",
                 XmiReader.PARAM_ADD_DOCUMENT_METADATA,false,

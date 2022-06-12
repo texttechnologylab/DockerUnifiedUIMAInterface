@@ -117,7 +117,6 @@ public interface IDUUIInstantiatedPipelineComponent {
         int tries = 0;
         HttpResponse<byte[]> resp = null;
         while(tries < 10) {
-            //System.out.printf("Address %s\n",queue.getValue0().generateURL()+ DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS);
             tries++;
             try {
                 HttpRequest request = HttpRequest.newBuilder()
@@ -129,6 +128,7 @@ public interface IDUUIInstantiatedPipelineComponent {
                 break;
             }
             catch(Exception e) {
+                e.printStackTrace();
                 //System.out.printf("Cannot reach endpoint trying again %d/%d...\n",tries+1,10);
             }
         }
