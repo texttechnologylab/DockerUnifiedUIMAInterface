@@ -39,6 +39,11 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
             component.withUrl(url);
         }
 
+        public Component(List<String> urls) throws URISyntaxException, IOException {
+            component = new DUUIPipelineComponent();
+            component.withUrls(urls);
+        }
+
         public Component(DUUIPipelineComponent pComponent) throws URISyntaxException, IOException {
             component = pComponent;
         }
@@ -80,7 +85,7 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         }
     }
     private static class InstantiatedComponent implements IDUUIInstantiatedPipelineComponent {
-        private String _url;
+        private List<String> _urls;
         private int _maximum_concurrency;
         private ConcurrentLinkedQueue<ComponentInstance> _components;
         private IDUUICommunicationLayer _layer;
@@ -111,12 +116,9 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
 
         public InstantiatedComponent(DUUIPipelineComponent comp) {
             _component = comp;
-            List<String> urls = comp.getUrl();
-            if (urls == null || urls.size() == 0) {
+            _urls = comp.getUrl();
+            if (_urls == null || _urls.size() == 0) {
                 throw new InvalidParameterException("Missing parameter URL in the pipeline component descriptor");
-            }
-            else {
-                _url = urls.get(0);
             }
 
             _parameters = comp.getParameters();
@@ -137,8 +139,8 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
             return _maximum_concurrency;
         }
 
-        public String getUrl() {
-            return _url;
+        public List<String> getUrls() {
+            return _urls;
         }
 
         public Map<String,String> getParameters() {return _parameters;}
@@ -173,16 +175,23 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         InstantiatedComponent comp = new InstantiatedComponent(component);
 
         final String uuidCopy = uuid;
-        IDUUICommunicationLayer layer = DUUIDockerDriver.responsiveAfterTime(comp.getUrl(), jc, 100000, _client, (msg) -> {
-            System.out.printf("[RemoteDriver][%s] %s\n", uuidCopy,msg);
-        },_luaContext, skipVerification);
-        comp.setCommunicationLayer(layer);
-        for(int i = 0; i < comp.getScale(); i++) {
-            comp.addComponent(new ComponentInstance(comp.getUrl()));
+        boolean added_communication_layer = false;
+
+        for(String url : comp.getUrls()) {
+            IDUUICommunicationLayer layer = DUUIDockerDriver.responsiveAfterTime(url, jc, 100000, _client, (msg) -> {
+                System.out.printf("[RemoteDriver][%s] %s\n", uuidCopy, msg);
+            }, _luaContext, skipVerification);
+            if(!added_communication_layer) {
+                comp.setCommunicationLayer(layer);
+                added_communication_layer = true;
+            }
+            for (int i = 0; i < comp.getScale(); i++) {
+                comp.addComponent(new ComponentInstance(url));
+            }
+            _components.put(uuid, comp);
+            System.out.printf("[RemoteDriver][%s] Remote URL %s is online and seems to understand DUUI V1 format!\n", uuid, url);
+            System.out.printf("[RemoteDriver][%s] Maximum concurrency for this endpoint %d\n", uuid, comp.getScale());
         }
-        _components.put(uuid, comp);
-        System.out.printf("[RemoteDriver][%s] Remote URL %s is online and seems to understand DUUI V1 format!\n", uuid, comp.getUrl());
-        System.out.printf("[RemoteDriver][%s] Maximum concurrency for this endpoint %d\n", uuid, comp.getScale());
         return uuid;
     }
 

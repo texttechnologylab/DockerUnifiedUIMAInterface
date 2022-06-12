@@ -207,7 +207,7 @@ public class DUUIPipelineComponent {
         return this;
     }
 
-    public DUUIPipelineComponent withUrls(String []urls) {
+    public DUUIPipelineComponent withUrls(List<String> urls) {
         if(_finalizedEncoded!=null) {
             throw new RuntimeException("DUUIPipelineComponent has already been finalized, it is immutable now!");
         }

@@ -16,7 +16,7 @@ import java.io.ByteArrayOutputStream;
 
 public class TestDUUIBenchmarkGerParCor {
     private static int iWorkers = 2;
-    private static String sourceLocation = "/home/alexander/Documents/Corpora/German-Political-Speeches-Corpus/processed_sample/*.xmi";
+    private static String sourceLocation = "/home/alexander/Documents/Corpora/German-Political-Speeches-Corpus/processed_test/*.xmi.gz";
 
 
     @Test

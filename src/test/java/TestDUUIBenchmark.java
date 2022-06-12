@@ -13,10 +13,11 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.sqlite.DUUISqliteStorageBackend;
 
 import java.io.ByteArrayOutputStream;
+import java.util.Arrays;
 
 public class TestDUUIBenchmark {
     private static int iWorkers = 2;
-    private static String sourceLocation = "/home/alexander/Documents/Corpora/German-Political-Speeches-Corpus/processed_test/*.xmi.gz";
+    private static String sourceLocation = "/home/alexander/Documents/Corpora/German-Political-Speeches-Corpus/processed_sample/*.xmi";
 
     @Test
     public void ComposerPerformanceTestJava() throws Exception {
@@ -35,13 +36,12 @@ public class TestDUUIBenchmark {
         composer.addDriver(new DUUIRemoteDriver());
         composer.addDriver(new DUUIDockerDriver());
 
-        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
-                .withScale(iWorkers)
-                .withImageFetching()
-                .build());
-        //composer.add(new DUUIRemoteDriver.Component("http://localhost:9714")
-        //                .withScale(1)
-        //                .build());
+        //composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/benchmark_java_xmi:0.2")
+        //        .withScale(iWorkers)
+        //        .withImageFetching());
+        composer.add(new DUUIRemoteDriver.Component(Arrays.asList("http://localhost:9714","http://localhost:9715"))
+                        .withScale(1)
+                        .build());
         composer.run(CollectionReaderFactory.createReaderDescription(XmiReader.class,
                 XmiReader.PARAM_LANGUAGE,"de",
                 XmiReader.PARAM_ADD_DOCUMENT_METADATA,false,

@@ -581,12 +581,12 @@ public class DUUIComposer {
         //        DUUIUIMADriver.class);
       /*  composer.add(new DUUILocalDriver.Component("java_segmentation:latest")*/
 
-        composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class))
-                .withScale(4)
-                .build()
-        );
-        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/benchmark_serde_echo_msgpack:0.2")
-                .build());
+       // composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class))
+       //         .withScale(4)
+       //         .build()
+       // );
+       // composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/benchmark_serde_echo_msgpack:0.2")
+       //         .build());
 //        composer.add(new DUUILocalDriver.Component("java_segmentation:latest")
 //                        .withScale(1)
 //                , DUUILocalDriver.class);
@@ -648,44 +648,7 @@ public class DUUIComposer {
 
         // Run single document
         composer.run(jc,"fuchs");
-        composer.run(jc,"fuchs2");
 
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        XmlCasSerializer.serialize(jc.getCas(),out);
-        System.out.println(new String(out.toByteArray()));
-
-        DUUIPipelineDescription desc = DUUIPipelineDescription.fromJCas(jc);
-        System.out.println(desc.getComponents().size());
-        for(DUUIPipelineAnnotationComponent comp : desc.getComponents()) {
-            System.out.println(comp.getAnnotation().getTimestamp());
-            System.out.println(comp.getComponent().getDriver());
-            System.out.println(comp.getComponent().getScale());
-            comp.getComponent().withScale(1);
-        }
-
-        for(DUUIPipelineAnnotationComponent comp : desc.getComponents()) {
-            System.out.println(comp.getAnnotation().getTimestamp());
-            System.out.println(comp.getComponent().getDriver());
-            System.out.println(comp.getComponent().getScale());
-            String drivername = comp.getComponent().getDriver();
-
-            //Use the docker image on the swarm
-            if(drivername.equals(DUUIDockerDriver.class.getCanonicalName())) {
-                comp.getComponent().withDriver(DUUISwarmDriver.class);
-            }
-        }
-
-        composer.resetPipeline();
-        composer.add(desc);
-        composer.run(jc);
-
-        DUUIPipelineDescription desc2 = DUUIPipelineDescription.fromJCas(jc);
-        System.out.println(desc2.getComponents().size());
-
-        System.out.println("Final result...");
-        for(DUUIPipelineAnnotationComponent comp : desc2.getComponents()) {
-            System.out.println(comp.getComponent().attemptAutomaticDescription());
-        }
         /*
         String val = Files.readString(Path.of(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/uima_xmi_communication_token_only.lua").toURI()));
         DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(val,"remote");
