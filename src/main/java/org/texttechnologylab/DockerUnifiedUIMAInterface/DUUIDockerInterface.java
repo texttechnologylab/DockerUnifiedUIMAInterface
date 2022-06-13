@@ -420,6 +420,14 @@ public class DUUIDockerInterface {
      * @throws InterruptedException
      */
     public String run(String imageid, boolean gpu, boolean autoremove, int port, boolean mapDaemon) throws InterruptedException {
+        InspectImageResponse resp = _docker.inspectImageCmd(imageid).exec();
+        List<String> digests = resp.getRepoDigests();
+
+        System.out.println("Image digests!");
+        for(String i : digests) {
+            System.out.println(i);
+        }
+
         HostConfig cfg = new HostConfig();
         if (autoremove) {
             cfg = cfg.withAutoRemove(true);
