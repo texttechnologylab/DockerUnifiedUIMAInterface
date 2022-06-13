@@ -64,7 +64,8 @@ class DUUIWorker extends Thread {
             while(object == null) {
                 object = _loadedInstances.poll();
 
-                if(_shutdown.get()) {
+                if(_shutdown.get() && object == null) {
+                    _threadsAlive.getAndDecrement();
                     return;
                 }
 
@@ -74,14 +75,19 @@ class DUUIWorker extends Thread {
                         continue;
                     try {
                         if(!_reader.getNextCAS(object)) {
+                            _threadsAlive.getAndDecrement();
                             _instancesToBeLoaded.add(object);
-                            return;
+                            //Give the main IO Thread time to finish work
+                            Thread.sleep(300);
+                            object = null;
                         }
                     } catch (IOException e) {
                         e.printStackTrace();
                     } catch (CompressorException e) {
                         e.printStackTrace();
                     } catch (SAXException e) {
+                        e.printStackTrace();
+                    } catch (InterruptedException e) {
                         e.printStackTrace();
                     }
                     catch (NullPointerException e){
@@ -131,6 +137,11 @@ public class DUUIComposer {
     private IDUUIStorageBackend _storage;
     private boolean _skipVerification;
 
+    private Vector<PipelinePart> _instantiatedPipeline;
+    private Thread _shutdownHook;
+    private AtomicBoolean _shutdownAtomic;
+    private boolean _hasShutdown;
+
     private static final String DRIVER_OPTION_NAME = "duuid.composer.driver";
     public static final String COMPONENT_COMPONENT_UNIQUE_KEY = "duuid.storage.componentkey";
 
@@ -151,12 +162,15 @@ public class DUUIComposer {
         _monitor = null;
         _storage = null;
         _skipVerification = false;
+        _hasShutdown = false;
+        _shutdownAtomic = new AtomicBoolean(false);
+        _instantiatedPipeline = new Vector<>();
         _minimalTypesystem = TypeSystemDescriptionFactory.createTypeSystemDescriptionFromPath(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/types/reproducibleAnnotations.xml").toURI().toString());
         System.out.println("[Composer] Initialised LUA scripting layer with version "+ globals.get("_VERSION"));
 
         DUUIComposer that = this;
 
-        Thread shutdownHook = new Thread(() -> {
+        _shutdownHook = new Thread(() -> {
             try {
                 System.out.println("[Composer] ShutdownHook... ");
                 that.shutdown();
@@ -166,8 +180,7 @@ public class DUUIComposer {
             }
         });
 
-        Runtime.getRuntime().addShutdownHook(shutdownHook);
-
+        Runtime.getRuntime().addShutdownHook(_shutdownHook);
     }
 
     public DUUIComposer withMonitor(DUUIMonitor monitor) throws UnknownHostException, InterruptedException {
@@ -293,18 +306,17 @@ public class DUUIComposer {
         ConcurrentLinkedQueue<JCas> emptyCasDocuments = new ConcurrentLinkedQueue<>();
         ConcurrentLinkedQueue<JCas> loadedCasDocuments = new ConcurrentLinkedQueue<>();
         AtomicInteger aliveThreads = new AtomicInteger(0);
-        AtomicBoolean shutdown = new AtomicBoolean(false);
+        _shutdownAtomic.set(false);
 
         Exception catched = null;
 
         System.out.printf("[Composer] Running in asynchronous mode, %d threads at most!\n", _workers);
-        Vector<PipelinePart> idPipeline = new Vector<>();
 
         try {
             if(_storage!=null) {
                 _storage.addNewRun(name,this);
             }
-            TypeSystemDescription desc = instantiate_pipeline(idPipeline);
+            TypeSystemDescription desc = instantiate_pipeline();
             if (_cas_poolsize == null) {
                 _cas_poolsize = (int)Math.ceil(_workers*1.5);
                 System.out.printf("[Composer] Calculated CAS poolsize of %d!\n", _cas_poolsize);
@@ -318,29 +330,14 @@ public class DUUIComposer {
                 emptyCasDocuments.add(JCasFactory.createJCas(desc));
             }
 
-            Thread shutdownHook = new Thread()
-            {
-                @Override
-                public void run()
-                {
-                    try {
-                        shutdown_pipeline(idPipeline);
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
-                }
-            };
-
-            Runtime.getRuntime().addShutdownHook(shutdownHook);
-
             Thread []arr = new Thread[_workers];
             for(int i = 0; i < _workers; i++) {
                 System.out.printf("[Composer] Starting worker thread [%d/%d]\n",i+1,_workers);
-                arr[i] = new DUUIWorker(idPipeline,emptyCasDocuments,loadedCasDocuments,shutdown,aliveThreads,_storage,name,collectionReader);
+                arr[i] = new DUUIWorker(_instantiatedPipeline,emptyCasDocuments,loadedCasDocuments,_shutdownAtomic,aliveThreads,_storage,name,collectionReader);
                 arr[i].start();
             }
             Instant starttime = Instant.now();
-            while(true) {
+            while(!_shutdownAtomic.get()) {
                 JCas jc = emptyCasDocuments.poll();
                 while(jc == null) {
                     jc = emptyCasDocuments.poll();
@@ -359,7 +356,7 @@ public class DUUIComposer {
                 Thread.sleep(1000);
             }
             System.out.println("[Composer] All documents have been processed. Signaling threads to shut down now...");
-            shutdown.set(true);
+            _shutdownAtomic.set(true);
 
             for(int i = 0; i < arr.length; i++) {
                 System.out.printf("[Composer] Waiting for thread [%d/%d] to shut down\n",i+1,arr.length);
@@ -370,11 +367,11 @@ public class DUUIComposer {
                 _storage.finalizeRun(name,starttime,Instant.now());
             }
             System.out.println("[Composer] All threads returned.");
-            shutdown_pipeline(idPipeline);
+            shutdown_pipeline();
         } catch (Exception e) {
             e.printStackTrace();
             System.out.println("[Composer] Something went wrong, shutting down remaining components...");
-            shutdown_pipeline(idPipeline);
+            shutdown_pipeline();
             throw e;
         }
     }
@@ -383,18 +380,17 @@ public class DUUIComposer {
         ConcurrentLinkedQueue<JCas> emptyCasDocuments = new ConcurrentLinkedQueue<>();
         ConcurrentLinkedQueue<JCas> loadedCasDocuments = new ConcurrentLinkedQueue<>();
         AtomicInteger aliveThreads = new AtomicInteger(0);
-        AtomicBoolean shutdown = new AtomicBoolean(false);
+        _shutdownAtomic.set(false);
 
         Exception catched = null;
 
         System.out.printf("[Composer] Running in asynchronous mode, %d threads at most!\n", _workers);
-        Vector<PipelinePart> idPipeline = new Vector<>();
 
         try {
             if(_storage!=null) {
                 _storage.addNewRun(name,this);
             }
-            TypeSystemDescription desc = instantiate_pipeline(idPipeline);
+            TypeSystemDescription desc = instantiate_pipeline();
             if (_cas_poolsize == null) {
                 _cas_poolsize = (int)Math.ceil(_workers*1.5);
                 System.out.printf("[Composer] Calculated CAS poolsize of %d!\n", _cas_poolsize);
@@ -411,7 +407,7 @@ public class DUUIComposer {
             Thread []arr = new Thread[_workers];
             for(int i = 0; i < _workers; i++) {
                 System.out.printf("[Composer] Starting worker thread [%d/%d]\n",i+1,_workers);
-                arr[i] = new DUUIWorker(idPipeline,emptyCasDocuments,loadedCasDocuments,shutdown,aliveThreads,_storage,name,null);
+                arr[i] = new DUUIWorker(_instantiatedPipeline,emptyCasDocuments,loadedCasDocuments,_shutdownAtomic,aliveThreads,_storage,name,null);
                 arr[i].start();
             }
             Instant starttime = Instant.now();
@@ -429,7 +425,7 @@ public class DUUIComposer {
                 Thread.sleep(1000);
             }
             System.out.println("[Composer] All documents have been processed. Signaling threads to shut down now...");
-            shutdown.set(true);
+            _shutdownAtomic.set(true);
 
             for(int i = 0; i < arr.length; i++) {
                 System.out.printf("[Composer] Waiting for thread [%d/%d] to shut down\n",i+1,arr.length);
@@ -440,11 +436,11 @@ public class DUUIComposer {
                 _storage.finalizeRun(name,starttime,Instant.now());
             }
             System.out.println("[Composer] All threads returned.");
-            shutdown_pipeline(idPipeline);
+            shutdown_pipeline();
         } catch (Exception e) {
             e.printStackTrace();
             System.out.println("[Composer] Something went wrong, shutting down remaining components...");
-            shutdown_pipeline(idPipeline);
+            shutdown_pipeline();
             throw e;
         }
     }
@@ -477,32 +473,18 @@ public class DUUIComposer {
             return;
         }
 
-        Vector<PipelinePart> idPipeline = new Vector<>();
-        Thread shutdownHook = new Thread()
-        {
-            @Override
-            public void run()
-            {
-                try {
-                    shutdown_pipeline(idPipeline);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }
-        };
         try {
             if(_storage!=null) {
                 _storage.addNewRun(name,this);
             }
-            Runtime.getRuntime().addShutdownHook(shutdownHook);
-            TypeSystemDescription desc = instantiate_pipeline(idPipeline);
+            TypeSystemDescription desc = instantiate_pipeline();
             JCas jc = JCasFactory.createJCas(desc);
             Instant starttime = Instant.now();
             while(collectionReader.hasNext()) {
                 long waitTimeStart = System.nanoTime();
                 collectionReader.getNext(jc.getCas());
                 long waitTimeEnd = System.nanoTime();
-                run_pipeline(name,jc,waitTimeEnd-waitTimeStart,idPipeline);
+                run_pipeline(name,jc,waitTimeEnd-waitTimeStart,_instantiatedPipeline);
                 jc.reset();
             }
             if(_storage!=null) {
@@ -514,14 +496,14 @@ public class DUUIComposer {
             catched = e;
         }
 
-        shutdown_pipeline(idPipeline);
-        Runtime.getRuntime().removeShutdownHook(shutdownHook);
+        shutdown_pipeline();
         if (catched != null) {
             throw catched;
         }
     }
 
-    private TypeSystemDescription instantiate_pipeline(Vector<PipelinePart> idPipeline) throws Exception {
+    private TypeSystemDescription instantiate_pipeline() throws Exception {
+        _hasShutdown = false;
         JCas jc = JCasFactory.createJCas();
         jc.setDocumentLanguage("en");
         jc.setDocumentText("Hello World!");
@@ -541,7 +523,7 @@ public class DUUIComposer {
                 if (desc != null) {
                     descriptions.add(desc);
                 }
-                idPipeline.add(new PipelinePart(driver, uuid));
+                _instantiatedPipeline.add(new PipelinePart(driver, uuid));
             }
         }
         catch (Exception e){
@@ -572,11 +554,12 @@ public class DUUIComposer {
         return jc;
     }
 
-    private void shutdown_pipeline(Vector<PipelinePart> pipeline) throws Exception {
-        for (PipelinePart comp : pipeline) {
+    private void shutdown_pipeline() throws Exception {
+        for (PipelinePart comp : _instantiatedPipeline) {
             System.out.printf("[Composer] Shutting down %s...\n", comp.getUUID());
             comp.getDriver().destroy(comp.getUUID());
         }
+        _instantiatedPipeline.clear();
         System.out.println("[Composer] Shut down complete.");
 
         if(_monitor!=null) {
@@ -586,21 +569,20 @@ public class DUUIComposer {
 
     public void printConcurrencyGraph() throws Exception {
         Exception catched = null;
-        Vector<PipelinePart> idPipeline = new Vector<>();
         try {
-            instantiate_pipeline(idPipeline);
+            instantiate_pipeline();
             System.out.printf("[Composer]: CAS Pool size %d\n", Objects.requireNonNullElseGet(_cas_poolsize, () -> _workers));
             System.out.printf("[Composer]: Worker threads %d\n", _workers);
-            for (PipelinePart comp : idPipeline) {
+            for (PipelinePart comp : _instantiatedPipeline) {
                 comp.getDriver().printConcurrencyGraph(comp.getUUID());
             }
         }
         catch(Exception e) {
             e.printStackTrace();
-            System.out.println(idPipeline+"\t[Composer] Something went wrong, shutting down remaining components...");
+            System.out.println(_instantiatedPipeline+"\t[Composer] Something went wrong, shutting down remaining components...");
             catched = e;
         }
-        shutdown_pipeline(idPipeline);
+        shutdown_pipeline();
         if (catched != null) {
             throw catched;
         }
@@ -615,32 +597,18 @@ public class DUUIComposer {
             throw new RuntimeException("[Composer] When a storage backend is specified a run name is required, since it is the primary key");
         }
         Exception catched = null;
-        Vector<PipelinePart> idPipeline = new Vector<>();
         if(_workers!=1) {
             System.err.println("[Composer] WARNING: Single document processing runs always single threaded, worker threads are ignored!");
         }
 
-        Thread shutdownHook = new Thread()
-        {
-            @Override
-            public void run()
-            {
-                try {
-                    shutdown_pipeline(idPipeline);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }
-        };
         try {
             if(_storage!=null) {
                 _storage.addNewRun(name,this);
             }
             Instant starttime = Instant.now();
 
-            Runtime.getRuntime().addShutdownHook(shutdownHook);
-            instantiate_pipeline(idPipeline);
-            JCas start = run_pipeline(name,jc,0,idPipeline);
+            instantiate_pipeline();
+            JCas start = run_pipeline(name,jc,0,_instantiatedPipeline);
 
             if(_storage!=null) {
                 _storage.finalizeRun(name,starttime,Instant.now());
@@ -650,8 +618,7 @@ public class DUUIComposer {
             System.out.println("[Composer] Something went wrong, shutting down remaining components...");
             catched = e;
         }
-        shutdown_pipeline(idPipeline);
-        Runtime.getRuntime().removeShutdownHook(shutdownHook);
+        shutdown_pipeline();
         if (catched != null) {
             throw catched;
         }
@@ -663,14 +630,25 @@ public class DUUIComposer {
 
 
     public void shutdown() throws UnknownHostException {
-        if(_monitor!=null) {
-            _monitor.shutdown();
+        if(!_hasShutdown) {
+            _shutdownAtomic.set(true);
+            if (_monitor != null) {
+                _monitor.shutdown();
+            } else if (_storage != null) {
+                _storage.shutdown();
+            }
+            try {
+                shutdown_pipeline();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            for (IDUUIDriverInterface driver : _drivers.values()) {
+                driver.shutdown();
+            }
+            _hasShutdown = true;
         }
-        else if(_storage!=null) {
-            _storage.shutdown();
-        }
-        for(IDUUIDriverInterface driver : _drivers.values()) {
-            driver.shutdown();
+        else {
+            System.out.println("Skipped shutdown since it already happened!");
         }
     }
 

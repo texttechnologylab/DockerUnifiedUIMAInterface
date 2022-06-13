@@ -329,6 +329,14 @@ public class DUUIPipelineComponent {
         return this;
     }
 
+    public DUUIPipelineComponent __internalPinDockerImage(String pinName) {
+        if(pinName==null) {
+            throw new RuntimeException("Cannot pin an image with a null value!");
+        }
+        _options.put(dockerImageName,pinName);
+        return this;
+    }
+
     public String getDockerImageName() {
         return getDockerImageName(null);
     }

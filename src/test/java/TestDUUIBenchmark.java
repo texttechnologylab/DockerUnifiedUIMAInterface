@@ -16,8 +16,8 @@ import java.io.ByteArrayOutputStream;
 import java.util.Arrays;
 
 public class TestDUUIBenchmark {
-    private static int iWorkers = 2;
-    private static String sourceLocation = "/home/alexander/Documents/Corpora/German-Political-Speeches-Corpus/processed_sample/*.xmi";
+    private static int iWorkers = 4;
+    private static String sourceLocation = "/home/alexander/Documents/Corpora/German-Political-Speeches-Corpus/processed/*.xmi";
 
     @Test
     public void ComposerPerformanceTestJava() throws Exception {

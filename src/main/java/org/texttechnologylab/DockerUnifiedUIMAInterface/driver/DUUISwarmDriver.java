@@ -120,7 +120,11 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         }
         System.out.printf("[DockerSwarmDriver] Assigned new pipeline component unique id %s\n", uuid);
 
-            String serviceid = _interface.run_service(comp.getImageName(),comp.getScale());
+            String digest = _interface.getDigestFromImage(comp.getImageName());
+            comp.getPipelineComponent().__internalPinDockerImage(digest);
+        System.out.printf("[DockerSwarmDriver] Transformed image %s to pinnable image name %s\n", comp.getImageName(),digest);
+
+        String serviceid = _interface.run_service(digest,comp.getScale());
             int port = _interface.extract_service_port_mapping(serviceid);
 
             if (port == 0) {
