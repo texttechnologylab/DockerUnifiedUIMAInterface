@@ -16,12 +16,13 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.sqlite.
 import java.io.ByteArrayOutputStream;
 
 public class TestDUUIBenchmarkGerParCor {
-    private static int iWorkers = 4;
-    private static String sourceLocation = "/home/alexander/Documents/Corpora/German-Political-Speeches-Corpus/processed_test/*.xmi.gz";
+    private static int iWorkers = 8;
+    private static String sourceLocation = "/mnt/corpora2/xmi/ParliamentOutNew/";
+    private static String sourceSuffix = ".xmi.gz";
 
-    @Test
+//    @Test
     public void ComposerAsyncCollectionReader() throws Exception {
-        AsyncCollectionReader rd = new AsyncCollectionReader("/home/alexander/Documents/Corpora/German-Political-Speeches-Corpus/processed_test/",".xmi.gz");
+        AsyncCollectionReader rd = new AsyncCollectionReader(sourceLocation, sourceSuffix);
         DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend("serialization_gercorpa.db")
                 .withConnectionPoolSize(iWorkers);
 
@@ -43,6 +44,7 @@ public class TestDUUIBenchmarkGerParCor {
 
     @Test
     public void ComposerPerformanceTestEchoSerializeDeserializeBinary() throws Exception {
+        AsyncCollectionReader rd = new AsyncCollectionReader(sourceLocation, sourceSuffix);
         DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend("serialization_gercorpa.db")
                 .withConnectionPoolSize(iWorkers);
 
@@ -58,17 +60,21 @@ public class TestDUUIBenchmarkGerParCor {
                 .withScale(iWorkers)
                 .withImageFetching());
 
-        composer.run(CollectionReaderFactory.createReaderDescription(XmiReader.class,
-                XmiReader.PARAM_LANGUAGE,"de",
-                XmiReader.PARAM_ADD_DOCUMENT_METADATA,false,
-                XmiReader.PARAM_OVERRIDE_DOCUMENT_METADATA,false,
-                XmiReader.PARAM_LENIENT,true,
-                XmiReader.PARAM_SOURCE_LOCATION,sourceLocation),"run_serde_echo_binary");
+//        composer.run(CollectionReaderFactory.createReaderDescription(XmiReader.class,
+//                XmiReader.PARAM_LANGUAGE,"de",
+//                XmiReader.PARAM_ADD_DOCUMENT_METADATA,false,
+//                XmiReader.PARAM_OVERRIDE_DOCUMENT_METADATA,false,
+//                XmiReader.PARAM_LENIENT,true,
+//                XmiReader.PARAM_SOURCE_LOCATION,sourceLocation),"run_serde_echo_binary");
+
+        composer.run(rd, "run_serde_echo_binary");
         composer.shutdown();
     }
 
     @Test
     public void ComposerPerformanceTestEchoSerializeDeserializeXmi() throws Exception {
+        AsyncCollectionReader rd = new AsyncCollectionReader(sourceLocation, sourceSuffix);
+
         DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend("serialization_gercorpa.db")
                 .withConnectionPoolSize(iWorkers);
 
@@ -83,18 +89,22 @@ public class TestDUUIBenchmarkGerParCor {
         composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/benchmark_serde_echo_xmi:0.2")
                 .withScale(iWorkers)
                 .withImageFetching());
+//
+//        composer.run(CollectionReaderFactory.createReaderDescription(XmiReader.class,
+//                XmiReader.PARAM_LANGUAGE,"de",
+//                XmiReader.PARAM_ADD_DOCUMENT_METADATA,false,
+//                XmiReader.PARAM_OVERRIDE_DOCUMENT_METADATA,false,
+//                XmiReader.PARAM_LENIENT,true,
+//                XmiReader.PARAM_SOURCE_LOCATION,sourceLocation),"run_serde_echo_xmi");
+        composer.run(rd, "run_serde_echo_xmi");
 
-        composer.run(CollectionReaderFactory.createReaderDescription(XmiReader.class,
-                XmiReader.PARAM_LANGUAGE,"de",
-                XmiReader.PARAM_ADD_DOCUMENT_METADATA,false,
-                XmiReader.PARAM_OVERRIDE_DOCUMENT_METADATA,false,
-                XmiReader.PARAM_LENIENT,true,
-                XmiReader.PARAM_SOURCE_LOCATION,sourceLocation),"run_serde_echo_xmi");
         composer.shutdown();
     }
 
     @Test
     public void ComposerPerformanceTestEchoSerializeDeserializeMsgpack() throws Exception {
+        AsyncCollectionReader rd = new AsyncCollectionReader(sourceLocation, sourceSuffix);
+
         DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend("serialization_gercorpa.db")
                 .withConnectionPoolSize(iWorkers);
 
@@ -110,17 +120,21 @@ public class TestDUUIBenchmarkGerParCor {
                 .withScale(iWorkers)
                 .withImageFetching());
 
-        composer.run(CollectionReaderFactory.createReaderDescription(XmiReader.class,
-                XmiReader.PARAM_LANGUAGE,"de",
-                XmiReader.PARAM_ADD_DOCUMENT_METADATA,false,
-                XmiReader.PARAM_OVERRIDE_DOCUMENT_METADATA,false,
-                XmiReader.PARAM_LENIENT,true,
-                XmiReader.PARAM_SOURCE_LOCATION,sourceLocation),"run_serde_echo_msgpack");
+//        composer.run(CollectionReaderFactory.createReaderDescription(XmiReader.class,
+//                XmiReader.PARAM_LANGUAGE,"de",
+//                XmiReader.PARAM_ADD_DOCUMENT_METADATA,false,
+//                XmiReader.PARAM_OVERRIDE_DOCUMENT_METADATA,false,
+//                XmiReader.PARAM_LENIENT,true,
+//                XmiReader.PARAM_SOURCE_LOCATION,sourceLocation),"run_serde_echo_msgpack");
+        composer.run(rd, "run_serde_echo_msgpack");
+
         composer.shutdown();
     }
 
     @Test
     public void ComposerPerformanceTestEchoSerializeDeserializeJson() throws Exception {
+        AsyncCollectionReader rd = new AsyncCollectionReader(sourceLocation, sourceSuffix);
+
         DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend("serialization_gercorpa.db")
                 .withConnectionPoolSize(iWorkers);
 
@@ -136,12 +150,15 @@ public class TestDUUIBenchmarkGerParCor {
                 .withScale(iWorkers)
                 .withImageFetching());
 
-        composer.run(CollectionReaderFactory.createReaderDescription(XmiReader.class,
-                XmiReader.PARAM_LANGUAGE,"de",
-                XmiReader.PARAM_ADD_DOCUMENT_METADATA,false,
-                XmiReader.PARAM_OVERRIDE_DOCUMENT_METADATA,false,
-                XmiReader.PARAM_LENIENT,true,
-                XmiReader.PARAM_SOURCE_LOCATION,sourceLocation),"run_serde_echo_json");
+//        composer.run(CollectionReaderFactory.createReaderDescription(XmiReader.class,
+//                XmiReader.PARAM_LANGUAGE,"de",
+//                XmiReader.PARAM_ADD_DOCUMENT_METADATA,false,
+//                XmiReader.PARAM_OVERRIDE_DOCUMENT_METADATA,false,
+//                XmiReader.PARAM_LENIENT,true,
+//                XmiReader.PARAM_SOURCE_LOCATION,sourceLocation),"run_serde_echo_json");
+
+        composer.run(rd, "run_serde_echo_json");
+
         composer.shutdown();
     }
 }
