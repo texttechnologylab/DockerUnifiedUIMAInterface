@@ -76,6 +76,7 @@ class DUUIWorker extends Thread {
         while(true) {
             JCas object = null;
             long waitTimeStart = System.nanoTime();
+            long waitTimeEnd = 0;
             while(object == null) {
                 object = _loadedInstances.poll();
 
@@ -89,6 +90,7 @@ class DUUIWorker extends Thread {
                     if(object==null)
                         continue;
                     try {
+                        waitTimeEnd = System.nanoTime();
                         if(!_reader.getNextCAS(object)) {
                             _threadsAlive.getAndDecrement();
                             _instancesToBeLoaded.add(object);
@@ -107,7 +109,8 @@ class DUUIWorker extends Thread {
                     }
                 }
             }
-            long waitTimeEnd = System.nanoTime();
+            if(waitTimeEnd==0) waitTimeEnd = System.nanoTime();
+
             //System.out.printf("[Composer] Thread %d still alive and doing work\n",num);
 
             DUUIPipelineDocumentPerformance perf = new DUUIPipelineDocumentPerformance(_runKey,
@@ -130,6 +133,81 @@ class DUUIWorker extends Thread {
         }
     }
 }
+
+class DUUIWorkerAsyncReader extends Thread {
+    Vector<DUUIComposer.PipelinePart> _flow;
+    AtomicInteger _threadsAlive;
+    AtomicBoolean _shutdown;
+    IDUUIStorageBackend _backend;
+    JCas _jc;
+    String _runKey;
+    AsyncCollectionReader _reader;
+
+    DUUIWorkerAsyncReader(Vector<DUUIComposer.PipelinePart> engineFlow, JCas jc, AtomicBoolean shutdown, AtomicInteger error,
+                          IDUUIStorageBackend backend, String runKey, AsyncCollectionReader reader) {
+        super();
+        _flow = engineFlow;
+        _jc = jc;
+        _shutdown = shutdown;
+        _threadsAlive = error;
+        _backend = backend;
+        _runKey = runKey;
+        _reader = reader;
+    }
+
+    @Override
+    public void run() {
+        int num = _threadsAlive.addAndGet(1);
+        while (true) {
+            long waitTimeStart = System.nanoTime();
+            long waitTimeEnd = 0;
+            while (true) {
+                if (_shutdown.get()) {
+                    _threadsAlive.getAndDecrement();
+                    return;
+                }
+                try {
+                    if (!_reader.getNextCAS(_jc)) {
+                        //Give the main IO Thread time to finish work
+                        Thread.sleep(300);
+                    } else {
+                        break;
+                    }
+
+                } catch (IOException e) {
+                    e.printStackTrace();
+                } catch (CompressorException e) {
+                    e.printStackTrace();
+                } catch (SAXException e) {
+                    e.printStackTrace();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+            if (waitTimeEnd == 0) waitTimeEnd = System.nanoTime();
+
+            //System.out.printf("[Composer] Thread %d still alive and doing work\n",num);
+
+            DUUIPipelineDocumentPerformance perf = new DUUIPipelineDocumentPerformance(_runKey,
+                    waitTimeEnd - waitTimeStart,
+                    _jc);
+            for (DUUIComposer.PipelinePart i : _flow) {
+                try {
+                    i.getDriver().run(i.getUUID(), _jc, perf);
+                } catch (Exception e) {
+                    //Ignore errors at the moment
+                    e.printStackTrace();
+                    System.out.println("Thread continues work!");
+                }
+            }
+            _jc.reset();
+            if (_backend != null) {
+                _backend.addMetricsForDocument(perf);
+            }
+        }
+    }
+}
+
 
 
 public class DUUIComposer {
@@ -339,7 +417,7 @@ public class DUUIComposer {
             Thread []arr = new Thread[_workers];
             for(int i = 0; i < _workers; i++) {
                 System.out.printf("[Composer] Starting worker thread [%d/%d]\n",i+1,_workers);
-                arr[i] = new DUUIWorker(_instantiatedPipeline,emptyCasDocuments,loadedCasDocuments,_shutdownAtomic,aliveThreads,_storage,name,collectionReader);
+                arr[i] = new DUUIWorkerAsyncReader(_instantiatedPipeline,emptyCasDocuments.poll(),_shutdownAtomic,aliveThreads,_storage,name,collectionReader);
                 arr[i].start();
             }
             Instant starttime = Instant.now();
@@ -347,7 +425,7 @@ public class DUUIComposer {
             CompletableFuture<Integer> []futures = new CompletableFuture[maxNumberOfFutures];
             boolean breakit = false;
             while(!_shutdownAtomic.get()) {
-                if(collectionReader.getCachedSize() > 40) {
+                if(collectionReader.getCachedSize() > collectionReader.getMaxMemory()) {
                     Thread.sleep(50);
                     continue;
                 }

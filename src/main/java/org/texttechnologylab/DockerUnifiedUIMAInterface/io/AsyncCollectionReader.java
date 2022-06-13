@@ -17,6 +17,7 @@ import java.nio.file.Paths;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 class ByteReadFuture {
     private String _path;
@@ -42,7 +43,8 @@ public class AsyncCollectionReader {
     private ConcurrentLinkedQueue<ByteReadFuture> _loadedFiles;
     private int _initialSize;
     private AtomicInteger _docNumber;
-    private AtomicInteger _pendingLoadedFiles;
+    private long _maxMemory;
+    private AtomicLong _currentMemorySize;
 
     private ProgressMeter progress = null;
 
@@ -66,13 +68,24 @@ public class AsyncCollectionReader {
         System.out.printf("Found %d files matching the pattern!\n",_filePaths.size());
         _initialSize = _filePaths.size();
         _docNumber = new AtomicInteger(0);
-        _pendingLoadedFiles = new AtomicInteger(0);
+        _currentMemorySize = new AtomicLong(0);
+        // 500 MB
+        _maxMemory = 500*1024*1024;
 
         progress = new ProgressMeter(_initialSize);
     }
 
-    public int getCachedSize() {
-        return _pendingLoadedFiles.get();
+    public AsyncCollectionReader withMaxMemorySize(long memorySize) {
+        _maxMemory = memorySize;
+        return this;
+    }
+
+    public long getMaxMemory() {
+        return _maxMemory;
+    }
+
+    public long getCachedSize() {
+        return _currentMemorySize.getAcquire();
     }
 
     public boolean isEmpty() {
@@ -84,10 +97,16 @@ public class AsyncCollectionReader {
         if(result==null) return CompletableFuture.completedFuture(1);
         CompletableFuture<Integer> val = AsyncFiles
                 .readAllBytes(Paths.get(result),1024*1024*5)
-                .thenCompose(bytes -> {
+                .thenApply(bytes -> {
                     _loadedFiles.add(new ByteReadFuture(result,bytes));
-                    _pendingLoadedFiles.getAndAdd(1);
-                    return CompletableFuture.completedFuture(0);
+
+                    //Calculate estimated unpacked size by using a compression ratio of 0.1
+                    long factor = 1;
+                    if(result.endsWith(".gz")||result.endsWith(".xz")) {
+                        factor = 10;
+                    }
+                    _currentMemorySize.getAndAdd(factor*(long)bytes.length);
+                    return 0;
                 });
         return val;
     }
@@ -102,9 +121,13 @@ public class AsyncCollectionReader {
             if (result == null) return false;
         }
         else {
-            _pendingLoadedFiles.decrementAndGet();
             result = future.getPath();
             file = future.getBytes();
+            long factor = 1;
+            if(result.endsWith(".gz")||result.endsWith(".xz")) {
+                factor = 10;
+            }
+            _currentMemorySize.getAndAdd(-factor*(long)file.length);
         }
         int val = _docNumber.addAndGet(1);
 
