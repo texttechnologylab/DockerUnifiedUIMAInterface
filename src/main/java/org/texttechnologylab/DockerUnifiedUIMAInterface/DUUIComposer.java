@@ -39,6 +39,7 @@ import java.security.InvalidParameterException;
 import java.sql.SQLOutput;
 import java.time.Instant;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -342,21 +343,26 @@ public class DUUIComposer {
                 arr[i].start();
             }
             Instant starttime = Instant.now();
+            CompletableFuture<Integer> []futures = new CompletableFuture[20];
+            boolean breakit = false;
             while(!_shutdownAtomic.get()) {
-                JCas jc = emptyCasDocuments.poll();
-                while(jc == null) {
-                    jc = emptyCasDocuments.poll();
+                if(collectionReader.getCachedSize() > 40) {
+                    Thread.sleep(100);
+                    continue;
                 }
-                if(collectionReader.getNextCAS(jc)) {
-                    loadedCasDocuments.add(jc);
+                for(int i = 0; i < 20; i++) {
+                    futures[i] = collectionReader.getAsyncNextByteArray();
                 }
-                else {
-                    emptyCasDocuments.add(jc);
-                    break;
+                CompletableFuture.allOf(futures).join();
+                for(int i = 0; i < 20; i++) {
+                    if(futures[i].join() != 0) {
+                        breakit=true;
+                    }
                 }
+                if(breakit) break;
             }
 
-            while(emptyCasDocuments.size() != _cas_poolsize) {
+            while(emptyCasDocuments.size() != _cas_poolsize && !collectionReader.isEmpty()) {
                 System.out.println("[Composer] Waiting for threads to finish document processing...");
                 Thread.sleep(1000);
             }

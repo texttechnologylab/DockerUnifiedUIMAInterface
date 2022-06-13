@@ -7,17 +7,39 @@ import org.apache.commons.compress.compressors.CompressorStreamFactory;
 import org.apache.uima.cas.impl.XmiCasDeserializer;
 import org.apache.uima.jcas.JCas;
 import org.dkpro.core.api.resources.CompressionUtils;
+import org.javaync.io.AsyncFiles;
 import org.xml.sax.SAXException;
 
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
+
+class ByteReadFuture {
+    private String _path;
+    private byte[] _bytes;
+
+    public ByteReadFuture(String path, byte[] bytes) {
+        _path = path;
+        _bytes = bytes;
+    }
+
+    public String getPath() {
+        return _path;
+    }
+
+    public byte[] getBytes() {
+        return _bytes;
+    }
+}
 
 public class AsyncCollectionReader {
     private String _path;
     private ConcurrentLinkedQueue<String> _filePaths;
+    private ConcurrentLinkedQueue<ByteReadFuture> _loadedFiles;
     private int _initialSize;
     private AtomicInteger _docNumber;
 
@@ -36,6 +58,7 @@ public class AsyncCollectionReader {
         }
 
         _filePaths = new ConcurrentLinkedQueue<>();
+        _loadedFiles = new ConcurrentLinkedQueue<>();
         _path = folder;
         addFilesToConcurrentList(fl,ending,_filePaths);
 
@@ -46,9 +69,39 @@ public class AsyncCollectionReader {
         progress = new ProgressMeter(_initialSize);
     }
 
-    public boolean getNextCAS(JCas empty) throws IOException, CompressorException, SAXException {
+    public int getCachedSize() {
+        return _loadedFiles.size();
+    }
+
+    public boolean isEmpty() {
+        return _loadedFiles.size()==0 && _filePaths.size() == 0;
+    }
+
+    public CompletableFuture<Integer> getAsyncNextByteArray() throws IOException, CompressorException, SAXException {
         String result = _filePaths.poll();
-        if(result==null) return false;
+        if(result==null) return CompletableFuture.completedFuture(1);
+        CompletableFuture<Integer> val = AsyncFiles
+                .readAllBytes(Paths.get(result),1024*1024*5)
+                .thenCompose(bytes -> {
+                    _loadedFiles.add(new ByteReadFuture(result,bytes));
+                    return CompletableFuture.completedFuture(0);
+                });
+        return val;
+    }
+
+    public boolean getNextCAS(JCas empty) throws IOException, CompressorException, SAXException {
+        ByteReadFuture future = _loadedFiles.poll();
+
+        byte []file = null;
+        String result = null;
+        if(future==null) {
+            result = _filePaths.poll();
+            if (result == null) return false;
+        }
+        else {
+            result = future.getPath();
+            file = future.getBytes();
+        }
         int val = _docNumber.addAndGet(1);
 
         progress.setDone(val);
@@ -63,7 +116,10 @@ public class AsyncCollectionReader {
             System.out.printf("%s: %s\n", progress, result);
         }
 
-        byte []file = Files.readAllBytes(Path.of(result));
+        if(file==null) {
+            file = Files.readAllBytes(Path.of(result));
+        }
+
         InputStream decodedFile;
         if(result.endsWith(".xz")) {
             ByteArrayOutputStream out = new ByteArrayOutputStream();
