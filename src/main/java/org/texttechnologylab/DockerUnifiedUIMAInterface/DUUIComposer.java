@@ -36,6 +36,7 @@ import java.net.UnknownHostException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.security.InvalidParameterException;
+import java.sql.SQLOutput;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -157,6 +158,21 @@ public class DUUIComposer {
         _skipVerification = false;
         _minimalTypesystem = TypeSystemDescriptionFactory.createTypeSystemDescriptionFromPath(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/types/reproducibleAnnotations.xml").toURI().toString());
         System.out.println("[Composer] Initialised LUA scripting layer with version "+ globals.get("_VERSION"));
+
+        DUUIComposer that = this;
+
+        Thread shutdownHook = new Thread(() -> {
+            try {
+                System.out.println("[Composer] ShutdownHook... ");
+                that.shutdown();
+                System.out.println("[Composer] ShutdownHook finished.");
+            } catch (UnknownHostException e) {
+                e.printStackTrace();
+            }
+        });
+
+        Runtime.getRuntime().addShutdownHook(shutdownHook);
+
     }
 
     public DUUIComposer withMonitor(DUUIMonitor monitor) throws UnknownHostException, InterruptedException {
@@ -306,6 +322,21 @@ public class DUUIComposer {
             for(int i = 0; i < _cas_poolsize; i++) {
                 emptyCasDocuments.add(JCasFactory.createJCas(desc));
             }
+
+            Thread shutdownHook = new Thread()
+            {
+                @Override
+                public void run()
+                {
+                    try {
+                        shutdown_pipeline(idPipeline);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+            };
+
+            Runtime.getRuntime().addShutdownHook(shutdownHook);
 
             Thread []arr = new Thread[_workers];
             for(int i = 0; i < _workers; i++) {
