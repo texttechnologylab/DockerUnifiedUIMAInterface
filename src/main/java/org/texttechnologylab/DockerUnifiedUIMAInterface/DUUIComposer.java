@@ -343,18 +343,19 @@ public class DUUIComposer {
                 arr[i].start();
             }
             Instant starttime = Instant.now();
-            CompletableFuture<Integer> []futures = new CompletableFuture[20];
+            final int maxNumberOfFutures = 20;
+            CompletableFuture<Integer> []futures = new CompletableFuture[maxNumberOfFutures];
             boolean breakit = false;
             while(!_shutdownAtomic.get()) {
                 if(collectionReader.getCachedSize() > 40) {
-                    Thread.sleep(100);
+                    Thread.sleep(50);
                     continue;
                 }
-                for(int i = 0; i < 20; i++) {
+                for(int i = 0; i < maxNumberOfFutures; i++) {
                     futures[i] = collectionReader.getAsyncNextByteArray();
                 }
                 CompletableFuture.allOf(futures).join();
-                for(int i = 0; i < 20; i++) {
+                for(int i = 0; i < maxNumberOfFutures; i++) {
                     if(futures[i].join() != 0) {
                         breakit=true;
                     }

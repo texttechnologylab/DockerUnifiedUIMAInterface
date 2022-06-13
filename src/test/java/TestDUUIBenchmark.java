@@ -163,7 +163,7 @@ public class TestDUUIBenchmark {
 
     @Test
     public void ComposerPerformanceTestEchoSerializeDeserializeBinary() throws Exception {
-        AsyncCollectionReader rd = new AsyncCollectionReader("/home/alexander/Documents/Corpora/German-Political-Speeches-Corpus/processed/", ".xmi");
+        AsyncCollectionReader rd = new AsyncCollectionReader("/home/alexander/Documents/Corpora/German-Political-Speeches-Corpus/processed_test/", ".xmi.gz");
         DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend("serialization_gercorpa.db")
                 .withConnectionPoolSize(iWorkers);
 

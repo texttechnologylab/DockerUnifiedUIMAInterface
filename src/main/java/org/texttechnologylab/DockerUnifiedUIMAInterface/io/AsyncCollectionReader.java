@@ -42,6 +42,7 @@ public class AsyncCollectionReader {
     private ConcurrentLinkedQueue<ByteReadFuture> _loadedFiles;
     private int _initialSize;
     private AtomicInteger _docNumber;
+    private AtomicInteger _pendingLoadedFiles;
 
     private ProgressMeter progress = null;
 
@@ -65,16 +66,17 @@ public class AsyncCollectionReader {
         System.out.printf("Found %d files matching the pattern!\n",_filePaths.size());
         _initialSize = _filePaths.size();
         _docNumber = new AtomicInteger(0);
+        _pendingLoadedFiles = new AtomicInteger(0);
 
         progress = new ProgressMeter(_initialSize);
     }
 
     public int getCachedSize() {
-        return _loadedFiles.size();
+        return _pendingLoadedFiles.get();
     }
 
     public boolean isEmpty() {
-        return _loadedFiles.size()==0 && _filePaths.size() == 0;
+        return _docNumber.get() >= _initialSize;
     }
 
     public CompletableFuture<Integer> getAsyncNextByteArray() throws IOException, CompressorException, SAXException {
@@ -84,6 +86,7 @@ public class AsyncCollectionReader {
                 .readAllBytes(Paths.get(result),1024*1024*5)
                 .thenCompose(bytes -> {
                     _loadedFiles.add(new ByteReadFuture(result,bytes));
+                    _pendingLoadedFiles.getAndAdd(1);
                     return CompletableFuture.completedFuture(0);
                 });
         return val;
@@ -99,6 +102,7 @@ public class AsyncCollectionReader {
             if (result == null) return false;
         }
         else {
+            _pendingLoadedFiles.decrementAndGet();
             result = future.getPath();
             file = future.getBytes();
         }
