@@ -9,6 +9,7 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIDockerDriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUISwarmDriver;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.io.AsyncCollectionReader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.sqlite.DUUISqliteStorageBackend;
 
@@ -162,6 +163,7 @@ public class TestDUUIBenchmark {
 
     @Test
     public void ComposerPerformanceTestEchoSerializeDeserializeBinary() throws Exception {
+        AsyncCollectionReader rd = new AsyncCollectionReader("/home/alexander/Documents/Corpora/German-Political-Speeches-Corpus/processed_test/", ".xmi.gz");
         DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend("serialization_gercorpa.db")
                 .withConnectionPoolSize(iWorkers);
 
@@ -178,12 +180,7 @@ public class TestDUUIBenchmark {
                         .withImageFetching()
                         .build());
 
-        composer.run(CollectionReaderFactory.createReaderDescription(XmiReader.class,
-                XmiReader.PARAM_LANGUAGE,"de",
-                XmiReader.PARAM_ADD_DOCUMENT_METADATA,false,
-                XmiReader.PARAM_OVERRIDE_DOCUMENT_METADATA,false,
-                XmiReader.PARAM_LENIENT,true,
-                XmiReader.PARAM_SOURCE_LOCATION,sourceLocation),"run_serde_echo_binary");
+        composer.run(rd,"run_serde_echo_binary");
         composer.shutdown();
     }
 

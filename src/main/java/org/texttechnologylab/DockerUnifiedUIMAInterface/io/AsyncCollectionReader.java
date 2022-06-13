@@ -2,10 +2,13 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface.io;
 
 import de.tudarmstadt.ukp.dkpro.core.api.io.ProgressMeter;
 import org.apache.commons.compress.compressors.CompressorException;
+import org.apache.commons.compress.compressors.CompressorInputStream;
 import org.apache.commons.compress.compressors.CompressorStreamFactory;
 import org.apache.commons.io.FileUtils;
 import org.apache.uima.cas.impl.XmiCasDeserializer;
 import org.apache.uima.jcas.JCas;
+import org.dkpro.core.api.resources.CompressionUtils;
+import org.javaync.io.AsyncFiles;
 import org.xml.sax.SAXException;
 
 import java.io.*;
@@ -14,15 +17,37 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Random;
+import java.nio.file.Paths;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
+class ByteReadFuture {
+    private String _path;
+    private byte[] _bytes;
+
+    public ByteReadFuture(String path, byte[] bytes) {
+        _path = path;
+        _bytes = bytes;
+    }
+
+    public String getPath() {
+        return _path;
+    }
+
+    public byte[] getBytes() {
+        return _bytes;
+    }
+}
+
 public class AsyncCollectionReader {
     private String _path;
     private ConcurrentLinkedQueue<String> _filePaths;
+    private ConcurrentLinkedQueue<ByteReadFuture> _loadedFiles;
     private int _initialSize;
     private AtomicInteger _docNumber;
+    private AtomicInteger _pendingLoadedFiles;
 
     private ProgressMeter progress = null;
 
@@ -43,6 +68,7 @@ public class AsyncCollectionReader {
         }
 
         _filePaths = new ConcurrentLinkedQueue<>();
+        _loadedFiles = new ConcurrentLinkedQueue<>();
         _path = folder;
         addFilesToConcurrentList(fl,ending,_filePaths);
 
@@ -59,13 +85,46 @@ public class AsyncCollectionReader {
         System.out.printf("Found %d files matching the pattern! \t Using Random: %d\n",_filePaths.size(), iRandom);
         _initialSize = _filePaths.size();
         _docNumber = new AtomicInteger(0);
+        _pendingLoadedFiles = new AtomicInteger(0);
 
         progress = new ProgressMeter(_initialSize);
     }
 
-    public boolean getNextCAS(JCas empty) throws IOException, CompressorException, SAXException {
+    public int getCachedSize() {
+        return _pendingLoadedFiles.get();
+    }
+
+    public boolean isEmpty() {
+        return _docNumber.get() >= _initialSize;
+    }
+
+    public CompletableFuture<Integer> getAsyncNextByteArray() throws IOException, CompressorException, SAXException {
         String result = _filePaths.poll();
-        if(result==null) return false;
+        if(result==null) return CompletableFuture.completedFuture(1);
+        CompletableFuture<Integer> val = AsyncFiles
+                .readAllBytes(Paths.get(result),1024*1024*5)
+                .thenCompose(bytes -> {
+                    _loadedFiles.add(new ByteReadFuture(result,bytes));
+                    _pendingLoadedFiles.getAndAdd(1);
+                    return CompletableFuture.completedFuture(0);
+                });
+        return val;
+    }
+
+    public boolean getNextCAS(JCas empty) throws IOException, CompressorException, SAXException {
+        ByteReadFuture future = _loadedFiles.poll();
+
+        byte []file = null;
+        String result = null;
+        if(future==null) {
+            result = _filePaths.poll();
+            if (result == null) return false;
+        }
+        else {
+            _pendingLoadedFiles.decrementAndGet();
+            result = future.getPath();
+            file = future.getBytes();
+        }
         int val = _docNumber.addAndGet(1);
 
         progress.setDone(val);
@@ -80,7 +139,10 @@ public class AsyncCollectionReader {
             System.out.printf("%s: \t %s \t %s\n", progress, getSize(result), result);
         }
 
-        byte []file = Files.readAllBytes(Path.of(result));
+        if(file==null) {
+            file = Files.readAllBytes(Path.of(result));
+        }
+
         InputStream decodedFile;
         if(result.endsWith(".xz")) {
             ByteArrayOutputStream out = new ByteArrayOutputStream();
