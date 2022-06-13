@@ -144,6 +144,7 @@ public class DUUIComposer {
 
     private Vector<PipelinePart> _instantiatedPipeline;
     private Thread _shutdownHook;
+    private AtomicBoolean _shutdownAtomic;
     private boolean _hasShutdown;
 
     private static final String DRIVER_OPTION_NAME = "duuid.composer.driver";
@@ -167,6 +168,7 @@ public class DUUIComposer {
         _storage = null;
         _skipVerification = false;
         _hasShutdown = false;
+        _shutdownAtomic = new AtomicBoolean(false);
         _instantiatedPipeline = new Vector<>();
         _minimalTypesystem = TypeSystemDescriptionFactory.createTypeSystemDescriptionFromPath(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/types/reproducibleAnnotations.xml").toURI().toString());
         System.out.println("[Composer] Initialised LUA scripting layer with version "+ globals.get("_VERSION"));
@@ -309,7 +311,7 @@ public class DUUIComposer {
         ConcurrentLinkedQueue<JCas> emptyCasDocuments = new ConcurrentLinkedQueue<>();
         ConcurrentLinkedQueue<JCas> loadedCasDocuments = new ConcurrentLinkedQueue<>();
         AtomicInteger aliveThreads = new AtomicInteger(0);
-        AtomicBoolean shutdown = new AtomicBoolean(false);
+        _shutdownAtomic.set(false);
 
         Exception catched = null;
 
@@ -336,11 +338,11 @@ public class DUUIComposer {
             Thread []arr = new Thread[_workers];
             for(int i = 0; i < _workers; i++) {
                 System.out.printf("[Composer] Starting worker thread [%d/%d]\n",i+1,_workers);
-                arr[i] = new DUUIWorker(_instantiatedPipeline,emptyCasDocuments,loadedCasDocuments,shutdown,aliveThreads,_storage,name,collectionReader);
+                arr[i] = new DUUIWorker(_instantiatedPipeline,emptyCasDocuments,loadedCasDocuments,_shutdownAtomic,aliveThreads,_storage,name,collectionReader);
                 arr[i].start();
             }
             Instant starttime = Instant.now();
-            while(true) {
+            while(!_shutdownAtomic.get()) {
                 JCas jc = emptyCasDocuments.poll();
                 while(jc == null) {
                     jc = emptyCasDocuments.poll();
@@ -359,7 +361,7 @@ public class DUUIComposer {
                 Thread.sleep(1000);
             }
             System.out.println("[Composer] All documents have been processed. Signaling threads to shut down now...");
-            shutdown.set(true);
+            _shutdownAtomic.set(true);
 
             for(int i = 0; i < arr.length; i++) {
                 System.out.printf("[Composer] Waiting for thread [%d/%d] to shut down\n",i+1,arr.length);
@@ -383,7 +385,7 @@ public class DUUIComposer {
         ConcurrentLinkedQueue<JCas> emptyCasDocuments = new ConcurrentLinkedQueue<>();
         ConcurrentLinkedQueue<JCas> loadedCasDocuments = new ConcurrentLinkedQueue<>();
         AtomicInteger aliveThreads = new AtomicInteger(0);
-        AtomicBoolean shutdown = new AtomicBoolean(false);
+        _shutdownAtomic.set(false);
 
         Exception catched = null;
 
@@ -410,7 +412,7 @@ public class DUUIComposer {
             Thread []arr = new Thread[_workers];
             for(int i = 0; i < _workers; i++) {
                 System.out.printf("[Composer] Starting worker thread [%d/%d]\n",i+1,_workers);
-                arr[i] = new DUUIWorker(_instantiatedPipeline,emptyCasDocuments,loadedCasDocuments,shutdown,aliveThreads,_storage,name,null);
+                arr[i] = new DUUIWorker(_instantiatedPipeline,emptyCasDocuments,loadedCasDocuments,_shutdownAtomic,aliveThreads,_storage,name,null);
                 arr[i].start();
             }
             Instant starttime = Instant.now();
@@ -428,7 +430,7 @@ public class DUUIComposer {
                 Thread.sleep(1000);
             }
             System.out.println("[Composer] All documents have been processed. Signaling threads to shut down now...");
-            shutdown.set(true);
+            _shutdownAtomic.set(true);
 
             for(int i = 0; i < arr.length; i++) {
                 System.out.printf("[Composer] Waiting for thread [%d/%d] to shut down\n",i+1,arr.length);
@@ -634,6 +636,7 @@ public class DUUIComposer {
 
     public void shutdown() throws UnknownHostException {
         if(!_hasShutdown) {
+            _shutdownAtomic.set(true);
             if (_monitor != null) {
                 _monitor.shutdown();
             } else if (_storage != null) {
