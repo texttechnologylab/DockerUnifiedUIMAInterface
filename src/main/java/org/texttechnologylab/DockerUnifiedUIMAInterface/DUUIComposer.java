@@ -1,21 +1,15 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface;
 
-import com.sun.net.httpserver.HttpServer;
-import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
-import de.tudarmstadt.ukp.dkpro.core.tokit.BreakIteratorSegmenter;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.collection.CollectionReader;
 import org.apache.uima.collection.CollectionReaderDescription;
-import org.apache.uima.fit.factory.AnalysisEngineFactory;
 import org.apache.uima.fit.factory.CollectionReaderFactory;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.fit.factory.TypeSystemDescriptionFactory;
-import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.apache.uima.util.CasCreationUtils;
 import org.apache.uima.util.InvalidXMLException;
-import org.apache.uima.util.XmlCasSerializer;
 import org.luaj.vm2.Globals;
 import org.luaj.vm2.lib.jse.JsePlatform;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.*;
@@ -24,19 +18,12 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.DUUIMonitor;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.IDUUIStorageBackend;
-import org.texttechnologylab.annotation.type.Taxon;
 import org.xml.sax.SAXException;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.security.InvalidParameterException;
-import java.sql.SQLOutput;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -44,7 +31,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static java.lang.String.format;
-import static org.apache.uima.fit.factory.CollectionReaderFactory.createReaderDescription;
 
 class DUUIWorker extends Thread {
     Vector<DUUIComposer.PipelinePart> _flow;
@@ -98,27 +84,36 @@ class DUUIWorker extends Thread {
                     } catch (SAXException e) {
                         e.printStackTrace();
                     }
+                    catch (NullPointerException e){
+                        e.printStackTrace();
+                    }
                 }
             }
             long waitTimeEnd = System.nanoTime();
             //System.out.printf("[Composer] Thread %d still alive and doing work\n",num);
 
-            DUUIPipelineDocumentPerformance perf = new DUUIPipelineDocumentPerformance(_runKey,
-                    waitTimeEnd-waitTimeStart,
-                    object);
-            for (DUUIComposer.PipelinePart i : _flow) {
-                try {
-                    i.getDriver().run(i.getUUID(),object,perf);
-                } catch (Exception e) {
-                    //Ignore errors at the moment
-                    e.printStackTrace();
-                    System.out.println("Thread continues work!");
+            try {
+                DUUIPipelineDocumentPerformance perf = new DUUIPipelineDocumentPerformance(_runKey,
+                        waitTimeEnd - waitTimeStart,
+                        object);
+                for (DUUIComposer.PipelinePart i : _flow) {
+                    try {
+                        i.getDriver().run(i.getUUID(), object, perf);
+                    } catch (Exception e) {
+                        //Ignore errors at the moment
+                        e.printStackTrace();
+                        System.out.println("Thread continues work!");
+                    }
+                }
+
+                object.reset();
+                _instancesToBeLoaded.add(object);
+                if (_backend != null) {
+                    _backend.addMetricsForDocument(perf);
                 }
             }
-            object.reset();
-            _instancesToBeLoaded.add(object);
-            if(_backend!=null) {
-                _backend.addMetricsForDocument(perf);
+            catch (Exception e){
+                e.printStackTrace();
             }
         }
     }

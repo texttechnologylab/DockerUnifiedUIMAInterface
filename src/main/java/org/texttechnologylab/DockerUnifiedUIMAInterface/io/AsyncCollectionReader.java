@@ -2,18 +2,21 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface.io;
 
 import de.tudarmstadt.ukp.dkpro.core.api.io.ProgressMeter;
 import org.apache.commons.compress.compressors.CompressorException;
-import org.apache.commons.compress.compressors.CompressorInputStream;
 import org.apache.commons.compress.compressors.CompressorStreamFactory;
+import org.apache.commons.io.FileUtils;
 import org.apache.uima.cas.impl.XmiCasDeserializer;
 import org.apache.uima.jcas.JCas;
-import org.dkpro.core.api.resources.CompressionUtils;
 import org.xml.sax.SAXException;
 
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Random;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 public class AsyncCollectionReader {
     private String _path;
@@ -26,10 +29,14 @@ public class AsyncCollectionReader {
     private int debugCount = 25;
 
     public AsyncCollectionReader(String folder, String ending) {
-        this(folder, ending, 25);
+        this(folder, ending, 25, -1, false);
     }
 
-    public AsyncCollectionReader(String folder, String ending, int debugCount) {
+    public AsyncCollectionReader(String folder, String ending, int debugCount, boolean bSort) {
+        this(folder, ending, debugCount, -1, bSort);
+    }
+
+    public AsyncCollectionReader(String folder, String ending, int debugCount, int iRandom, boolean bSort) {
         File fl = new File(folder);
         if(!fl.isDirectory()) {
             throw new RuntimeException("The folder is not a directory!");
@@ -39,7 +46,17 @@ public class AsyncCollectionReader {
         _path = folder;
         addFilesToConcurrentList(fl,ending,_filePaths);
 
-        System.out.printf("Found %d files matching the pattern!\n",_filePaths.size());
+        if(bSort) {
+            _filePaths = sortBySize(_filePaths);
+        }
+
+        if(iRandom>0){
+            _filePaths = random(_filePaths, iRandom);
+        }
+
+        this.debugCount = debugCount;
+
+        System.out.printf("Found %d files matching the pattern! \t Using Random: %d\n",_filePaths.size(), iRandom);
         _initialSize = _filePaths.size();
         _docNumber = new AtomicInteger(0);
 
@@ -55,12 +72,12 @@ public class AsyncCollectionReader {
         progress.setLeft(_initialSize-val);
 
         if(_initialSize-progress.getCount()>debugCount) {
-            if (val % debugCount == 0 || val == 1) {
-                System.out.printf("%s: %s\n", progress, result);
-            }
+            if (val % debugCount == 0 || val == 0) {
+                System.out.printf("%s: \t %s \t %s\n", progress, getSize(result), result);
+           }
         }
         else{
-            System.out.printf("%s: %s\n", progress, result);
+            System.out.printf("%s: \t %s \t %s\n", progress, getSize(result), result);
         }
 
         byte []file = Files.readAllBytes(Path.of(result));
@@ -92,5 +109,48 @@ public class AsyncCollectionReader {
                 addFilesToConcurrentList(listOfFiles[i],ending,paths);
             }
         }
+    }
+
+    public static ConcurrentLinkedQueue<String> sortBySize(ConcurrentLinkedQueue<String> paths){
+
+        ConcurrentLinkedQueue<String> rQueue = new ConcurrentLinkedQueue<String>();
+
+        rQueue.addAll(paths.stream().sorted((s1, s2)->{
+            Long firstLength = new File(s1).length();
+            Long secondLength = new File(s2).length();
+
+            return firstLength.compareTo(secondLength)*-1;
+        }).collect(Collectors.toList()));
+
+        return rQueue;
+
+    }
+
+    public static ConcurrentLinkedQueue<String> random(ConcurrentLinkedQueue<String> paths, int iRandom){
+
+        ConcurrentLinkedQueue<String> rQueue = new ConcurrentLinkedQueue<String>();
+
+        Random nRandom = new Random(iRandom);
+
+        ArrayList<String> sList = new ArrayList<>();
+        sList.addAll(paths);
+
+        Collections.shuffle(sList, nRandom);
+
+        if(iRandom>sList.size()){
+            rQueue.addAll(sList.subList(0, sList.size()));
+        }
+        else{
+            rQueue.addAll(sList.subList(0, iRandom));
+        }
+
+
+
+        return rQueue;
+
+    }
+
+    public static String getSize(String sPath){
+        return FileUtils.byteCountToDisplaySize(new File(sPath).length());
     }
 }
