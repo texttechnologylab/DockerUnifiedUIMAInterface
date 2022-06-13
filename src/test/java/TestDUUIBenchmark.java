@@ -176,7 +176,7 @@ public class TestDUUIBenchmark {
                 .withWorkers(iWorkers);
         composer.addDriver(new DUUIDockerDriver());
 
-        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/benchmark_serde_echo_binary:0.1")
+        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/benchmark_serde_echo_binary@sha256:96e0a0f6dd7be9d95aabf3f8622903a96d0ae71b30551dfd3da5df317a1eb146")
                         .withScale(iWorkers)
                         .withImageFetching()
                         .build());
