@@ -411,6 +411,17 @@ public class DUUIDockerInterface {
         return tag;
     }
 
+    public String getDigestFromImage(String imagename) {
+        InspectImageResponse resp = _docker.inspectImageCmd(imagename).exec();
+        List<String> digests = resp.getRepoDigests();
+
+        for(String i : digests) {
+            return i;
+        }
+        return null;
+    }
+
+
     /**
      * Builds and runs the container with a specified temporary build directory and some flags.
      *
@@ -420,13 +431,7 @@ public class DUUIDockerInterface {
      * @throws InterruptedException
      */
     public String run(String imageid, boolean gpu, boolean autoremove, int port, boolean mapDaemon) throws InterruptedException {
-        InspectImageResponse resp = _docker.inspectImageCmd(imageid).exec();
-        List<String> digests = resp.getRepoDigests();
 
-        System.out.println("Image digests!");
-        for(String i : digests) {
-            System.out.println(i);
-        }
 
         HostConfig cfg = new HostConfig();
         if (autoremove) {
