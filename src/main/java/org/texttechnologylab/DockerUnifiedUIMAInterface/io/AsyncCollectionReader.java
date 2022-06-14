@@ -2,27 +2,26 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface.io;
 
 import de.tudarmstadt.ukp.dkpro.core.api.io.ProgressMeter;
 import org.apache.commons.compress.compressors.CompressorException;
-import org.apache.commons.compress.compressors.CompressorInputStream;
 import org.apache.commons.compress.compressors.CompressorStreamFactory;
 import org.apache.commons.io.FileUtils;
 import org.apache.uima.cas.impl.XmiCasDeserializer;
 import org.apache.uima.jcas.JCas;
-import org.dkpro.core.api.resources.CompressionUtils;
 import org.javaync.io.AsyncFiles;
+import org.texttechnologylab.utilities.helper.StringUtils;
 import org.xml.sax.SAXException;
 
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Random;
-import java.nio.file.Paths;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
 
 class ByteReadFuture {
     private String _path;
@@ -45,6 +44,7 @@ class ByteReadFuture {
 public class AsyncCollectionReader {
     private String _path;
     private ConcurrentLinkedQueue<String> _filePaths;
+    private ConcurrentLinkedQueue<String> _filePathsBackup;
     private ConcurrentLinkedQueue<ByteReadFuture> _loadedFiles;
     private int _initialSize;
     private AtomicInteger _docNumber;
@@ -56,24 +56,45 @@ public class AsyncCollectionReader {
     private int debugCount = 25;
 
     public AsyncCollectionReader(String folder, String ending) {
-        this(folder, ending, 25, -1, false);
+        this(folder, ending, 25, -1, false, "");
     }
 
     public AsyncCollectionReader(String folder, String ending, int debugCount, boolean bSort) {
-        this(folder, ending, debugCount, -1, bSort);
+        this(folder, ending, debugCount, -1, bSort, "");
     }
 
-    public AsyncCollectionReader(String folder, String ending, int debugCount, int iRandom, boolean bSort) {
-        File fl = new File(folder);
-        if(!fl.isDirectory()) {
-            throw new RuntimeException("The folder is not a directory!");
-        }
+    public AsyncCollectionReader(String folder, String ending, int debugCount, int iRandom, boolean bSort, String savePath) {
 
         _filePaths = new ConcurrentLinkedQueue<>();
         _loadedFiles = new ConcurrentLinkedQueue<>();
-        _path = folder;
-        addFilesToConcurrentList(fl,ending,_filePaths);
+        _filePathsBackup = new ConcurrentLinkedQueue<>();
 
+        if(new File(savePath).exists() && savePath.length()>0) {
+            File sPath = new File(savePath);
+
+            String sContent = null;
+            try {
+                sContent = StringUtils.getContent(sPath);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            String[] sSplit = sContent.split("\n");
+
+            for (String s : sSplit) {
+                _filePaths.add(s);
+            }
+
+        }
+        else{
+            File fl = new File(folder);
+            if (!fl.isDirectory()) {
+                throw new RuntimeException("The folder is not a directory!");
+            }
+
+
+            _path = folder;
+            addFilesToConcurrentList(fl, ending, _filePaths);
+        }
         if(bSort) {
             _filePaths = sortBySize(_filePaths);
         }
@@ -81,6 +102,27 @@ public class AsyncCollectionReader {
         if(iRandom>0){
             _filePaths = random(_filePaths, iRandom);
         }
+
+        if(savePath.length()>0){
+            File nFile = new File(savePath);
+
+            if(!nFile.exists()){
+                StringBuilder sb = new StringBuilder();
+                _filePaths.forEach(f->{
+                    if(sb.length()>0){
+                        sb.append("\n");
+                    }
+                    sb.append(f);
+                });
+                try {
+                    StringUtils.writeContent(sb.toString(), nFile);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+
+        _filePathsBackup.addAll(_filePaths);
 
         this.debugCount = debugCount;
 
@@ -91,6 +133,13 @@ public class AsyncCollectionReader {
         // 500 MB
         _maxMemory = 500*1024*1024;
 
+        progress = new ProgressMeter(_initialSize);
+
+    }
+
+    public void reset(){
+        _filePaths = _filePathsBackup;
+        _docNumber.set(0);
         progress = new ProgressMeter(_initialSize);
     }
 

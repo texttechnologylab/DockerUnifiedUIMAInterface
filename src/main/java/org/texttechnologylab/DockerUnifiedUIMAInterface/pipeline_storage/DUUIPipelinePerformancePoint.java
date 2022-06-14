@@ -1,6 +1,5 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage;
 
-import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
 import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.jcas.cas.TOP;
@@ -29,7 +28,12 @@ public class DUUIPipelinePerformancePoint {
         _durationDeserialize = durationDeserialize;
         _durationMutexWait = durationMutexWait;
         _numberAnnotations = JCasUtil.select(jc, TOP.class).stream().count();
-        _documentSize = Long.valueOf(jc.getDocumentText().length());
+        try {
+            _documentSize = Long.valueOf(jc.getDocumentText().length());
+        }
+        catch (Exception e){
+            _documentSize=-1l;
+        }
         _serializedSize = serializedSize;
     }
 

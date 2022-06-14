@@ -1,14 +1,23 @@
+import org.dkpro.core.io.xmi.XmiWriter;
 import org.junit.jupiter.api.Test;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIDockerDriver;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUISwarmDriver;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIUIMADriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.AsyncCollectionReader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.sqlite.DUUISqliteStorageBackend;
 
+import static org.apache.uima.fit.factory.AnalysisEngineFactory.createEngineDescription;
+
 public class TestDUUIBenchmarkGerParCor {
-    private static int iWorkers = 8;
+    private static int iWorkers = 2;
     private static String sourceLocation = "/mnt/corpora2/xmi/ParliamentOutNew/";
     private static String sourceSuffix = ".xmi.gz";
+    private static int sampleSize = 100;
+    private static String sLogging = "serialization_gercorpa_"+sampleSize+".db";
+    private static String sLoggingBenchmark = "benchmark_gercorpa_"+sampleSize+".db";
 
 //    @Test
     public void ComposerAsyncCollectionReader() throws Exception {
@@ -32,12 +41,12 @@ public class TestDUUIBenchmarkGerParCor {
         composer.shutdown();
     }
 
-    AsyncCollectionReader rd = new AsyncCollectionReader(sourceLocation, sourceSuffix, 1, 10000, false);
-
+    AsyncCollectionReader rd = new AsyncCollectionReader(sourceLocation, sourceSuffix, 1, sampleSize, false, "serialize_gerparcor"+sampleSize);
 
     @Test
     public void ComposerPerformanceTestEchoSerializeDeserializeBinary() throws Exception {
-        DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend("serialization_gercorpa.db")
+        rd.reset();
+        DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend(sLogging)
                 .withConnectionPoolSize(iWorkers);
 
         DUUILuaContext ctx = new DUUILuaContext().withJsonLibrary();
@@ -65,8 +74,8 @@ public class TestDUUIBenchmarkGerParCor {
 
     @Test
     public void ComposerPerformanceTestEchoSerializeDeserializeXmi() throws Exception {
-
-        DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend("serialization_gercorpa.db")
+        rd.reset();
+        DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend(sLogging)
                 .withConnectionPoolSize(iWorkers);
 
         DUUILuaContext ctx = new DUUILuaContext().withJsonLibrary();
@@ -94,8 +103,8 @@ public class TestDUUIBenchmarkGerParCor {
 
     @Test
     public void ComposerPerformanceTestEchoSerializeDeserializeMsgpack() throws Exception {
-
-        DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend("serialization_gercorpa.db")
+        rd.reset();
+        DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend(sLogging)
                 .withConnectionPoolSize(iWorkers);
 
         DUUILuaContext ctx = new DUUILuaContext().withJsonLibrary();
@@ -123,8 +132,8 @@ public class TestDUUIBenchmarkGerParCor {
 
     @Test
     public void ComposerPerformanceTestEchoSerializeDeserializeJson() throws Exception {
-
-        DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend("serialization_gercorpa.db")
+        rd.reset();
+        DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend(sLogging)
                 .withConnectionPoolSize(iWorkers);
 
         DUUILuaContext ctx = new DUUILuaContext().withJsonLibrary();
@@ -150,4 +159,73 @@ public class TestDUUIBenchmarkGerParCor {
 
         composer.shutdown();
     }
+
+
+    AsyncCollectionReader benchmarkReader = new AsyncCollectionReader(sourceLocation, sourceSuffix, 1, sampleSize, false, "/tmp/sample_benchmark_"+sampleSize);
+
+    @Test
+    public void DUUIBenchmarkDocker() throws Exception {
+
+        DUUIWorker("docker",
+                "benchmark_docker_"+iWorkers);
+
+    }
+
+    @Test
+    public void DUUIBenchmarkSwarm() throws Exception {
+
+        DUUIWorker("swarm",
+                "benchmark_swarm_"+iWorkers);
+
+    }
+
+
+    public void DUUIWorker(String sType, String sName) throws Exception {
+
+        DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend(sLoggingBenchmark)
+                .withConnectionPoolSize(iWorkers);
+
+        DUUILuaContext ctx = new DUUILuaContext().withJsonLibrary();
+        DUUIComposer composer = new DUUIComposer()
+                .withSkipVerification(true)
+                .withStorageBackend(sqlite)
+                .withLuaContext(ctx)
+                .withWorkers(iWorkers);
+        composer.addDriver(new DUUIDockerDriver());
+
+
+        DUUIDockerDriver docker_driver = new DUUIDockerDriver().withTimeout(10000);
+        DUUIRemoteDriver remote_driver = new DUUIRemoteDriver(10000);
+        DUUIUIMADriver uima_driver = new DUUIUIMADriver().withDebug(true);
+        DUUISwarmDriver swarm_driver = new DUUISwarmDriver();
+
+        composer.addDriver(docker_driver, remote_driver, uima_driver, swarm_driver);
+
+        if(sType.equals("swarm")){
+            composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
+                    .withScale(iWorkers).build());
+        }
+        else{
+            composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
+                    .withScale(iWorkers).withImageFetching());
+        }
+
+//        composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
+//                .withScale(iWorkers)
+//                .build());
+
+        composer.add(new DUUIUIMADriver.Component(
+                createEngineDescription(XmiWriter.class,
+                        XmiWriter.PARAM_TARGET_LOCATION, "/tmp/output/",
+                        XmiWriter.PARAM_OVERWRITE, true,
+                        XmiWriter.PARAM_COMPRESSION, "GZIP"
+                )).withScale(iWorkers));
+
+        composer.run(benchmarkReader, sName);
+
+        composer.shutdown();
+
+    }
+
+
 }

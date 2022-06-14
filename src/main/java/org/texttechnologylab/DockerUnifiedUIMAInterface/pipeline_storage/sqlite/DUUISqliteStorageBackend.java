@@ -1,13 +1,6 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.sqlite;
 
-import com.github.dockerjava.api.command.CreateContainerResponse;
-import com.github.dockerjava.api.command.InspectContainerResponse;
-import com.github.dockerjava.api.model.ExposedPort;
-import com.github.dockerjava.api.model.HostConfig;
-import com.github.dockerjava.api.model.Ports;
-import org.json.JSONObject;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIDockerInterface;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIPipelineComponent;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.IDUUIPipelineComponent;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
@@ -15,13 +8,10 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPip
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.IDUUIStorageBackend;
 
 import java.io.IOException;
-import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.sql.*;
 import java.time.Instant;
 import java.util.concurrent.ConcurrentLinkedQueue;
-
-import static java.lang.String.format;
 
 /**
  * Do not use this class it is not finished and just a raw idea about how one could implement a postgres backend
@@ -76,6 +66,21 @@ public class DUUISqliteStorageBackend implements IDUUIStorageBackend {
         while(conn == null) {
             conn = _client.poll();
         }
+
+        PreparedStatement dStmt = conn.prepareStatement("DELETE FROM pipeline WHERE name = ?");;
+        dStmt.setString(1, name);
+        dStmt.execute();
+        //dStmt.executeUpdate();
+
+        PreparedStatement cleanUp = conn.prepareStatement("DELETE FROM pipeline_document_perf where pipelinename = ?;");
+        cleanUp.setString(1, name);
+        cleanUp.execute();
+
+        PreparedStatement cleanUp2 = conn.prepareStatement("DELETE FROM pipeline_component where name = ?;");
+        cleanUp2.setString(1, name);
+        cleanUp2.execute();
+
+
         PreparedStatement stmt = conn.prepareStatement("INSERT INTO pipeline (name,workers) VALUES (?,?)");
         stmt.setString(1,name);
         stmt.setLong(2,composer.getWorkerCount());

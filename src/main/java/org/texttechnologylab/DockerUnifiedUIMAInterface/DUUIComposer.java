@@ -92,8 +92,7 @@ class DUUIWorker extends Thread {
                         e.printStackTrace();
                     } catch (InterruptedException e) {
                         e.printStackTrace();
-                    }
-                    catch (NullPointerException e){
+                    } catch (NullPointerException e){
                         e.printStackTrace();
                     }
                 }
@@ -191,7 +190,8 @@ class DUUIWorkerAsyncReader extends Thread {
                     i.getDriver().run(i.getUUID(), _jc, perf);
                 } catch (Exception e) {
                     //Ignore errors at the moment
-                    e.printStackTrace();
+                    //e.printStackTrace();
+                    System.err.println(e.getMessage());
                     System.out.println("Thread continues work!");
                 }
             }
