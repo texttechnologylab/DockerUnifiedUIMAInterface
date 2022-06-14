@@ -163,7 +163,8 @@ public class TestDUUIBenchmark {
 
     @Test
     public void ComposerPerformanceTestEchoSerializeDeserializeBinary() throws Exception {
-        AsyncCollectionReader rd = new AsyncCollectionReader("/home/alexander/Documents/Corpora/German-Political-Speeches-Corpus/processed_test/", ".xmi.gz");
+        AsyncCollectionReader rd = new AsyncCollectionReader("/home/alexander/Documents/Corpora/German-Political-Speeches-Corpus/processed/", ".xmi");
+        rd.withMaxMemorySize(2*1024*1024*1024L);
         DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend("serialization_gercorpa.db")
                 .withConnectionPoolSize(iWorkers);
 
@@ -175,7 +176,7 @@ public class TestDUUIBenchmark {
                 .withWorkers(iWorkers);
         composer.addDriver(new DUUIDockerDriver());
 
-        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/benchmark_serde_echo_binary:0.1")
+        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/benchmark_serde_echo_binary@sha256:96e0a0f6dd7be9d95aabf3f8622903a96d0ae71b30551dfd3da5df317a1eb146")
                         .withScale(iWorkers)
                         .withImageFetching()
                         .build());

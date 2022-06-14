@@ -349,6 +349,11 @@ public class DUUIDockerInterface {
     }
 
     public boolean hasLocalImage(String imageName) {
+        InspectImageResponse resp = _docker.inspectImageCmd(imageName).exec();
+        if(resp!=null) {
+            return true;
+        }
+
         List<Image> images = _docker.listImagesCmd()
                 .withShowAll(true)
                 .exec();
@@ -357,9 +362,18 @@ public class DUUIDockerInterface {
                 return true;
             }
 
-            for(String repo : i.getRepoTags()) {
-                if(repo.equals(imageName)) {
-                    return true;
+            if(i.getRepoTags()!=null) {
+                for (String repo : i.getRepoTags()) {
+                    if (repo.equals(imageName)) {
+                        return true;
+                    }
+                }
+            }
+            else if(i.getRepoDigests()!=null) {
+                for (String dig : i.getRepoDigests()) {
+                    if (dig.equals(imageName)) {
+                        return true;
+                    }
                 }
             }
         }
