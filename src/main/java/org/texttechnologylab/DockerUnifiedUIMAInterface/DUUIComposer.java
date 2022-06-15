@@ -668,20 +668,20 @@ public class DUUIComposer {
                 .withSkipVerification(true);
 
         // Instantiate drivers with options
-        DUUIDockerDriver driver = new DUUIDockerDriver()
-                .withTimeout(10000);
+//        DUUIDockerDriver driver = new DUUIDockerDriver()
+//                .withTimeout(10000);
 
         DUUIRemoteDriver remote_driver = new DUUIRemoteDriver(10000);
         DUUIUIMADriver uima_driver = new DUUIUIMADriver()
                 .withDebug(true);
-        DUUISwarmDriver swarm_driver = new DUUISwarmDriver();
+//        DUUISwarmDriver swarm_driver = new DUUISwarmDriver();
             //    .withSwarmVisualizer();
 
         // A driver must be added before components can be added for it in the composer.
-        composer.addDriver(driver);
+//        composer.addDriver(driver);
         composer.addDriver(remote_driver);
         composer.addDriver(uima_driver);
-        composer.addDriver(swarm_driver);
+//        composer.addDriver(swarm_driver);
 
         // Every component needs a driver which instantiates and runs them
         // Local driver manages local docker container and pulls docker container from remote repositories
@@ -746,8 +746,8 @@ public class DUUIComposer {
                 .withScale(1)
                 , DUUISwarmDriver.class);*/
 
-        //composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.Component("http://127.0.0.1:9715")
-        //                .withScale(1).build());
+        composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.Component("http://127.0.0.1:9715")
+                        .withScale(1).build());
 
        // ByteArrayInputStream stream;
        // stream.read
@@ -759,6 +759,10 @@ public class DUUIComposer {
 
         // Run single document
         composer.run(jc,"fuchs");
+
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        XmlCasSerializer.serialize(jc.getCas(),out);
+        System.out.println(new String(out.toByteArray()));
 
         /*
         String val = Files.readString(Path.of(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/uima_xmi_communication_token_only.lua").toURI()));
