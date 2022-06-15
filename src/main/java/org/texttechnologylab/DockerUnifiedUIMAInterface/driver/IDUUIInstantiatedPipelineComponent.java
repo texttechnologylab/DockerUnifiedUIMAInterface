@@ -11,6 +11,7 @@ import org.javatuples.Triplet;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUICommunicationLayer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.websocket.WebsocketClient;
 import org.texttechnologylab.duui.ReproducibleAnnotation;
 import org.xml.sax.SAXException;
 
@@ -164,5 +165,75 @@ public interface IDUUIInstantiatedPipelineComponent {
             comp.addComponent(queue.getValue0());
             throw new InvalidObjectException("Response code != 200, error");
         }
+    }
+
+    public static void process_websocket(JCas jc, IDUUIInstantiatedPipelineComponent comp, DUUIPipelineDocumentPerformance perf, WebsocketClient client) throws CompressorException, IOException, SAXException, CASException {
+        Triplet<IDUUIUrlAccessible,Long,Long> queue = comp.getComponent();
+
+        IDUUICommunicationLayer layer = comp.getCommunicationLayer();
+        long serializeStart = System.nanoTime();
+
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+
+        DUUIPipelineComponent pipelineComponent = comp.getPipelineComponent();
+        String viewName = pipelineComponent.getViewName();
+        JCas viewJc;
+        if(viewName == null) {
+            viewJc = jc;
+        }
+        else {
+            try {
+                viewJc = jc.getView(viewName);
+            }
+            catch(CASException e) {
+                if(pipelineComponent.getCreateViewFromInitialView()) {
+                    viewJc = jc.createView(viewName);
+                    viewJc.setDocumentText(jc.getDocumentText());
+                    viewJc.setDocumentLanguage(jc.getDocumentLanguage());
+                }
+                else {
+                    throw e;
+                }
+            }
+        }
+
+        layer.serialize(viewJc,out,comp.getParameters());
+        // lua serialize call()
+
+        byte[] ok = out.toByteArray();
+        long sizeArray = ok.length;
+        long serializeEnd = System.nanoTime();
+
+        long annotatorStart = serializeEnd;
+        client.send(ok);
+
+        while (client.messageStack.isEmpty()) {
+            int c = 0;
+        }
+
+        byte[] result = client.messageStack.get(0);
+        client.close();
+
+        ByteArrayInputStream st = new ByteArrayInputStream(result);
+        long annotatorEnd = System.nanoTime();
+        long deserializeStart = annotatorEnd;
+
+        try {
+            layer.deserialize(viewJc, st);
+        }
+        catch(Exception e) {
+            System.err.printf("Caught exception printing response %s\n",new String(result, StandardCharsets.UTF_8));
+            throw e;
+        }
+        long deserializeEnd = System.nanoTime();
+
+        ReproducibleAnnotation ann = new ReproducibleAnnotation(jc);
+        ann.setDescription(comp.getPipelineComponent().getFinalizedRepresentation());
+        ann.setCompression(DUUIPipelineComponent.compressionMethod);
+        ann.setTimestamp(System.nanoTime());
+        ann.setPipelineName(perf.getRunKey());
+        ann.addToIndexes();
+        perf.addData(serializeEnd-serializeStart,deserializeEnd-deserializeStart,annotatorEnd-annotatorStart,queue.getValue2()-queue.getValue1(),deserializeEnd-queue.getValue1(), String.valueOf(comp.getPipelineComponent().getFinalizedRepresentationHash()), sizeArray, jc);
+        comp.addComponent(queue.getValue0());
     }
 }

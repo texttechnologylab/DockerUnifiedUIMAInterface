@@ -12,9 +12,11 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUICompressionHelper;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUICommunicationLayer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.websocket.WebsocketClient;
 import org.xml.sax.SAXException;
 
 import java.io.IOException;
+import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.http.HttpClient;
 import java.security.InvalidParameterException;
@@ -217,6 +219,27 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         if (comp == null) {
             throw new InvalidParameterException("The given instantiated component uuid was not instantiated by the remote driver");
         }
+
+        // Deciding which protocol to use.
+        try {
+            WebsocketClient client = new WebsocketClient(new URI("ws://127.0.0.1:9715/ws"));
+            boolean connection = client.connectBlocking();
+            if (connection) {
+                System.out.printf("[RemoteDriver][%s] Connection to websocket-server established!\n", uuid);
+
+                IDUUIInstantiatedPipelineComponent.process_websocket(aCas, comp, perf, client);
+
+                return;
+
+            } else {
+                System.out.printf("[RemoteDriver][%s] Connection to websocket-server unsuccessful!\n", uuid);
+            }
+        } catch (URISyntaxException e) {
+            System.out.printf("[RemoteDriver][%s] URI-format for websocket-connection caused an exception!\n", uuid);
+            comp._urls.forEach(System.out::println);
+            e.printStackTrace();
+        }
+
         IDUUIInstantiatedPipelineComponent.process(aCas,comp,perf);
     }
 
