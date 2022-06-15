@@ -127,6 +127,8 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         String serviceid = _interface.run_service(digest,comp.getScale());
             int port = _interface.extract_service_port_mapping(serviceid);
 
+            System.out.printf("[DockerSwarmDriver][%s] Started service, waiting for it to become responsive...\n",uuid);
+
             if (port == 0) {
                 throw new UnknownError("Could not read the service port!");
             }

@@ -116,6 +116,8 @@ class DUUIWorker extends Thread {
             DUUIPipelineDocumentPerformance perf = new DUUIPipelineDocumentPerformance(_runKey,
                     waitTimeEnd-waitTimeStart,
                     object);
+            // f32, 64d, e57
+            // DAG, Directed Acyclic Graph
             for (DUUIComposer.PipelinePart i : _flow) {
                 try {
                     i.getDriver().run(i.getUUID(),object,perf);
@@ -200,7 +202,7 @@ class DUUIWorkerAsyncReader extends Thread {
                     System.out.println("Thread continues work!");
                 }
             }
-            _jc.reset();
+
             if (_backend != null) {
                 _backend.addMetricsForDocument(perf);
             }
@@ -777,10 +779,14 @@ public class DUUIComposer {
         //        DUUIUIMADriver.class);
       /*  composer.add(new DUUILocalDriver.Component("java_segmentation:latest")*/
 
-       // composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class))
-       //         .withScale(4)
-       //         .build()
-       // );
+        composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class))
+                .withScale(4)
+                .build()
+        );
+        composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class))
+                .withScale(6)
+                .build()
+        );
        // composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/benchmark_serde_echo_msgpack:0.2")
        //         .build());
 //        composer.add(new DUUILocalDriver.Component("java_segmentation:latest")
@@ -864,3 +870,4 @@ public class DUUIComposer {
         composer.shutdown();
   }
 }
+

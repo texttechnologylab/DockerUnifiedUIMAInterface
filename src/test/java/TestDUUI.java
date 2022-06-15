@@ -5,6 +5,7 @@ import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
 import de.tudarmstadt.ukp.dkpro.core.io.text.TextReader;
 import de.tudarmstadt.ukp.dkpro.core.opennlp.OpenNlpPosTagger;
 import de.tudarmstadt.ukp.dkpro.core.tokit.BreakIteratorSegmenter;
+import eu.clarin.weblicht.wlfxb.md.xb.Services;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.UIMAException;
 import org.apache.uima.analysis_engine.AnalysisEngineDescription;
@@ -51,6 +52,7 @@ import org.texttechnologylab.utilities.helper.FileUtils;
 import org.xml.sax.SAXException;
 
 
+import javax.script.*;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -590,16 +592,18 @@ public class TestDUUI {
         String val = Files.readString(Path.of(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/rust_communication_msgpack.lua").toURI()));
         DUUILuaContext ctxt = new DUUILuaContext();
         DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(val, "remote", ctxt);
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        long start = System.currentTimeMillis();
-        lua.serialize(jc, out, null);
-        long end = System.currentTimeMillis();
-        System.out.printf("Serialize large Lua MsgPack in %d ms time," +
-                " total bytes %d, total tokens %d\n", end - start, out.toString().length(), expectedNumberOfTokens);
-        MessageUnpacker unpacker = MessagePack.newDefaultUnpacker(out.toByteArray());
-        String text = unpacker.unpackString();
-        int numTokensTimes2_2 = unpacker.unpackArrayHeader();
-        assertEquals(expectedNumberOfTokens * 2, numTokensTimes2_2);
+        for(int i = 0; i < 10; i++) {
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            long start = System.currentTimeMillis();
+            lua.serialize(jc, out, null);
+            long end = System.currentTimeMillis();
+            System.out.printf("Serialize large Lua MsgPack in %d ms time," +
+                    " total bytes %d, total tokens %d\n", end - start, out.toString().length(), expectedNumberOfTokens);
+        }
+        //MessageUnpacker unpacker = MessagePack.newDefaultUnpacker(out.toByteArray());
+        //String text = unpacker.unpackString();
+        //int numTokensTimes2_2 = unpacker.unpackArrayHeader();
+        //assertEquals(expectedNumberOfTokens * 2, numTokensTimes2_2);
     }
 
     @Test
@@ -989,6 +993,54 @@ public class TestDUUI {
         }
 
         assertEquals(JCasUtil.select(jc_dup,TOP.class).size(), JCasUtil.select(jc,TOP.class).size()+1);
+    }
+
+    @Test
+    public void nashorn() throws Exception {
+        ScriptEngine ee = new ScriptEngineManager().getEngineByName("Nashorn");
+        CompiledScript compiled = ((Compilable) ee).compile("var token = Java.type(\"de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token\");\n" +
+                "var util = Java.type(\"org.apache.uima.fit.util.JCasUtil\");\n" +
+                "var msgpack = Java.type(\"org.msgpack.core.MessagePack\");" +
+                "    var packer = msgpack.newDefaultPacker(outputStream);" +
+                        "packer.packArrayHeader(2);" +
+                        "packer.packString(inputCas.getDocumentText());\n" +
+                        "var size = util.select(inputCas,token.class).size();\n" +
+                        "packer.packArrayHeader(size*2);\n" +
+                        "var result = util.select(inputCas,token.class).iterator();\n" +
+                        "while(result.hasNext()) {\n" +
+                        "   var x = result.next();\n" +
+                        "    packer.packInt(x.getBegin());\n" +
+                        "    packer.packInt(x.getEnd());\n" +
+                        "}\n" +
+                        "  packer.close();" +
+                "");
+
+
+        JCas jc = JCasFactory.createJCas();
+        String val2 = Files.readString(Path.of(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/large_texts/1000.txt").toURI()));
+        jc.setDocumentText(val2);
+        jc.setDocumentLanguage("de");
+        AnalysisEngineDescription desc = AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class);
+        SimplePipeline.runPipeline(jc, desc);
+
+        int expectedNumberOfTokens = 0;
+        for (Token t : JCasUtil.select(jc, Token.class)) {
+            expectedNumberOfTokens += 1;
+        }
+
+
+        for(int i = 0; i < 10; i++) {
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            long start = System.currentTimeMillis();
+            Bindings b = ee.createBindings();
+            b.put("outputStream", out);
+            b.put("inputCas", jc);
+            compiled.eval(b);
+            //invocable.invokeFunction("serialize",jc, out, null);
+            long end = System.currentTimeMillis();
+            System.out.printf("Serialize large Nashorn MsgPack in %d ms time," +
+                    " total bytes %d, total tokens %d\n", end - start, out.toString().length(), expectedNumberOfTokens);
+        }
     }
 
     @Test

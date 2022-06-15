@@ -202,13 +202,14 @@
             <artifactId>textimager-uima-types</artifactId>
             <version>b10db8275163d19d63b9512cc20ca5872e52499b</version>
         </dependency>
-
-        <!-- https://mvnrepository.com/artifact/org.apache.bcel/bcel -->
+        <!-- https://mvnrepository.com/artifact/org.openjdk.nashorn/nashorn-core -->
         <dependency>
-            <groupId>org.apache.bcel</groupId>
-            <artifactId>bcel</artifactId>
-            <version>6.5.0</version>
+            <groupId>org.openjdk.nashorn</groupId>
+            <artifactId>nashorn-core</artifactId>
+            <version>15.4</version>
         </dependency>
+
+
 
         <dependency>
             <groupId>com.github.texttechnologylab</groupId>

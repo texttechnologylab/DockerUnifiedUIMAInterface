@@ -82,7 +82,7 @@ public interface IDUUIInstantiatedPipelineComponent {
         IDUUICommunicationLayer layer = comp.getCommunicationLayer();
         long serializeStart = System.nanoTime();
 
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ByteArrayOutputStream out = new ByteArrayOutputStream(1024*1024);
 
         DUUIPipelineComponent pipelineComponent = comp.getPipelineComponent();
         String viewName = pipelineComponent.getViewName();

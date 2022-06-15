@@ -159,6 +159,7 @@ public class AsyncCollectionReader {
         else {
             decodedFile = new ByteArrayInputStream(file);
         }
+        empty.reset();
         XmiCasDeserializer.deserialize(decodedFile, empty.getCas(), true);
         return true;
     }
