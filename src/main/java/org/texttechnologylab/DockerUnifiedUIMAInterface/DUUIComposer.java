@@ -549,6 +549,7 @@ public class DUUIComposer {
     private JCas run_pipeline(String name, JCas jc, long documentWaitTime, Vector<PipelinePart> pipeline) throws Exception {
         DUUIPipelineDocumentPerformance perf = new DUUIPipelineDocumentPerformance(name,documentWaitTime,jc);
         for (PipelinePart comp : pipeline) {
+
             comp.getDriver().run(comp.getUUID(), jc, perf);
         }
 
@@ -758,6 +759,7 @@ public class DUUIComposer {
         jc.setDocumentText(val2);
 
         // Run single document
+        composer.run(jc,"fuchs");
         composer.run(jc,"fuchs");
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();

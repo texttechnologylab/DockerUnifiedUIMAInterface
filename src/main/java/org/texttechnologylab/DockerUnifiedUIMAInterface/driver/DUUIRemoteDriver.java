@@ -216,6 +216,13 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
     public void run(String uuid, JCas aCas, DUUIPipelineDocumentPerformance perf) throws InterruptedException, IOException, SAXException, CompressorException, CASException {
         long mutexStart = System.nanoTime();
         InstantiatedComponent comp = _components.get(uuid);
+
+        /**
+         *
+        System.out.println("[DUUIPiplineDriver] uu_id "+ uuid);
+        System.out.println("[DUUIPiplineDriver] _components "+ _components);
+        System.out.println("[DUUIPiplineDriver] _components "+ _components.get(uuid));
+         */
         if (comp == null) {
             throw new InvalidParameterException("The given instantiated component uuid was not instantiated by the remote driver");
         }

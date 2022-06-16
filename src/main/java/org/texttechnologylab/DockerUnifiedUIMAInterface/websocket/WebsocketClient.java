@@ -20,8 +20,8 @@ public class WebsocketClient extends WebSocketClient {
     public static void main(String[] args) {
 
         // Echo Test
-        String URI = "ws://localhost:7890";
-        echoServer("ws://localhost:7890/ws");
+        String URI = "ws://localhost:9715";
+        echoServer("ws://localhost:9715/ws");
 
     }
 
