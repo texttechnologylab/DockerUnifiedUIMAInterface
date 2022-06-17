@@ -1,4 +1,3 @@
-import org.dkpro.core.io.xmi.XmiWriter;
 import org.junit.jupiter.api.Test;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIDockerDriver;
@@ -9,10 +8,11 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.io.AsyncCollectionReader
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.sqlite.DUUISqliteStorageBackend;
 
-import static org.apache.uima.fit.factory.AnalysisEngineFactory.createEngineDescription;
+import java.util.ArrayList;
+import java.util.List;
 
 public class TestDUUIBenchmarkGerParCor {
-    private static int iWorkers = 2;
+    private static int iWorkers = 4;
     private static String sourceLocation = "/mnt/corpora2/xmi/ParliamentOutNew/";
     private static String sourceSuffix = ".xmi.gz";
     private static int sampleSize = 100;
@@ -161,28 +161,64 @@ public class TestDUUIBenchmarkGerParCor {
     }
 
 
-    AsyncCollectionReader benchmarkReader = new AsyncCollectionReader(sourceLocation, sourceSuffix, 1, sampleSize, false, "/tmp/sample_benchmark_"+sampleSize);
+    //AsyncCollectionReader benchmarkReader = new AsyncCollectionReader(sourceLocation, sourceSuffix, 1, sampleSize, false, "/tmp/sample_benchmark_"+sampleSize);
 
     @Test
-    public void DUUIBenchmarkDocker() throws Exception {
+    public void DUUIBenchmarkSwarmTest() throws Exception {
+        int iSample = 100;
+        int iValue = 1;
+        AsyncCollectionReader benchmarkReader = new AsyncCollectionReader(sourceLocation, sourceSuffix, 1, iSample, false, "/tmp/sample_benchmark_"+iSample);
 
-        DUUIWorker("docker",
-                "benchmark_docker_"+iWorkers);
-
+        try {
+            DUUIWorker(benchmarkReader, "swarm", "benchmark_swarm_"+iValue, iWorkers, iSample);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     @Test
     public void DUUIBenchmarkSwarm() throws Exception {
 
-        DUUIWorker("swarm",
-                "benchmark_swarm_"+iWorkers);
+        List<Integer> iValues = new ArrayList<>();
+        iValues.add(1);
+        iValues.add(2);
+        iValues.add(4);
+        iValues.add(8);
+
+        List<Integer> iSamples = new ArrayList<>();
+        iSamples.add(100);
+        iSamples.add(200);
+        iSamples.add(500);
+        iSamples.add(1000);
+
+        iValues.stream().forEach(iValue->{
+
+            iSamples.stream().forEach(iSample->{
+
+            AsyncCollectionReader benchmarkReader = new AsyncCollectionReader(sourceLocation, sourceSuffix, 1, iSample, false, "/tmp/sample_benchmark_"+iSample);
+
+            try {
+                DUUIWorker(benchmarkReader, "docker", "benchmark_docker_"+iValue, iValue, iSample);
+
+//                DUUIWorker(benchmarkReader, "swarm", "benchmark_swarm_"+iValue, iSample);
+
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+
+
+        });
+
+
+        });
+
 
     }
 
 
-    public void DUUIWorker(String sType, String sName) throws Exception {
+    public void DUUIWorker(AsyncCollectionReader reader, String sType, String sName, int iWorkers, int sampleSize) throws Exception {
 
-        DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend(sLoggingBenchmark)
+        DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend("benchmark_gercorpa_"+sampleSize+".db")
                 .withConnectionPoolSize(iWorkers);
 
         DUUILuaContext ctx = new DUUILuaContext().withJsonLibrary();
@@ -191,12 +227,10 @@ public class TestDUUIBenchmarkGerParCor {
                 .withStorageBackend(sqlite)
                 .withLuaContext(ctx)
                 .withWorkers(iWorkers);
-        composer.addDriver(new DUUIDockerDriver());
-
 
         DUUIDockerDriver docker_driver = new DUUIDockerDriver().withTimeout(10000);
         DUUIRemoteDriver remote_driver = new DUUIRemoteDriver(10000);
-        DUUIUIMADriver uima_driver = new DUUIUIMADriver().withDebug(true);
+        DUUIUIMADriver uima_driver = new DUUIUIMADriver();
         DUUISwarmDriver swarm_driver = new DUUISwarmDriver();
 
         composer.addDriver(docker_driver, remote_driver, uima_driver, swarm_driver);
@@ -214,14 +248,14 @@ public class TestDUUIBenchmarkGerParCor {
 //                .withScale(iWorkers)
 //                .build());
 
-        composer.add(new DUUIUIMADriver.Component(
-                createEngineDescription(XmiWriter.class,
-                        XmiWriter.PARAM_TARGET_LOCATION, "/tmp/output/",
-                        XmiWriter.PARAM_OVERWRITE, true,
-                        XmiWriter.PARAM_COMPRESSION, "GZIP"
-                )).withScale(iWorkers));
+//        composer.add(new DUUIUIMADriver.Component(
+//                createEngineDescription(XmiWriter.class,
+//                        XmiWriter.PARAM_TARGET_LOCATION, "/tmp/output/",
+//                        XmiWriter.PARAM_OVERWRITE, true,
+//                        XmiWriter.PARAM_COMPRESSION, "GZIP"
+//                )).withScale(iWorkers));
 
-        composer.run(benchmarkReader, sName);
+        composer.run(reader, sName);
 
         composer.shutdown();
 
