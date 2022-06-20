@@ -16,10 +16,10 @@ public class TestDUUIBenchmarkGerParCor {
     private static String sourceLocation = "/mnt/corpora2/xmi/ParliamentOutNew/";
     private static String sourceSuffix = ".xmi.gz";
     private static int sampleSize = 100;
-    private static String sLogging = "serialization_gercorpa_"+sampleSize+".db";
-    private static String sLoggingBenchmark = "benchmark_gercorpa_"+sampleSize+".db";
+    private static String sLogging = "serialization_gercorpa_" + sampleSize + ".db";
+    private static String sLoggingBenchmark = "swarm_benchmark_gercorpa_" + sampleSize + ".db";
 
-//    @Test
+    //    @Test
     public void ComposerAsyncCollectionReader() throws Exception {
         AsyncCollectionReader rd = new AsyncCollectionReader(sourceLocation, sourceSuffix, 2, false);
         DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend("serialization_gercorpa.db")
@@ -37,11 +37,11 @@ public class TestDUUIBenchmarkGerParCor {
                 .withScale(iWorkers)
                 .withImageFetching());
 
-        composer.run(rd,"async_reader_serde_echo_binary");
+        composer.run(rd, "async_reader_serde_echo_binary");
         composer.shutdown();
     }
 
-    AsyncCollectionReader rd = new AsyncCollectionReader(sourceLocation, sourceSuffix, 1, sampleSize, false, "serialize_gerparcor"+sampleSize);
+    AsyncCollectionReader rd = new AsyncCollectionReader(sourceLocation, sourceSuffix, 1, sampleSize, false, "serialize_gerparcor" + sampleSize);
 
     @Test
     public void ComposerPerformanceTestEchoSerializeDeserializeBinary() throws Exception {
@@ -59,7 +59,7 @@ public class TestDUUIBenchmarkGerParCor {
 
         composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/benchmark_serde_echo_binary:0.1")
                 .withScale(iWorkers));
-                //.withImageFetching());
+        //.withImageFetching());
 
 //        composer.run(CollectionReaderFactory.createReaderDescription(XmiReader.class,
 //                XmiReader.PARAM_LANGUAGE,"de",
@@ -166,11 +166,11 @@ public class TestDUUIBenchmarkGerParCor {
     @Test
     public void DUUIBenchmarkSwarmTest() throws Exception {
         int iSample = 100;
-        int iValue = 1;
-        AsyncCollectionReader benchmarkReader = new AsyncCollectionReader(sourceLocation, sourceSuffix, 1, iSample, false, "/tmp/sample_benchmark_"+iSample);
+        int iValue = 4;
+        AsyncCollectionReader benchmarkReader = new AsyncCollectionReader(sourceLocation, sourceSuffix, 1, iSample, false, "/tmp/sample_benchmark_" + iSample);
 
         try {
-            DUUIWorker(benchmarkReader, "swarm", "benchmark_swarm_"+iValue, iWorkers, iSample);
+            DUUIWorker(benchmarkReader, "swarm", "benchmark_swarm_" + iValue, iWorkers, iSample);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -191,23 +191,23 @@ public class TestDUUIBenchmarkGerParCor {
         iSamples.add(500);
         iSamples.add(1000);
 
-        iValues.stream().forEach(iValue->{
+        iValues.stream().forEach(iValue -> {
 
-            iSamples.stream().forEach(iSample->{
+            iSamples.stream().forEach(iSample -> {
 
-            AsyncCollectionReader benchmarkReader = new AsyncCollectionReader(sourceLocation, sourceSuffix, 1, iSample, false, "/tmp/sample_benchmark_"+iSample);
+                AsyncCollectionReader benchmarkReader = new AsyncCollectionReader(sourceLocation, sourceSuffix, 1, iSample, false, "/tmp/sample_benchmark_" + iSample);
 
-            try {
-                DUUIWorker(benchmarkReader, "docker", "benchmark_docker_"+iValue, iValue, iSample);
+                try {
+                    DUUIWorker(benchmarkReader, "docker", "benchmark_docker_" + iValue, iValue, iSample);
 
-//                DUUIWorker(benchmarkReader, "swarm", "benchmark_swarm_"+iValue, iSample);
+//                DUUIWorker(benchmarkReader, "swarm", "benchmark_swarm_"+iValue, iValue, iSample);
 
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
 
 
-        });
+            });
 
 
         });
@@ -218,7 +218,7 @@ public class TestDUUIBenchmarkGerParCor {
 
     public void DUUIWorker(AsyncCollectionReader reader, String sType, String sName, int iWorkers, int sampleSize) throws Exception {
 
-        DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend("benchmark_gercorpa_"+sampleSize+".db")
+        DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend(sType+"_benchmark_gercorpa_" + sampleSize + ".db")
                 .withConnectionPoolSize(iWorkers);
 
         DUUILuaContext ctx = new DUUILuaContext().withJsonLibrary();
@@ -235,11 +235,10 @@ public class TestDUUIBenchmarkGerParCor {
 
         composer.addDriver(docker_driver, remote_driver, uima_driver, swarm_driver);
 
-        if(sType.equals("swarm")){
+        if (sType.equals("swarm")) {
             composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
                     .withScale(iWorkers).build());
-        }
-        else{
+        } else {
             composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
                     .withScale(iWorkers).withImageFetching());
         }
