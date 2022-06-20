@@ -121,20 +121,25 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
             comp.getPipelineComponent().__internalPinDockerImage(digest);
         System.out.printf("[DockerSwarmDriver] Transformed image %s to pinnable image name %s\n", comp.getImageName(),digest);
 
-        String serviceid = _interface.run_service(digest,comp.getScale());
+            String serviceid = _interface.run_service(digest,comp.getScale());
             int port = _interface.extract_service_port_mapping(serviceid);
 
             if (port == 0) {
                 throw new UnknownError("Could not read the service port!");
             }
             final String uuidCopy = uuid;
-            IDUUICommunicationLayer layer
-                = DUUIDockerDriver.responsiveAfterTime("http://localhost:" + port, jc, _container_timeout, _client, (msg) -> {
+            IDUUICommunicationLayer layer = null;
+            try {
+                    layer = DUUIDockerDriver.responsiveAfterTime("http://localhost:" + port, jc, _container_timeout, _client, (msg) -> {
                     System.out.printf("[DockerSwarmDriver][%s][%d Replicas] %s\n", uuidCopy, comp.getScale(), msg);
                 }, _luaContext, skipVerification);
-
-
-
+            }
+            catch (Exception e){
+                throw e;
+            }
+            finally {
+                _interface.rm_service(serviceid);
+            }
 
             System.out.printf("[DockerSwarmDriver][%s][%d Replicas] Service for image %s is online (URL http://localhost:%d) and seems to understand DUUI V1 format!\n", uuid, comp.getScale(),comp.getImageName(), port);
             comp.initialise(serviceid,port);
