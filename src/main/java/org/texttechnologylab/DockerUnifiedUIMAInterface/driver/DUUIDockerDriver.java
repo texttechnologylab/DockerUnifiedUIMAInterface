@@ -135,15 +135,11 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
                     throw e;
                 }
                 else{
-
                     Thread.sleep(2000l);
                     iError++;
                 }
 
                 if(iError>10){
-                    e.printStackTrace();
-
-
                     throw e;
                 }
             }

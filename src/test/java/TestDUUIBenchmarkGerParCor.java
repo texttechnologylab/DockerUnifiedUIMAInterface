@@ -228,12 +228,17 @@ public class TestDUUIBenchmarkGerParCor {
                 .withLuaContext(ctx)
                 .withWorkers(iWorkers);
 
+        if(sType.equals("swarm")){
+            DUUISwarmDriver swarm_driver = new DUUISwarmDriver().withSwarmVisualizer();
+            composer.addDriver(swarm_driver);
+        }
+
         DUUIDockerDriver docker_driver = new DUUIDockerDriver().withTimeout(10000);
         DUUIRemoteDriver remote_driver = new DUUIRemoteDriver(10000);
         DUUIUIMADriver uima_driver = new DUUIUIMADriver();
-        DUUISwarmDriver swarm_driver = new DUUISwarmDriver();
 
-        composer.addDriver(docker_driver, remote_driver, uima_driver, swarm_driver);
+
+        composer.addDriver(docker_driver, remote_driver, uima_driver);
 
         if (sType.equals("swarm")) {
             composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
