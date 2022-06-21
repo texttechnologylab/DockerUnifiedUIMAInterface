@@ -135,10 +135,8 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
                 }, _luaContext, skipVerification);
             }
             catch (Exception e){
-                throw e;
-            }
-            finally {
                 _interface.rm_service(serviceid);
+                throw e;
             }
 
             System.out.printf("[DockerSwarmDriver][%s][%d Replicas] Service for image %s is online (URL http://localhost:%d) and seems to understand DUUI V1 format!\n", uuid, comp.getScale(),comp.getImageName(), port);
