@@ -167,7 +167,7 @@ public class TestDUUIBenchmarkGerParCor {
     public void DUUIBenchmarkSwarmTest() throws Exception {
         int iSample = 100;
         int iValue = 4;
-        AsyncCollectionReader benchmarkReader = new AsyncCollectionReader(sourceLocation, sourceSuffix, 1, iSample, false, "/tmp/sample_benchmark_" + iSample);
+        AsyncCollectionReader benchmarkReader = new AsyncCollectionReader(sourceLocation, sourceSuffix, 1, iSample, false, "/resources/public/abrami/evaluation_DUUI/sample_benchmark_" + iSample);
 
         try {
             DUUIWorker(benchmarkReader, "swarm", "benchmark_swarm_" + iValue, iWorkers, iSample);
@@ -195,12 +195,12 @@ public class TestDUUIBenchmarkGerParCor {
 
             iSamples.stream().forEach(iSample -> {
 
-                AsyncCollectionReader benchmarkReader = new AsyncCollectionReader(sourceLocation, sourceSuffix, 1, iSample, false, "/tmp/sample_benchmark_" + iSample);
+                AsyncCollectionReader benchmarkReader = new AsyncCollectionReader(sourceLocation, sourceSuffix, 1, iSample, false, "/resources/public/abrami/evaluation_DUUI/sample_benchmark_" + iSample);
 
                 try {
-                    DUUIWorker(benchmarkReader, "docker", "benchmark_docker_" + iValue, iValue, iSample);
+                DUUIWorker(benchmarkReader, "docker", "benchmark_docker_" + iValue, iValue, iSample);
 
-//                DUUIWorker(benchmarkReader, "swarm", "benchmark_swarm_"+iValue, iValue, iSample);
+                DUUIWorker(benchmarkReader, "swarm", "benchmark_swarm_"+iValue, iValue, iSample);
 
                 } catch (Exception e) {
                     e.printStackTrace();
