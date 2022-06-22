@@ -36,7 +36,6 @@ async def websocket_handler(request):
     async for msg in ws:
 #         print(msg)
         jc = msg.data.decode("utf-8")
-        print(jc)
         cas = load_cas_from_xmi(jc, typesystem=typesystem,lenient=True)
         await ws.send_bytes(cas.to_xmi().encode('utf-8'))
         # if msg.type == aiohttp.WSMsgType.TEXT:
@@ -55,7 +54,7 @@ def create_runner():
     app.add_routes([
         web.get('/',   http_handler),
         web.get('/v1/communication_layer', communication_layer_handler),
-        web.get('/v1/process_websocket', websocket_handler),
+        web.get('/ws', websocket_handler),
         web.get('/v1/typesystem', typesystem_handler),
         web.post("/v1/process", process_handler)
 
