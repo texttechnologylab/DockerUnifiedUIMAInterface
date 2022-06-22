@@ -10,13 +10,19 @@ import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.apache.uima.util.TypeSystemUtil;
 import org.javatuples.Triplet;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.*;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIDockerInterface;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIFallbackCommunicationLayer;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUICommunicationLayer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaCommunicationLayer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
 import org.xml.sax.SAXException;
 
-import java.io.*;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.StringWriter;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.http.HttpClient;
@@ -26,12 +32,10 @@ import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidParameterException;
 import java.time.Duration;
-import java.time.temporal.TemporalAmount;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.logging.Logger;
 
@@ -91,6 +95,7 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
         long start = System.currentTimeMillis();
         IDUUICommunicationLayer layer = new DUUIFallbackCommunicationLayer();
         boolean fatal_error = false;
+        int iError = 0;
         while(true) {
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(url + DUUIComposer.V1_COMPONENT_ENDPOINT_COMMUNICATION_LAYER))
@@ -125,7 +130,16 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
                 }
 
             } catch (Exception e) {
+
                 if(fatal_error) {
+                    throw e;
+                }
+                else{
+                    Thread.sleep(2000l);
+                    iError++;
+                }
+
+                if(iError>10){
                     throw e;
                 }
             }
