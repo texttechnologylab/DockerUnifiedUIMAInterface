@@ -30,12 +30,15 @@ public class DUUIPipelineComponent {
     private String _finalizedEncoded;
     private int _finalizedEncodedHash;
     private String _compression;
+    private boolean _websocket = false;
 
     public static String compressionMethod = CompressorStreamFactory.XZ;
 
     private static String engineOptionName = "engine";
     private static String scaleOptionName = "scale";
     private static String urlOptionName = "url";
+    private static String websocketOptionName = "websocket";
+
 
     private static String dockerPasswordOptionName = "dockerPassword";
     private static String dockerUsernameOptionName = "dockerUsername";
@@ -72,6 +75,7 @@ public class DUUIPipelineComponent {
         else {
             _options.put(versionInformation,version);
         }
+        _parameters.put(websocketOptionName, String.valueOf(_websocket));
     }
 
     public void finalizeComponent() throws CompressorException, IOException, SAXException {
@@ -412,6 +416,13 @@ public class DUUIPipelineComponent {
         js.put("options",_options);
         js.put("parameters",_parameters);
         return js.toString();
+    }
+
+    public boolean isWebsocket() { return _websocket; }
+
+    public DUUIPipelineComponent withWebsocket(boolean b) {
+        _websocket = b;
+        return withParameter(websocketOptionName, String.valueOf(b));
     }
 
     public DUUIPipelineComponent withParameter(String key, String value) {

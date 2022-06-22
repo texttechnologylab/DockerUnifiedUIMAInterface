@@ -65,6 +65,11 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
             return this;
         }
 
+        public Component withWebsocket(boolean b) {
+            component.withWebsocket(b);
+            return this;
+        }
+
         public DUUIPipelineComponent build() {
             component.withDriver(DUUIRemoteDriver.class);
             return component;
@@ -94,6 +99,7 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         private String _uniqueComponentKey;
         private Map<String,String> _parameters;
         private DUUIPipelineComponent _component;
+        private boolean _websocket;
 
         public IDUUICommunicationLayer getCommunicationLayer() {
             return _layer;
@@ -129,6 +135,7 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
 
             _maximum_concurrency = comp.getScale(1);
             _components = new ConcurrentLinkedQueue<>();
+            _websocket = comp.isWebsocket();
         }
 
         public DUUIPipelineComponent getPipelineComponent() {
@@ -146,6 +153,8 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         }
 
         public Map<String,String> getParameters() {return _parameters;}
+
+        public boolean isWebsocket() {return _websocket; }
     }
 
     public DUUIRemoteDriver(int timeout) {
@@ -220,27 +229,29 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
             throw new InvalidParameterException("The given instantiated component uuid was not instantiated by the remote driver");
         }
 
-        // Deciding which protocol to use.
-        try {
-            WebsocketClient client = new WebsocketClient(new URI("ws://127.0.0.1:9715/ws"));
+        if (comp.isWebsocket()) {
+            // Deciding which protocol to use.
+//            String url = comp.getComponent().getValue0().generateURL().replaceFirst("http", "ws");
+//            System.out.printf("[RemoteDriver][%s] Generated URL: %s!\n", uuid, url + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS_WEBSOCKET);
+            WebsocketClient client = null;
+            try {
+                client = new WebsocketClient(new URI("ws://127.0.0.1:9715/v1/process_websocket"));
+            } catch (URISyntaxException e) {
+                e.printStackTrace();
+            }
             boolean connection = client.connectBlocking();
             if (connection) {
                 System.out.printf("[RemoteDriver][%s] Connection to websocket-server established!\n", uuid);
 
                 IDUUIInstantiatedPipelineComponent.process_websocket(aCas, comp, perf, client);
 
-                return;
-
             } else {
                 System.out.printf("[RemoteDriver][%s] Connection to websocket-server unsuccessful!\n", uuid);
             }
-        } catch (URISyntaxException e) {
-            System.out.printf("[RemoteDriver][%s] URI-format for websocket-connection caused an exception!\n", uuid);
-            comp._urls.forEach(System.out::println);
-            e.printStackTrace();
         }
-
-        IDUUIInstantiatedPipelineComponent.process(aCas,comp,perf);
+        else {
+            IDUUIInstantiatedPipelineComponent.process(aCas,comp,perf);
+        }
     }
 
     public void destroy(String uuid) {

@@ -206,11 +206,9 @@ public interface IDUUIInstantiatedPipelineComponent {
 
         long annotatorStart = serializeEnd;
         client.send(ok);
-
         while (client.messageStack.isEmpty()) {
             int c = 0;
         }
-
         byte[] result = client.messageStack.get(0);
         client.close();
 

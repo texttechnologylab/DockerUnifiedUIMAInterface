@@ -151,6 +151,7 @@ public class DUUIComposer {
     public static final String COMPONENT_COMPONENT_UNIQUE_KEY = "duuid.storage.componentkey";
 
     public static final String V1_COMPONENT_ENDPOINT_PROCESS = "/v1/process";
+    public static final String V1_COMPONENT_ENDPOINT_PROCESS_WEBSOCKET = "/v1/process_websocket";
     public static final String V1_COMPONENT_ENDPOINT_TYPESYSTEM = "/v1/typesystem";
     public static final String V1_COMPONENT_ENDPOINT_COMMUNICATION_LAYER = "/v1/communication_layer";
 
@@ -747,7 +748,7 @@ public class DUUIComposer {
                 , DUUISwarmDriver.class);*/
 
         composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.Component("http://127.0.0.1:9715")
-                        .withScale(1).build());
+                        .withScale(1).withWebsocket(true).build());
 
        // ByteArrayInputStream stream;
        // stream.read
