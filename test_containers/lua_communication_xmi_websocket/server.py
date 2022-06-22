@@ -54,7 +54,7 @@ def create_runner():
     app.add_routes([
         web.get('/',   http_handler),
         web.get('/v1/communication_layer', communication_layer_handler),
-        web.get('/ws', websocket_handler),
+        web.get('/v1/process_websocket', websocket_handler),
         web.get('/v1/typesystem', typesystem_handler),
         web.post("/v1/process", process_handler)
 
