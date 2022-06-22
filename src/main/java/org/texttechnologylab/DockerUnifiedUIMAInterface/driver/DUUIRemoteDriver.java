@@ -7,12 +7,12 @@ import org.apache.uima.jcas.JCas;
 import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.javatuples.Triplet;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUICompressionHelper;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUICommunicationLayer;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.DUUIRestHandler;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.websocket.WebsocketClient;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.DUUIWebsocketHandler;
 import org.xml.sax.SAXException;
 
 import java.io.IOException;
@@ -235,29 +235,14 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         if (comp == null) {
             throw new InvalidParameterException("The given instantiated component uuid was not instantiated by the remote driver");
         }
-
-        if (comp.isWebsocket()) {
-            // Deciding which protocol to use.
-//            String url = comp.getComponent().getValue0().generateURL().replaceFirst("http", "ws");
-//            System.out.printf("[RemoteDriver][%s] Generated URL: %s!\n", uuid, url + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS_WEBSOCKET);
-            WebsocketClient client = null;
-            try {
-                client = new WebsocketClient(new URI("ws://127.0.0.1:9715/v1/process_websocket"));
-            } catch (URISyntaxException e) {
-                e.printStackTrace();
-            }
-            boolean connection = client.connectBlocking();
-            if (connection) {
-                System.out.printf("[RemoteDriver][%s] Connection to websocket-server established!\n", uuid);
-
-                IDUUIInstantiatedPipelineComponent.process_websocket(aCas, comp, perf, client);
-
+        try {
+            if (comp.isWebsocket()) {
+                IDUUIInstantiatedPipelineComponent.process_handler(aCas, comp, perf, new DUUIWebsocketHandler());
             } else {
-                System.out.printf("[RemoteDriver][%s] Connection to websocket-server unsuccessful!\n", uuid);
+                IDUUIInstantiatedPipelineComponent.process_handler(aCas, comp, perf, new DUUIRestHandler());
             }
-        }
-        else {
-            IDUUIInstantiatedPipelineComponent.process(aCas,comp,perf);
+        } catch (URISyntaxException e) {
+            e.printStackTrace();
         }
     }
 

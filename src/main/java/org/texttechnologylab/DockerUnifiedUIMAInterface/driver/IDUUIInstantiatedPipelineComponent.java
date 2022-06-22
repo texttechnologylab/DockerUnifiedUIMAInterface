@@ -10,14 +10,16 @@ import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.javatuples.Triplet;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUICommunicationLayer;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.IDUUIConnectionHandler;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.websocket.WebsocketClient;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.DUUIWebsocketHandler;
 import org.texttechnologylab.duui.ReproducibleAnnotation;
 import org.xml.sax.SAXException;
 
 import java.io.*;
 import java.net.ProxySelector;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -167,7 +169,7 @@ public interface IDUUIInstantiatedPipelineComponent {
         }
     }
 
-    public static void process_websocket(JCas jc, IDUUIInstantiatedPipelineComponent comp, DUUIPipelineDocumentPerformance perf, WebsocketClient client) throws CompressorException, IOException, SAXException, CASException {
+    public static void process_handler(JCas jc, IDUUIInstantiatedPipelineComponent comp, DUUIPipelineDocumentPerformance perf, IDUUIConnectionHandler handler) throws CompressorException, IOException, SAXException, CASException, URISyntaxException {
         Triplet<IDUUIUrlAccessible,Long,Long> queue = comp.getComponent();
 
         IDUUICommunicationLayer layer = comp.getCommunicationLayer();
@@ -205,12 +207,17 @@ public interface IDUUIInstantiatedPipelineComponent {
         long serializeEnd = System.nanoTime();
 
         long annotatorStart = serializeEnd;
-        client.send(ok);
-        while (client.messageStack.isEmpty()) {
-            int c = 0;
+
+        System.out.println("CONNECTION STARTED");
+        String uri = queue.getValue0().generateURL();
+        handler.initiate(uri);
+        byte[] result = handler.sendAwaitResponse(ok);
+        System.out.println("CONNECTION END");
+
+        if (!handler.success()) {
+            comp.addComponent(queue.getValue0());
+            throw new InvalidObjectException("Response code != 200, error");
         }
-        byte[] result = client.messageStack.get(0);
-        client.close();
 
         ByteArrayInputStream st = new ByteArrayInputStream(result);
         long annotatorEnd = System.nanoTime();

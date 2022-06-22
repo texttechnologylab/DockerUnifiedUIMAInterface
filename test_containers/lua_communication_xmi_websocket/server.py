@@ -27,6 +27,7 @@ async def typesystem_handler(request):
 async def process_handler(request):
     post_body = (await request.read()).decode("utf-8")
     cas = load_cas_from_xmi(post_body, typesystem=typesystem,lenient=True)
+    print("REST ANALYSIS")
     return web.Response(body=cas.to_xmi().encode('utf-8'), content_type="application/json", status=200)
 
 async def websocket_handler(request):
@@ -37,6 +38,7 @@ async def websocket_handler(request):
 #         print(msg)
         jc = msg.data.decode("utf-8")
         cas = load_cas_from_xmi(jc, typesystem=typesystem,lenient=True)
+        print("WEBSOCKET ANALYSIS")
         await ws.send_bytes(cas.to_xmi().encode('utf-8'))
         # if msg.type == aiohttp.WSMsgType.TEXT:
         #     if msg.data == 'close':
