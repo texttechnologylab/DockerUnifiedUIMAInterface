@@ -19,7 +19,7 @@ public class DUUIWebsocketHandler implements IDUUIConnectionHandler {
     private boolean success;
     private String uri;
     private WebsocketClient client;
-
+    private SocketIO socketIO;
     public DUUIWebsocketHandler() {
     }
 
@@ -28,7 +28,7 @@ public class DUUIWebsocketHandler implements IDUUIConnectionHandler {
     public void initiate(String uri) throws URISyntaxException {
         this.uri = uri.replaceFirst("http", "ws") + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS_WEBSOCKET;
         this.client = new WebsocketClient(new URI(this.uri));
-        SocketIO socketIO = new SocketIO("http://127.0.0.1:9716");
+        //this.socketIO= new SocketIO("http://127.0.0.1:9716");
 
         try {
             this.client.connectBlocking();
@@ -36,7 +36,7 @@ public class DUUIWebsocketHandler implements IDUUIConnectionHandler {
             System.out.println("[WebsocketHandler] Connection to websocket failed!");
             System.exit(1);
         }
-        //socketIO.close();
+        //this.socketIO.close();
 
 
     }

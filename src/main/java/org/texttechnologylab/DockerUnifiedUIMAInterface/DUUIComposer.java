@@ -3,6 +3,7 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface;
 import com.sun.net.httpserver.HttpServer;
 import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import de.tudarmstadt.ukp.dkpro.core.tokit.BreakIteratorSegmenter;
+import io.socket.client.Socket;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.collection.CollectionReader;
 import org.apache.uima.collection.CollectionReaderDescription;
@@ -18,6 +19,7 @@ import org.apache.uima.util.InvalidXMLException;
 import org.apache.uima.util.XmlCasSerializer;
 import org.luaj.vm2.Globals;
 import org.luaj.vm2.lib.jse.JsePlatform;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.SocketIO;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.*;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.AsyncCollectionReader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
@@ -761,7 +763,11 @@ public class DUUIComposer {
 
         // Run single document
         composer.run(jc,"fuchs");
-        composer.run(jc,"fuchs");
+        //composer.run(jc,"fuchs");
+
+
+
+
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         XmlCasSerializer.serialize(jc.getCas(),out);
