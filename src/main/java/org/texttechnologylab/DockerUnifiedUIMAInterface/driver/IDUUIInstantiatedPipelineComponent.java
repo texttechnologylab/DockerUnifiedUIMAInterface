@@ -11,6 +11,7 @@ import org.javatuples.Triplet;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUICommunicationLayer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.IDUUIConnectionHandler;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.SocketIO;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.DUUIWebsocketHandler;
 import org.texttechnologylab.duui.ReproducibleAnnotation;
@@ -169,7 +170,10 @@ public interface IDUUIInstantiatedPipelineComponent {
         }
     }
 
-    public static void process_handler(JCas jc, IDUUIInstantiatedPipelineComponent comp, DUUIPipelineDocumentPerformance perf, IDUUIConnectionHandler handler) throws CompressorException, IOException, SAXException, CASException, URISyntaxException {
+    public static void process_handler(JCas jc,
+                                       IDUUIInstantiatedPipelineComponent comp,
+                                       DUUIPipelineDocumentPerformance perf,
+                                       IDUUIConnectionHandler handler) throws CompressorException, IOException, SAXException, CASException, URISyntaxException {
         Triplet<IDUUIUrlAccessible,Long,Long> queue = comp.getComponent();
 
         IDUUICommunicationLayer layer = comp.getCommunicationLayer();
@@ -210,8 +214,18 @@ public interface IDUUIInstantiatedPipelineComponent {
 
         System.out.println("CONNECTION STARTED");
         String uri = queue.getValue0().generateURL();
+        /***
+         * Installation
+         */
         handler.initiate(uri);
+        /**
+         * send a message with Socket
+         */
         byte[] result = handler.sendAwaitResponse(ok);
+        /**
+         * send a message with IOSocket
+         */
+        SocketIO.client.emit("jcas", ok);
         System.out.println("CONNECTION END");
 
         if (!handler.success()) {
