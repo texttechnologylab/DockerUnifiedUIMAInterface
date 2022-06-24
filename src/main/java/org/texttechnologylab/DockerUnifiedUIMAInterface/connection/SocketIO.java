@@ -16,7 +16,7 @@ public class SocketIO {
 
     public static void wsConnected(){
         client.on(Socket.EVENT_CONNECT, (Emitter.Listener) args -> {
-            client.emit("1: Client "+client.id()+" is connected");
+            client.emit("1: Client "+client.id()+" is connected", "");
             //socket.close();
         });
     }
@@ -28,7 +28,7 @@ public class SocketIO {
 
     public static void wsOnMessage(){
         client.on(Socket.EVENT_DISCONNECT, objects ->
-                System.out.println("Server is disconnected"));
+                System.out.println("IOSocket server is disconnected"));
     }
     public static void close(){
         client.close();
@@ -44,6 +44,8 @@ public class SocketIO {
             System.out.println("Websocket ist not connected");
         }
         wsConnected();
+        wsDisConnected();
+        wsOnMessage();
         client.open();
     }
 
