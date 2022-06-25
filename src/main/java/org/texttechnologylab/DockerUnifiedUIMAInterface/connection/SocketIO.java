@@ -7,7 +7,10 @@ import java.net.URISyntaxException;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class SocketIO {
-
+    /***
+     * @author
+     * Givara Ebo
+     */
 
     public static Socket client;
     public static String typeSystem;
@@ -25,11 +28,7 @@ public class SocketIO {
             client.on("sever_id", objects ->{
                 counter.addAndGet(1);
                 System.out.println("[SocketIO]: "+counter+" Composer: with socket id: "+client.id()+" is connected with Annotator: " +objects[0]);
-
             });
-
-
-
             //socket.close();
         });
     }

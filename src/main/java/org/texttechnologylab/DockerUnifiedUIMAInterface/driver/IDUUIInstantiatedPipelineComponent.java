@@ -70,7 +70,7 @@ public interface IDUUIInstantiatedPipelineComponent {
                     writer.close();
                     comp.addComponent(queue.getValue0());
                     /**
-                     * @author
+                     * @edtited
                      * Givara Ebo
                      * load typesystem in SocketIO class
                      */

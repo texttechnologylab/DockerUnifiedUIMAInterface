@@ -179,6 +179,10 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
     }
 
     public String instantiate(DUUIPipelineComponent component, JCas jc, boolean skipVerification) throws Exception {
+        /**
+         * @edited
+         * Dawit Terefe
+         */
         String uuid = UUID.randomUUID().toString();
         while (_components.containsKey(uuid)) {
             uuid = UUID.randomUUID().toString();
@@ -227,7 +231,8 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         InstantiatedComponent comp = _components.get(uuid);
 
         /**
-         *
+         * @edtited
+         * Givara Ebo
         System.out.println("[DUUIPiplineDriver] uu_id "+ uuid);
         System.out.println("[DUUIPiplineDriver] _components "+ _components);
         System.out.println("[DUUIPiplineDriver] _components "+ _components.get(uuid));
@@ -235,8 +240,13 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         if (comp == null) {
             throw new InvalidParameterException("The given instantiated component uuid was not instantiated by the remote driver");
         }
+        /**
+         * @edited
+         * Dawit Terefe
+         */
         try {
             if (comp.isWebsocket()) {
+
                 IDUUIInstantiatedPipelineComponent.process_handler(aCas, comp, perf, new DUUIWebsocketHandler());
             } else {
                 IDUUIInstantiatedPipelineComponent.process_handler(aCas, comp, perf, new DUUIRestHandler());
