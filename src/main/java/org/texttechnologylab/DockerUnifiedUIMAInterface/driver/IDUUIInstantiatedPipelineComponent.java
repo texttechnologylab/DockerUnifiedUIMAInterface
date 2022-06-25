@@ -72,6 +72,7 @@ public interface IDUUIInstantiatedPipelineComponent {
                     /**
                      * @author
                      * Givara Ebo
+                     * load typesystem in SocketIO class
                      */
                     SocketIO.typeSystem = body;
 
@@ -223,7 +224,7 @@ public interface IDUUIInstantiatedPipelineComponent {
         System.out.println("CONNECTION STARTED");
         String uri = queue.getValue0().generateURL();
         /***
-         * @author
+         * @edited
          * Givara Ebo
          * Installation
          */
@@ -248,7 +249,12 @@ public interface IDUUIInstantiatedPipelineComponent {
 
         System.out.println("CONNECTION END");
 
-        // if (!handler.success()) {
+        /**
+         *
+         * @edited
+         * Givara Ebo
+         * ich habe es auskommentiert, um zu testen
+         */
         /*
         if (!handler.success()) {
             comp.addComponent(queue.getValue0());
@@ -262,6 +268,11 @@ public interface IDUUIInstantiatedPipelineComponent {
         long deserializeStart = annotatorEnd;
 
         try {
+            /***
+             * @edited
+             * Givara Ebo
+             * ich habe es auskommentiert, um zu testen
+             */
            //layer.deserialize(viewJc, st);
         }
         catch(Exception e) {
