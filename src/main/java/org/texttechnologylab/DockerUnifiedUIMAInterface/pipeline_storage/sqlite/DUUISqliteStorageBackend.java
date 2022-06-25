@@ -70,6 +70,10 @@ public class DUUISqliteStorageBackend implements IDUUIStorageBackend {
         PreparedStatement dStmt = conn.prepareStatement("DELETE FROM pipeline WHERE name = ?");;
         dStmt.setString(1, name);
         dStmt.execute();
+
+        dStmt = conn.prepareStatement("DELETE FROM pipeline_perf WHERE name = ?");
+        dStmt.setString(1, name);
+        dStmt.execute();
         //dStmt.executeUpdate();
 
         PreparedStatement cleanUp = conn.prepareStatement("DELETE FROM pipeline_document_perf where pipelinename = ?;");
