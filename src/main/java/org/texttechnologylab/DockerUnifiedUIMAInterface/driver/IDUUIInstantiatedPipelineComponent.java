@@ -29,6 +29,8 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Map;
 
+import static org.texttechnologylab.DockerUnifiedUIMAInterface.connection.IDUUIConnectionHandler.socketIO;
+
 public interface IDUUIInstantiatedPipelineComponent {
     public static HttpClient _client = HttpClient.newBuilder()
             .version(HttpClient.Version.HTTP_1_1)
@@ -67,6 +69,12 @@ public interface IDUUIInstantiatedPipelineComponent {
                     writer.flush();
                     writer.close();
                     comp.addComponent(queue.getValue0());
+                    /**
+                     * @author
+                     * Givara Ebo
+                     */
+                    // SocketIO.typeSystem = body;
+
                     return TypeSystemDescriptionFactory.createTypeSystemDescriptionFromPath(tmp.toURI().toString());
                 } else {
                     comp.addComponent(queue.getValue0());
@@ -221,12 +229,13 @@ public interface IDUUIInstantiatedPipelineComponent {
         /**
          * send a message with Socket
          */
-        // byte[] result = handler.sendAwaitResponse(ok);
+        //byte[] result = handler.sendAwaitResponse(ok);
         /**
          * send a message with IOSocket
          */
         if (SocketIO.client!=null){
-            SocketIO.client.emit("jcas", ok);
+            SocketIO.client.emit("jcas",  ok,  SocketIO.typeSystem);
+            System.out.println(jc);
         }else {
             System.out.println("[SocketIO]: Message is not sent");
         }
@@ -236,17 +245,20 @@ public interface IDUUIInstantiatedPipelineComponent {
         System.out.println("CONNECTION END");
 
         // if (!handler.success()) {
-        if (handler.success()) {
+        /*
+        if (!handler.success()) {
             comp.addComponent(queue.getValue0());
             throw new InvalidObjectException("Response code != 200, error");
         }
 
+
+         */
         //ByteArrayInputStream st = new ByteArrayInputStream(result);
         long annotatorEnd = System.nanoTime();
         long deserializeStart = annotatorEnd;
 
         try {
-           // layer.deserialize(viewJc, st);
+           //layer.deserialize(viewJc, st);
         }
         catch(Exception e) {
             //System.err.printf("Caught exception printing response %s\n",new String(result, StandardCharsets.UTF_8));

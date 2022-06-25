@@ -6,10 +6,10 @@ import json
 import base64
 
 communication = ''
-with open('communication_xmi.lua', 'r') as f:
+with open('../communication_xmi.lua', 'r') as f:
     communication = f.read()
 
-with open('dkpro-core-types.xml', 'rb') as f:
+with open('../dkpro-core-types.xml', 'rb') as f:
     typesystem = load_typesystem(f)
 
 
@@ -41,11 +41,6 @@ async def websocket_handler(request):
     async for msg in ws:
         #         print(msg)
         jc = msg.data.decode("utf-8")
-        """
-        @author
-        Givara Ebo
-        """
-        print(type(msg.data))
         cas = load_cas_from_xmi(jc, typesystem=typesystem, lenient=True)
         print("WEBSOCKET ANALYSIS")
         await ws.send_bytes(cas.to_xmi().encode('utf-8'))
