@@ -8,11 +8,15 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class SocketIO {
 
+
     public static Socket client;
+    public static String typeSystem;
 
     static {
     }
-
+    public static String getId(){
+        return client.id();
+    }
 
     public static void wsConnected(){
         client.on(Socket.EVENT_CONNECT, args -> {
@@ -55,6 +59,7 @@ public class SocketIO {
         wsConnected();
         wsDisConnected();
         wsOnMessage();
+        // open connection
         client.open();
     }
 

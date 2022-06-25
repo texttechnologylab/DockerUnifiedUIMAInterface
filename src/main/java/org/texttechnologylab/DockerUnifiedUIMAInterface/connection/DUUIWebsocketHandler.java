@@ -28,7 +28,7 @@ public class DUUIWebsocketHandler implements IDUUIConnectionHandler {
     public void initiate(String uri) throws URISyntaxException {
         this.uri = uri.replaceFirst("http", "ws") + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS_WEBSOCKET;
         this.client = new WebsocketClient(new URI(this.uri));
-        //this.socketIO= new SocketIO("http://127.0.0.1:9716");
+        this.socketIO= new SocketIO("http://127.0.0.1:9716");
 
         try {
             this.client.connectBlocking();

@@ -73,7 +73,7 @@ public interface IDUUIInstantiatedPipelineComponent {
                      * @author
                      * Givara Ebo
                      */
-                    // SocketIO.typeSystem = body;
+                    SocketIO.typeSystem = body;
 
                     return TypeSystemDescriptionFactory.createTypeSystemDescriptionFromPath(tmp.toURI().toString());
                 } else {
@@ -223,11 +223,15 @@ public interface IDUUIInstantiatedPipelineComponent {
         System.out.println("CONNECTION STARTED");
         String uri = queue.getValue0().generateURL();
         /***
+         * @author
+         * Givara Ebo
          * Installation
          */
         handler.initiate(uri);
         /**
          * send a message with Socket
+         * an Dawit
+         * du kannst es noch mal freischalten.
          */
         //byte[] result = handler.sendAwaitResponse(ok);
         /**
