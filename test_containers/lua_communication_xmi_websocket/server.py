@@ -45,7 +45,7 @@ async def websocket_handler(request):
         @author
         Givara Ebo
         """
-        print(type(msg.data))
+        print(msg.data)
         cas = load_cas_from_xmi(jc, typesystem=typesystem, lenient=True)
         print("WEBSOCKET ANALYSIS")
         await ws.send_bytes(cas.to_xmi().encode('utf-8'))

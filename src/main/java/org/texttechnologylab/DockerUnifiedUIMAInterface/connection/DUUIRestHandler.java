@@ -33,7 +33,7 @@ public class DUUIRestHandler implements IDUUIConnectionHandler {
 
         int tries = 0;
         HttpResponse<byte[]> resp = null;
-        while(tries < 10) {
+        while (tries < 10) {
             tries++;
             try {
                 HttpRequest request = HttpRequest.newBuilder()
@@ -43,23 +43,22 @@ public class DUUIRestHandler implements IDUUIConnectionHandler {
                         .build();
                 resp = _client.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray()).join();
                 break;
-            }
-            catch(Exception e) {
+            } catch (Exception e) {
                 e.printStackTrace();
                 //System.out.printf("Cannot reach endpoint trying again %d/%d...\n",tries+1,10);
             }
         }
-        if(resp==null) {
+        if (resp == null) {
             throw new IOException("Could not reach endpoint after 10 tries!");
         }
 
         if (resp.statusCode() == 200) {
             success = true;
             return resp.body();
-        }
-        else {
+        } else {
             success = false;
             return new byte[0];
         }
     }
 }
+
