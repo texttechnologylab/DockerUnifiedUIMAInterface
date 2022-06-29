@@ -6,6 +6,8 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.TimeUnit;
 
 public class DUUIWebsocketHandler implements IDUUIConnectionHandler {
@@ -49,16 +51,25 @@ public class DUUIWebsocketHandler implements IDUUIConnectionHandler {
     }
 
     @Override
-    public byte[] sendAwaitResponse(byte[] serializedObject) throws IOException {
+    public byte[] sendAwaitResponse(byte[] serializedObject) throws IOException, InterruptedException {
         try {
             client.send(serializedObject);
-
+            System.out.println("[WebsocketHandler]: has been sent"+
+                    StandardCharsets.UTF_8.decode(ByteBuffer.wrap(serializedObject)));
         } catch (WebsocketNotConnectedException e) {
             System.out.println("WebsocketNotConnectedException Error not working");
         }
+        System.out.println("[WebsocketHandler]: Client MessageStack "+client.messageStack);
+        /***
+         * @edited
+         * Givara Ebo
+         * hier muss auf die Antwort gewartet werden
+         */
         while (client.messageStack.isEmpty()) {
-            int c = 0;
+            TimeUnit.SECONDS.sleep(1);
         }
+        System.out.println("[WebsocketHandler]: Client MessageStack "+client.messageStack);
+
         byte[] result = client.messageStack.get(0);
         success = true;
         client.close();

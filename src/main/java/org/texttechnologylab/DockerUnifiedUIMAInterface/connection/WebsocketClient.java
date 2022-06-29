@@ -2,11 +2,9 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface.connection;
 
 import org.java_websocket.client.WebSocketClient;
 import org.java_websocket.handshake.ServerHandshake;
+import org.json.JSONObject;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedList;
@@ -14,7 +12,7 @@ import java.util.List;
 
 public class WebsocketClient extends WebSocketClient {
 
-    public List<byte []> messageStack = new LinkedList<>();
+    List<byte []> messageStack = new LinkedList<>();
 
     public WebsocketClient(URI serverUri) {
         super(serverUri);
@@ -23,16 +21,24 @@ public class WebsocketClient extends WebSocketClient {
     @Override
     public void onOpen(ServerHandshake serverHandshake) {
     }
+    /***
+     * @edited
+     * Givara Ebo
+     */
 
     @Override
     public void onMessage(ByteBuffer b) {
         byte[] data = b.array();
+        System.out.println("[WebsocketClient]: ByteBuffer RECEIVED: " + b);
+        String jsonString = StandardCharsets.UTF_8.decode(b).toString();
+        System.out.println("[WebsocketClient]: ByteBuffer to String "+jsonString);
         this.messageStack.add(data);
     }
 
     @Override
     public void onMessage(String s) {
-        System.out.println("RECEIVED: " + s);
+
+        System.out.println("[WebsocketClient]: String RECEIVED: " + s);
     }
 
     @Override

@@ -231,10 +231,8 @@ public interface IDUUIInstantiatedPipelineComponent {
          * an Dawit
          * du kannst es noch mal freischalten.
          */
-        System.out.println("3");
 
         byte[] result = handler.sendAwaitResponse(ok);
-        System.out.println("4");
 
         /**
          * send a message with IOSocket

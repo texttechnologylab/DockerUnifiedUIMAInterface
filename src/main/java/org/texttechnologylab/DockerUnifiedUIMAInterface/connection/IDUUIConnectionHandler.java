@@ -9,6 +9,6 @@ public interface IDUUIConnectionHandler {
 
     boolean success();
 
-    byte[] sendAwaitResponse(byte[] serializedObject) throws IOException;
+    byte[] sendAwaitResponse(byte[] serializedObject) throws IOException, InterruptedException;
 
 }
