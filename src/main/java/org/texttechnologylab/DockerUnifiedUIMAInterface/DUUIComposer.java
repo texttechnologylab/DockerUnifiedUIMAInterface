@@ -286,6 +286,8 @@ public class DUUIComposer {
         }
         return this;
     }
+    private void add(SocketIO socketIO) {
+    }
 
     public static class PipelinePart {
         private final IDUUIDriverInterface _driver;
@@ -685,7 +687,7 @@ public class DUUIComposer {
 //        composer.addDriver(driver);
         composer.addDriver(remote_driver);
         composer.addDriver(uima_driver);
-        SocketIO socketIO= new SocketIO("http://127.0.0.1:9716");
+        //SocketIO socketIO= new SocketIO("http://127.0.0.1:9716");
 
 //        composer.addDriver(swarm_driver);
 
@@ -752,8 +754,9 @@ public class DUUIComposer {
                 .withScale(1)
                 , DUUISwarmDriver.class);*/
 
-        composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.Component("http://127.0.0.1:9715")
+        composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9715")
                         .withScale(1).withWebsocket(true).build());
+        composer.add(new SocketIO("http://127.0.0.1:9716"));
 
        // ByteArrayInputStream stream;
        // stream.read
@@ -793,4 +796,6 @@ public class DUUIComposer {
                 TextReader.PARAM_LANGUAGE, "en"),"next11");*/
         composer.shutdown();
   }
+
+
 }

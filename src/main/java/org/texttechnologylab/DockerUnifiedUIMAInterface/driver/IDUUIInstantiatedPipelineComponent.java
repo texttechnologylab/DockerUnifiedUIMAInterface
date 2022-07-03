@@ -2,6 +2,7 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface.driver;
 
 
 import io.socket.client.Ack;
+import io.socket.client.Socket;
 import io.socket.emitter.Emitter;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.cas.CASException;
@@ -228,14 +229,14 @@ public interface IDUUIInstantiatedPipelineComponent {
          * Givara Ebo
          * Installation
          */
-        //handler.initiate(uri);
+        handler.initiate(uri);
         /**
          * send a message with Socket
          * an Dawit
          * du kannst es noch mal freischalten.
          */
 
-        //byte[] result = handler.sendAwaitResponse(ok);
+        //
         /**
          * send a message with IOSocket
          , new Emitter.Listener(){
@@ -292,8 +293,44 @@ public interface IDUUIInstantiatedPipelineComponent {
             });
 
         }else {
+
+            System.out.println("[SocketIO]: SocketIO is not active");
             System.out.println("[SocketIO]: Message is not sent");
+            byte[] result = handler.sendAwaitResponse(ok);
+            comp.addComponent(queue.getValue0());
+
+
+
+            ByteArrayInputStream st = new ByteArrayInputStream(result);
+            long annotatorEnd = System.nanoTime();
+            long deserializeStart = annotatorEnd;
+
+            try {
+                /***
+                 * @edited
+                 * Givara Ebo
+                 * ich habe es auskommentiert, um zu testen
+                 * now
+                 */
+                layer.deserialize(viewJc, st);
+            }
+            catch(Exception e) {
+                System.err.printf("Caught exception printing response %s\n",new String(result, StandardCharsets.UTF_8));
+            }
+            long deserializeEnd = System.nanoTime();
+
+            ReproducibleAnnotation ann = new ReproducibleAnnotation(jc);
+            ann.setDescription(comp.getPipelineComponent().getFinalizedRepresentation());
+            ann.setCompression(DUUIPipelineComponent.compressionMethod);
+            ann.setTimestamp(System.nanoTime());
+            ann.setPipelineName(perf.getRunKey());
+            ann.addToIndexes();
+            perf.addData(serializeEnd-serializeStart,deserializeEnd-deserializeStart,annotatorEnd-annotatorStart,queue.getValue2()-queue.getValue1(),deserializeEnd-queue.getValue1(), String.valueOf(comp.getPipelineComponent().getFinalizedRepresentationHash()), sizeArray, jc);
+            comp.addComponent(queue.getValue0());
+
         }
+
+
 
 
 

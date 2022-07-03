@@ -8,7 +8,6 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.concurrent.TimeUnit;
 
 public class DUUIWebsocketHandler implements IDUUIConnectionHandler {
     /***
@@ -24,7 +23,6 @@ public class DUUIWebsocketHandler implements IDUUIConnectionHandler {
 
     @Override
     public void initiate(String uri) throws URISyntaxException {
-
         this.uri = uri.replaceFirst("http", "ws") + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS_WEBSOCKET;
         this.client = new WebsocketClient(new URI(this.uri));
         /***
