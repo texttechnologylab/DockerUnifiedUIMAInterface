@@ -37,7 +37,7 @@ public class DUUIWebsocketHandler implements IDUUIConnectionHandler {
         try {
             this.client.connectBlocking();
         } catch (InterruptedException e) {
-            System.out.println("[WebsocketHandler] Connection to websocket failed!");
+            System.out.println("[DUUIWebsocketHandler] Connection to websocket failed!");
             System.exit(1);
         }
         //this.socketIO.close();
@@ -54,25 +54,27 @@ public class DUUIWebsocketHandler implements IDUUIConnectionHandler {
     public byte[] sendAwaitResponse(byte[] serializedObject) throws IOException, InterruptedException {
         try {
             client.send(serializedObject);
-            System.out.println("[WebsocketHandler]: has been sent"+
+            System.out.println("[DUUIWebsocketHandler]: has been sent"+
                     StandardCharsets.UTF_8.decode(ByteBuffer.wrap(serializedObject)));
         } catch (WebsocketNotConnectedException e) {
-            System.out.println("WebsocketNotConnectedException Error not working");
+            System.out.println("[DUUIWebsocketHandler]: WebsocketNotConnectedException Error not working");
         }
-        System.out.println("[WebsocketHandler]: Client MessageStack "+client.messageStack);
+        System.out.println("[DUUIWebsocketHandler]: Client MessageStack "+client.messageStack);
         /***
          * @edited
          * Givara Ebo
          * hier muss auf die Antwort gewartet werden
          */
+
         while (client.messageStack.isEmpty()) {
-            TimeUnit.SECONDS.sleep(1);
+            Thread.sleep(1);
+            System.out.println("[DUUIWebsocketHandler]: Waiting for adding Websocket Response to MessageStack.....");
         }
-        System.out.println("[WebsocketHandler]: Client MessageStack "+client.messageStack);
+        System.out.println("[DUUIWebsocketHandler]: Client MessageStack "+client.messageStack);
 
         byte[] result = client.messageStack.get(0);
         success = true;
-        client.close();
+        // client.close();
 
         return result;
     }
