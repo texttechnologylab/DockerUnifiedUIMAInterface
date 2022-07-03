@@ -685,6 +685,8 @@ public class DUUIComposer {
 //        composer.addDriver(driver);
         composer.addDriver(remote_driver);
         composer.addDriver(uima_driver);
+        SocketIO socketIO= new SocketIO("http://127.0.0.1:9716");
+
 //        composer.addDriver(swarm_driver);
 
         // Every component needs a driver which instantiates and runs them

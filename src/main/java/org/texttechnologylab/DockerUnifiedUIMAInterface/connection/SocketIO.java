@@ -36,16 +36,14 @@ public class SocketIO {
     public static void wsDisConnected(){
         client.on(Socket.EVENT_DISCONNECT, objects ->
                 System.out.println("[SocketIO]: Server(Annotator) is disconnected"));
+
     }
 
     public static void wsOnMessage(){
         client.on(Socket.EVENT_DISCONNECT, objects ->
                 System.out.println("[SocketIO]: Message is arrived"));
     }
-    public static void close(){
-        client.close();
-        System.out.println("[SocketIO]: Client(Composer) ist disconnected");
-    }
+
 
 
     public SocketIO(String websocketLink){

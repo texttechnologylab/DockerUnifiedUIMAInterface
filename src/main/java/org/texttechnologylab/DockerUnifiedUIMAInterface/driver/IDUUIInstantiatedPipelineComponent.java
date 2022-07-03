@@ -1,6 +1,8 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.driver;
 
 
+import io.socket.client.Ack;
+import io.socket.emitter.Emitter;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.cas.CASException;
 import org.apache.uima.fit.factory.TypeSystemDescriptionFactory;
@@ -13,7 +15,6 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUICommunicationLayer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.IDUUIConnectionHandler;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.SocketIO;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.DUUIWebsocketHandler;
 import org.texttechnologylab.duui.ReproducibleAnnotation;
 import org.xml.sax.SAXException;
 
@@ -24,13 +25,12 @@ import java.net.URISyntaxException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
-
-import static org.texttechnologylab.DockerUnifiedUIMAInterface.connection.IDUUIConnectionHandler.socketIO;
 
 public interface IDUUIInstantiatedPipelineComponent {
     public static HttpClient _client = HttpClient.newBuilder()
@@ -211,6 +211,9 @@ public interface IDUUIInstantiatedPipelineComponent {
 
         layer.serialize(viewJc,out,comp.getParameters());
         // lua serialize call()
+        /***
+         * ok ist response
+         */
 
         byte[] ok = out.toByteArray();
         long sizeArray = ok.length;
@@ -218,69 +221,85 @@ public interface IDUUIInstantiatedPipelineComponent {
 
         long annotatorStart = serializeEnd;
 
-        System.out.println("[WebsocketHandler]: CONNECTION STARTED");
+        // System.out.println("[WebsocketHandler]: CONNECTION STARTED");
         String uri = queue.getValue0().generateURL();
         /***
          * @edited
          * Givara Ebo
          * Installation
          */
-        handler.initiate(uri);
+        //handler.initiate(uri);
         /**
          * send a message with Socket
          * an Dawit
          * du kannst es noch mal freischalten.
          */
 
-        byte[] result = handler.sendAwaitResponse(ok);
-
+        //byte[] result = handler.sendAwaitResponse(ok);
         /**
          * send a message with IOSocket
+         , new Emitter.Listener(){
 
-
+        @Override
+        public void call(Object... objects) {
+        System.out.println("[SocketIO]: Callback "+  objects.toString());
+        }
+        }
+         */
         if (SocketIO.client!=null){
-            SocketIO.client.emit("json",  ok);
-            System.out.println(jc);
+            JCas finalViewJc = viewJc;
+
+            System.out.println("[SocketIO]: Message sending "+
+                    StandardCharsets.UTF_8.decode(ByteBuffer.wrap(ok)));
+
+            SocketIO.client.emit("json", ok, (Ack) objects -> {
+                System.out.println("[SocketIO]: Message received "+
+                        StandardCharsets.UTF_8.decode(ByteBuffer.wrap((byte[]) objects[0])));
+                byte[] sioresult = (byte[]) objects[0];
+
+
+                comp.addComponent(queue.getValue0());
+
+
+
+                ByteArrayInputStream st = new ByteArrayInputStream(sioresult);
+                long annotatorEnd = System.nanoTime();
+                long deserializeStart = annotatorEnd;
+
+                try {
+                    /***
+                     * @edited
+                     * Givara Ebo
+                     * ich habe es auskommentiert, um zu testen
+                     * now
+                     */
+                    layer.deserialize(finalViewJc, st);
+                }
+                catch(Exception e) {
+                    System.err.printf("Caught exception printing response %s\n",new String(sioresult, StandardCharsets.UTF_8));
+                }
+                long deserializeEnd = System.nanoTime();
+
+                ReproducibleAnnotation ann = new ReproducibleAnnotation(jc);
+                ann.setDescription(comp.getPipelineComponent().getFinalizedRepresentation());
+                ann.setCompression(DUUIPipelineComponent.compressionMethod);
+                ann.setTimestamp(System.nanoTime());
+                ann.setPipelineName(perf.getRunKey());
+                ann.addToIndexes();
+                perf.addData(serializeEnd-serializeStart,deserializeEnd-deserializeStart,annotatorEnd-annotatorStart,queue.getValue2()-queue.getValue1(),deserializeEnd-queue.getValue1(), String.valueOf(comp.getPipelineComponent().getFinalizedRepresentationHash()), sizeArray, jc);
+                comp.addComponent(queue.getValue0());
+
+            });
+
         }else {
             System.out.println("[SocketIO]: Message is not sent");
         }
-        */
-
-
-        System.out.println("[WebsocketHandler]: CONNECTION END");
-
-        if (!handler.success()) {
-            comp.addComponent(queue.getValue0());
-            throw new InvalidObjectException("Response code != 200, error");
-        }
 
 
 
-        ByteArrayInputStream st = new ByteArrayInputStream(result);
-        long annotatorEnd = System.nanoTime();
-        long deserializeStart = annotatorEnd;
 
-        try {
-            /***
-             * @edited
-             * Givara Ebo
-             * ich habe es auskommentiert, um zu testen
-             */
-           layer.deserialize(viewJc, st);
-        }
-        catch(Exception e) {
-            System.err.printf("Caught exception printing response %s\n",new String(result, StandardCharsets.UTF_8));
-            throw e;
-        }
-        long deserializeEnd = System.nanoTime();
+        //System.out.println("[WebsocketHandler]: CONNECTION END");
 
-        ReproducibleAnnotation ann = new ReproducibleAnnotation(jc);
-        ann.setDescription(comp.getPipelineComponent().getFinalizedRepresentation());
-        ann.setCompression(DUUIPipelineComponent.compressionMethod);
-        ann.setTimestamp(System.nanoTime());
-        ann.setPipelineName(perf.getRunKey());
-        ann.addToIndexes();
-        perf.addData(serializeEnd-serializeStart,deserializeEnd-deserializeStart,annotatorEnd-annotatorStart,queue.getValue2()-queue.getValue1(),deserializeEnd-queue.getValue1(), String.valueOf(comp.getPipelineComponent().getFinalizedRepresentationHash()), sizeArray, jc);
-        comp.addComponent(queue.getValue0());
+
     }
 }
