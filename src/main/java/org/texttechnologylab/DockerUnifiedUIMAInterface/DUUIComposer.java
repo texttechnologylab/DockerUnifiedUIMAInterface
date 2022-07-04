@@ -756,7 +756,7 @@ public class DUUIComposer {
 
         composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9715")
                         .withScale(1).withWebsocket(true).build());
-        composer.add(new SocketIO("http://127.0.0.1:9716"));
+        //composer.add(new SocketIO("http://127.0.0.1:9716"));
 
        // ByteArrayInputStream stream;
        // stream.read
