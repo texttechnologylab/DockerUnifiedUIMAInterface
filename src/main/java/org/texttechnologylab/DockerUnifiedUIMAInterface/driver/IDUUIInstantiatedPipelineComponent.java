@@ -239,13 +239,6 @@ public interface IDUUIInstantiatedPipelineComponent {
         //
         /**
          * send a message with IOSocket
-         , new Emitter.Listener(){
-
-        @Override
-        public void call(Object... objects) {
-        System.out.println("[SocketIO]: Callback "+  objects.toString());
-        }
-        }
          */
         if (SocketIO.client!=null){
             JCas finalViewJc = viewJc;
