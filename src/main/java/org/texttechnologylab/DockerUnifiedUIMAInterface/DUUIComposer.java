@@ -4,6 +4,7 @@ import com.sun.net.httpserver.HttpServer;
 import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import de.tudarmstadt.ukp.dkpro.core.tokit.BreakIteratorSegmenter;
 import org.apache.commons.compress.compressors.CompressorException;
+import org.apache.uima.cas.impl.XmiCasSerializer;
 import org.apache.uima.collection.CollectionReader;
 import org.apache.uima.collection.CollectionReaderDescription;
 import org.apache.uima.fit.factory.AnalysisEngineFactory;
@@ -18,6 +19,7 @@ import org.apache.uima.util.InvalidXMLException;
 import org.apache.uima.util.XmlCasSerializer;
 import org.luaj.vm2.Globals;
 import org.luaj.vm2.lib.jse.JsePlatform;
+import org.luaj.vm2.lib.VarArgFunction;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.*;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.AsyncCollectionReader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
@@ -30,6 +32,7 @@ import org.xml.sax.SAXException;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
@@ -546,7 +549,6 @@ public class DUUIComposer {
     }
 
     public void run(CollectionReaderDescription reader, String name) throws Exception {
-
         Exception catched = null;
         if(_storage!= null && name == null) {
             throw new RuntimeException("[Composer] When a storage backend is specified a run name is required, since it is the primary key");
@@ -617,6 +619,12 @@ public class DUUIComposer {
                 }
                 _instantiatedPipeline.add(new PipelinePart(driver, uuid));
             }
+
+            // UUID und die input outputs
+            // Execution Graph
+            // Gegeben Knoten n finde Vorgaenger
+            // inputs: [], outputs: [Token]
+            // input: [Sentences], outputs: [POS]
         }
         catch (Exception e){
             System.out.println(e.getMessage());
@@ -746,9 +754,7 @@ public class DUUIComposer {
 
 
     public static void main(String[] args) throws Exception {
-
         DUUILuaContext ctx = new DUUILuaContext().withGlobalLibrary("json",DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/json.lua").toURI());
-
         DUUIComposer composer = new DUUIComposer()
         //        .withStorageBackend(new DUUIArangoDBStorageBackend("password",8888))
                 .withLuaContext(ctx)
@@ -779,14 +785,10 @@ public class DUUIComposer {
         //        DUUIUIMADriver.class);
       /*  composer.add(new DUUILocalDriver.Component("java_segmentation:latest")*/
 
-        composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class))
-                .withScale(4)
-                .build()
-        );
-        composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class))
-                .withScale(6)
-                .build()
-        );
+        //composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class))
+        //        .withScale(4)
+        //        .build()
+        //);
        // composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/benchmark_serde_echo_msgpack:0.2")
        //         .build());
 //        composer.add(new DUUILocalDriver.Component("java_segmentation:latest")
@@ -795,15 +797,15 @@ public class DUUIComposer {
 //        composer.add(new DUUIDockerDriver.Component("gnfinder:0.1")
 //                        .withScale(1)
 //                , DUUIDockerDriver.class);
-//        composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9714")
-//                        .withScale(1)
+        // input: [], outputs: [Token, Sentences]
+        composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9714"));
+
 //                , DUUIRemoteDriver.class);*/
 
         // Remote driver handles all pure URL endpoints
-        /*composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class))
-                        .withScale(1),
-                org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIUIMADriver.class);
-
+       // composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class))
+       //                 .withScale(1));
+/*
         //composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.Component("http://127.0.0.1:9714")
         composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.Component("http://127.0.0.1:9714")
                         .withScale(1),
@@ -851,16 +853,16 @@ public class DUUIComposer {
         // Run single document
         composer.run(jc,"fuchs");
 
-        /*
-        String val = Files.readString(Path.of(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/uima_xmi_communication_token_only.lua").toURI()));
+
+        /*String val = Files.readString(Path.of(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/uima_xmi_communication_token_only.lua").toURI()));
         DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(val,"remote");
         OutputStream out = new ByteArrayOutputStream();
         lua.serialize(jc,out);
-        System.out.println(out.toString());
+        System.out.println(out.toString());*/
 
         OutputStream out2 = new ByteArrayOutputStream();
         XmiCasSerializer.serialize(jc.getCas(),out2);
-        System.out.println(out2.toString());*/
+        System.out.println(out2.toString());
 
         // Run Collection Reader
 

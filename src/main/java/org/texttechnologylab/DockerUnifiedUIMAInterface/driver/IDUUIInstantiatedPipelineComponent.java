@@ -32,14 +32,12 @@ public interface IDUUIInstantiatedPipelineComponent {
             .proxy(ProxySelector.getDefault())
             .connectTimeout(Duration.ofSeconds(1000)).build();
 
-    public IDUUICommunicationLayer getCommunicationLayer();
     public DUUIPipelineComponent getPipelineComponent();
     public Triplet<IDUUIUrlAccessible,Long,Long> getComponent();
     public void addComponent(IDUUIUrlAccessible item);
 
     public Map<String,String> getParameters();
     public String getUniqueComponentKey();
-    public void setCommunicationLayer(IDUUICommunicationLayer layer);
 
     public static TypeSystemDescription getTypesystem(String uuid, IDUUIInstantiatedPipelineComponent comp) throws ResourceInitializationException {
         Triplet<IDUUIUrlAccessible,Long,Long> queue = comp.getComponent();
@@ -79,7 +77,7 @@ public interface IDUUIInstantiatedPipelineComponent {
     public static void process(JCas jc, IDUUIInstantiatedPipelineComponent comp, DUUIPipelineDocumentPerformance perf) throws CompressorException, IOException, SAXException, CASException {
         Triplet<IDUUIUrlAccessible,Long,Long> queue = comp.getComponent();
 
-        IDUUICommunicationLayer layer = comp.getCommunicationLayer();
+        IDUUICommunicationLayer layer = queue.getValue0().getCommunicationLayer();
         long serializeStart = System.nanoTime();
 
         ByteArrayOutputStream out = new ByteArrayOutputStream(1024*1024);

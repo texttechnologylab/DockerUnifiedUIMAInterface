@@ -137,10 +137,9 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
                 System.out.printf("[DockerSwarmDriver][%s][%d Replicas] %s\n", uuidCopy, comp.getScale(),msg);
             },_luaContext,skipVerification);
             System.out.printf("[DockerSwarmDriver][%s][%d Replicas] Service for image %s is online (URL http://localhost:%d) and seems to understand DUUI V1 format!\n", uuid, comp.getScale(),comp.getImageName(), port);
-            comp.initialise(serviceid,port);
+            comp.initialise(serviceid,port, layer);
             Thread.sleep(500);
 
-            comp.setCommunicationLayer(layer);
             _active_components.put(uuid, comp);
         return uuid;
     }
@@ -182,13 +181,18 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
 
     private static class ComponentInstance implements IDUUIUrlAccessible {
         String _url;
+        IDUUICommunicationLayer _communication_layer;
 
-        public ComponentInstance(String url) {
+        public ComponentInstance(String url, IDUUICommunicationLayer layer) {
             _url = url;
+            _communication_layer = layer;
         }
 
         public String generateURL() {
             return _url;
+        }
+        public IDUUICommunicationLayer getCommunicationLayer() {
+            return _communication_layer;
         }
     }
 
@@ -204,7 +208,6 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         private final String _reg_password;
         private final String _reg_username;
         private final Map<String,String> _parameters;
-        private IDUUICommunicationLayer _layer;
         private DUUIPipelineComponent _component;
 
 
@@ -245,11 +248,11 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         }
 
 
-        public InstantiatedComponent initialise(String service_id, int container_port) {
+        public InstantiatedComponent initialise(String service_id, int container_port, IDUUICommunicationLayer layer) {
             _service_id = service_id;
             _service_port = container_port;
             for(int i = 0; i < _scale; i++) {
-                _components.add(new ComponentInstance(getServiceUrl()));
+                _components.add(new ComponentInstance(getServiceUrl(), layer.copy()));
             }
             return this;
         }
@@ -282,10 +285,6 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
 
         public Map<String,String> getParameters() {return _parameters;}
 
-        public IDUUICommunicationLayer getCommunicationLayer() {
-            return _layer;
-        }
-
         public Triplet<IDUUIUrlAccessible,Long,Long> getComponent() {
             long mutexStart = System.nanoTime();
             ComponentInstance inst = _components.poll();
@@ -298,11 +297,6 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
 
         public void addComponent(IDUUIUrlAccessible item) {
             _components.add((ComponentInstance) item);
-        }
-
-
-        public void setCommunicationLayer(IDUUICommunicationLayer layer) {
-            _layer = layer;
         }
     }
 

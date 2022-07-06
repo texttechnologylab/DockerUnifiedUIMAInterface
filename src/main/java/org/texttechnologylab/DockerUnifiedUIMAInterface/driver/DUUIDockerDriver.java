@@ -208,8 +208,7 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
                     System.out.printf("[DockerLocalDriver][%s][Docker Replication %d/%d] %s\n", uuidCopy, iCopy + 1, comp.getScale(), msg);
                 },_luaContext, skipVerification);
                 System.out.printf("[DockerLocalDriver][%s][Docker Replication %d/%d] Container for image %s is online (URL http://127.0.0.1:%d) and seems to understand DUUI V1 format!\n", uuid, i + 1, comp.getScale(), comp.getImageName(), port);
-                comp.addInstance(new ComponentInstance(containerid, port));
-                comp.setCommunicationLayer(layer);
+                comp.addInstance(new ComponentInstance(containerid, port, layer.copy()));
             }
             catch(Exception e) {
                 _interface.stop_container(containerid);
@@ -264,10 +263,16 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
     public static class ComponentInstance implements IDUUIUrlAccessible {
         private String _container_id;
         private int _port;
+        private IDUUICommunicationLayer _communicationLayer;
 
-        public ComponentInstance(String id, int port) {
+        public ComponentInstance(String id, int port, IDUUICommunicationLayer communicationLayer) {
             _container_id = id;
             _port = port;
+            _communicationLayer = communicationLayer;
+        }
+
+        public IDUUICommunicationLayer getCommunicationLayer() {
+            return _communicationLayer;
         }
 
 
@@ -299,19 +304,8 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
         private String _reg_password;
         private String _reg_username;
         private String _uniqueComponentKey;
-
-        private IDUUICommunicationLayer _layer;
         private Map<String,String> _parameters;
         private DUUIPipelineComponent _component;
-
-        public IDUUICommunicationLayer getCommunicationLayer() {
-            return _layer;
-        }
-
-        public void setCommunicationLayer(IDUUICommunicationLayer layer) {
-            _layer = layer;
-        }
-
 
 
         public Triplet<IDUUIUrlAccessible,Long,Long> getComponent() {

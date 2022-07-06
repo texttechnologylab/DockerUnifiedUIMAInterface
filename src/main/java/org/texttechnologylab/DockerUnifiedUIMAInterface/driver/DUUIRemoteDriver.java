@@ -75,9 +75,15 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
 
     private static class ComponentInstance implements IDUUIUrlAccessible {
         String _url;
+        IDUUICommunicationLayer _communication_layer;
 
-        ComponentInstance(String val) {
+        ComponentInstance(String val, IDUUICommunicationLayer layer) {
             _url = val;
+            _communication_layer = layer;
+        }
+
+        public IDUUICommunicationLayer getCommunicationLayer() {
+            return _communication_layer;
         }
 
         public String generateURL() {
@@ -88,14 +94,10 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         private List<String> _urls;
         private int _maximum_concurrency;
         private ConcurrentLinkedQueue<ComponentInstance> _components;
-        private IDUUICommunicationLayer _layer;
         private String _uniqueComponentKey;
         private Map<String,String> _parameters;
         private DUUIPipelineComponent _component;
 
-        public IDUUICommunicationLayer getCommunicationLayer() {
-            return _layer;
-        }
         public Triplet<IDUUIUrlAccessible,Long,Long> getComponent() {
             long mutexStart = System.nanoTime();
             ComponentInstance inst = _components.poll();
@@ -110,9 +112,6 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
             _components.add((ComponentInstance) item);
         }
 
-        public void setCommunicationLayer(IDUUICommunicationLayer layer) {
-            _layer = layer;
-        }
 
         public InstantiatedComponent(DUUIPipelineComponent comp) {
             _component = comp;
@@ -181,12 +180,14 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
             IDUUICommunicationLayer layer = DUUIDockerDriver.responsiveAfterTime(url, jc, 100000, _client, (msg) -> {
                 System.out.printf("[RemoteDriver][%s] %s\n", uuidCopy, msg);
             }, _luaContext, skipVerification);
+            // Request to get input_output
+            // {"inputs": ["de.sentence.tudarmstadt",...], "outputs": ["de.sentence.token",...]}
+            // /v1/details/input_output
             if(!added_communication_layer) {
-                comp.setCommunicationLayer(layer);
                 added_communication_layer = true;
             }
             for (int i = 0; i < comp.getScale(); i++) {
-                comp.addComponent(new ComponentInstance(url));
+                comp.addComponent(new ComponentInstance(url,layer.copy()));
             }
             _components.put(uuid, comp);
             System.out.printf("[RemoteDriver][%s] Remote URL %s is online and seems to understand DUUI V1 format!\n", uuid, url);
