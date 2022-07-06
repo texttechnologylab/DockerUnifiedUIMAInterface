@@ -1,17 +1,11 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface;
 
-import com.sun.net.httpserver.HttpServer;
-import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
-import de.tudarmstadt.ukp.dkpro.core.tokit.BreakIteratorSegmenter;
-import io.socket.client.Socket;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.collection.CollectionReader;
 import org.apache.uima.collection.CollectionReaderDescription;
-import org.apache.uima.fit.factory.AnalysisEngineFactory;
 import org.apache.uima.fit.factory.CollectionReaderFactory;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.fit.factory.TypeSystemDescriptionFactory;
-import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.apache.uima.util.CasCreationUtils;
@@ -19,26 +13,20 @@ import org.apache.uima.util.InvalidXMLException;
 import org.apache.uima.util.XmlCasSerializer;
 import org.luaj.vm2.Globals;
 import org.luaj.vm2.lib.jse.JsePlatform;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.SocketIO;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.DUUIWebsocketHandler;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.*;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.AsyncCollectionReader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.DUUIMonitor;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.IDUUIStorageBackend;
-import org.texttechnologylab.annotation.type.Taxon;
 import org.xml.sax.SAXException;
 
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.security.InvalidParameterException;
-import java.sql.SQLOutput;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -285,8 +273,6 @@ public class DUUIComposer {
             add(ann.getComponent());
         }
         return this;
-    }
-    private void add(SocketIO socketIO) {
     }
 
     public static class PipelinePart {
@@ -569,6 +555,8 @@ public class DUUIComposer {
         for (PipelinePart comp : _instantiatedPipeline) {
             System.out.printf("[Composer] Shutting down %s...\n", comp.getUUID());
             comp.getDriver().destroy(comp.getUUID());
+
+
         }
         _instantiatedPipeline.clear();
         System.out.println("[Composer] Shut down complete.");
@@ -576,6 +564,9 @@ public class DUUIComposer {
         if(_monitor!=null) {
             System.out.printf("[Composer] Visit %s to view the data.\n",_monitor.generateURL());
         }
+
+
+
     }
 
     public void printConcurrencyGraph() throws Exception {
@@ -656,6 +647,9 @@ public class DUUIComposer {
             for (IDUUIDriverInterface driver : _drivers.values()) {
                 driver.shutdown();
             }
+            System.out.println("[Composer]: DUUIWebsocketHandler is closed");
+            System.out.println("[Composer]: it takes until 30 second to shut down DUUIWebsocketHandler");
+            DUUIWebsocketHandler.client.close();
             _hasShutdown = true;
         }
         else {
@@ -753,7 +747,6 @@ public class DUUIComposer {
         composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/gnfinder:latest")
                 .withScale(1)
                 , DUUISwarmDriver.class);*/
-
         composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9715")
                         .withScale(1).withWebsocket(true).build());
         //composer.add(new SocketIO("http://127.0.0.1:9716"));

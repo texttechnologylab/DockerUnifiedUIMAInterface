@@ -9,7 +9,6 @@ import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.javatuples.Triplet;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUICompressionHelper;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUICommunicationLayer;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.DUUIRestHandler;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.DUUIWebsocketHandler;
@@ -30,6 +29,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 public class DUUIRemoteDriver implements IDUUIDriverInterface {
     private HashMap<String, InstantiatedComponent> _components;
     private HttpClient _client;
+    private DUUIWebsocketHandler _socketio;
     private DUUICompressionHelper _helper;
     private DUUILuaContext _luaContext;
 
@@ -193,7 +193,7 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         boolean added_communication_layer = false;
 
         for(String url : comp.getUrls()) {
-            IDUUICommunicationLayer layer = DUUIDockerDriver.responsiveAfterTime(url, jc, 100000, _client, (msg) -> {
+            IDUUICommunicationLayer layer = DUUIDockerDriver.responsiveAfterTime(url, jc, 100000, _client, _socketio, (msg) -> {
                 System.out.printf("[RemoteDriver][%s] %s\n", uuidCopy, msg);
             }, _luaContext, skipVerification);
             if(!added_communication_layer) {
@@ -205,6 +205,8 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
             }
             _components.put(uuid, comp);
             System.out.printf("[RemoteDriver][%s] Remote URL %s is online and seems to understand DUUI V1 format!\n", uuid, url);
+            System.out.printf("[RemoteDriver][%s][DUUIWebsocketHandler] Remote URL %s is online and seems to understand DUUI V1 format!\n",
+                    uuid,URI.create(url.substring(0, (url.length()-1))+ (Integer.parseInt(url.substring(url.length()-1)) +1)));
             System.out.printf("[RemoteDriver][%s] Maximum concurrency for this endpoint %d\n", uuid, comp.getScale());
         }
         return uuid;
@@ -246,10 +248,7 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
          */
         try {
             if (comp.isWebsocket()) {
-
-                IDUUIInstantiatedPipelineComponent.process_handler(aCas, comp, perf, new DUUIWebsocketHandler());
-            } else {
-                IDUUIInstantiatedPipelineComponent.process_handler(aCas, comp, perf, new DUUIRestHandler());
+                IDUUIInstantiatedPipelineComponent.process_handler(aCas, comp, perf);
             }
         } catch (URISyntaxException e) {
             e.printStackTrace();
@@ -258,5 +257,6 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
 
     public void destroy(String uuid) {
         _components.remove(uuid);
+
     }
 }

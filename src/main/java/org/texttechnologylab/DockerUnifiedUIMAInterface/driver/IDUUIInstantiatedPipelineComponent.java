@@ -2,8 +2,6 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface.driver;
 
 
 import io.socket.client.Ack;
-import io.socket.client.Socket;
-import io.socket.emitter.Emitter;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.cas.CASException;
 import org.apache.uima.fit.factory.TypeSystemDescriptionFactory;
@@ -13,8 +11,7 @@ import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.javatuples.Triplet;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUICommunicationLayer;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.IDUUIConnectionHandler;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.SocketIO;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.DUUIWebsocketHandler;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
 import org.texttechnologylab.duui.ReproducibleAnnotation;
 import org.xml.sax.SAXException;
@@ -30,7 +27,6 @@ import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.Map;
 
 public interface IDUUIInstantiatedPipelineComponent {
@@ -178,8 +174,7 @@ public interface IDUUIInstantiatedPipelineComponent {
 
     public static void process_handler(JCas jc,
                                        IDUUIInstantiatedPipelineComponent comp,
-                                       DUUIPipelineDocumentPerformance perf,
-                                       IDUUIConnectionHandler handler) throws CompressorException, IOException, SAXException, CASException, URISyntaxException, InterruptedException {
+                                       DUUIPipelineDocumentPerformance perf) throws CompressorException, IOException, SAXException, CASException, URISyntaxException, InterruptedException {
         Triplet<IDUUIUrlAccessible,Long,Long> queue = comp.getComponent();
 
         IDUUICommunicationLayer layer = comp.getCommunicationLayer();
@@ -209,9 +204,9 @@ public interface IDUUIInstantiatedPipelineComponent {
                 }
             }
         }
-
-        layer.serialize(viewJc,out,comp.getParameters());
         // lua serialize call()
+        layer.serialize(viewJc,out,comp.getParameters());
+
         /***
          * ok ist response
          */
@@ -223,13 +218,13 @@ public interface IDUUIInstantiatedPipelineComponent {
         long annotatorStart = serializeEnd;
 
         // System.out.println("[WebsocketHandler]: CONNECTION STARTED");
-        String uri = queue.getValue0().generateURL();
+        //String uri = queue.getValue0().generateURL();
         /***
          * @edited
          * Givara Ebo
          * Installation
          */
-        handler.initiate(uri);
+        //handler.initiate(uri);
         /**
          * send a message with Socket
          * an Dawit
@@ -240,25 +235,20 @@ public interface IDUUIInstantiatedPipelineComponent {
         /**
          * send a message with IOSocket
          */
-        if (SocketIO.client!=null){
+        if (DUUIWebsocketHandler.client!=null){
             JCas finalViewJc = viewJc;
 
-            System.out.println("[SocketIO]: Message sending "+
+            System.out.println("[DUUIWebsocketHandler]: Message sending "+
                     StandardCharsets.UTF_8.decode(ByteBuffer.wrap(ok)));
 
-            SocketIO.client.emit("json", ok, (Ack) objects -> {
-                System.out.println("[SocketIO]: Message received "+
+
+            DUUIWebsocketHandler.client.emit("json", ok, (Ack) objects -> {
+
+                System.out.println("[DUUIWebsocketHandler]: Message received "+
                         StandardCharsets.UTF_8.decode(ByteBuffer.wrap((byte[]) objects[0])));
+
                 byte[] sioresult = (byte[]) objects[0];
-
-
-                comp.addComponent(queue.getValue0());
-
-
-
                 ByteArrayInputStream st = new ByteArrayInputStream(sioresult);
-                long annotatorEnd = System.nanoTime();
-                long deserializeStart = annotatorEnd;
 
                 try {
                     /***
@@ -272,6 +262,14 @@ public interface IDUUIInstantiatedPipelineComponent {
                 catch(Exception e) {
                     System.err.printf("Caught exception printing response %s\n",new String(sioresult, StandardCharsets.UTF_8));
                 }
+
+
+                comp.addComponent(queue.getValue0());
+
+
+
+                long annotatorEnd = System.nanoTime();
+                long deserializeStart = annotatorEnd;
                 long deserializeEnd = System.nanoTime();
 
                 ReproducibleAnnotation ann = new ReproducibleAnnotation(jc);
@@ -289,6 +287,7 @@ public interface IDUUIInstantiatedPipelineComponent {
 
             System.out.println("[SocketIO]: SocketIO is not active");
             System.out.println("[SocketIO]: Message is not sent");
+            /*
             byte[] result = handler.sendAwaitResponse(ok);
             comp.addComponent(queue.getValue0());
 
@@ -304,7 +303,7 @@ public interface IDUUIInstantiatedPipelineComponent {
                  * Givara Ebo
                  * ich habe es auskommentiert, um zu testen
                  * now
-                 */
+                 *
                 layer.deserialize(viewJc, st);
             }
             catch(Exception e) {
@@ -320,8 +319,9 @@ public interface IDUUIInstantiatedPipelineComponent {
             ann.addToIndexes();
             perf.addData(serializeEnd-serializeStart,deserializeEnd-deserializeStart,annotatorEnd-annotatorStart,queue.getValue2()-queue.getValue1(),deserializeEnd-queue.getValue1(), String.valueOf(comp.getPipelineComponent().getFinalizedRepresentationHash()), sizeArray, jc);
             comp.addComponent(queue.getValue0());
-
+            */
         }
+
 
 
 
