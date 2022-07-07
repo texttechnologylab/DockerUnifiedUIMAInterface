@@ -681,12 +681,14 @@ public class DUUIComposer {
     }
 
     private void shutdown_pipeline() throws Exception {
-        for (PipelinePart comp : _instantiatedPipeline) {
-            System.out.printf("[Composer] Shutting down %s...\n", comp.getUUID());
-            comp.getDriver().destroy(comp.getUUID());
+        if(!_instantiatedPipeline.isEmpty()) {
+            for (PipelinePart comp : _instantiatedPipeline) {
+                System.out.printf("[Composer] Shutting down %s...\n", comp.getUUID());
+                comp.getDriver().destroy(comp.getUUID());
+            }
+            _instantiatedPipeline.clear();
+            System.out.println("[Composer] Shut down complete.");
         }
-        _instantiatedPipeline.clear();
-        System.out.println("[Composer] Shut down complete.");
 
         if(_monitor!=null) {
             System.out.printf("[Composer] Visit %s to view the data.\n",_monitor.generateURL());
