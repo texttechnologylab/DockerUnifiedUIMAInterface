@@ -213,9 +213,14 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
              */
             //System.out.println(URI.create(url.substring(0,
             // (url.length()-1))+ (Integer.parseInt(url.substring(url.length()-1)) +1)));
-            String wsurl = String.valueOf(URI.create(
-                    url.substring(0, (url.length()-1))+ (Integer.parseInt(url.substring(url.length()-1)) +1)));
-            _socketio = new DUUIWebsocketHandler(wsurl);
+            if (comp.isWebsocket()) {
+                String wsurl = String.valueOf(URI.create(
+                        url.substring(0, (url.length()-1))+ (Integer.parseInt(url.substring(url.length()-1)) +1)));
+                _socketio = new DUUIWebsocketHandler(wsurl);
+            }
+            else {
+                _socketio = null;
+            }
             IDUUICommunicationLayer layer = DUUIDockerDriver.responsiveAfterTime(url, jc, 100000, _client, (msg) -> {
                 System.out.printf("[RemoteDriver][%s] %s\n", uuidCopy, msg);
             }, _luaContext, skipVerification);
