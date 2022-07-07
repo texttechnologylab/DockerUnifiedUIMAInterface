@@ -67,6 +67,7 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
 
         public Component withWebsocket(boolean b) {
             component.withWebsocket(b);
+
             return this;
         }
 
@@ -154,7 +155,9 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
 
         public Map<String,String> getParameters() {return _parameters;}
 
-        public boolean isWebsocket() {return _websocket; }
+        public boolean isWebsocket() {
+            return _websocket;
+        }
     }
 
     public DUUIRemoteDriver(int timeout) {
@@ -193,7 +196,15 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         boolean added_communication_layer = false;
 
         for(String url : comp.getUrls()) {
-            IDUUICommunicationLayer layer = DUUIDockerDriver.responsiveAfterTime(url, jc, 100000, _client, _socketio, (msg) -> {
+            /**
+             * 07.07.2022
+             */
+            //System.out.println(URI.create(url.substring(0,
+            // (url.length()-1))+ (Integer.parseInt(url.substring(url.length()-1)) +1)));
+            String wsurl = String.valueOf(URI.create(
+                    url.substring(0, (url.length()-1))+ (Integer.parseInt(url.substring(url.length()-1)) +1)));
+            _socketio = new DUUIWebsocketHandler(wsurl);
+            IDUUICommunicationLayer layer = DUUIDockerDriver.responsiveAfterTime(url, jc, 100000, _client, (msg) -> {
                 System.out.printf("[RemoteDriver][%s] %s\n", uuidCopy, msg);
             }, _luaContext, skipVerification);
             if(!added_communication_layer) {
@@ -257,6 +268,5 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
 
     public void destroy(String uuid) {
         _components.remove(uuid);
-
     }
 }
