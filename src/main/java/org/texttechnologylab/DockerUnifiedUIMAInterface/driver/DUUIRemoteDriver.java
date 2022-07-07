@@ -9,6 +9,7 @@ import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.javatuples.Triplet;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUICompressionHelper;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUICommunicationLayer;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.IDUUIConnectionHandler;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.DUUIWebsocketHandler;
@@ -29,7 +30,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 public class DUUIRemoteDriver implements IDUUIDriverInterface {
     private HashMap<String, InstantiatedComponent> _components;
     private HttpClient _client;
-    private DUUIWebsocketHandler _socketio;
+    private IDUUIConnectionHandler _socketio;
     private DUUICompressionHelper _helper;
     private DUUILuaContext _luaContext;
 
@@ -83,13 +84,24 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
 
     private static class ComponentInstance implements IDUUIUrlAccessible {
         String _url;
+        IDUUIConnectionHandler _handler;
 
         ComponentInstance(String val) {
             _url = val;
+            _handler = null;
+        }
+
+        ComponentInstance(String val, IDUUIConnectionHandler handler) {
+            _url = val;
+            _handler = handler;
         }
 
         public String generateURL() {
             return _url;
+        }
+
+        public IDUUIConnectionHandler getHandler() {
+            return _handler;
         }
     }
     private static class InstantiatedComponent implements IDUUIInstantiatedPipelineComponent {
@@ -212,7 +224,7 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
                 added_communication_layer = true;
             }
             for (int i = 0; i < comp.getScale(); i++) {
-                comp.addComponent(new ComponentInstance(url));
+                comp.addComponent(new ComponentInstance(url, _socketio));
             }
             _components.put(uuid, comp);
             System.out.printf("[RemoteDriver][%s] Remote URL %s is online and seems to understand DUUI V1 format!\n", uuid, url);
@@ -257,13 +269,17 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
          * @edited
          * Dawit Terefe
          */
-        try {
+
             if (comp.isWebsocket()) {
-                IDUUIInstantiatedPipelineComponent.process_handler(aCas, comp, perf);
+                try {
+                    IDUUIInstantiatedPipelineComponent.process_handler(aCas, comp, perf);
+                } catch (URISyntaxException e) {
+                    e.printStackTrace();
+                }
             }
-        } catch (URISyntaxException e) {
-            e.printStackTrace();
-        }
+            else {
+                IDUUIInstantiatedPipelineComponent.process(aCas, comp, perf);
+            }
     }
 
     public void destroy(String uuid) {

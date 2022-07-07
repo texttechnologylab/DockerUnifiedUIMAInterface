@@ -10,27 +10,30 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class DUUIWebsocketHandler  {
+public class DUUIWebsocketHandler implements IDUUIConnectionHandler{
     /***
      * @author
-     * Dawit Terefer
+     * Dawit Terefe
      */
     /***
      * @author
      * Givara Ebo
      */
 
-    public static Socket client;
+    public Socket client;
+    private static List<Socket> clients = new ArrayList<>();
 
     static {
     }
-    public static String getId(){
+    public String getId(){
         return client.id();
     }
 
-    public static void wsConnected(){
+    public void wsConnected(){
         client.on(Socket.EVENT_CONNECT, args -> {
             AtomicInteger counter = new AtomicInteger();
             client.emit("please_send_server_id", "please send server id");
@@ -42,25 +45,30 @@ public class DUUIWebsocketHandler  {
         });
     }
 
-    public static void wsOnMessage(){
+    public void wsOnMessage(){
         /*
         client.on(Socket.EVENT_DISCONNECT, objects ->
                 System.out.println("[DUUIWebsocketHandler]: Message is arrived"));
-
          */
     }
-    public static void wsDisConnected(){
+
+    public void wsDisConnected(){
         client.on(Socket.EVENT_DISCONNECT, objects ->
                 System.out.println("[DUUIWebsocketHandler]: Server(Spacy Annotator) is disconnected"));
 
     }
 
+    public Socket getClient () {
+        return this.client;
+    }
 
-
+    public static List<Socket> getClients(){
+        return clients;
+    }
 
     public DUUIWebsocketHandler(String websocketLink){
         try {
-            client = IO.socket(websocketLink);
+            this.client = IO.socket(websocketLink);
 
         }catch (URISyntaxException e) {
             throw new RuntimeException(e);
@@ -69,7 +77,8 @@ public class DUUIWebsocketHandler  {
         wsDisConnected();
         wsOnMessage();
         // open connection
-        client.open();
+        this.client.open();
+        clients.add(client);
     }
 
 

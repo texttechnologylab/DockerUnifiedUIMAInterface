@@ -18,17 +18,17 @@ public class DUUIRestHandler implements IDUUIConnectionHandler {
     public DUUIRestHandler() {
     }
 
-    @Override
+
     public void initiate(String uri) throws URISyntaxException {
         this.uri = new URI(uri + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS);
     }
 
-    @Override
+
     public boolean success() {
         return this.success;
     }
 
-    @Override
+
     public byte[] sendAwaitResponse(byte[] serializedObject) throws IOException {
 
         int tries = 0;

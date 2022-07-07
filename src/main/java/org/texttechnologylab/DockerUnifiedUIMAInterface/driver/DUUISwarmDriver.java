@@ -11,6 +11,7 @@ import org.javatuples.Triplet;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIDockerInterface;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUICommunicationLayer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.DUUIWebsocketHandler;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.IDUUIConnectionHandler;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
 import org.xml.sax.SAXException;
@@ -179,6 +180,7 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
 
     private static class ComponentInstance implements IDUUIUrlAccessible {
         String _url;
+        IDUUIConnectionHandler _handler;
 
         public ComponentInstance(String url) {
             _url = url;
@@ -186,6 +188,10 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
 
         public String generateURL() {
             return _url;
+        }
+
+        public IDUUIConnectionHandler getHandler() {
+            return _handler;
         }
     }
 

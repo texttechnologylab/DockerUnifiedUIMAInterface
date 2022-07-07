@@ -2,6 +2,7 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface.driver;
 
 
 import io.socket.client.Ack;
+import io.socket.client.Socket;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.cas.CASException;
 import org.apache.uima.fit.factory.TypeSystemDescriptionFactory;
@@ -207,18 +208,13 @@ public interface IDUUIInstantiatedPipelineComponent {
         // lua serialize call()
         layer.serialize(viewJc,out,comp.getParameters());
 
-        /***
-         * ok ist response
-         */
-
+        // ok ist message.
         byte[] ok = out.toByteArray();
         long sizeArray = ok.length;
         long serializeEnd = System.nanoTime();
 
         long annotatorStart = serializeEnd;
 
-        // System.out.println("[WebsocketHandler]: CONNECTION STARTED");
-        //String uri = queue.getValue0().generateURL();
         /***
          * @edited
          * Givara Ebo
@@ -231,18 +227,18 @@ public interface IDUUIInstantiatedPipelineComponent {
          * du kannst es noch mal freischalten.
          */
 
-        //
-        /**
-         * send a message with IOSocket
-         */
-        if (DUUIWebsocketHandler.client!=null){
+        IDUUIUrlAccessible accessible = queue.getValue0();
+        DUUIWebsocketHandler handler = (DUUIWebsocketHandler) accessible.getHandler();
+        Socket client = handler.getClient();
+
+        if (client!=null){
             JCas finalViewJc = viewJc;
 
             System.out.println("[DUUIWebsocketHandler]: Message sending "+
                     StandardCharsets.UTF_8.decode(ByteBuffer.wrap(ok)));
 
 
-            DUUIWebsocketHandler.client.emit("json", ok, (Ack) objects -> {
+            client.emit("json", ok, (Ack) objects -> {
 
                 System.out.println("[DUUIWebsocketHandler]: Message received "+
                         StandardCharsets.UTF_8.decode(ByteBuffer.wrap((byte[]) objects[0])));
@@ -263,10 +259,7 @@ public interface IDUUIInstantiatedPipelineComponent {
                     System.err.printf("Caught exception printing response %s\n",new String(sioresult, StandardCharsets.UTF_8));
                 }
 
-
-                comp.addComponent(queue.getValue0());
-
-
+                comp.addComponent(accessible);
 
                 long annotatorEnd = System.nanoTime();
                 long deserializeStart = annotatorEnd;
@@ -279,7 +272,7 @@ public interface IDUUIInstantiatedPipelineComponent {
                 ann.setPipelineName(perf.getRunKey());
                 ann.addToIndexes();
                 perf.addData(serializeEnd-serializeStart,deserializeEnd-deserializeStart,annotatorEnd-annotatorStart,queue.getValue2()-queue.getValue1(),deserializeEnd-queue.getValue1(), String.valueOf(comp.getPipelineComponent().getFinalizedRepresentationHash()), sizeArray, jc);
-                comp.addComponent(queue.getValue0());
+                comp.addComponent(accessible);
 
             });
 
@@ -289,7 +282,7 @@ public interface IDUUIInstantiatedPipelineComponent {
             System.out.println("[SocketIO]: Message is not sent");
             /*
             byte[] result = handler.sendAwaitResponse(ok);
-            comp.addComponent(queue.getValue0());
+            comp.addComponent(accessible);
 
 
 
@@ -318,18 +311,9 @@ public interface IDUUIInstantiatedPipelineComponent {
             ann.setPipelineName(perf.getRunKey());
             ann.addToIndexes();
             perf.addData(serializeEnd-serializeStart,deserializeEnd-deserializeStart,annotatorEnd-annotatorStart,queue.getValue2()-queue.getValue1(),deserializeEnd-queue.getValue1(), String.valueOf(comp.getPipelineComponent().getFinalizedRepresentationHash()), sizeArray, jc);
-            comp.addComponent(queue.getValue0());
+            comp.addComponent(accessible);
             */
         }
-
-
-
-
-
-
-
-        //System.out.println("[WebsocketHandler]: CONNECTION END");
-
 
     }
 }

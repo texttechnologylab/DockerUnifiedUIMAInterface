@@ -12,6 +12,7 @@ import org.apache.uima.util.TypeSystemUtil;
 import org.javatuples.Triplet;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.*;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.DUUIWebsocketHandler;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.IDUUIConnectionHandler;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaCommunicationLayer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
@@ -268,6 +269,7 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
     public static class ComponentInstance implements IDUUIUrlAccessible {
         private String _container_id;
         private int _port;
+        private IDUUIConnectionHandler _handler;
 
         public ComponentInstance(String id, int port) {
             _container_id = id;
@@ -290,6 +292,8 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
         String getContainerUrl() {
             return format("http://127.0.0.1:%d", _port);
         }
+
+        public IDUUIConnectionHandler getHandler() {return _handler;}
     }
 
     static class InstantiatedComponent implements IDUUIInstantiatedPipelineComponent {
