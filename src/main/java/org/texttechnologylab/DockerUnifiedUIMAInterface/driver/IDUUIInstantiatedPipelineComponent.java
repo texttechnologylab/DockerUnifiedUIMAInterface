@@ -12,6 +12,7 @@ import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.javatuples.Triplet;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUICommunicationLayer;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.DUUIWebsocketAlt;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.DUUIWebsocketHandler;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.IDUUIConnectionHandler;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
@@ -230,9 +231,8 @@ public interface IDUUIInstantiatedPipelineComponent {
 
         IDUUIUrlAccessible accessible = queue.getValue0();
         IDUUIConnectionHandler handler = accessible.getHandler();
-        Object client = handler.getClient();
 
-        if (client!=null){
+        if (handler.getClass() == DUUIWebsocketAlt.class){
             JCas finalViewJc = viewJc;
 
             byte[] result = handler.get(ok);
@@ -267,7 +267,55 @@ public interface IDUUIInstantiatedPipelineComponent {
             perf.addData(serializeEnd-serializeStart,deserializeEnd-deserializeStart,annotatorEnd-annotatorStart,queue.getValue2()-queue.getValue1(),deserializeEnd-queue.getValue1(), String.valueOf(comp.getPipelineComponent().getFinalizedRepresentationHash()), sizeArray, jc);
             comp.addComponent(accessible);
 
-        }else {
+        } else if (handler.getClass() == DUUIWebsocketHandler.class) {
+            JCas finalViewJc = viewJc;
+
+            System.out.println("[DUUIWebsocketHandler]: Message sending \n"+
+                    StandardCharsets.UTF_8.decode(ByteBuffer.wrap(ok)));
+
+            Socket client = (Socket) handler.getClient();
+            final ByteArrayInputStream[] st = {null};
+
+            client.emit("json", ok, (Ack) objects -> {
+
+                System.out.println("[DUUIWebsocketHandler]: Message received "+
+                        StandardCharsets.UTF_8.decode(ByteBuffer.wrap((byte[]) objects[0])));
+
+                byte[] sioresult = (byte[]) objects[0];
+
+                st[0] = new ByteArrayInputStream(sioresult);
+
+            });
+
+            try {
+                /***
+                 * @edited
+                 * Givara Ebo
+                 * ich habe es auskommentiert, um zu testen
+                 * now
+                 */
+                layer.deserialize(finalViewJc, st[0]);
+            }
+            catch(Exception e) {
+                System.err.printf("Caught exception printing response %s\n",new String(st[0].readAllBytes(), StandardCharsets.UTF_8));
+            }
+
+            comp.addComponent(accessible);
+
+            long annotatorEnd = System.nanoTime();
+            long deserializeStart = annotatorEnd;
+            long deserializeEnd = System.nanoTime();
+
+            ReproducibleAnnotation ann = new ReproducibleAnnotation(jc);
+            ann.setDescription(comp.getPipelineComponent().getFinalizedRepresentation());
+            ann.setCompression(DUUIPipelineComponent.compressionMethod);
+            ann.setTimestamp(System.nanoTime());
+            ann.setPipelineName(perf.getRunKey());
+            ann.addToIndexes();
+            perf.addData(serializeEnd-serializeStart,deserializeEnd-deserializeStart,annotatorEnd-annotatorStart,queue.getValue2()-queue.getValue1(),deserializeEnd-queue.getValue1(), String.valueOf(comp.getPipelineComponent().getFinalizedRepresentationHash()), sizeArray, jc);
+            comp.addComponent(accessible);
+        }
+        else {
 
             System.out.println("[SocketIO]: SocketIO is not active");
             System.out.println("[SocketIO]: Message is not sent");

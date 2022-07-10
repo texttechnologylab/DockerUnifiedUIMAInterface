@@ -218,9 +218,12 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
             if (comp.isWebsocket()) {
                 String wsurl = String.valueOf(URI.create(
                         url.substring(0, (url.length()-1))+ (Integer.parseInt(url.substring(url.length()-1)) +1)));
-//                _socketio = new DUUIWebsocketHandler(wsurl);
-                _socketio = new DUUIWebsocketAlt(
-                        url.replaceFirst("http", "ws") + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS_WEBSOCKET);
+                /*
+                 * Pick which websocket client to use.
+                 */
+                _socketio = new DUUIWebsocketHandler(wsurl);
+//                _socketio = new DUUIWebsocketAlt(
+//                        url.replaceFirst("http", "ws") + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS_WEBSOCKET);
             }
             else {
                 _socketio = null;

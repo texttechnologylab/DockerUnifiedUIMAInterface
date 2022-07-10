@@ -4,6 +4,7 @@ import org.java_websocket.client.WebSocketClient;
 import org.java_websocket.handshake.ServerHandshake;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 
+import java.io.IOException;
 import java.net.URI;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -15,13 +16,14 @@ public class DUUIWebsocketAlt implements IDUUIConnectionHandler{
     private static List<DUUIWebsocketAlt> clients = new ArrayList<>();
     private WebsocketClient client;
 
-    public DUUIWebsocketAlt(String uri) throws InterruptedException {
+    public DUUIWebsocketAlt(String uri) throws InterruptedException, IOException {
         this.client = new WebsocketClient(URI.create(uri));
 
         boolean connected = client.connectBlocking();
 
         if (!connected) {
             System.out.println("[DUUIWebsocketAlt] Client could not connect!");
+            throw new IOException("Could not reach endpoint after 10 tries!");
         }
 
         DUUIComposer._clients.add(this);

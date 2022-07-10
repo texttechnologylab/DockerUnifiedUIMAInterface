@@ -72,18 +72,20 @@ public class DUUIWebsocketHandler implements IDUUIConnectionHandler{
 
     public byte[] get(byte[] jc) {
 
-        final byte[][] sioresult = {null};
+        final ByteArrayInputStream[] st = {null};
 
         client.emit("json", jc, (Ack) objects -> {
 
             System.out.println("[DUUIWebsocketHandler]: Message received "+
                     StandardCharsets.UTF_8.decode(ByteBuffer.wrap((byte[]) objects[0])));
 
-            sioresult[0] = (byte[]) objects[0];
+            byte[] sioresult = (byte[]) objects[0];
+
+            st[0] = new ByteArrayInputStream(sioresult);
 
         });
 
-        return sioresult[0];
+        return st[0].readAllBytes();
     }
 
     public void close() {
