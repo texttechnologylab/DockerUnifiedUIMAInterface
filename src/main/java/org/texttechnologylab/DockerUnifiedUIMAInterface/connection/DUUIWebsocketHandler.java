@@ -1,10 +1,14 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.connection;
 
+import io.socket.client.Ack;
 import io.socket.client.IO;
 import io.socket.client.Socket;
 import org.java_websocket.exceptions.WebsocketNotConnectedException;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIPipelineComponent;
+import org.texttechnologylab.duui.ReproducibleAnnotation;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -66,6 +70,26 @@ public class DUUIWebsocketHandler implements IDUUIConnectionHandler{
         return clients;
     }
 
+    public byte[] get(byte[] jc) {
+
+        final byte[][] sioresult = {null};
+
+        client.emit("json", jc, (Ack) objects -> {
+
+            System.out.println("[DUUIWebsocketHandler]: Message received "+
+                    StandardCharsets.UTF_8.decode(ByteBuffer.wrap((byte[]) objects[0])));
+
+            sioresult[0] = (byte[]) objects[0];
+
+        });
+
+        return sioresult[0];
+    }
+
+    public void close() {
+        client.close();
+    }
+
     public DUUIWebsocketHandler(String websocketLink){
         try {
             this.client = IO.socket(websocketLink);
@@ -78,7 +102,7 @@ public class DUUIWebsocketHandler implements IDUUIConnectionHandler{
         wsOnMessage();
         // open connection
         this.client.open();
-        clients.add(client);
+        DUUIComposer._clients.add(this);
     }
 
 

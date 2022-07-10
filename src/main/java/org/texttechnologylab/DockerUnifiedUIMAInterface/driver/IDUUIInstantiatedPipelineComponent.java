@@ -13,6 +13,7 @@ import org.javatuples.Triplet;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUICommunicationLayer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.DUUIWebsocketHandler;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.IDUUIConnectionHandler;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
 import org.texttechnologylab.duui.ReproducibleAnnotation;
 import org.xml.sax.SAXException;
@@ -228,53 +229,43 @@ public interface IDUUIInstantiatedPipelineComponent {
          */
 
         IDUUIUrlAccessible accessible = queue.getValue0();
-        DUUIWebsocketHandler handler = (DUUIWebsocketHandler) accessible.getHandler();
-        Socket client = handler.getClient();
+        IDUUIConnectionHandler handler = accessible.getHandler();
+        Object client = handler.getClient();
 
         if (client!=null){
             JCas finalViewJc = viewJc;
 
-            System.out.println("[DUUIWebsocketHandler]: Message sending "+
-                    StandardCharsets.UTF_8.decode(ByteBuffer.wrap(ok)));
+            byte[] result = handler.get(ok);
 
+            ByteArrayInputStream st = new ByteArrayInputStream(result);
 
-            client.emit("json", ok, (Ack) objects -> {
+            try {
+                /***
+                 * @edited
+                 * Givara Ebo
+                 * ich habe es auskommentiert, um zu testen
+                 * now
+                 */
+                layer.deserialize(finalViewJc, st);
+            }
+            catch(Exception e) {
+                System.err.printf("Caught exception printing response %s\n",new String(result, StandardCharsets.UTF_8));
+            }
 
-                System.out.println("[DUUIWebsocketHandler]: Message received "+
-                        StandardCharsets.UTF_8.decode(ByteBuffer.wrap((byte[]) objects[0])));
+            comp.addComponent(accessible);
 
-                byte[] sioresult = (byte[]) objects[0];
-                ByteArrayInputStream st = new ByteArrayInputStream(sioresult);
+            long annotatorEnd = System.nanoTime();
+            long deserializeStart = annotatorEnd;
+            long deserializeEnd = System.nanoTime();
 
-                try {
-                    /***
-                     * @edited
-                     * Givara Ebo
-                     * ich habe es auskommentiert, um zu testen
-                     * now
-                     */
-                    layer.deserialize(finalViewJc, st);
-                }
-                catch(Exception e) {
-                    System.err.printf("Caught exception printing response %s\n",new String(sioresult, StandardCharsets.UTF_8));
-                }
-
-                comp.addComponent(accessible);
-
-                long annotatorEnd = System.nanoTime();
-                long deserializeStart = annotatorEnd;
-                long deserializeEnd = System.nanoTime();
-
-                ReproducibleAnnotation ann = new ReproducibleAnnotation(jc);
-                ann.setDescription(comp.getPipelineComponent().getFinalizedRepresentation());
-                ann.setCompression(DUUIPipelineComponent.compressionMethod);
-                ann.setTimestamp(System.nanoTime());
-                ann.setPipelineName(perf.getRunKey());
-                ann.addToIndexes();
-                perf.addData(serializeEnd-serializeStart,deserializeEnd-deserializeStart,annotatorEnd-annotatorStart,queue.getValue2()-queue.getValue1(),deserializeEnd-queue.getValue1(), String.valueOf(comp.getPipelineComponent().getFinalizedRepresentationHash()), sizeArray, jc);
-                comp.addComponent(accessible);
-
-            });
+            ReproducibleAnnotation ann = new ReproducibleAnnotation(jc);
+            ann.setDescription(comp.getPipelineComponent().getFinalizedRepresentation());
+            ann.setCompression(DUUIPipelineComponent.compressionMethod);
+            ann.setTimestamp(System.nanoTime());
+            ann.setPipelineName(perf.getRunKey());
+            ann.addToIndexes();
+            perf.addData(serializeEnd-serializeStart,deserializeEnd-deserializeStart,annotatorEnd-annotatorStart,queue.getValue2()-queue.getValue1(),deserializeEnd-queue.getValue1(), String.valueOf(comp.getPipelineComponent().getFinalizedRepresentationHash()), sizeArray, jc);
+            comp.addComponent(accessible);
 
         }else {
 

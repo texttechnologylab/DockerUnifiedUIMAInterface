@@ -18,6 +18,8 @@ public class WebsocketClient extends WebSocketClient{
         void onClose(int i, String s, boolean b);
 
     }
+
+
     List<byte []> messageStack = new LinkedList<>();
 
     public WebsocketClient(URI serverUri) {
@@ -34,30 +36,25 @@ public class WebsocketClient extends WebSocketClient{
 
 
         byte[] data = b.array();
-        System.out.println("[WebsocketClient]: ByteBuffer RECEIVED: " + b);
+//        System.out.println("[WebsocketClient]: ByteBuffer received: " + b);
         String jsonString = StandardCharsets.UTF_8.decode(b).toString();
-        System.out.println("[WebsocketClient]: ByteBuffer to String "+jsonString);
+        System.out.println("[WebsocketClient]: ByteBuffer received: "+jsonString);
         this.messageStack.add(data);
     }
 
     @Override
     public void onMessage(String s) {
-        System.out.println("[WebsocketClient]: String RECEIVED: " + s);
+        System.out.println("[WebsocketClient]: Message Received: " + s);
 
     }
     @Override
     public void onOpen(ServerHandshake serverHandshake) {
-        System.out.println("[WebsocketClient]: Open websocket connection...");
+        System.out.println("[WebsocketClient]: Opened websocket connection...");
 
     }
     @Override
     public void onClose(int i, String s, boolean b) {
         System.out.println("[WebsocketClient]: CLOSED: i="+i+", s="+s+", b="+b);
-        try {
-            reconnectBlocking();
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
     }
 
     @Override

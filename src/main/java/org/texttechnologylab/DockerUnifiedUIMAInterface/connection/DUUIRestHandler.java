@@ -11,7 +11,7 @@ import java.net.http.HttpResponse;
 
 import static org.texttechnologylab.DockerUnifiedUIMAInterface.driver.IDUUIInstantiatedPipelineComponent._client;
 
-public class DUUIRestHandler implements IDUUIConnectionHandler {
+public class DUUIRestHandler {
     private boolean success;
     private URI uri;
 

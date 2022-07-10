@@ -10,4 +10,9 @@ public interface IDUUIConnectionHandler {
 //
 //    byte[] sendAwaitResponse(byte[] serializedObject) throws IOException;
 
+    Object getClient();
+
+    byte[] get(byte[] jc);
+
+    void close();
 }

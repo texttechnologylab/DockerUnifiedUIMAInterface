@@ -7,8 +7,10 @@ import org.apache.uima.jcas.JCas;
 import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.javatuples.Triplet;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUICompressionHelper;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUICommunicationLayer;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.DUUIWebsocketAlt;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.IDUUIConnectionHandler;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
@@ -216,7 +218,9 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
             if (comp.isWebsocket()) {
                 String wsurl = String.valueOf(URI.create(
                         url.substring(0, (url.length()-1))+ (Integer.parseInt(url.substring(url.length()-1)) +1)));
-                _socketio = new DUUIWebsocketHandler(wsurl);
+//                _socketio = new DUUIWebsocketHandler(wsurl);
+                _socketio = new DUUIWebsocketAlt(
+                        url.replaceFirst("http", "ws") + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS_WEBSOCKET);
             }
             else {
                 _socketio = null;

@@ -15,6 +15,7 @@ import org.apache.uima.util.XmlCasSerializer;
 import org.luaj.vm2.Globals;
 import org.luaj.vm2.lib.jse.JsePlatform;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.DUUIWebsocketHandler;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.IDUUIConnectionHandler;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.*;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.AsyncCollectionReader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
@@ -145,6 +146,8 @@ public class DUUIComposer {
     public static final String V1_COMPONENT_ENDPOINT_PROCESS_WEBSOCKET = "/v1/process_websocket";
     public static final String V1_COMPONENT_ENDPOINT_TYPESYSTEM = "/v1/typesystem";
     public static final String V1_COMPONENT_ENDPOINT_COMMUNICATION_LAYER = "/v1/communication_layer";
+
+    public static List<IDUUIConnectionHandler> _clients = new ArrayList<>();
 
     private TypeSystemDescription _minimalTypesystem;
 
@@ -650,7 +653,7 @@ public class DUUIComposer {
             }
             System.out.println("[Composer]: DUUIWebsocketHandler is closed");
             System.out.println("[Composer]: it takes until 30 second to shut down DUUIWebsocketHandler");
-            DUUIWebsocketHandler.getClients().forEach(Socket::close);
+            _clients.forEach(IDUUIConnectionHandler::close);
             _hasShutdown = true;
         }
         else {
@@ -763,7 +766,6 @@ public class DUUIComposer {
         // Run single document
         composer.run(jc,"fuchs");
         //composer.run(jc,"fuchs");
-
 
 
 
