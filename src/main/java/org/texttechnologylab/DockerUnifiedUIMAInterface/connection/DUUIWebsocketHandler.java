@@ -3,6 +3,7 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface.connection;
 import io.socket.client.Ack;
 import io.socket.client.IO;
 import io.socket.client.Socket;
+import io.socket.emitter.Emitter;
 import org.java_websocket.exceptions.WebsocketNotConnectedException;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIPipelineComponent;
@@ -15,6 +16,7 @@ import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -27,6 +29,8 @@ public class DUUIWebsocketHandler implements IDUUIConnectionHandler{
      * @author
      * Givara Ebo
      */
+    private byte[] send;
+    private byte[] receive;
 
     public Socket client;
     private static List<Socket> clients = new ArrayList<>();
@@ -45,6 +49,7 @@ public class DUUIWebsocketHandler implements IDUUIConnectionHandler{
                 counter.addAndGet(1);
                 System.out.println("[DUUIWebsocketHandler]: "+counter+" Composer: with socket id: "+client.id()+" is connected with Annotator: " +objects[0]);
             });
+
             //socket.close();
         });
     }
@@ -54,6 +59,15 @@ public class DUUIWebsocketHandler implements IDUUIConnectionHandler{
         client.on(Socket.EVENT_DISCONNECT, objects ->
                 System.out.println("[DUUIWebsocketHandler]: Message is arrived"));
          */
+    }
+
+    public byte[] setSend(byte[] msg){
+        return this.send = msg;
+    }
+    public byte[] getReceive(){
+
+
+        return this.receive;
     }
 
     public void wsDisConnected(){
