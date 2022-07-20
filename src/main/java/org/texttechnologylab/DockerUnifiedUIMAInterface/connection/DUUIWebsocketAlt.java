@@ -18,7 +18,6 @@ public class DUUIWebsocketAlt implements IDUUIConnectionHandler{
 
     public DUUIWebsocketAlt(String uri) throws InterruptedException, IOException {
         this.client = new WebsocketClient(URI.create(uri));
-
         boolean connected = client.connectBlocking();
 
         if (!connected) {
@@ -27,6 +26,7 @@ public class DUUIWebsocketAlt implements IDUUIConnectionHandler{
         }
 
         DUUIComposer._clients.add(this);
+        System.out.println("[DUUIWebsocketAlt] Remote URL %s is online and seems to understand DUUI V1 format!\n"+URI.create(uri));
     }
 
     public WebsocketClient getClient() {

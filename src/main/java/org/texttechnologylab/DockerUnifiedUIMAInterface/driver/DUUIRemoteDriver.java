@@ -223,7 +223,7 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
                  */
                 _socketio = new DUUIWebsocketHandler(wsurl);
 //                _socketio = new DUUIWebsocketAlt(
-//                        url.replaceFirst("http", "ws") + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS_WEBSOCKET);
+  //                      url.replaceFirst("http", "ws") + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS_WEBSOCKET);
             }
             else {
                 _socketio = null;
@@ -240,8 +240,7 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
             }
             _components.put(uuid, comp);
             System.out.printf("[RemoteDriver][%s] Remote URL %s is online and seems to understand DUUI V1 format!\n", uuid, url);
-            System.out.printf("[RemoteDriver][%s][DUUIWebsocketHandler] Remote URL %s is online and seems to understand DUUI V1 format!\n",
-                    uuid,URI.create(url.substring(0, (url.length()-1))+ (Integer.parseInt(url.substring(url.length()-1)) +1)));
+
             System.out.printf("[RemoteDriver][%s] Maximum concurrency for this endpoint %d\n", uuid, comp.getScale());
         }
         return uuid;

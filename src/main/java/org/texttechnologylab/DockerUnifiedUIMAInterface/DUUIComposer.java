@@ -624,7 +624,8 @@ public class DUUIComposer {
             System.out.println("[Composer] Something went wrong, shutting down remaining components...");
             catched = e;
         }
-        shutdown_pipeline();
+        /** shutdown **/
+        //shutdown_pipeline();
         if (catched != null) {
             throw catched;
         }
@@ -758,21 +759,19 @@ public class DUUIComposer {
        // ByteArrayInputStream stream;
        // stream.read
 
-        String val2 = "Dies ist ein kleiner Test Text für Abies!";
+        String val = "Dies ist ein kleiner Test Text für Abies!";
         JCas jc = JCasFactory.createJCas();
         jc.setDocumentLanguage("de");
-        jc.setDocumentText(val2);
+        jc.setDocumentText(val);
+
+
 
         // Run single document
         composer.run(jc,"fuchs");
-        //composer.run(jc,"fuchs");
-
-
-
-
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         XmlCasSerializer.serialize(jc.getCas(),out);
         System.out.println(new String(out.toByteArray()));
+
 
         /*
         String val = Files.readString(Path.of(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/uima_xmi_communication_token_only.lua").toURI()));
