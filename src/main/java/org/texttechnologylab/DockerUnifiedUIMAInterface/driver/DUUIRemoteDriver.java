@@ -221,9 +221,9 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
                 /*
                  * Pick which websocket client to use.
                  */
-                _socketio = new DUUIWebsocketHandler(wsurl);
-//                _socketio = new DUUIWebsocketAlt(
-  //                      url.replaceFirst("http", "ws") + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS_WEBSOCKET);
+//                _socketio = new DUUIWebsocketHandler(wsurl);
+                _socketio = new DUUIWebsocketAlt(
+                        url.replaceFirst("http", "ws") + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS_WEBSOCKET);
             }
             else {
                 _socketio = null;
