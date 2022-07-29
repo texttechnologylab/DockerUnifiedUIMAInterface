@@ -42,7 +42,7 @@ public class DUUIWebsocketAlt implements IDUUIConnectionHandler{
 
         while (client.messageStack.isEmpty()) {
             try {
-                Thread.sleep(0,1);
+                Thread.sleep(0, 1);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }

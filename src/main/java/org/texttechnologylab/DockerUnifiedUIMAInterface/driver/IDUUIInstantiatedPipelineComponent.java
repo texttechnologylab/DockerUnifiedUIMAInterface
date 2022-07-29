@@ -239,6 +239,9 @@ public interface IDUUIInstantiatedPipelineComponent {
 
             ByteArrayInputStream st = new ByteArrayInputStream(result);
 
+            long annotatorEnd = System.nanoTime();
+            long deserializeStart = annotatorEnd;
+
             try {
                 /***
                  * @edited
@@ -252,11 +255,9 @@ public interface IDUUIInstantiatedPipelineComponent {
                 System.err.printf("Caught exception printing response %s\n",new String(result, StandardCharsets.UTF_8));
             }
 
-            comp.addComponent(accessible);
-
-            long annotatorEnd = System.nanoTime();
-            long deserializeStart = annotatorEnd;
             long deserializeEnd = System.nanoTime();
+
+            comp.addComponent(accessible);
 
             ReproducibleAnnotation ann = new ReproducibleAnnotation(jc);
             ann.setDescription(comp.getPipelineComponent().getFinalizedRepresentation());
@@ -292,12 +293,14 @@ public interface IDUUIInstantiatedPipelineComponent {
                      * ich habe es auskommentiert, um zu testen
                      * now
                      */
-                    layer.deserialize(finalViewJc, st);
-                    comp.addComponent(accessible);
-
                     long annotatorEnd = System.nanoTime();
                     long deserializeStart = annotatorEnd;
+
+                    layer.deserialize(finalViewJc, st);
+
                     long deserializeEnd = System.nanoTime();
+
+                    comp.addComponent(accessible);
 
                     ReproducibleAnnotation ann = new ReproducibleAnnotation(jc);
                     ann.setDescription(comp.getPipelineComponent().getFinalizedRepresentation());
