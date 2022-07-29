@@ -36,8 +36,10 @@ public class WebsocketClient extends WebSocketClient{
 
         byte[] data = b.array();
 //        System.out.println("[WebsocketClient]: ByteBuffer received: " + b);
-        String jsonString = StandardCharsets.UTF_8.decode(b).toString();
-        System.out.println("[WebsocketClient]: ByteBuffer received: "+jsonString);
+
+        //String jsonString = StandardCharsets.UTF_8.decode(b).toString();
+
+        //System.out.println("[WebsocketClient]: ByteBuffer received: "+jsonString);
         this.messageStack.add(data);
     }
 
