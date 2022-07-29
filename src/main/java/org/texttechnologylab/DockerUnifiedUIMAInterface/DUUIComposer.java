@@ -652,8 +652,8 @@ public class DUUIComposer {
             for (IDUUIDriverInterface driver : _drivers.values()) {
                 driver.shutdown();
             }
-            System.out.println("[Composer]: DUUIWebsocketHandler is closed");
-            System.out.println("[Composer]: it takes until 30 second to shut down DUUIWebsocketHandler");
+//            System.out.println("[Composer]: DUUIWebsocketHandler is closed");
+//            System.out.println("[Composer]: it takes until 30 second to shut down DUUIWebsocketHandler");
             _clients.forEach(IDUUIConnectionHandler::close);
             _hasShutdown = true;
         }

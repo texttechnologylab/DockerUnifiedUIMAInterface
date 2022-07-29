@@ -4,6 +4,7 @@ import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.util.XmlCasSerializer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.IDUUIConnectionHandler;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIUIMADriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
@@ -37,14 +38,11 @@ public class WebsocketTest {
         jc.setDocumentLanguage("de");
         jc.setDocumentText(val);
 
-
-
         // Run single document
         composer.run(jc,"fuchs");
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        XmlCasSerializer.serialize(jc.getCas(),out);
-        System.out.println(new String(out.toByteArray()));
-
+//        ByteArrayOutputStream out = new ByteArrayOutputStream();
+//        XmlCasSerializer.serialize(jc.getCas(),out);
+//        System.out.println(new String(out.toByteArray()));
 
         composer.shutdown();
     }
@@ -75,13 +73,11 @@ public class WebsocketTest {
         jc.setDocumentLanguage("de");
         jc.setDocumentText(val);
 
-
-
         // Run single document
         composer.run(jc,"fuchs");
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        XmlCasSerializer.serialize(jc.getCas(),out);
-        System.out.println(new String(out.toByteArray()));
+//        ByteArrayOutputStream out = new ByteArrayOutputStream();
+//        XmlCasSerializer.serialize(jc.getCas(),out);
+//        System.out.println(new String(out.toByteArray()));
 
         composer.shutdown();
     }
@@ -100,8 +96,6 @@ public class WebsocketTest {
 
     public static void main(String[] args) throws Exception {
         InputStream inputStream = WebsocketTest.class.getResourceAsStream("/sample_splitted/sample_140.txt");
-        //InputStream inputStream = WebsocketTest.class.getResourceAsStream("/sample_splitted/sample_687.txt");
-        //InputStream inputStream = WebsocketTest.class.getResourceAsStream("/sample_splitted/sample_116159.txt");
         String text = readFromInputStream(inputStream);
         System.out.println(text);
 

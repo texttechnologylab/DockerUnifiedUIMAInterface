@@ -34,7 +34,6 @@ public class WebsocketClient extends WebSocketClient{
     @Override
     public void onMessage(ByteBuffer b) {
 
-
         byte[] data = b.array();
 //        System.out.println("[WebsocketClient]: ByteBuffer received: " + b);
         String jsonString = StandardCharsets.UTF_8.decode(b).toString();
