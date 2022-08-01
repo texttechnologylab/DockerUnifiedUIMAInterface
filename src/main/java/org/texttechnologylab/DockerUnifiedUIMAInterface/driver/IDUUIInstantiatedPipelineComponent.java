@@ -249,6 +249,7 @@ public interface IDUUIInstantiatedPipelineComponent {
                  * ich habe es auskommentiert, um zu testen
                  * now
                  */
+                /** @see **/
                 layer.deserialize(finalViewJc, st);
             }
             catch(Exception e) {
@@ -268,7 +269,36 @@ public interface IDUUIInstantiatedPipelineComponent {
             perf.addData(serializeEnd-serializeStart,deserializeEnd-deserializeStart,annotatorEnd-annotatorStart,queue.getValue2()-queue.getValue1(),deserializeEnd-queue.getValue1(), String.valueOf(comp.getPipelineComponent().getFinalizedRepresentationHash()), sizeArray, jc);
             comp.addComponent(accessible);
 
-        } else if (handler.getClass() == DUUIWebsocketHandler.class) {
+        }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        else if (handler.getClass() == DUUIWebsocketHandler.class) {
             JCas finalViewJc = viewJc;
 
             System.out.println("[DUUIWebsocketHandler]: Message sending \n"+

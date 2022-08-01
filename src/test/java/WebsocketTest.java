@@ -16,12 +16,13 @@ import java.net.URISyntaxException;
 public class WebsocketTest {
     public static void testWithWebsocket(String test) throws Exception {
 
-        DUUILuaContext ctx = new DUUILuaContext().withGlobalLibrary("json", DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/json.lua").toURI());
+        DUUILuaContext ctx = new DUUILuaContext().withGlobalLibrary("json",DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/json.lua").toURI());
 
         DUUIComposer composer = new DUUIComposer()
                 //        .withStorageBackend(new DUUIArangoDBStorageBackend("password",8888))
                 .withLuaContext(ctx)
                 .withSkipVerification(true);
+
 
         DUUIRemoteDriver remote_driver = new DUUIRemoteDriver(10000);
         DUUIUIMADriver uima_driver = new DUUIUIMADriver()
@@ -33,16 +34,18 @@ public class WebsocketTest {
         composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9715")
                 .withScale(1).withWebsocket(true).build());
 
-        String val = test;
+        String val = "Dies ist ein kleiner Test Text für Abies!";
         JCas jc = JCasFactory.createJCas();
         jc.setDocumentLanguage("de");
         jc.setDocumentText(val);
 
+
+
         // Run single document
         composer.run(jc,"fuchs");
-//        ByteArrayOutputStream out = new ByteArrayOutputStream();
-//        XmlCasSerializer.serialize(jc.getCas(),out);
-//        System.out.println(new String(out.toByteArray()));
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        XmlCasSerializer.serialize(jc.getCas(),out);
+        System.out.println(new String(out.toByteArray()));
 
         composer.shutdown();
     }
@@ -99,15 +102,9 @@ public class WebsocketTest {
         String text = readFromInputStream(inputStream);
         System.out.println(text);
 
-        final long timeStart = System.nanoTime();
         testWithWebsocket(text);
-        final long timeEnd = System.nanoTime();
-        final long timeStartRest = System.nanoTime();
-        testWithRest(text);
-        final long timeEndRest = System.nanoTime();
-        System.out.println("the spent time on the Process Websocket "+ (timeEnd-timeStart));
-        System.out.println("the spent time on the Process Rest      "+ (timeEndRest-timeStartRest));
-        System.out.println("Rest is "+((timeEnd-timeStart)/(timeEndRest-timeStartRest))+" times faster than websocket");
+        testWithWebsocket(text);
+
 
     }
 }

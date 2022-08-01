@@ -55,7 +55,7 @@ public class WebsocketClient extends WebSocketClient{
     }
     @Override
     public void onClose(int i, String s, boolean b) {
-        System.out.println("[WebsocketClient]: CLOSED: i="+i+", s="+s+", b="+b);
+        System.out.println("[WebsocketClient]: CLOSED: i="+i+", s="+s+", b="+b +" #####################################  Closed");
     }
 
     @Override

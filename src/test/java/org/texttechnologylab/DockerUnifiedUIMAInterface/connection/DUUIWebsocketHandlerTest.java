@@ -28,7 +28,7 @@ class IDUUIConnectionHandlerTest {
     }
     @Test
     void testWithWebsocket(String text, String name) throws Exception {
-        DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend("websocket_test1.db")
+        DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend("websocket_test.db")
                 .withConnectionPoolSize(iWorkers);
         DUUILuaContext ctx = new DUUILuaContext().withGlobalLibrary("json", DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/json.lua").toURI());
 
@@ -68,7 +68,7 @@ class IDUUIConnectionHandlerTest {
     }
     @Test
     void testWithRest(String text, String name) throws Exception {
-        DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend("rest_test1.db")
+        DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend("rest_test.db")
                 .withConnectionPoolSize(iWorkers);
         DUUILuaContext ctx = new DUUILuaContext().withGlobalLibrary("json", DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/json.lua").toURI());
 
@@ -129,18 +129,6 @@ class IDUUIConnectionHandlerTest {
         }
         return paths;
     }
-
-    @Test
-    void forRestTest() throws Exception {
-        for (Path path: getFilePathes("sample_splitted")) {
-            String link = "/sample_splitted/"+path;
-            System.out.println(link);
-            InputStream inputStream = IDUUIConnectionHandlerTest.class.getResourceAsStream(link);
-            String text = readFromInputStream(inputStream);
-            testWithRest(text, String.valueOf(path));
-        }
-
-    }
     @Test
     void forWebsocketTest() throws Exception {
         for (Path path: getFilePathes("sample_splitted")) {
@@ -153,6 +141,18 @@ class IDUUIConnectionHandlerTest {
 
     }
 
+
+    @Test
+    void forRestTest() throws Exception {
+        for (Path path: getFilePathes("sample_splitted")) {
+            String link = "/sample_splitted/"+path;
+            System.out.println(link);
+            InputStream inputStream = IDUUIConnectionHandlerTest.class.getResourceAsStream(link);
+            String text = readFromInputStream(inputStream);
+            testWithRest(text, String.valueOf(path));
+        }
+
+    }
 
 
 

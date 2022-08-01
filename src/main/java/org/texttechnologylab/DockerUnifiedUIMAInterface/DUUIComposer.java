@@ -173,6 +173,7 @@ public class DUUIComposer {
         _shutdownHook = new Thread(() -> {
             try {
                 System.out.println("[Composer] ShutdownHook... ");
+                /** @see */
                 that.shutdown();
                 System.out.println("[Composer] ShutdownHook finished.");
             } catch (UnknownHostException e) {
@@ -654,6 +655,7 @@ public class DUUIComposer {
             }
 //            System.out.println("[Composer]: DUUIWebsocketHandler is closed");
 //            System.out.println("[Composer]: it takes until 30 second to shut down DUUIWebsocketHandler");
+            /** @see **/
             _clients.forEach(IDUUIConnectionHandler::close);
             _hasShutdown = true;
         }
@@ -789,6 +791,7 @@ public class DUUIComposer {
         /*composer.run(createReaderDescription(TextReader.class,
                 TextReader.PARAM_SOURCE_LOCATION, "test_corpora/**.txt",
                 TextReader.PARAM_LANGUAGE, "en"),"next11");*/
+        /** @see **/
         composer.shutdown();
   }
 

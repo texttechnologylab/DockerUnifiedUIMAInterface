@@ -197,6 +197,7 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
 
     public String instantiate(DUUIPipelineComponent component, JCas jc, boolean skipVerification) throws Exception {
         /**
+         * @see
          * @edited
          * Dawit Terefe
          */
@@ -210,11 +211,7 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         boolean added_communication_layer = false;
 
         for(String url : comp.getUrls()) {
-            /**
-             * 07.07.2022
-             */
-            //System.out.println(URI.create(url.substring(0,
-            // (url.length()-1))+ (Integer.parseInt(url.substring(url.length()-1)) +1)));
+            /** @see **/
             if (comp.isWebsocket()) {
                 String wsurl = String.valueOf(URI.create(
                         url.substring(0, (url.length()-1))+ (Integer.parseInt(url.substring(url.length()-1)) +1)));
