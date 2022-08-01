@@ -3,6 +3,7 @@ import org.apache.uima.UIMAException;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.util.XmlCasSerializer;
+import org.testcontainers.shaded.org.yaml.snakeyaml.composer.Composer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.IDUUIConnectionHandler;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver;
@@ -12,8 +13,11 @@ import org.xml.sax.SAXException;
 
 import java.io.*;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.List;
 
 public class WebsocketTest {
+    public static List<DUUIComposer> _composers = new ArrayList<>();
     public static void testWithWebsocket(String test) throws Exception {
 
         DUUILuaContext ctx = new DUUILuaContext().withGlobalLibrary("json",DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/json.lua").toURI());
@@ -47,7 +51,9 @@ public class WebsocketTest {
         XmlCasSerializer.serialize(jc.getCas(),out);
         System.out.println(new String(out.toByteArray()));
 
-        composer.shutdown();
+        //composer.shutdown();
+        _composers.add(composer);
+
     }
 
     public static void testWithRest(String test) throws Exception {
@@ -104,6 +110,9 @@ public class WebsocketTest {
 
         testWithWebsocket(text);
         testWithWebsocket(text);
+        for (DUUIComposer _compser: _composers) {
+            _compser.shutdown();
+        }
 
 
     }

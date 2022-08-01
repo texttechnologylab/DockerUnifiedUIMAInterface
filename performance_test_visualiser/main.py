@@ -1,6 +1,6 @@
 # C:/Users/Givo/Desktop/2022/Deep Learning for Text Imaging/praktikum_new/DockerUnifiedUIMAInterface/websocket_rest_test.db
 import sqlite3
-connction = sqlite3.connect("../websocket_rest_test1.db")
+connction = sqlite3.connect("../websocket_test2.db")
 cursor = connction.cursor()
 # show all tables
 # cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
@@ -8,10 +8,10 @@ cursor = connction.cursor()
 
 
 # show all data
-cursor.execute("SELECT * FROM pipeline_perf;")
+# cursor.execute("SELECT * FROM pipeline_perf;")
 
-#cursor.execute("SELECT * FROM pipeline_document_perf;")
+cursor.execute("SELECT * FROM pipeline_document_perf;")
 if __name__ == '__main__':
     # print(connction)
-    print(cursor.fetchall())
+    print(len(cursor.fetchall()))
 

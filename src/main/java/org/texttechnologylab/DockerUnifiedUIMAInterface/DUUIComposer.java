@@ -656,7 +656,8 @@ public class DUUIComposer {
 //            System.out.println("[Composer]: DUUIWebsocketHandler is closed");
 //            System.out.println("[Composer]: it takes until 30 second to shut down DUUIWebsocketHandler");
             /** @see **/
-            _clients.forEach(IDUUIConnectionHandler::close);
+            //_clients.forEach(IDUUIConnectionHandler::close);
+
             _hasShutdown = true;
         }
         else {
