@@ -25,15 +25,14 @@ public class DUUIWebsocketAlt implements IDUUIConnectionHandler{
             this.client = new WebsocketClient(URI.create(uri));
             connected = this.client.connectBlocking();
             System.out.println("##################################################### IS OPEN "+ connected);
-
             _clients.put(uri, this.client);
+
         }
         else {
             System.out.println("##################################################### IS URI "+ uri);
             this.client = _clients.get(uri);
             connected = this.client.isOpen();
 
-            System.out.println("##################################################### IS OPEN "+ connected);
             if (!connected) {
                 this.client = new WebsocketClient(URI.create(uri));
                 connected = this.client.connectBlocking();
@@ -48,6 +47,8 @@ public class DUUIWebsocketAlt implements IDUUIConnectionHandler{
 
         DUUIComposer._clients.add(this);
         System.out.println("[DUUIWebsocketAlt] Remote URL %s is online and seems to understand DUUI V1 format!\n"+URI.create(uri));
+
+
     }
 
     public WebsocketClient getClient() {
