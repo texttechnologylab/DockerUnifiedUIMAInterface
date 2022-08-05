@@ -277,4 +277,7 @@
     <orderEntry type="library" name="Maven: io.socket:socket.io-client:2.0.1" level="project" />
     <orderEntry type="library" name="Maven: io.socket:engine.io-client:2.0.0" level="project" />
   </component>
+  <component name="PyDocumentationSettings">
+    <option name="renderExternalDocumentation" value="true" />
+  </component>
 </module>
