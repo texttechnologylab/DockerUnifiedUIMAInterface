@@ -1,11 +1,13 @@
+import de.tudarmstadt.ukp.dkpro.core.api.syntax.type.constituent.S;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.UIMAException;
+import org.apache.uima.fit.factory.CollectionReaderFactory;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.util.XmlCasSerializer;
+import org.dkpro.core.io.xmi.XmiReader;
 import org.testcontainers.shaded.org.yaml.snakeyaml.composer.Composer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.IDUUIConnectionHandler;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIUIMADriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
@@ -13,11 +15,35 @@ import org.xml.sax.SAXException;
 
 import java.io.*;
 import java.net.URISyntaxException;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class WebsocketTest {
     public static List<DUUIComposer> _composers = new ArrayList<>();
+    public static List<Path> getFilePathes(String dirPathInResources) {
+        List<Path> paths = new ArrayList<>();
+        InputStream resourcesPath = WebsocketTest.class.getClassLoader().getResourceAsStream(dirPathInResources);
+        BufferedReader br = new BufferedReader(new InputStreamReader(resourcesPath));
+        List<String> fileNameList = br.lines().collect(Collectors.toList());
+        for (String path: fileNameList) {
+            paths.add(Path.of(path));
+        }
+        return paths;
+    }
+    public static String readFromInputStream(InputStream inputStream)
+            throws IOException {
+        StringBuilder resultStringBuilder = new StringBuilder();
+        try (BufferedReader br = new BufferedReader(new InputStreamReader(inputStream))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                resultStringBuilder.append(line).append("\n");
+            }
+        }
+        return resultStringBuilder.toString();
+    }
+
     public static void testWithWebsocket(String test) throws Exception {
 
         DUUILuaContext ctx = new DUUILuaContext().withGlobalLibrary("json",DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/json.lua").toURI());
@@ -51,8 +77,7 @@ public class WebsocketTest {
         XmlCasSerializer.serialize(jc.getCas(),out);
         System.out.println(new String(out.toByteArray()));
 
-        //composer.shutdown();
-        _composers.add(composer);
+        composer.shutdown();
 
     }
 
@@ -90,7 +115,7 @@ public class WebsocketTest {
 
         composer.shutdown();
     }
-    public static String readFromInputStream(InputStream inputStream)
+    public static String readFromInputStream1(InputStream inputStream)
             throws IOException {
         StringBuilder resultStringBuilder = new StringBuilder();
         try (BufferedReader br
@@ -104,16 +129,29 @@ public class WebsocketTest {
     }
 
     public static void main(String[] args) throws Exception {
+        /*
         InputStream inputStream = WebsocketTest.class.getResourceAsStream("/sample_splitted/sample_140.txt");
-        String text = readFromInputStream(inputStream);
+        String text = readFromInputStream1(inputStream);
         System.out.println(text);
 
         testWithWebsocket(text);
         testWithWebsocket(text);
-        for (DUUIComposer _compser: _composers) {
-            _compser.shutdown();
-        }
 
+         */
+
+        System.out.println(getFilePathes("zip"));
+        for (Path path: getFilePathes("zip")) {
+            String link = "/zip/"+path;
+            System.out.println(link);
+            InputStream inputStream = WebsocketTest.class.getResourceAsStream(link);
+            String text = readFromInputStream(inputStream);
+            System.out.println(CollectionReaderFactory.createReaderDescription(XmiReader.class,
+                    XmiReader.PARAM_LANGUAGE,"de",
+                    XmiReader.PARAM_ADD_DOCUMENT_METADATA,false,
+                    XmiReader.PARAM_OVERRIDE_DOCUMENT_METADATA,false,
+                    XmiReader.PARAM_LENIENT,true,
+                    XmiReader.PARAM_SOURCE_LOCATION,link));
+        }
 
     }
 }

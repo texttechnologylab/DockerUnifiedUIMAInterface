@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 ws_connction = sqlite3.connect("../websocket_test.db")
-rest_connction = sqlite3.connect("../rest_test.db")
+rest_connction = sqlite3.connect("../rest_test2.db")
 ws_cursor = ws_connction.cursor()
 rest_cursor = rest_connction.cursor()
 # show all tables
@@ -20,7 +20,7 @@ rest_pipeline_document_perf = rest_cursor.execute("SELECT * FROM pipeline_docume
 # print(rest_pipeline_document_perf)
 # print(len(rest_pipeline_document_perf))
 
-myindex = 9
+myindex = 6
 all =["pipelinename" ,
 
 "componenthash" , # 1
@@ -76,9 +76,9 @@ print(labels)
 print(rest_values)
 print(ws_values)
 
-plt.figure(figsize=(30, 10))
+plt.figure(figsize=(30, 15))
 
-plt.title(all[myindex], fontsize=20, fontweight="bold")
+plt.title(all[myindex], fontsize=40, fontweight="bold", pad=40)
 
 plt.plot(labels, ws_values, label='WS', linestyle='--')
 plt.plot(labels, rest_values, label='REST', linestyle='-.')

@@ -24,12 +24,10 @@ public class DUUIWebsocketAlt implements IDUUIConnectionHandler{
         if (!_clients.containsKey(uri)) {
             this.client = new WebsocketClient(URI.create(uri));
             connected = this.client.connectBlocking();
-            System.out.println("##################################################### IS OPEN "+ connected);
             _clients.put(uri, this.client);
 
         }
         else {
-            System.out.println("##################################################### IS URI "+ uri);
             this.client = _clients.get(uri);
             connected = this.client.isOpen();
 

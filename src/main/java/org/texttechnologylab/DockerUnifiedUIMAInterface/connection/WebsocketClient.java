@@ -24,6 +24,7 @@ public class WebsocketClient extends WebSocketClient{
 
     public WebsocketClient(URI serverUri) {
         super(serverUri);
+
     }
 
     /***
@@ -53,9 +54,11 @@ public class WebsocketClient extends WebSocketClient{
         System.out.println("[WebsocketClient]: Opened websocket connection...");
 
     }
+
     @Override
     public void onClose(int i, String s, boolean b) {
-        System.out.println("[WebsocketClient]: CLOSED: i="+i+", s="+s+", b="+b +" #####################################  Closed");
+        System.out.println("[WebsocketClient]: CLOSED: i="+i+", s="+s+", b="+b );
+
     }
 
     @Override
