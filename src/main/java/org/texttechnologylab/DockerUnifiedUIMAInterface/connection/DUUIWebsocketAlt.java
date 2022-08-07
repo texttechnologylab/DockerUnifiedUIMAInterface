@@ -24,10 +24,12 @@ public class DUUIWebsocketAlt implements IDUUIConnectionHandler{
         if (!_clients.containsKey(uri)) {
             this.client = new WebsocketClient(URI.create(uri));
             connected = this.client.connectBlocking();
+            System.out.println("##################################################### IS OPEN "+ connected);
             _clients.put(uri, this.client);
 
         }
         else {
+            System.out.println("##################################################### IS URI "+ uri);
             this.client = _clients.get(uri);
             connected = this.client.isOpen();
 
@@ -40,9 +42,10 @@ public class DUUIWebsocketAlt implements IDUUIConnectionHandler{
 
         if (!connected) {
             System.out.println("[DUUIWebsocketAlt] Client could not connect!");
-            throw new IOException("Could not reach endpoint after 10 tries!");
+            throw new IOException("Could not reach endpoint!");
         }
 
+        this.client.setConnectionLostTimeout(0);
         DUUIComposer._clients.add(this);
         System.out.println("[DUUIWebsocketAlt] Remote URL %s is online and seems to understand DUUI V1 format!\n"+URI.create(uri));
 
@@ -61,7 +64,7 @@ public class DUUIWebsocketAlt implements IDUUIConnectionHandler{
         System.out.println("[DUUIWebsocketAlt]: Message sending \n"+
                 StandardCharsets.UTF_8.decode(ByteBuffer.wrap(jc)));
 
-        while (client.messageStack.isEmpty()) {
+        while (!client.isFinished()) {
             try {
                 Thread.sleep(0, 1);
             } catch (InterruptedException e) {
@@ -69,10 +72,12 @@ public class DUUIWebsocketAlt implements IDUUIConnectionHandler{
             }
         }
 
-        byte[] result = client.messageStack.get(0);
+//        byte[] result = client.messageStack.get(0);
 
-        System.out.println("[DUUIWebsocketAlt]: Message received \n"+
-                StandardCharsets.UTF_8.decode(ByteBuffer.wrap(result)));
+        byte[] result = client.mergeResults();
+
+        System.out.println("[DUUIWebsocketAlt]: Message received "); //\n"+
+//                StandardCharsets.UTF_8.decode(ByteBuffer.wrap(result)));
 
         return result;
     }

@@ -223,7 +223,7 @@ public interface IDUUIInstantiatedPipelineComponent {
          * Givara Ebo
          * Installation
          */
-        //handler.initiate(uri);
+//        handler.initiate(uri);
         /**
          * send a message with Socket
          * an Dawit

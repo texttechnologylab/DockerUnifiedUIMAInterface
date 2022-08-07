@@ -656,7 +656,7 @@ public class DUUIComposer {
 //            System.out.println("[Composer]: DUUIWebsocketHandler is closed");
 //            System.out.println("[Composer]: it takes until 30 second to shut down DUUIWebsocketHandler");
             /** @see **/
-            _clients.forEach(IDUUIConnectionHandler::close);
+//            _clients.forEach(IDUUIConnectionHandler::close);
             _hasShutdown = true;
         }
         else {
@@ -682,7 +682,7 @@ public class DUUIComposer {
         DUUIUIMADriver uima_driver = new DUUIUIMADriver()
                 .withDebug(true);
 //        DUUISwarmDriver swarm_driver = new DUUISwarmDriver();
-            //    .withSwarmVisualizer();
+//                .withSwarmVisualizer();
 
         // A driver must be added before components can be added for it in the composer.
 //        composer.addDriver(driver);
@@ -766,13 +766,17 @@ public class DUUIComposer {
         jc.setDocumentLanguage("de");
         jc.setDocumentText(val);
 
-
+        String va2 = "Dies ist ein ganz kleiner Test Text für Abies!";
+        JCas jc2 = JCasFactory.createJCas();
+        jc2.setDocumentLanguage("de");
+        jc2.setDocumentText(val);
 
         // Run single document
         composer.run(jc,"fuchs");
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        XmlCasSerializer.serialize(jc.getCas(),out);
-        System.out.println(new String(out.toByteArray()));
+        composer.run(jc2,"fuchs1");
+//        ByteArrayOutputStream out = new ByteArrayOutputStream();
+//        XmlCasSerializer.serialize(jc.getCas(),out);
+//        System.out.println(new String(out.toByteArray()));
 
 
         /*

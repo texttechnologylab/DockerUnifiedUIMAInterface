@@ -64,7 +64,7 @@ public class WebsocketTest {
         composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9715")
                 .withScale(1).withWebsocket(true).build());
 
-        String val = "Dies ist ein kleiner Test Text für Abies!";
+        String val = test;
         JCas jc = JCasFactory.createJCas();
         jc.setDocumentLanguage("de");
         jc.setDocumentText(val);
@@ -75,7 +75,7 @@ public class WebsocketTest {
         composer.run(jc,"fuchs");
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         XmlCasSerializer.serialize(jc.getCas(),out);
-        System.out.println(new String(out.toByteArray()));
+//        System.out.println(new String(out.toByteArray()));
 
         composer.shutdown();
 
@@ -109,6 +109,7 @@ public class WebsocketTest {
 
         // Run single document
         composer.run(jc,"fuchs");
+        composer.run(jc,"fuchs");
 //        ByteArrayOutputStream out = new ByteArrayOutputStream();
 //        XmlCasSerializer.serialize(jc.getCas(),out);
 //        System.out.println(new String(out.toByteArray()));
@@ -129,29 +130,30 @@ public class WebsocketTest {
     }
 
     public static void main(String[] args) throws Exception {
-        /*
-        InputStream inputStream = WebsocketTest.class.getResourceAsStream("/sample_splitted/sample_140.txt");
+
+//        InputStream inputStream = WebsocketTest.class.getResourceAsStream("/sample_splitted/sample_140.txt");
+        InputStream inputStream = WebsocketTest.class.getResourceAsStream("/sample_splitted/sample_349.txt");
         String text = readFromInputStream1(inputStream);
         System.out.println(text);
 
         testWithWebsocket(text);
-        testWithWebsocket(text);
+//        testWithWebsocket(text);
 
-         */
 
-        System.out.println(getFilePathes("zip"));
-        for (Path path: getFilePathes("zip")) {
-            String link = "/zip/"+path;
-            System.out.println(link);
-            InputStream inputStream = WebsocketTest.class.getResourceAsStream(link);
-            String text = readFromInputStream(inputStream);
-            System.out.println(CollectionReaderFactory.createReaderDescription(XmiReader.class,
-                    XmiReader.PARAM_LANGUAGE,"de",
-                    XmiReader.PARAM_ADD_DOCUMENT_METADATA,false,
-                    XmiReader.PARAM_OVERRIDE_DOCUMENT_METADATA,false,
-                    XmiReader.PARAM_LENIENT,true,
-                    XmiReader.PARAM_SOURCE_LOCATION,link));
-        }
+
+//        System.out.println(getFilePathes("zip"));
+//        for (Path path: getFilePathes("zip")) {
+//            String link = "/zip/"+path;
+//            System.out.println(link);
+//            InputStream inputStream = WebsocketTest.class.getResourceAsStream(link);
+//            String text = readFromInputStream(inputStream);
+//            System.out.println(CollectionReaderFactory.createReaderDescription(XmiReader.class,
+//                    XmiReader.PARAM_LANGUAGE,"de",
+//                    XmiReader.PARAM_ADD_DOCUMENT_METADATA,false,
+//                    XmiReader.PARAM_OVERRIDE_DOCUMENT_METADATA,false,
+//                    XmiReader.PARAM_LENIENT,true,
+//                    XmiReader.PARAM_SOURCE_LOCATION,link));
+//        }
 
     }
 }
