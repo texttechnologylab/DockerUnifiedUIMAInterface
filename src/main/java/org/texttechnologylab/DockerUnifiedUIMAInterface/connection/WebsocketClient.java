@@ -5,6 +5,7 @@ import de.tudarmstadt.ukp.dkpro.core.api.syntax.type.constituent.S;
 import org.java_websocket.client.WebSocketClient;
 import org.java_websocket.handshake.ServerHandshake;
 
+import java.io.IOException;
 import java.net.URI;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -57,7 +58,7 @@ public class WebsocketClient extends WebSocketClient{
                     Map<String, Object> map = null;
                     try {
                         map = mapper.readValue(jsonString, Map.class);
-                    } catch (JsonProcessingException e) {
+                    } catch (IOException e) {
                         e.printStackTrace();
                     }
 
