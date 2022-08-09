@@ -60,7 +60,8 @@ public class DUUIPipelineComponent {
         try {
             return classLoader.getResourceAsStream("git.properties").toString();
         } catch (NullPointerException e) {
-            throw new IOException("Could not find resource \"git.properties\"!", e);
+            System.err.println("Could not find resource \"git.properties\"!");
+            return "undefined";
         }
     }
 

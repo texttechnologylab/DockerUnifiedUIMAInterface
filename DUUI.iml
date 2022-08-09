@@ -12,6 +12,7 @@
       <sourceFolder url="file://$MODULE_DIR$/src/main/java" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/main/resources" type="java-resource" />
       <sourceFolder url="file://$MODULE_DIR$/src/test/java" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/target/generated-sources/jcasgen" isTestSource="false" generated="true" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>
     <orderEntry type="inheritedJdk" />
@@ -29,7 +30,6 @@
     <orderEntry type="library" name="Maven: org.apache.commons:commons-csv:1.8" level="project" />
     <orderEntry type="library" name="Maven: com.google.code.gson:gson:2.8.8" level="project" />
     <orderEntry type="library" name="Maven: io.reactivex.rxjava2:rxjava:2.2.19" level="project" />
-    <orderEntry type="library" name="Maven: org.reactivestreams:reactive-streams:1.0.3" level="project" />
     <orderEntry type="library" name="Maven: com.squareup.retrofit2:adapter-rxjava2:2.9.0" level="project" />
     <orderEntry type="library" name="Maven: io.swagger:swagger-annotations:1.6.1" level="project" />
     <orderEntry type="library" name="Maven: io.gsonfire:gson-fire:1.8.4" level="project" />
@@ -53,7 +53,6 @@
     <orderEntry type="library" name="Maven: org.glassfish.jersey.core:jersey-common:2.30.1" level="project" />
     <orderEntry type="library" name="Maven: jakarta.annotation:jakarta.annotation-api:1.3.5" level="project" />
     <orderEntry type="library" name="Maven: org.glassfish.hk2:osgi-resource-locator:1.0.3" level="project" />
-    <orderEntry type="library" name="Maven: com.sun.activation:jakarta.activation:1.2.1" level="project" />
     <orderEntry type="library" name="Maven: jakarta.ws.rs:jakarta.ws.rs-api:2.1.6" level="project" />
     <orderEntry type="library" name="Maven: org.apache.httpcomponents:httpcore:4.4.13" level="project" />
     <orderEntry type="library" name="Maven: org.apache.httpcomponents:httpclient:4.5.12" level="project" />
@@ -82,17 +81,15 @@
     <orderEntry type="library" name="Maven: io.netty:netty-transport-native-unix-common:4.1.46.Final" level="project" />
     <orderEntry type="library" name="Maven: io.netty:netty-transport-native-kqueue:osx-x86_64:4.1.46.Final" level="project" />
     <orderEntry type="library" name="Maven: org.slf4j:jcl-over-slf4j:1.7.30" level="project" />
+    <orderEntry type="library" name="Maven: com.github.javasync:RxIo:1.1.3" level="project" />
+    <orderEntry type="library" name="Maven: org.reactivestreams:reactive-streams:1.0.2" level="project" />
     <orderEntry type="library" name="Maven: org.apache.commons:commons-compress:1.21" level="project" />
     <orderEntry type="library" name="Maven: org.luaj:luaj-jse:3.0.1" level="project" />
     <orderEntry type="library" name="Maven: com.github.luben:zstd-jni:1.4.4-9" level="project" />
+    <orderEntry type="library" name="Maven: org.xerial:sqlite-jdbc:3.36.0.3" level="project" />
     <orderEntry type="library" name="Maven: xerces:xercesImpl:2.12.2" level="project" />
     <orderEntry type="library" name="Maven: xml-apis:xml-apis:1.4.01" level="project" />
     <orderEntry type="library" name="Maven: org.apache.uima:uimaj-core:2.11.0" level="project" />
-    <orderEntry type="library" name="Maven: javax.xml.bind:jaxb-api:2.3.1" level="project" />
-    <orderEntry type="library" name="Maven: javax.activation:javax.activation-api:1.2.0" level="project" />
-    <orderEntry type="library" name="Maven: com.sun.xml.bind:jaxb-core:2.3.0.1" level="project" />
-    <orderEntry type="library" name="Maven: com.sun.xml.bind:jaxb-impl:2.3.1" level="project" />
-    <orderEntry type="library" name="Maven: javax.annotation:javax.annotation-api:1.3.2" level="project" />
     <orderEntry type="library" name="Maven: org.apache.uima:uimafit-core:2.5.0" level="project" />
     <orderEntry type="library" name="Maven: commons-lang:commons-lang:2.6" level="project" />
     <orderEntry type="library" name="Maven: commons-io:commons-io:2.2" level="project" />
@@ -153,14 +150,14 @@
     <orderEntry type="library" name="Maven: de.tudarmstadt.ukp.dkpro.core:de.tudarmstadt.ukp.dkpro.core.tokit-asl:1.10.0" level="project" />
     <orderEntry type="library" name="Maven: org.apache.commons:commons-lang3:3.8" level="project" />
     <orderEntry type="library" name="Maven: commons-jxpath:commons-jxpath:1.3" level="project" />
-    <orderEntry type="library" name="Maven: org.junit.jupiter:junit-jupiter:5.9.0-M1" level="project" />
-    <orderEntry type="library" name="Maven: org.junit.jupiter:junit-jupiter-api:5.9.0-M1" level="project" />
+    <orderEntry type="library" name="Maven: org.junit.jupiter:junit-jupiter:5.9.0" level="project" />
+    <orderEntry type="library" name="Maven: org.junit.jupiter:junit-jupiter-api:5.9.0" level="project" />
     <orderEntry type="library" name="Maven: org.opentest4j:opentest4j:1.2.0" level="project" />
-    <orderEntry type="library" name="Maven: org.junit.platform:junit-platform-commons:1.9.0-M1" level="project" />
+    <orderEntry type="library" name="Maven: org.junit.platform:junit-platform-commons:1.9.0" level="project" />
     <orderEntry type="library" name="Maven: org.apiguardian:apiguardian-api:1.1.2" level="project" />
-    <orderEntry type="library" name="Maven: org.junit.jupiter:junit-jupiter-params:5.9.0-M1" level="project" />
-    <orderEntry type="library" scope="RUNTIME" name="Maven: org.junit.jupiter:junit-jupiter-engine:5.9.0-M1" level="project" />
-    <orderEntry type="library" scope="RUNTIME" name="Maven: org.junit.platform:junit-platform-engine:1.9.0-M1" level="project" />
+    <orderEntry type="library" name="Maven: org.junit.jupiter:junit-jupiter-params:5.9.0" level="project" />
+    <orderEntry type="library" scope="RUNTIME" name="Maven: org.junit.jupiter:junit-jupiter-engine:5.9.0" level="project" />
+    <orderEntry type="library" scope="RUNTIME" name="Maven: org.junit.platform:junit-platform-engine:1.9.0" level="project" />
     <orderEntry type="library" name="Maven: com.github.texttechnologylab.textimager-uima:textimager-uima-io:b10db8275163d19d63b9512cc20ca5872e52499b" level="project" />
     <orderEntry type="library" name="Maven: org.dkpro.core:dkpro-core-io-tei-asl:1.12.0" level="project" />
     <orderEntry type="library" name="Maven: jaxen:jaxen:1.1.1" level="project" />
@@ -175,6 +172,10 @@
     <orderEntry type="library" name="Maven: org.dkpro.core:dkpro-core-io-tcf-asl:1.12.0" level="project" />
     <orderEntry type="library" name="Maven: eu.clarin.weblicht:wlfxb:1.3.3" level="project" />
     <orderEntry type="library" name="Maven: eu.clarin.weblicht:oaipmh-cmdi-bindings:1.0.5" level="project" />
+    <orderEntry type="library" name="Maven: javax.xml.bind:jaxb-api:2.3.1" level="project" />
+    <orderEntry type="library" name="Maven: com.sun.xml.bind:jaxb-core:2.3.0.1" level="project" />
+    <orderEntry type="library" name="Maven: com.sun.xml.bind:jaxb-impl:2.3.2" level="project" />
+    <orderEntry type="library" name="Maven: javax.activation:javax.activation-api:1.2.0" level="project" />
     <orderEntry type="library" name="Maven: org.dkpro.core:dkpro-core-api-transform-asl:1.12.0" level="project" />
     <orderEntry type="library" name="Maven: org.dkpro.core:dkpro-core-api-coref-asl:1.12.0" level="project" />
     <orderEntry type="library" name="Maven: org.dkpro.core:dkpro-core-io-conll-asl:1.12.0" level="project" />

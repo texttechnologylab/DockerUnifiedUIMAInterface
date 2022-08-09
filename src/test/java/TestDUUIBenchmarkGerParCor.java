@@ -233,8 +233,8 @@ public class TestDUUIBenchmarkGerParCor {
         List<Integer> iSamples = new ArrayList<>();
 //        iSamples.add(100);
 //        iSamples.add(200);
-        iSamples.add(500);
-        iSamples.add(1000);
+//        iSamples.add(500);
+       iSamples.add(1000);
 
         iValues.stream().sorted((a, b)->{
             return a.compareTo(b)*-1;

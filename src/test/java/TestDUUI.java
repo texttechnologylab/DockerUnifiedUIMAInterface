@@ -224,6 +224,42 @@ public class TestDUUI {
     }
 
     @Test
+    public void TestBFSRL() throws Exception {
+        JCas jc = JCasFactory.createJCas();
+        jc.setDocumentText("Hallo Welt dies ist ein Abies!");
+        jc.setDocumentLanguage("de");
+
+        int iWorkers = 1;
+
+        DUUILuaContext ctx = new DUUILuaContext().withJsonLibrary();
+
+        DUUIComposer composer = new DUUIComposer()
+                //       .withStorageBackend(new DUUIArangoDBStorageBackend("password",8888))
+                .withLuaContext(ctx);
+
+        // Instantiate drivers with options
+        DUUIDockerDriver docker_driver = new DUUIDockerDriver(10000);
+        DUUIRemoteDriver remote_driver = new DUUIRemoteDriver(10000);
+
+        // A driver must be added before components can be added for it in the composer.
+        composer.addDriver(docker_driver);
+        composer.addDriver(remote_driver);
+
+        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4").withScale(iWorkers).withImageFetching());
+
+        composer.add(new DUUIRemoteDriver.Component("http://localhost:9715")
+                .withScale(iWorkers));
+
+        composer.run(jc);
+
+        JCasUtil.selectAll(jc).forEach(t -> {
+            System.out.println(t);
+        });
+
+
+    }
+
+    @Test
     public void LanguageDetection() throws Exception {
         JCas jc = JCasFactory.createJCas();
 
