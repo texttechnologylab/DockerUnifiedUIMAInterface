@@ -17,6 +17,9 @@
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
+    <orderEntry type="library" name="Maven: com.fasterxml.jackson.core:jackson-databind:2.9.8" level="project" />
+    <orderEntry type="library" name="Maven: com.fasterxml.jackson.core:jackson-annotations:2.9.0" level="project" />
+    <orderEntry type="library" name="Maven: com.fasterxml.jackson.core:jackson-core:2.9.8" level="project" />
     <orderEntry type="library" name="Maven: org.java-websocket:Java-WebSocket:1.5.3" level="project" />
     <orderEntry type="library" name="Maven: org.slf4j:slf4j-api:1.7.25" level="project" />
     <orderEntry type="library" name="Maven: com.influxdb:influxdb-client-java:5.0.0" level="project" />
@@ -124,9 +127,6 @@
     <orderEntry type="library" name="Maven: com.arangodb:arangodb-java-driver:6.16.1" level="project" />
     <orderEntry type="library" name="Maven: com.arangodb:velocypack:2.5.4" level="project" />
     <orderEntry type="library" name="Maven: com.arangodb:jackson-dataformat-velocypack:3.0.0" level="project" />
-    <orderEntry type="library" name="Maven: com.fasterxml.jackson.core:jackson-core:2.13.0" level="project" />
-    <orderEntry type="library" name="Maven: com.fasterxml.jackson.core:jackson-databind:2.13.0" level="project" />
-    <orderEntry type="library" name="Maven: com.fasterxml.jackson.core:jackson-annotations:2.13.0" level="project" />
     <orderEntry type="library" name="Maven: com.github.texttechnologylab.textimager-uima:textimager-uima-types:b10db8275163d19d63b9512cc20ca5872e52499b" level="project" />
     <orderEntry type="library" name="Maven: org.dkpro.core:dkpro-core-api-lexmorph-asl:1.12.0" level="project" />
     <orderEntry type="library" name="Maven: org.dkpro.core:dkpro-core-api-parameter-asl:1.12.0" level="project" />

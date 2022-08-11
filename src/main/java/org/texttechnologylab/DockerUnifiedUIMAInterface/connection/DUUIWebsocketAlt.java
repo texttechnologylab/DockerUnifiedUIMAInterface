@@ -56,7 +56,7 @@ public class DUUIWebsocketAlt implements IDUUIConnectionHandler{
         return this.client;
     }
 
-    public byte[] get(byte[] jc) {
+    public byte[] get(byte[] jc) throws InterruptedException {
 
 
         this.client.send(jc);
@@ -65,11 +65,8 @@ public class DUUIWebsocketAlt implements IDUUIConnectionHandler{
                 StandardCharsets.UTF_8.decode(ByteBuffer.wrap(jc)));
 
         while (!client.isFinished()) {
-            try {
-                Thread.sleep(0, 1);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
+            Thread.sleep(0, 1);
+
         }
 
 //        byte[] result = client.messageStack.get(0);

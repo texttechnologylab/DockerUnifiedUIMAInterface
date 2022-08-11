@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 ws_connction = sqlite3.connect("../websocket_test.db")
-rest_connction = sqlite3.connect("../rest_test2.db")
+rest_connction = sqlite3.connect("../rest_test.db")
 ws_cursor = ws_connction.cursor()
 rest_cursor = rest_connction.cursor()
 # show all tables

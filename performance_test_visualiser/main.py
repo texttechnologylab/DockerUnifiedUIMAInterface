@@ -1,6 +1,6 @@
 # C:/Users/Givo/Desktop/2022/Deep Learning for Text Imaging/praktikum_new/DockerUnifiedUIMAInterface/websocket_rest_test.db
 import sqlite3
-ws_connction = sqlite3.connect("../websocket_test.db")
+ws_connction = sqlite3.connect("../websocket_test4.db")
 rest_connction = sqlite3.connect("../rest_test.db")
 ws_cursor = ws_connction.cursor()
 rest_cursor = rest_connction.cursor()

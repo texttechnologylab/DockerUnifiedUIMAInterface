@@ -12,7 +12,7 @@ public interface IDUUIConnectionHandler {
 
     Object getClient();
 
-    byte[] get(byte[] jc);
+    byte[] get(byte[] jc) throws InterruptedException;
 
     void close();
 }

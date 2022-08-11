@@ -28,7 +28,7 @@ class IDUUIConnectionHandlerTest {
     }
     @Test
     void testWithWebsocket(String text, String name) throws Exception {
-        DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend("websocket_test2.db")
+        DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend("websocket_test6.db")
                 .withConnectionPoolSize(iWorkers);
         DUUILuaContext ctx = new DUUILuaContext().withGlobalLibrary("json", DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/json.lua").toURI());
 

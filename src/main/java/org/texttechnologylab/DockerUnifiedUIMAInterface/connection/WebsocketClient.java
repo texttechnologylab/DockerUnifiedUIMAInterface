@@ -62,9 +62,9 @@ public class WebsocketClient extends WebSocketClient{
                         e.printStackTrace();
                     }
 
-                    return map.entrySet().stream()
+                    return map != null ? map.entrySet().stream()
                             .filter(e -> e.getValue() != null)
-                            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+                            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)) : null;
                 }).collect(Collectors.toList());
 
         resultsMaps.forEach(System.out::println);
