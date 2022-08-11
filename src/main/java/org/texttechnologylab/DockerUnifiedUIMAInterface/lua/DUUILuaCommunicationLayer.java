@@ -2,6 +2,7 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface.lua;
 
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.jcas.JCas;
+import org.luaj.vm2.LuaTable;
 import org.luaj.vm2.lib.jse.CoerceJavaToLua;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUICommunicationLayer;
 import org.xml.sax.SAXException;
@@ -23,7 +24,11 @@ public class DUUILuaCommunicationLayer implements IDUUICommunicationLayer {
     }
 
     public void serialize(JCas jc, ByteArrayOutputStream out, Map<String,String> parameters) throws CompressorException, IOException, SAXException {
-        _file.call("serialize",CoerceJavaToLua.coerce(jc),CoerceJavaToLua.coerce(out), CoerceJavaToLua.coerce(parameters));
+        LuaTable params = new LuaTable();
+        for(String key: parameters.keySet()) {
+            params.set(key,parameters.get(key));
+        }
+        _file.call("serialize",CoerceJavaToLua.coerce(jc),CoerceJavaToLua.coerce(out), params);
     }
 
     public void deserialize(JCas jc, ByteArrayInputStream input) throws IOException, SAXException {
