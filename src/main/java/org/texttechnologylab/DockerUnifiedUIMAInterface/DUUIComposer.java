@@ -523,10 +523,11 @@ public class DUUIComposer {
                 emptyCasDocuments.add(JCasFactory.createJCas(desc));
             }
 
-            Thread []arr = new Thread[_workers];
-            for(int i = 0; i < _workers; i++) {
-                System.out.printf("[Composer] Starting worker thread [%d/%d]\n",i+1,_workers);
-                arr[i] = new DUUIWorker(_instantiatedPipeline,emptyCasDocuments,loadedCasDocuments,_shutdownAtomic,aliveThreads,_storage,name,null,
+            Thread[] arr = new Thread[_workers];
+            for (int i = 0; i < _workers; i++) {
+                System.out.printf("[Composer] Starting worker thread [%d/%d]\n", i + 1, _workers);
+                // TODO ParallelExecutionPlan and -Generator
+                arr[i] = new DUUIWorker(_instantiatedPipeline, emptyCasDocuments, loadedCasDocuments, _shutdownAtomic, aliveThreads, _storage, name, null,
                         new DUUILinearExecutionPlanGenerator(_instantiatedPipeline));
                 arr[i].start();
             }
