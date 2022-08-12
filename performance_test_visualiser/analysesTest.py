@@ -2,7 +2,7 @@ import sqlite3
 import numpy as np
 import matplotlib.pyplot as plt
 
-ws_connction = sqlite3.connect("../websocket_test.db")
+ws_connction = sqlite3.connect("../websocket_small_packets_of_rokens_opened_client_test.db")
 rest_connction = sqlite3.connect("../rest_test.db")
 ws_cursor = ws_connction.cursor()
 rest_cursor = rest_connction.cursor()

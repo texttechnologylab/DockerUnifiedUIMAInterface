@@ -96,7 +96,7 @@ public class WebsocketClient extends WebSocketClient{
         }
 
         byte[] jsonBytes = jsonMap.getBytes(StandardCharsets.UTF_8);
-
+        messageStack = new ArrayList<>();
         return jsonBytes;
     }
 
