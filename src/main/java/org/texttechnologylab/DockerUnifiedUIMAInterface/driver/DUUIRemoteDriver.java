@@ -10,6 +10,7 @@ import org.javatuples.Triplet;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUICompressionHelper;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUICommunicationLayer;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.InputsOutputs;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
 import org.xml.sax.SAXException;
@@ -202,6 +203,12 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
             throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
         }
         System.out.printf("[RemoteDriver][%s]: Maximum concurrency %d\n",uuid,component.getScale());
+    }
+
+    @Override
+    public InputsOutputs getInputsOutputs() {
+        // TODO implement
+        return null;
     }
 
     public TypeSystemDescription get_typesystem(String uuid) throws InterruptedException, IOException, SAXException, CompressorException, ResourceInitializationException {

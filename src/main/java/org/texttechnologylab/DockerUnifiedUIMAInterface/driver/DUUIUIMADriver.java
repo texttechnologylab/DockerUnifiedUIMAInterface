@@ -15,6 +15,7 @@ import org.apache.uima.resource.metadata.ConfigurationParameter;
 import org.apache.uima.resource.metadata.NameValuePair;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.apache.uima.util.InvalidXMLException;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.InputsOutputs;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
 import org.texttechnologylab.duui.ReproducibleAnnotation;
@@ -168,6 +169,12 @@ public class DUUIUIMADriver implements IDUUIDriverInterface {
             throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
         }
         System.out.printf("[UIMADriver][%s]: Maximum concurrency %d\n",uuid,component.getEngines().size());
+    }
+
+    @Override
+    public InputsOutputs getInputsOutputs() {
+        // TODO implement
+        return null;
     }
 
     static private String[] extractNames(AnalysisEngineDescription engine, String uuid, int recursionDepth) throws InvalidXMLException {

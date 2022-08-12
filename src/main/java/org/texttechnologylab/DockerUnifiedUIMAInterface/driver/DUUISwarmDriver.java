@@ -12,6 +12,7 @@ import org.javatuples.Triplet;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIDockerInterface;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUICommunicationLayer;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.InputsOutputs;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
 import org.xml.sax.SAXException;
@@ -23,6 +24,7 @@ import java.net.http.HttpClient;
 import java.security.InvalidParameterException;
 import java.time.Duration;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -150,6 +152,12 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
             throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
         }
         System.out.printf("[DockerSwarmDriver][%s]: Maximum concurrency %d\n",uuid,component.getScale());
+    }
+
+    @Override
+    public InputsOutputs getInputsOutputs() {
+        // TODO implement
+        return null;
     }
 
     public TypeSystemDescription get_typesystem(String uuid) throws IOException, ResourceInitializationException {
