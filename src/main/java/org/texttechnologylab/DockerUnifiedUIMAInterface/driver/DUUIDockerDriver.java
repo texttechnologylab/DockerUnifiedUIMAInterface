@@ -28,6 +28,7 @@ import java.security.InvalidParameterException;
 import java.time.Duration;
 import java.time.temporal.TemporalAmount;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -225,6 +226,13 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
         }
         System.out.printf("[DockerLocalDriver][%s]: Maximum concurrency %d\n",uuid,component.getInstances().size());
     }
+
+    @Override
+    public InputsOutputs getInputsOutputs() {
+        // TODO implement
+        return null;
+    }
+
 
     public TypeSystemDescription get_typesystem(String uuid) throws InterruptedException, IOException, SAXException, CompressorException, ResourceInitializationException {
         InstantiatedComponent comp = _active_components.get(uuid);
