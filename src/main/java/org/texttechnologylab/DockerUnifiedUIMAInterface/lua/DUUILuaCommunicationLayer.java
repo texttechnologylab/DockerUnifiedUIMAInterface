@@ -3,10 +3,12 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface.lua;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.jcas.JCas;
 import org.luaj.vm2.lib.jse.CoerceJavaToLua;
+import org.luaj.vm2.lib.jse.CoerceLuaToJava;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUICommunicationLayer;
 import org.xml.sax.SAXException;
 
 import java.io.*;
+import java.util.List;
 import java.util.Map;
 
 public class DUUILuaCommunicationLayer implements IDUUICommunicationLayer {
@@ -32,5 +34,10 @@ public class DUUILuaCommunicationLayer implements IDUUICommunicationLayer {
 
     public IDUUICommunicationLayer copy() {
         return new DUUILuaCommunicationLayer(_script,_origin,_globalContext);
+    }
+
+    @Override
+    public ByteArrayInputStream merge(List<ByteArrayInputStream> results) {
+        return (ByteArrayInputStream) CoerceLuaToJava.coerce(_file.call("merge", CoerceJavaToLua.coerce(results)), ByteArrayInputStream.class);
     }
 }

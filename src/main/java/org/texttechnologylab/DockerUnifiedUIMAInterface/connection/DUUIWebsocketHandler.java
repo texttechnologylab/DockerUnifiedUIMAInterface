@@ -3,20 +3,14 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface.connection;
 import io.socket.client.Ack;
 import io.socket.client.IO;
 import io.socket.client.Socket;
-import io.socket.emitter.Emitter;
-import org.java_websocket.exceptions.WebsocketNotConnectedException;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIPipelineComponent;
-import org.texttechnologylab.duui.ReproducibleAnnotation;
 
 import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -84,7 +78,7 @@ public class DUUIWebsocketHandler implements IDUUIConnectionHandler{
         return clients;
     }
 
-    public byte[] get(byte[] jc) {
+    public List<ByteArrayInputStream> get(byte[] jc) {
 
         final ByteArrayInputStream[] st = {null};
 
@@ -99,7 +93,7 @@ public class DUUIWebsocketHandler implements IDUUIConnectionHandler{
 
         });
 
-        return st[0].readAllBytes();
+        return new ArrayList<ByteArrayInputStream>((Collection<? extends ByteArrayInputStream>) new ByteArrayInputStream(st[0].readAllBytes()));
     }
 
     public void close() {

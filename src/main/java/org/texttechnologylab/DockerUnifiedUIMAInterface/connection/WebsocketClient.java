@@ -5,6 +5,7 @@ import de.tudarmstadt.ukp.dkpro.core.api.syntax.type.constituent.S;
 import org.java_websocket.client.WebSocketClient;
 import org.java_websocket.handshake.ServerHandshake;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.ByteBuffer;
@@ -48,12 +49,11 @@ public class WebsocketClient extends WebSocketClient{
         }
     }
 
-    public byte[] mergeResults() {
-        List<byte []> results = messageStack.subList(0, messageStack.size()-1);
-        System.out.println(results.size());
+    public static ByteArrayInputStream mergeResults(List<ByteArrayInputStream> results) {
+
         List<Map<String, Object>> resultsMaps = results.stream()
                 .map(res -> {
-                    String jsonString = new String(res, StandardCharsets.UTF_8);
+                    String jsonString = new String(res.readAllBytes(), StandardCharsets.UTF_8);
                     ObjectMapper mapper = new ObjectMapper();
                     Map<String, Object> map = null;
                     try {
@@ -96,8 +96,8 @@ public class WebsocketClient extends WebSocketClient{
         }
 
         byte[] jsonBytes = jsonMap.getBytes(StandardCharsets.UTF_8);
-        messageStack = new ArrayList<>();
-        return jsonBytes;
+
+        return new ByteArrayInputStream(jsonBytes);
     }
 
     /***

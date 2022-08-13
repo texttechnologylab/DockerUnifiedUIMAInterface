@@ -11,6 +11,7 @@ import org.xml.sax.SAXException;
 import java.io.*;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Map;
 
 public class DUUIFallbackCommunicationLayer implements IDUUICommunicationLayer {
@@ -47,5 +48,10 @@ public class DUUIFallbackCommunicationLayer implements IDUUICommunicationLayer {
 
     public IDUUICommunicationLayer copy() {
         return new DUUIFallbackCommunicationLayer();
+    }
+
+    @Override
+    public ByteArrayInputStream merge(List<ByteArrayInputStream> results) {
+        return null;
     }
 }

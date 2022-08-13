@@ -1,7 +1,7 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.connection;
 
-import java.io.IOException;
-import java.net.URISyntaxException;
+import java.io.ByteArrayInputStream;
+import java.util.List;
 
 public interface IDUUIConnectionHandler {
 //    void initiate(String uri) throws URISyntaxException;
@@ -12,7 +12,7 @@ public interface IDUUIConnectionHandler {
 
     Object getClient();
 
-    byte[] get(byte[] jc) throws InterruptedException;
+    List<ByteArrayInputStream> get(byte[] jc) throws InterruptedException;
 
     void close();
 }
