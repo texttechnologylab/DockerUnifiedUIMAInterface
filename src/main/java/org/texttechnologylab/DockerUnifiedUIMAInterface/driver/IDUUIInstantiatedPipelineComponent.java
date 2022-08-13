@@ -213,6 +213,13 @@ public interface IDUUIInstantiatedPipelineComponent {
         // lua serialize call()
         layer.serialize(viewJc,out,comp.getParameters());
 
+
+
+        // hier wird Lua-Funktion aufgerufen
+        layer.myLuaTestMerging();
+
+
+
         // ok ist message.
         byte[] ok = out.toByteArray();
         long sizeArray = ok.length;

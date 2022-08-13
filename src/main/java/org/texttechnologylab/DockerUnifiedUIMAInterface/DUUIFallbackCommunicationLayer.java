@@ -54,4 +54,10 @@ public class DUUIFallbackCommunicationLayer implements IDUUICommunicationLayer {
     public ByteArrayInputStream merge(List<ByteArrayInputStream> results) {
         return null;
     }
+
+    @Override
+    public String myLuaTestMerging() {
+        // das ist eine Test-Funktion
+        return "Hallo ich bin in DUUIFallbackCommunicationLayer";
+    }
 }

@@ -32,6 +32,7 @@ public class DUUILuaCommunicationLayer implements IDUUICommunicationLayer {
         _file.call("deserialize",CoerceJavaToLua.coerce(jc),CoerceJavaToLua.coerce(input));
     }
 
+
     public IDUUICommunicationLayer copy() {
         return new DUUILuaCommunicationLayer(_script,_origin,_globalContext);
     }
@@ -40,4 +41,13 @@ public class DUUILuaCommunicationLayer implements IDUUICommunicationLayer {
     public ByteArrayInputStream merge(List<ByteArrayInputStream> results) {
         return (ByteArrayInputStream) CoerceLuaToJava.coerce(_file.call("merge", CoerceJavaToLua.coerce(results)), ByteArrayInputStream.class);
     }
+
+    @Override
+    public String myLuaTestMerging() {
+        // Die Funktion von Lua wird hier aufgerufen
+        _file.call("merging",null, null);
+        return "merging.................. ";
+    }
+
+
 }

@@ -13,4 +13,6 @@ public interface IDUUICommunicationLayer {
     public void deserialize(JCas jc, ByteArrayInputStream input) throws IOException, SAXException;
     public IDUUICommunicationLayer copy();
     public ByteArrayInputStream merge(List<ByteArrayInputStream> results);
+
+    String myLuaTestMerging();
 }
