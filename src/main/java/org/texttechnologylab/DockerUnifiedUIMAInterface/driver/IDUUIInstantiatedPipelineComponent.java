@@ -215,10 +215,6 @@ public interface IDUUIInstantiatedPipelineComponent {
 
 
 
-        // hier wird Lua-Funktion aufgerufen
-        layer.myLuaTestMerging();
-
-
 
         // ok ist message.
         byte[] ok = out.toByteArray();
@@ -260,6 +256,11 @@ public interface IDUUIInstantiatedPipelineComponent {
                  * now
                  */
                 /** @see **/
+
+                // hier wird Lua-Funktion aufgerufen
+                layer.myLuaTestMerging();
+
+
                 result = layer.merge(results);
                 System.out.println(result);
                 layer.deserialize(finalViewJc, result);
