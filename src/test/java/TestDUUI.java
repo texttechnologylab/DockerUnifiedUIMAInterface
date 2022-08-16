@@ -196,30 +196,41 @@ public class TestDUUI {
     @Test
     public void TestTaxoNERD() throws Exception {
         JCas jc = JCasFactory.createJCas();
-        jc.setDocumentText("Hallo Welt dies ist ein Abies!");
+        String sText = "Firs can be distinguished from other members of the pine family by the unique attachment of their needle-like leaves to the twig by a base that resembles a small suction cup. Firs (Abies) are a genus of 48–56 species of evergreen coniferous trees in the family Pinaceae. They are found on mountains throughout much of North and Central America, Europe, Asia, and North Africa. The genus is most closely related to Cedrus (cedar). ";
+//        String sText = "Firs can be distinguished from other members of the pine family by the unique attachment of their needle-like leaves to the twig by a base that resembles a small suction cup. The leaves are significantly flattened, sometimes even looking like they are pressed, as in A. sibirica. The leaves have two whitish lines on the bottom, each of which is formed by wax-covered stomatal bands. In most species, the upper surface of the leaves is uniformly green and shiny, without stomata or with a few on the tip, visible as whitish spots. Other species have the upper surface of leaves dull, gray-green or bluish-gray to silvery (glaucous), coated by wax with variable number of stomatal bands, and not always continuous. An example species with shiny green leaves is A. alba, and an example species with dull waxy leaves is A. concolor. The tips of leaves are usually more or less notched (as in A. firma), but sometimes rounded or dull (as in A. concolor, A. magnifica) or sharp and prickly (as in A. bracteata, A. cephalonica, A. holophylla). The leaves of young plants are usually sharper. The way they spread from the shoot is very diverse, only in some species comb-shaped, with the leaves arranged on two sides, flat (A. alba) The upper foliage is different on cone-bearing branches, with the leaves short, curved, and sharp.";
+//        String sText = "Brown bears (Ursus arctos), which are widely distributed throughout the northern hemisphere, are recognised as opportunistic omnivores.";
+        jc.setDocumentText(sText);
         jc.setDocumentLanguage("de");
 
-        DUUILuaContext ctx = new DUUILuaContext().withGlobalLibrary("json", DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/uima_xmi_communication.lua").toURI());
+        DUUILuaContext ctx = LuaConsts.getJSON();
 
         DUUIComposer composer = new DUUIComposer()
                 //       .withStorageBackend(new DUUIArangoDBStorageBackend("password",8888))
-                .withLuaContext(ctx);
+                .withLuaContext(ctx).withSkipVerification(true);
 
         // Instantiate drivers with options
         DUUIRemoteDriver remote_driver = new DUUIRemoteDriver(10000);
+        DUUIDockerDriver docker_driver = new DUUIDockerDriver(10000);
 
         // A driver must be added before components can be added for it in the composer.
         composer.addDriver(remote_driver);
+        composer.addDriver(docker_driver);
 
-        composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9714")
+        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/languagedetection:0.2")
+                        .withScale(1)
+                        .build());
+
+        composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9716")
                         .withScale(1)
                         .build());
 
         composer.run(jc);
 
-        JCasUtil.select(jc, Taxon.class).forEach(t -> {
+        JCasUtil.select(jc, AnnotationComment.class).forEach(t -> {
             System.out.println(t);
         });
+
+        System.out.println(jc.getDocumentLanguage());
 
 
     }
