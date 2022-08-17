@@ -1,18 +1,25 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface;
 
+import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Sentence;
+import de.tudarmstadt.ukp.dkpro.core.api.syntax.type.dependency.Dependency;
+import de.tudarmstadt.ukp.dkpro.core.tokit.BreakIteratorSegmenter;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.analysis_engine.AnalysisEngineProcessException;
 import org.apache.uima.cas.CASException;
 import org.apache.uima.cas.impl.XmiCasSerializer;
 import org.apache.uima.collection.CollectionReader;
 import org.apache.uima.collection.CollectionReaderDescription;
+import org.apache.uima.fit.factory.AnalysisEngineFactory;
 import org.apache.uima.fit.factory.CollectionReaderFactory;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.fit.factory.TypeSystemDescriptionFactory;
+import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
+import org.apache.uima.jcas.cas.TOP;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.apache.uima.util.CasCreationUtils;
 import org.apache.uima.util.InvalidXMLException;
+import org.apache.uima.util.TypeSystemUtil;
 import org.dkpro.core.io.xmi.XmiReader;
 import org.luaj.vm2.Globals;
 import org.luaj.vm2.lib.jse.JsePlatform;
@@ -22,7 +29,9 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.DUUIMonitor;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.IDUUIStorageBackend;
+import org.texttechnologylab.annotation.SpacyAnnotatorMetaData;
 import org.xml.sax.SAXException;
+import org.yaml.snakeyaml.TypeDescription;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -828,16 +837,20 @@ public class DUUIComposer {
 //                        .withScale(1)
 //                , DUUIDockerDriver.class);
         // input: [], outputs: [Token, Sentences]
-        composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9715"));
+        //composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9715"));
+       // composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
+       //         .withImageFetching());
 
+        //composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class)));
 //                , DUUIRemoteDriver.class);*/
 
         // Remote driver handles all pure URL endpoints
        // composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class))
        //                 .withScale(1));
-/*
-        //composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.Component("http://127.0.0.1:9714")
-        composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.Component("http://127.0.0.1:9714")
+
+        composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.Component("http://127.0.0.1:9715")
+                .withParameter("fuchs","damn"));
+       /* composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.Component("http://127.0.0.1:9714")
                         .withScale(1),
                 org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.class);*/
 
@@ -881,13 +894,17 @@ public class DUUIComposer {
         jc.setDocumentText(val2);
 
         // Run single document
-        composer.run(CollectionReaderFactory.createReaderDescription(XmiReader.class,
-                XmiReader.PARAM_LANGUAGE,"de",
-                XmiReader.PARAM_ADD_DOCUMENT_METADATA,false,
-                XmiReader.PARAM_OVERRIDE_DOCUMENT_METADATA,false,
-                XmiReader.PARAM_LENIENT,true,
-                XmiReader.PARAM_SOURCE_LOCATION,"/home/alexander/Documents/Corpora/German-Political-Speeches-Corpus/processed/*.xmi"),"fuchs");
+        composer.run(jc,"fuchs");
 
+        /*TypeSystemDescription desc = TypeSystemUtil.typeSystem2TypeSystemDescription(jc.getTypeSystem());
+
+        //CAS: Dependency, Sentence, Token
+        //Bar Chart: Wie viele Dependecies, Wie viele Sentences ....
+        // Named Entity Recognition: 1 Klasse fuer Orte => 10 Annotation vom Typ Ort
+        // 1 Klasse fuer Personen => 100 Annotationen vom Typ Personen
+        //for(Dependency meta : JCasUtil.select(jc, Dependency.class)) {
+        //    meta.getDependent().
+        //}
 
         /*String val = Files.readString(Path.of(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/uima_xmi_communication_token_only.lua").toURI()));
         DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(val,"remote");
