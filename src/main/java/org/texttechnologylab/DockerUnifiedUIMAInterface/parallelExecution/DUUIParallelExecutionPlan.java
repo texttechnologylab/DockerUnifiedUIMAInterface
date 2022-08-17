@@ -28,13 +28,19 @@ public class DUUIParallelExecutionPlan implements IDUUIExecutionPlan {
         return next;
     }
 
+    /**
+     * copy complete graph
+     * @return
+     */
     @Override
     public IDUUIExecutionPlan copy() {
+        //TODO
         return this;
     }
 
     @Override
     public Future<IDUUIExecutionPlan> awaitMerge() {
+        // TODO "real" Future
         Executor executor = Runnable::run;
         FutureTask<IDUUIExecutionPlan> future =
                 new FutureTask<>(() -> {
@@ -71,7 +77,10 @@ public class DUUIParallelExecutionPlan implements IDUUIExecutionPlan {
     }
 
     /**
-     * Builds a jCas from previous. Always sets a jCas. Reuses first previous if exists. Throws away existing JCases.
+     * Sets a merged jCas from previous.
+     * Reuses first previous if exists.
+     * Can handle null values from previous.
+     * Can handle no previous.
      */
     private void merge() {
 
