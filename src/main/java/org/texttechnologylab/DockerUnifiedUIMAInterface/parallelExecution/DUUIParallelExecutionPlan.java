@@ -1,5 +1,7 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.parallelExecution;
 
+import org.apache.uima.UIMAException;
+import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.jcas.JCas;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUIExecutionPlan;
@@ -43,6 +45,9 @@ public class DUUIParallelExecutionPlan implements IDUUIExecutionPlan {
         return future;
     }
 
+    /**
+     * @return returns the jCas. May return null if not set.
+     */
     @Override
     public JCas getJCas() {
         return jCas;
@@ -61,16 +66,35 @@ public class DUUIParallelExecutionPlan implements IDUUIExecutionPlan {
         return previous.add(iduuiExecutionPlan);
     }
 
-    protected void setJCas(JCas jCas){
-        this.jCas=jCas;
+    protected void setJCas(JCas jCas) {
+        this.jCas = jCas;
     }
 
+    /**
+     * Builds a jCas from previous. Always sets a jCas. Reuses first previous if exists. Throws away existing JCases.
+     */
     private void merge() {
-        JCas jCas = previous.get(0).getJCas();
-        for (int i = 1; i < previous.size(); i++) {
-            MergerFunctions.mergeAll(previous.get(i).getJCas(), jCas);
+
+        jCas = null;
+        for (IDUUIExecutionPlan iduuiExecutionPlan : previous) {
+            JCas previousJCas = iduuiExecutionPlan.getJCas();
+            if (previousJCas != null) {
+                if (jCas == null) {
+                    jCas = previousJCas;
+                } else {
+                    MergerFunctions.mergeAll(previousJCas, jCas);
+                }
+            } else {
+                // nothing to merge
+            }
         }
-        this.jCas = jCas;
+        if (jCas == null) {
+            try {
+                jCas = JCasFactory.createJCas();
+            } catch (UIMAException e) {
+                throw new RuntimeException(e);
+            }
+        }
     }
 
 }
