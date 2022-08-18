@@ -2,9 +2,9 @@ import sqlite3
 import numpy as np
 import matplotlib.pyplot as plt
 
-connction_with_50 = sqlite3.connect("../websocket_token_50.db")
-connction_with_25 = sqlite3.connect("../websocket_token_25.db")
-connction_with_15 = sqlite3.connect("../websocket_token_15.db")
+connction_with_50 = sqlite3.connect("../websocket_token_open_50.db")
+connction_with_25 = sqlite3.connect("../websocket_token_open_25.db")
+connction_with_15 = sqlite3.connect("../websocket_token_open_15.db")
 cursor_50 = connction_with_50.cursor()
 cursor_25 = connction_with_25.cursor()
 cursor_15 = connction_with_15.cursor()
@@ -50,6 +50,7 @@ all =["pipelinename" ,
 
 
 wsTotal50 = []
+print(pipeline_document_perf_50)
 for perf in pipeline_document_perf_50:
     # print((perf[0], perf[7]))
     wsTotal50.append((perf[8], perf[myindex]))
@@ -93,16 +94,47 @@ for element in wsTotal15:
 
 
 
-plt.figure(figsize=(30, 15))
+plt.figure(figsize=(90, 45))
 
 plt.title(all[myindex], fontsize=40, fontweight="bold", pad=40)
+print(ws_values_50)
+plt.plot(labels, ws_values_50,
+         #color='none',
+         label='WS_50',
+         linestyle='dashed',
+         linewidth=3,
+         marker='o',
+         markersize=6,
+         markerfacecolor='blue',
+         markeredgecolor='blue')
+print(ws_values_25)
 
-plt.plot(labels, ws_values_50, label='WS_50', linestyle='--')
-plt.plot(labels, ws_values_25, label='ws_25', linestyle='-.')
-plt.plot(labels, ws_values_15, label='WS_15', linestyle='-.')
+plt.plot(labels, ws_values_25,
+         #color='none',
+         label='WS_25',
+         linestyle='dashed',
+         linewidth=3,
+         marker='o',
+         markersize=6,
+         markerfacecolor='red',
+         markeredgecolor='red')
+print(ws_values_15)
+print(labels)
+
+plt.plot(labels, ws_values_15,
+         #color='none',
+         label='WS_15',
+         linestyle='dashed',
+         linewidth=3,
+         marker='o',
+         markersize=6,
+         markerfacecolor='green',
+         markeredgecolor='green')
 
 plt.legend(loc='upper left', fontsize=15)
 plt.xticks(np.arange(min(labels), max(labels), step=4000))
 plt.xlabel("-------------------------------------------- Document size -------------------------------------------->", fontsize=16, fontweight="bold", labelpad=30)
 plt.ylabel("--------- "+ all[myindex]+" --------->", fontsize=16, fontweight="bold", labelpad=30)
-plt.show()
+#plt.show()
+
+plt.savefig('./figure.pdf')
