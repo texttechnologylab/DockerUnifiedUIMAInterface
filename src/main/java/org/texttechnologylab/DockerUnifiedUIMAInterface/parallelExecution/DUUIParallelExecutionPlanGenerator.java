@@ -8,16 +8,24 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUIExecutionPlanGenera
 import java.util.*;
 
 public class DUUIParallelExecutionPlanGenerator implements IDUUIExecutionPlanGenerator {
-    DUUIParallelExecutionPlan root = new DUUIParallelExecutionPlan(null,null);
 
+    private final Collection<DUUIComposer.PipelinePart> pipelineParts;
 
     public DUUIParallelExecutionPlanGenerator(Collection<DUUIComposer.PipelinePart> pipelineParts) {
+        this.pipelineParts = pipelineParts;
+    }
+
+    @Override
+    public IDUUIExecutionPlan generate(JCas jc) {
+
+        DUUIParallelExecutionPlan root = new DUUIParallelExecutionPlan(null, jc);
+
         Set<String> satisfied = new HashSet<>();
 
         // wrap PipelineParts in ParallelExecutionPlans
         Collection<DUUIParallelExecutionPlan> remaining = new ArrayList<>();
-        for(DUUIComposer.PipelinePart part:pipelineParts)
-            remaining.add(new DUUIParallelExecutionPlan(part, null));
+        for (DUUIComposer.PipelinePart part : pipelineParts)
+            remaining.add(new DUUIParallelExecutionPlan(part));
 
         // build a Map that maps from output to ParallelExecutionPlan
         Map<String, Set<DUUIParallelExecutionPlan>> satisfiesToPipelinePart = new HashMap<>();
@@ -38,7 +46,7 @@ public class DUUIParallelExecutionPlanGenerator implements IDUUIExecutionPlanGen
         }
 
         while (!remaining.isEmpty()) {
-            for (Iterator<DUUIParallelExecutionPlan> iterator = remaining.iterator(); iterator.hasNext();) {
+            for (Iterator<DUUIParallelExecutionPlan> iterator = remaining.iterator(); iterator.hasNext(); ) {
                 DUUIParallelExecutionPlan plan = iterator.next();
 
                 if (satisfied.containsAll(plan.getPipelinePart().getDriver().getInputsOutputs().getInputs())) {
@@ -54,11 +62,8 @@ public class DUUIParallelExecutionPlanGenerator implements IDUUIExecutionPlanGen
                 }
             }
         }
-    }
-
-    @Override
-    public IDUUIExecutionPlan generate(JCas jc) {
-        root.setJCas(jc);
         return root;
     }
+
 }
+

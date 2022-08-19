@@ -8,19 +8,27 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUIExecutionPlan;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.FutureTask;
 
 public class DUUIParallelExecutionPlan implements IDUUIExecutionPlan {
 
+    private static final ExecutorService executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+
     private final DUUIComposer.PipelinePart pipelinePart;
     private JCas jCas;
-
     private final List<IDUUIExecutionPlan> previous = new ArrayList<>();
     private final List<IDUUIExecutionPlan> next = new ArrayList<>();
 
     public DUUIParallelExecutionPlan(DUUIComposer.PipelinePart pipelinePart, JCas jcas) {
         this.pipelinePart = pipelinePart;
         this.jCas = jcas;
+    }
+
+    public DUUIParallelExecutionPlan(DUUIComposer.PipelinePart pipelinePart) {
+        this(pipelinePart,null);
     }
 
     @Override
@@ -30,7 +38,6 @@ public class DUUIParallelExecutionPlan implements IDUUIExecutionPlan {
 
     /**
      * copy complete graph
-     * @return
      */
     @Override
     public IDUUIExecutionPlan copy() {
@@ -40,13 +47,10 @@ public class DUUIParallelExecutionPlan implements IDUUIExecutionPlan {
 
     @Override
     public Future<IDUUIExecutionPlan> awaitMerge() {
-        // TODO "real" Future
-        Executor executor = Runnable::run;
-        FutureTask<IDUUIExecutionPlan> future =
-                new FutureTask<>(() -> {
-                    this.merge();
-                    return this;
-                });
+        FutureTask<IDUUIExecutionPlan> future = new FutureTask<>(() -> {
+            this.merge();
+            return this;
+        });
         executor.execute(future);
         return future;
     }
@@ -64,21 +68,17 @@ public class DUUIParallelExecutionPlan implements IDUUIExecutionPlan {
         return pipelinePart;
     }
 
-    protected boolean addNext(DUUIParallelExecutionPlan parallelExecutionPlan) {
-        return next.add(parallelExecutionPlan);
+    protected void addNext(DUUIParallelExecutionPlan parallelExecutionPlan) {
+        next.add(parallelExecutionPlan);
     }
 
-    protected boolean addPrevious(IDUUIExecutionPlan iduuiExecutionPlan) {
-        return previous.add(iduuiExecutionPlan);
-    }
-
-    protected void setJCas(JCas jCas) {
-        this.jCas = jCas;
+    protected void addPrevious(IDUUIExecutionPlan iduuiExecutionPlan) {
+        previous.add(iduuiExecutionPlan);
     }
 
     /**
      * Sets a merged jCas from previous.
-     * Reuses first previous if exists.
+     * Reuses first previous JCas if exists.
      * Can handle null values from previous.
      * Can handle no previous.
      */
@@ -93,8 +93,6 @@ public class DUUIParallelExecutionPlan implements IDUUIExecutionPlan {
                 } else {
                     MergerFunctions.mergeAll(previousJCas, jCas);
                 }
-            } else {
-                // nothing to merge
             }
         }
         if (jCas == null) {
