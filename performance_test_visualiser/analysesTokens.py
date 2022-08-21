@@ -2,6 +2,10 @@ import sqlite3
 import numpy as np
 import matplotlib.pyplot as plt
 
+
+
+
+
 connction_with_50 = sqlite3.connect("../websocket_token_open_50.db")
 connction_with_25 = sqlite3.connect("../websocket_token_open_25.db")
 connction_with_15 = sqlite3.connect("../websocket_token_open_15.db")
