@@ -27,7 +27,7 @@ class IDUUIConnectionHandlerTest {
     }
     @Test
     void testWithWebsocket(String text, String name) throws Exception {
-        DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend("websocket_token_open_60.db")
+        DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend("websocket_token_open_50_2.db")
                 .withConnectionPoolSize(iWorkers);
         DUUILuaContext ctx = new DUUILuaContext().withGlobalLibrary("json", DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/json.lua").toURI());
 
@@ -102,7 +102,6 @@ class IDUUIConnectionHandlerTest {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         XmlCasSerializer.serialize(jc.getCas(),out);
         System.out.println(new String(out.toByteArray()));
-
         composer.shutdown();
     }
 

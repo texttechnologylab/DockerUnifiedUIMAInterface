@@ -56,7 +56,7 @@ class Visualisation:
         plt.title(self.all[self.myindex], fontsize=40, fontweight="bold", pad=40)
         counter = 0
         for value in self.lienes:
-            plt.plot(self.labels, value,
+            plt.plot(self.labels[1:], value[1:],
                      # color='none',
                      label='WS '+str(self.dbNames[counter]),
                      linestyle='dashed',
@@ -75,15 +75,46 @@ class Visualisation:
         plt.ylabel("--------- " + self.all[self.myindex] + " --------->", fontsize=16, fontweight="bold", labelpad=30)
         plt.savefig('./figure_1.pdf')
 
+    def plot_gradiant(self):
+        plt.title(self.all[self.myindex], fontsize=40, fontweight="bold", pad=40)
+        counter = 0
+        xSum = sum(self.labels[1:])
+        xAvg = int(xSum/len(self.labels[1:]))
+        xAvgList = [0, xAvg]
+        for value in self.lienes:
+            ySum = sum(value[1:])
+            yAvg = int(ySum / len(value[1:]))
+            yAvgList = [0, yAvg]
+            plt.plot(xAvgList, yAvgList,
+                     # color='none',
+                     label='WS '+str(self.dbNames[counter]),
+                     linestyle='dashed',
+                     linewidth=3,
+                     marker='o',
+                     markersize=10,
+                     # markerfacecolor='blue',
+                     # markeredgecolor='blue'
+                     )
+            counter+=1
+        plt.legend(loc='upper left', fontsize=15)
+        plt.xticks(np.arange(min(self.labels), int(max(self.labels)/2), step=4000))
+        plt.xlabel(
+            "-------------------------------------------- Document size -------------------------------------------->",
+            fontsize=16, fontweight="bold", labelpad=30)
+        plt.ylabel("--------- " + self.all[self.myindex] + " --------->", fontsize=16, fontweight="bold", labelpad=30)
+        plt.savefig('./figure_1.pdf')
+
+
 
 visualisation = Visualisation(6)
 # print(visualisation.all)
 # print(visualisation.myindex)
-# visualisation.addLine("../websocket_token_open_200.db")
+visualisation.addLine("../websocket_token_open_200.db")
 # visualisation.addLine("../websocket_token_open_100.db")
+visualisation.addLine("../websocket_token_open_60.db")
 # visualisation.addLine("../websocket_token_open_50.db")
 visualisation.addLine("../websocket_token_open_25.db")
-visualisation.addLine("../websocket_token_open_15.db")
+# visualisation.addLine("../websocket_token_open_15.db")
 # print(visualisation.labels)
 # print(visualisation.lienes)
 print(visualisation.dbNames)

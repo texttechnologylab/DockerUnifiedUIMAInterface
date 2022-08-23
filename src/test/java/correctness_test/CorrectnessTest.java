@@ -138,12 +138,10 @@ class CorrectnessTest {
     void correctness() throws Exception {
         InputStream inputStream = CorrectnessTest.class.getResourceAsStream("/sample_splitted/sample_02_349.txt");
         String text = readFromInputStream1(inputStream);
-
         assertEquals(testWithRest(text), testWithWebsocket(text));
     }
 
     public static void main(String[] args) throws Exception {
-
 //        InputStream inputStream = WebsocketTest.class.getResourceAsStream("/sample_splitted/sample_140.txt");
         InputStream inputStream = CorrectnessTest.class.getResourceAsStream("/sample_splitted/sample_02_349.txt");
         String text = readFromInputStream1(inputStream);
