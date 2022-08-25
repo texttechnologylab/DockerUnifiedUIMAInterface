@@ -138,7 +138,11 @@ class CorrectnessTest {
     void correctness() throws Exception {
         InputStream inputStream = CorrectnessTest.class.getResourceAsStream("/sample_splitted/sample_02_349.txt");
         String text = readFromInputStream1(inputStream);
-        assertEquals(testWithRest(text), testWithWebsocket(text));
+        String wsText = testWithWebsocket(text).replaceAll("<duui:ReproducibleAnnotation.*/>", "")
+                .replaceAll("timestamp=\"[0-9]*\"", "0");
+        String restText = testWithRest(text).replaceAll("<duui:ReproducibleAnnotation.*/>", "")
+                .replaceAll("timestamp=\"[0-9]*\"", "0");
+        assertEquals(restText, wsText);
     }
 
     public static void main(String[] args) throws Exception {

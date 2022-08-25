@@ -258,7 +258,7 @@ public interface IDUUIInstantiatedPipelineComponent {
                 /** @see **/
 
                 // hier wird Lua-Funktion aufgerufen
-                layer.myLuaTestMerging();
+//                layer.myLuaTestMerging();
 
 
                 result = layer.merge(results);
