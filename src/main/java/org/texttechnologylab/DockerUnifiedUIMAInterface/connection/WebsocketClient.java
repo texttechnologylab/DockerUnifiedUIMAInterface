@@ -67,7 +67,7 @@ public class WebsocketClient extends WebSocketClient{
                             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)) : null;
                 }).collect(Collectors.toList());
 
-        resultsMaps.forEach(System.out::println);
+        //resultsMaps.forEach(System.out::println);
 
         Map<String, Object> resultsMap = resultsMaps.stream()
                 .flatMap(jsonMap -> jsonMap.entrySet().stream())
@@ -84,7 +84,7 @@ public class WebsocketClient extends WebSocketClient{
                         }
                 ));
 
-        System.out.println(resultsMap);
+        // System.out.println(resultsMap);
 
         ObjectMapper mapper = new ObjectMapper();
         String jsonMap = null;
@@ -96,6 +96,7 @@ public class WebsocketClient extends WebSocketClient{
         }
 
         byte[] jsonBytes = jsonMap.getBytes(StandardCharsets.UTF_8);
+        System.out.println("##################################################### \n"+resultsMap);
 
         return new ByteArrayInputStream(jsonBytes);
     }

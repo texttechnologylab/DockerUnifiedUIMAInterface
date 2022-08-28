@@ -72,9 +72,8 @@ ws_values = []
 for element in wsTotal:
     ws_values.append(element[1])
 
-print(labels)
-print(rest_values)
-print(ws_values)
+
+"""
 
 plt.figure(figsize=(30, 15))
 
@@ -87,3 +86,108 @@ plt.xticks(np.arange(min(labels), max(labels), step=4000))
 plt.xlabel("-------------------------------------------- Document size -------------------------------------------->", fontsize=16, fontweight="bold", labelpad=30)
 plt.ylabel("--------- "+ all[myindex]+" --------->", fontsize=16, fontweight="bold", labelpad=30)
 plt.show()
+
+"""
+
+
+
+
+
+
+
+
+
+class Linear_Regression:
+    def __init__(self, X, y):
+        self.X = X
+        self.y = y
+        self.a = [0, 0]
+
+    def update_coeffs(self, learningrate):
+        y_pred = self.predict()
+        y = self.y
+        b = len(y)
+        self.a[0] = self.a[0] - (learningrate * ((1 / b) *
+                                                 np.sum(y_pred - y)))
+
+        self.a[1] = self.a[1] - (learningrate * ((1 / b) *
+                                                 np.sum((y_pred - y) * self.X)))
+
+    def predict(self, X=[]):
+        y_pred = np.array([])
+        if not X: X = self.X
+        a = self.a
+        for x in X:
+            y_pred = np.append(y_pred, a[0] + (a[1] * x))
+
+        return y_pred
+
+    def get_current_accuracy(self, y_pred):
+        t, e = y_pred, self.y
+        s = len(y_pred)
+        return 1 - sum(
+            [
+                abs(t[i] - e[i]) / e[i]
+                for i in range(s)
+                if e[i] != 0]
+        ) / s
+
+    def compute_cost(self, y_pred):
+        b = len(self.y)
+        J = (1 / 2 * b) * (np.sum(y_pred - self.y) ** 2)
+        return J
+
+    def plot_best_fit(self, y_pred, fig):
+        f = plt.figure(fig)
+        plt.scatter(self.X, self.y, color='r')
+        plt.plot(self.X, y_pred, color='y')
+        f.show()
+
+
+def main():
+    X = np.array(
+        labels
+        # [1, 2, 3, 4, 5, 6, 7]
+        # ValueError: x and y must be the same size
+
+    )
+    y = np.array(
+        ws_values
+        # [1, 222, 333, 453, 532, 362, 700]
+    )
+
+    regr = Linear_Regression(X, y)
+
+    iterations = 0
+    steps = 90
+    learningrate = 0.1
+    costs = []
+
+    y_pred = regr.predict()
+    regr.plot_best_fit(y_pred, 'Initial best fit line')
+
+    while 1:
+        y_pred = regr.predict()
+        cst = regr.compute_cost(y_pred)
+        costs.append(cst)
+        regr.update_coeffs(learningrate)
+
+        iterations += 1
+        if iterations % steps == 0:
+            print(iterations, "epochs elapsed")
+            print("current accuracy is :",
+                  regr.get_current_accuracy(y_pred))
+            break
+
+    # final best-fit line
+    regr.plot_best_fit(y_pred, 'Final Best Fit Line')
+
+    h = plt.figure('Verification')
+    plt.plot(range(iterations), costs, color='r')
+    h.show()
+
+    # regr.predict([i for i in range(10)])
+
+
+if __name__ == '__main__':
+    main()
