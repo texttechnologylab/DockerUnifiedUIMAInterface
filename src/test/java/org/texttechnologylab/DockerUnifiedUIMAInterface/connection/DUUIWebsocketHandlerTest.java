@@ -27,7 +27,7 @@ class IDUUIConnectionHandlerTest {
     }
     @Test
     void testWithWebsocket(String text, String name) throws Exception {
-        DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend("websocket_token_open_15_in_two_machines.db")
+        DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend("websocket_token_open_50_2.db")
                 .withConnectionPoolSize(iWorkers);
         DUUILuaContext ctx = new DUUILuaContext().withGlobalLibrary("json", DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/json.lua").toURI());
 
@@ -46,9 +46,7 @@ class IDUUIConnectionHandlerTest {
         composer.addDriver(remote_driver);
         composer.addDriver(uima_driver);
 
-//        composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9715")
-  //              .withScale(iWorkers).withWebsocket(true).build());
-        composer.add(new DUUIRemoteDriver.Component("http://10.79.22.241:9715")
+        composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9715")
                 .withScale(iWorkers).withWebsocket(true).build());
 //        composer.add(new SocketIO("http://127.0.0.1:9715"));
 
