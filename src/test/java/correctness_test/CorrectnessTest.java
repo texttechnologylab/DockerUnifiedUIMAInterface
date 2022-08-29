@@ -60,7 +60,7 @@ class CorrectnessTest {
         composer.addDriver(remote_driver);
         composer.addDriver(uima_driver);
 
-        composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9715")
+        composer.add(new DUUIRemoteDriver.Component("http://10.79.22.241:9715")
                 .withScale(1).withWebsocket(true).build());
 
         String val = test;
@@ -100,7 +100,7 @@ class CorrectnessTest {
         composer.addDriver(remote_driver);
         composer.addDriver(uima_driver);
 
-        composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9715")
+        composer.add(new DUUIRemoteDriver.Component("http://10.79.22.241:9715")
                 .withScale(1).withWebsocket(false).build());
 //        composer.add(new SocketIO("http://127.0.0.1:9715"));
 
