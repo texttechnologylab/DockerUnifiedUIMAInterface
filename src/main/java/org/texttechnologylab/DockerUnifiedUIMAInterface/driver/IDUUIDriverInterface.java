@@ -22,7 +22,7 @@ public interface IDUUIDriverInterface {
     public String instantiate(DUUIPipelineComponent component, JCas jc, boolean skipVerification) throws Exception;
     public void printConcurrencyGraph(String uuid);
 
-    public InputsOutputs getInputsOutputs();
+    public InputsOutputs getInputsOutputs(String uuid) throws ResourceInitializationException;
 
     public TypeSystemDescription get_typesystem(String uuid) throws InterruptedException, IOException, SAXException, CompressorException, ResourceInitializationException;
     public void run(String uuid, JCas aCas, DUUIPipelineDocumentPerformance perf) throws InterruptedException, IOException, SAXException, AnalysisEngineProcessException, CompressorException, CASException;

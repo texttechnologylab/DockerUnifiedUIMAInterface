@@ -1,4 +1,4 @@
-package org.texttechnologylab.DockerUnifiedUIMAInterface.parallelExecution;
+package org.texttechnologylab.DockerUnifiedUIMAInterface.parallelPlan;
 
 import org.apache.uima.UIMAException;
 import org.apache.uima.fit.factory.JCasFactory;

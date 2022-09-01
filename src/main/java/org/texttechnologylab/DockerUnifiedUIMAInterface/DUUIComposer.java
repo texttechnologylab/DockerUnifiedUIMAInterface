@@ -27,6 +27,8 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.*;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.AsyncCollectionReader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.DUUIMonitor;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.parallelPlan.DUUIParallelExecutionPlan;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.parallelPlan.DUUIParallelExecutionPlanGenerator;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.IDUUIStorageBackend;
 import org.texttechnologylab.annotation.SpacyAnnotatorMetaData;
@@ -535,9 +537,10 @@ public class DUUIComposer {
             Thread[] arr = new Thread[_workers];
             for (int i = 0; i < _workers; i++) {
                 System.out.printf("[Composer] Starting worker thread [%d/%d]\n", i + 1, _workers);
-                // TODO ParallelExecutionPlan and -Generator
+                // TODO ParallelExecutionPlanGenerator
                 arr[i] = new DUUIWorker(_instantiatedPipeline, emptyCasDocuments, loadedCasDocuments, _shutdownAtomic, aliveThreads, _storage, name, null,
-                        new DUUILinearExecutionPlanGenerator(_instantiatedPipeline));
+                         //new DUUIParallelExecutionPlanGenerator(_instantiatedPipeline));
+                         new DUUILinearExecutionPlanGenerator(_instantiatedPipeline));
                 arr[i].start();
             }
             Instant starttime = Instant.now();

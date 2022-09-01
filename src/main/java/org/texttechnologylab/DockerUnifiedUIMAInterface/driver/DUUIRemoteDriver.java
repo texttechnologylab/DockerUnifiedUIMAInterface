@@ -205,10 +205,13 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         System.out.printf("[RemoteDriver][%s]: Maximum concurrency %d\n",uuid,component.getScale());
     }
 
-    @Override
-    public InputsOutputs getInputsOutputs() {
+    public InputsOutputs getInputsOutputs(String uuid) throws ResourceInitializationException {
         // TODO implement
-        return null;
+        DUUIRemoteDriver.InstantiatedComponent comp = _components.get(uuid);
+        if (comp == null) {
+            throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
+        }
+        return IDUUIInstantiatedPipelineComponent.getInputOutput(uuid, comp);
     }
 
     public TypeSystemDescription get_typesystem(String uuid) throws InterruptedException, IOException, SAXException, CompressorException, ResourceInitializationException {

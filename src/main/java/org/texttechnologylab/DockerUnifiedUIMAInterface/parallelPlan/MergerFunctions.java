@@ -1,4 +1,4 @@
-package org.texttechnologylab.DockerUnifiedUIMAInterface.parallelExecution;
+package org.texttechnologylab.DockerUnifiedUIMAInterface.parallelPlan;
 
 import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
@@ -45,8 +45,8 @@ public class MergerFunctions {
      */
     public static void mergeAll(JCas srcCas, JCas destCas){
         CasCopier casCopier = new CasCopier(srcCas.getCas(), destCas.getCas());
-        JCasUtil.select(srcCas, Annotation.class).forEach(annotation -> {
-                destCas.addFsToIndexes(casCopier.copyFs(annotation));
-        });
+        for(TOP annotation : JCasUtil.selectAll(srcCas)) {
+            destCas.addFsToIndexes(casCopier.copyFs(annotation));
+        }
     }
 }

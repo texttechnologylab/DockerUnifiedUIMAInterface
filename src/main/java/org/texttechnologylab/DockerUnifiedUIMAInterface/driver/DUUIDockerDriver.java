@@ -228,7 +228,7 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
     }
 
     @Override
-    public InputsOutputs getInputsOutputs() {
+    public InputsOutputs getInputsOutputs(String uuid) {
         // TODO implement
         return null;
     }

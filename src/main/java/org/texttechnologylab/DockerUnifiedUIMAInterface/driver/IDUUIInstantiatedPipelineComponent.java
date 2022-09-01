@@ -1,6 +1,10 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.driver;
 
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.cas.CASException;
 import org.apache.uima.fit.factory.TypeSystemDescriptionFactory;
@@ -10,6 +14,7 @@ import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.javatuples.Triplet;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUICommunicationLayer;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.InputsOutputs;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
 import org.texttechnologylab.duui.ReproducibleAnnotation;
 import org.xml.sax.SAXException;
@@ -23,6 +28,9 @@ import java.net.http.HttpResponse;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 
 public interface IDUUIInstantiatedPipelineComponent {
@@ -69,6 +77,53 @@ public interface IDUUIInstantiatedPipelineComponent {
                 }
             } catch (Exception e) {
                 System.out.printf("Cannot reach endpoint trying again %d/%d...\n",tries+1,100);
+            }
+        }
+        throw new ResourceInitializationException(new Exception("Endpoint is unreachable!"));
+    }
+
+    /**
+     *
+     */
+    public static InputsOutputs getInputOutput(String uuid, IDUUIInstantiatedPipelineComponent comp) throws ResourceInitializationException {
+        String V1_COMPONENT_ENDPOINT_INPUT_OUTPUT = "/v1/details/input_output";
+        // side effect
+        Triplet<IDUUIUrlAccessible, Long, Long> queue = comp.getComponent();
+        int maxTries = 100;
+        for (int tries = 1; tries <= maxTries; tries++) {
+            try {
+                HttpRequest request = HttpRequest.newBuilder()
+                        .uri(URI.create(queue.getValue0().generateURL() + V1_COMPONENT_ENDPOINT_INPUT_OUTPUT))
+                        .version(HttpClient.Version.HTTP_1_1)
+                        .GET()
+                        .build();
+
+                HttpResponse<byte[]> resp = _client.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray()).join();
+                if (resp.statusCode() == 200) {
+                    String body = new String(resp.body(), Charset.defaultCharset());
+                    // side effect
+                    comp.addComponent(queue.getValue0());
+                    JsonObject json = JsonParser.parseString(body).getAsJsonObject();
+                    JsonArray inputArray = json.get("input").getAsJsonArray();
+                    JsonArray outputArray = json.get("output").getAsJsonArray();
+
+                    List<String> inputs = new ArrayList<>();
+                    for(JsonElement input:inputArray)
+                        inputs.add(input.getAsString());
+
+                    List<String> outputs = new ArrayList<>();
+                    for(JsonElement output:outputArray)
+                        inputs.add(output.getAsString());
+
+                    return new InputsOutputs(inputs, outputs);
+                } else {
+                    // side effect
+                    comp.addComponent(queue.getValue0());
+                    System.out.printf("[%s]: Endpoint did not provide inputOutput\n", uuid);
+                    return new InputsOutputs(List.of(), List.of());
+                }
+            } catch (Exception e) {
+                System.out.printf("Cannot reach endpoint trying again %d/%d...\n", tries, maxTries);
             }
         }
         throw new ResourceInitializationException(new Exception("Endpoint is unreachable!"));
