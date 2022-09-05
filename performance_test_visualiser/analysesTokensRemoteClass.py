@@ -61,7 +61,7 @@ class Visualisation:
         for value in self.lines:
             plt.plot(self.labels[1:], value[1:],
                      # color='none',
-                     label=str(str(self.dbNames[counter][:2] if self.dbNames[counter][-1]=="r" else self.dbNames[counter])),
+                     label=str(str(self.dbNames[counter][:2] if self.dbNames[counter][2]=="_" else self.dbNames[counter])),
                      linestyle='dashed',
                      linewidth=3,
                      marker='o',
@@ -118,7 +118,7 @@ class Visualisation:
         for i in range(len(y_s)):
             plt.plot(x_test, y_pred_s[i],
                      # color='none',
-                     label= str(self.dbNames[i][:2] if self.dbNames[i][-1]=="r" else self.dbNames[i]),
+                     label= str(self.dbNames[i][:2] if self.dbNames[i][2]=="_" else self.dbNames[i]),
                      linestyle='dashed',
                      linewidth=3,
                      marker='o',
@@ -153,4 +153,4 @@ visualisation.addLine("../ws_remote_1.db")
 # print(visualisation.labels)
 # print(visualisation.lines)
 print(visualisation.dbNames)
-visualisation.gradientDescent()
+visualisation.plot()
