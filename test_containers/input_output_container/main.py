@@ -19,7 +19,7 @@ parsed_args = ap.parse_args()
 input, output, PORT = parsed_args.inputs, parsed_args.outputs, parsed_args.port
 input, output = json.loads(input), json.loads(output)
 
-with open('communication_xmi.lua','r') as f:
+with open('communication_xmi.lua', 'r') as f:
     communication = f.read()
 
 with open('dkpro-core-types.xml', 'rb') as f:
@@ -29,7 +29,9 @@ with open('dkpro-core-types.xml', 'rb') as f:
         def do_POST(self):
             content_len = int(self.headers.get('Content-Length'))
             post_body = self.rfile.read(content_len).decode("utf-8")
+            print("POST Body")
             print(post_body)
+            print()
 
             cas = load_cas_from_xmi(post_body, typesystem=typesystem,lenient=True)
             #loaded = json.loads(post_body)
@@ -44,7 +46,7 @@ with open('dkpro-core-types.xml', 'rb') as f:
 
             # Whenever using 'send_header', you also have to call 'end_headers'
             self.end_headers()
-            self.wfile.write(cas.to_xmi().encode('utf-8'))
+            self.wfile.write(cas.to_xmi().encode('utf-8'))  # calls deserialize in lua
         def do_GET(self):
             if self.path == '/v1/communication_layer':
                 # Sending an '200 OK' response
