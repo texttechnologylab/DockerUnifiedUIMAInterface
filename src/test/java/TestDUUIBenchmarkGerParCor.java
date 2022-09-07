@@ -43,7 +43,7 @@ public class TestDUUIBenchmarkGerParCor {
 
     AsyncCollectionReader rd = new AsyncCollectionReader(sourceLocation, sourceSuffix, 1, sampleSize, false, "serialize_gerparcor" + sampleSize);
 
-    @Test
+//    @Test
     public void ComposerPerformanceTestEchoSerializeDeserializeBinary() throws Exception {
         rd.reset();
         DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend(sLogging)
@@ -72,7 +72,7 @@ public class TestDUUIBenchmarkGerParCor {
         composer.shutdown();
     }
 
-    @Test
+//    @Test
     public void ComposerPerformanceTestEchoSerializeDeserializeXmi() throws Exception {
         rd.reset();
         DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend(sLogging)
@@ -101,7 +101,7 @@ public class TestDUUIBenchmarkGerParCor {
         composer.shutdown();
     }
 
-    @Test
+//    @Test
     public void ComposerPerformanceTestEchoSerializeDeserializeMsgpack() throws Exception {
         rd.reset();
         DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend(sLogging)
@@ -130,7 +130,7 @@ public class TestDUUIBenchmarkGerParCor {
         composer.shutdown();
     }
 
-    @Test
+//    @Test
     public void ComposerPerformanceTestEchoSerializeDeserializeJson() throws Exception {
         rd.reset();
         DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend(sLogging)
@@ -163,7 +163,7 @@ public class TestDUUIBenchmarkGerParCor {
 
     //AsyncCollectionReader benchmarkReader = new AsyncCollectionReader(sourceLocation, sourceSuffix, 1, sampleSize, false, "/tmp/sample_benchmark_"+sampleSize);
 
-    @Test
+//    @Test
     public void DUUIBenchmarkSwarmTest() throws Exception {
         int iSample = 100;
         int iValue = 4;
@@ -176,6 +176,51 @@ public class TestDUUIBenchmarkGerParCor {
         }
     }
 
+
+    @Test
+    public void DUUIBenchmarkSwarmSorted() throws Exception {
+
+        List<Integer> iValues = new ArrayList<>();
+        iValues.add(1);
+        iValues.add(2);
+        iValues.add(4);
+        iValues.add(8);
+	iValues.add(16);
+	iValues.add(32);
+
+        List<Integer> iSamples = new ArrayList<>();
+        iSamples.add(100);
+        iSamples.add(200);
+        iSamples.add(500);
+        iSamples.add(1000);
+
+        iValues.stream().sorted((a, b)->{
+            return a.compareTo(b)*-1;
+        }).forEach(iValue -> {
+
+            iSamples.stream().forEach(iSample -> {
+
+                AsyncCollectionReader benchmarkReader = new AsyncCollectionReader(sourceLocation, sourceSuffix, 1, iSample, false, "/resources/public/abrami/evaluation_DUUI/sorted_sample_benchmark_" + iSample);
+
+                try {
+//                DUUIWorker(benchmarkReader, "docker", "benchmark_docker_" + iValue, iValue, iSample);
+
+                DUUIWorker(benchmarkReader, "swarm", "sorted_benchmark_swarm_"+iValue, iValue, iSample);
+
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+
+
+            });
+
+
+        });
+
+
+    }
+
+
     @Test
     public void DUUIBenchmarkSwarm() throws Exception {
 
@@ -186,19 +231,21 @@ public class TestDUUIBenchmarkGerParCor {
         iValues.add(8);
 
         List<Integer> iSamples = new ArrayList<>();
-        iSamples.add(100);
-        iSamples.add(200);
-        iSamples.add(500);
-        iSamples.add(1000);
+//        iSamples.add(100);
+//        iSamples.add(200);
+//        iSamples.add(500);
+       iSamples.add(1000);
 
-        iValues.stream().forEach(iValue -> {
+        iValues.stream().sorted((a, b)->{
+            return a.compareTo(b)*-1;
+        }).forEach(iValue -> {
 
             iSamples.stream().forEach(iSample -> {
 
                 AsyncCollectionReader benchmarkReader = new AsyncCollectionReader(sourceLocation, sourceSuffix, 1, iSample, false, "/resources/public/abrami/evaluation_DUUI/sample_benchmark_" + iSample);
 
                 try {
-                DUUIWorker(benchmarkReader, "docker", "benchmark_docker_" + iValue, iValue, iSample);
+//                DUUIWorker(benchmarkReader, "docker", "benchmark_docker_" + iValue, iValue, iSample);
 
                 DUUIWorker(benchmarkReader, "swarm", "benchmark_swarm_"+iValue, iValue, iSample);
 

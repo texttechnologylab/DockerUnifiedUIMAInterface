@@ -41,6 +41,7 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaSandbox;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.LuaConsts;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIMockStorageBackend;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.sqlite.DUUISqliteStorageBackend;
+import org.texttechnologylab.annotation.AnnotationComment;
 import org.texttechnologylab.annotation.type.Taxon;
 import org.texttechnologylab.utilities.helper.FileUtils;
 import org.xml.sax.SAXException;
@@ -195,28 +196,76 @@ public class TestDUUI {
     @Test
     public void TestTaxoNERD() throws Exception {
         JCas jc = JCasFactory.createJCas();
+        String sText = "Firs can be distinguished from other members of the pine family by the unique attachment of their needle-like leaves to the twig by a base that resembles a small suction cup. Firs (Abies) are a genus of 48–56 species of evergreen coniferous trees in the family Pinaceae. They are found on mountains throughout much of North and Central America, Europe, Asia, and North Africa. The genus is most closely related to Cedrus (cedar). ";
+//        String sText = "Firs can be distinguished from other members of the pine family by the unique attachment of their needle-like leaves to the twig by a base that resembles a small suction cup. The leaves are significantly flattened, sometimes even looking like they are pressed, as in A. sibirica. The leaves have two whitish lines on the bottom, each of which is formed by wax-covered stomatal bands. In most species, the upper surface of the leaves is uniformly green and shiny, without stomata or with a few on the tip, visible as whitish spots. Other species have the upper surface of leaves dull, gray-green or bluish-gray to silvery (glaucous), coated by wax with variable number of stomatal bands, and not always continuous. An example species with shiny green leaves is A. alba, and an example species with dull waxy leaves is A. concolor. The tips of leaves are usually more or less notched (as in A. firma), but sometimes rounded or dull (as in A. concolor, A. magnifica) or sharp and prickly (as in A. bracteata, A. cephalonica, A. holophylla). The leaves of young plants are usually sharper. The way they spread from the shoot is very diverse, only in some species comb-shaped, with the leaves arranged on two sides, flat (A. alba) The upper foliage is different on cone-bearing branches, with the leaves short, curved, and sharp.";
+//        String sText = "Brown bears (Ursus arctos), which are widely distributed throughout the northern hemisphere, are recognised as opportunistic omnivores.";
+        jc.setDocumentText(sText);
+        jc.setDocumentLanguage("de");
+
+        DUUILuaContext ctx = LuaConsts.getJSON();
+
+        DUUIComposer composer = new DUUIComposer()
+                //       .withStorageBackend(new DUUIArangoDBStorageBackend("password",8888))
+                .withLuaContext(ctx).withSkipVerification(true);
+
+        // Instantiate drivers with options
+        DUUIRemoteDriver remote_driver = new DUUIRemoteDriver(10000);
+        DUUIDockerDriver docker_driver = new DUUIDockerDriver(10000);
+
+        // A driver must be added before components can be added for it in the composer.
+        composer.addDriver(remote_driver);
+        composer.addDriver(docker_driver);
+
+        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/languagedetection:0.2")
+                        .withScale(1)
+                        .build());
+
+        composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9716")
+                        .withScale(1)
+                        .build());
+
+        composer.run(jc);
+
+        JCasUtil.select(jc, AnnotationComment.class).forEach(t -> {
+            System.out.println(t);
+        });
+
+        System.out.println(jc.getDocumentLanguage());
+
+
+    }
+
+    @Test
+    public void TestBFSRL() throws Exception {
+        JCas jc = JCasFactory.createJCas();
         jc.setDocumentText("Hallo Welt dies ist ein Abies!");
         jc.setDocumentLanguage("de");
 
-        DUUILuaContext ctx = new DUUILuaContext().withGlobalLibrary("json", DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/uima_xmi_communication.lua").toURI());
+        int iWorkers = 1;
+
+        DUUILuaContext ctx = new DUUILuaContext().withJsonLibrary();
 
         DUUIComposer composer = new DUUIComposer()
                 //       .withStorageBackend(new DUUIArangoDBStorageBackend("password",8888))
                 .withLuaContext(ctx);
 
         // Instantiate drivers with options
+        DUUIDockerDriver docker_driver = new DUUIDockerDriver(10000);
         DUUIRemoteDriver remote_driver = new DUUIRemoteDriver(10000);
 
         // A driver must be added before components can be added for it in the composer.
+        composer.addDriver(docker_driver);
         composer.addDriver(remote_driver);
 
-        composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9714")
-                        .withScale(1)
-                        .build());
+        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4").withScale(iWorkers).withImageFetching());
+//        composer.add(new DUUIDockerDriver.Component("textimager_duui_bfsrl:0.0.1").withScale(iWorkers));
+
+        composer.add(new DUUIRemoteDriver.Component("http://localhost:9715")
+                .withScale(iWorkers));
 
         composer.run(jc);
 
-        JCasUtil.select(jc, Taxon.class).forEach(t -> {
+        JCasUtil.selectAll(jc).forEach(t -> {
             System.out.println(t);
         });
 
@@ -919,13 +968,13 @@ public class TestDUUI {
 
         assertEquals(comp.getComponent().getDriver(),DUUIUIMADriver.class.getCanonicalName());
         assertEquals(comp.getComponent().asUIMADriverComponent().getAnnotatorName(),BreakIteratorSegmenter.class.getCanonicalName());
-        assertEquals(comp.getAnnotation().getPipelineName(),"pipeline");
+//        assertEquals(comp.getAnnotation().getPipelineName(),"pipeline");
 
         DUUIPipelineAnnotationComponent comp2 = desc.getComponents().get(1);
 
         assertEquals(comp2.getComponent().getDriver(),DUUIUIMADriver.class.getCanonicalName());
         assertEquals(comp2.getComponent().asUIMADriverComponent().getAnnotatorName(),OpenNlpPosTagger.class.getCanonicalName());
-        assertEquals(comp2.getAnnotation().getPipelineName(),"pos_tagger");
+//        assertEquals(comp2.getAnnotation().getPipelineName(),"pos_tagger");
 
         JCas jc_dup = JCasFactory.createJCas();
         jc_dup.setDocumentText("Dies ist ein test Text.");
