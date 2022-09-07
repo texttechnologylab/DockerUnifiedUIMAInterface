@@ -11,7 +11,7 @@ Automatic analysis of large text corpora is a complex task. This complexity part
 ![Docker](https://img.shields.io/badge/Docker-20.10-green)
 
 ### Java requirements
-DUUI has its own TypeSystem, which is required for use. To generate this an initial "maven install" is necessary:
+DUUI has its own TypeSystem, which is required for use. To generate this an initial ```mvn compile``` is necessary:
 
 ```bash
 mvn clean compile exec:java -Dexec.mainClass="org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer"
@@ -110,7 +110,7 @@ After the build, the image can be used / tried locally and after pushing it to t
 
 
 # Cite
-If you want to use the project or the corpus, please quote this as follows:
+If you want to use the project please quote this as follows:
 
 A. Leonhardt, G. Abrami and A. Mehler, “Unlocking the Heterogeneous Landscape of Big Data NLP with DUUI” in Proceedings of ... 2022 ![[Link]]() ![[PDF]]()
 
