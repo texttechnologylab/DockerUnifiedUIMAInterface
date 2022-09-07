@@ -114,7 +114,7 @@ If you want to use the project please quote this as follows:
 
 A. Leonhardt, G. Abrami and A. Mehler, “Unlocking the Heterogeneous Landscape of Big Data NLP with DUUI” in Proceedings of ... 2022 ![[Link]]() ![[PDF]]()
 
-# BibTeX
+## BibTeX
 ```
 @InProceedings{Leonhardt:Abrami:Mehler:2022,
   author         = {Leonhardt, Alexander and Abrami, Giuseppe and Mehler, Alexander},
