@@ -19,14 +19,15 @@ public class DUUIWebsocketAlt implements IDUUIConnectionHandler{
     private WebsocketClient client;
     private static Map<String, WebsocketClient> _clients = new HashMap<>();
 
-    public DUUIWebsocketAlt(String uri) throws InterruptedException, IOException {
+    public DUUIWebsocketAlt(String uri, int tokens_num) throws InterruptedException, IOException {
         boolean connected = false;
         if (!_clients.containsKey(uri)) {
-            this.client = new WebsocketClient(URI.create(uri));
+
+            this.client = new WebsocketClient(URI.create(uri+"/?tokens_num="+tokens_num)); //  Anzahl der Tokens
+            System.out.println("__________________"+uri);
             connected = this.client.connectBlocking();
             System.out.println("##################################################### IS OPEN "+ connected);
             _clients.put(uri, this.client);
-
         }
         else {
             System.out.println("##################################################### IS URI "+ uri);

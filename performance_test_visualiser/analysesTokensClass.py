@@ -75,7 +75,7 @@ class Visualisation:
             "-------------------------------------------- Document size -------------------------------------------->",
             fontsize=16, fontweight="bold", labelpad=30)
         plt.ylabel("--------- " + self.all[self.myindex] + " --------->", fontsize=16, fontweight="bold", labelpad=30)
-        plt.savefig('./figure_1.pdf')
+        plt.savefig('./gradient.pdf')
 
 
     def gradientDescentCalcu(self, lx, x_train, y_train):
@@ -152,4 +152,4 @@ visualisation.addLine("../websocket_token_open_15.db")
 # print(visualisation.labels)
 # print(visualisation.lines)
 print(visualisation.dbNames)
-visualisation.gradientDescent()
+visualisation.plot()

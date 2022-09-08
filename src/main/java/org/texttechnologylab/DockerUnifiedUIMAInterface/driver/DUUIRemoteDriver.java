@@ -70,7 +70,6 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
 
         public Component withWebsocket(boolean b) {
             component.withWebsocket(b);
-
             return this;
         }
 
@@ -220,7 +219,7 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
                  */
 //                _socketio = new DUUIWebsocketHandler(wsurl);
                 _socketio = new DUUIWebsocketAlt(
-                        url.replaceFirst("http", "ws") + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS_WEBSOCKET);
+                        url.replaceFirst("http", "ws") + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS_WEBSOCKET, 50);
             }
             else {
                 _socketio = null;
