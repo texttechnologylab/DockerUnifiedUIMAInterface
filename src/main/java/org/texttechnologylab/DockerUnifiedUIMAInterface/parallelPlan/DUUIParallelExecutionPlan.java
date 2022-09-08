@@ -20,6 +20,7 @@ public class DUUIParallelExecutionPlan implements IDUUIExecutionPlan {
     private final DUUIComposer.PipelinePart pipelinePart;
     private JCas jCas;
     private final List<IDUUIExecutionPlan> previous = new ArrayList<>();
+
     private final List<IDUUIExecutionPlan> next = new ArrayList<>();
 
     public DUUIParallelExecutionPlan(DUUIComposer.PipelinePart pipelinePart, JCas jcas) {
@@ -61,6 +62,14 @@ public class DUUIParallelExecutionPlan implements IDUUIExecutionPlan {
     @Override
     public JCas getJCas() {
         return jCas;
+    }
+
+    public List<IDUUIExecutionPlan> getPrevious() {
+        return previous;
+    }
+
+    public List<IDUUIExecutionPlan> getNext() {
+        return next;
     }
 
     @Override

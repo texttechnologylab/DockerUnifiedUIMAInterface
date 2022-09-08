@@ -32,9 +32,11 @@ public class DUUIParallelExecutionPlanGenerator implements IDUUIExecutionPlanGen
         Set<String> satisfied = new HashSet<>();
 
         // wrap PipelineParts in ParallelExecutionPlans
-        Collection<DUUIParallelExecutionPlan> remaining = new ArrayList<>();
+        Collection<DUUIParallelExecutionPlan> allNodes = new ArrayList<>();
         for (DUUIComposer.PipelinePart part : pipelineParts)
-            remaining.add(new DUUIParallelExecutionPlan(part));
+            allNodes.add(new DUUIParallelExecutionPlan(part));
+
+        Collection<DUUIParallelExecutionPlan> remaining = new ArrayList<>(allNodes);
 
         // build a Map that maps from output to ParallelExecutionPlan
         Map<String, Set<DUUIParallelExecutionPlan>> satisfiesToPipelinePart = new HashMap<>();
@@ -54,6 +56,7 @@ public class DUUIParallelExecutionPlanGenerator implements IDUUIExecutionPlanGen
             }
         }
 
+        // build graph
         while (!remaining.isEmpty()) {
             for (Iterator<DUUIParallelExecutionPlan> iterator = remaining.iterator(); iterator.hasNext(); ) {
                 DUUIParallelExecutionPlan plan = iterator.next();
@@ -62,8 +65,10 @@ public class DUUIParallelExecutionPlanGenerator implements IDUUIExecutionPlanGen
                     // run
                     for (String inputs : part2IO.get(plan.getPipelinePart().getUUID()).getInputs())
                         for (DUUIParallelExecutionPlan requiredPlan : satisfiesToPipelinePart.get(inputs)) {
-                            requiredPlan.addNext(plan);
-                            plan.addPrevious(requiredPlan);
+                            if(!remaining.contains(requiredPlan)) {  // needed if there are more than one node that with the same output
+                                requiredPlan.addNext(plan);
+                                plan.addPrevious(requiredPlan);
+                            }
                         }
 
                     satisfied.addAll(part2IO.get(plan.getPipelinePart().getUUID()).getOutputs());
@@ -71,6 +76,18 @@ public class DUUIParallelExecutionPlanGenerator implements IDUUIExecutionPlanGen
                 }
             }
         }
+
+        // add final merge node
+        DUUIParallelExecutionPlan endNode = new DUUIParallelExecutionPlan(null);
+        for(DUUIParallelExecutionPlan plan:allNodes){
+            // add all nodes without successor
+            if(plan.getNext().isEmpty()) {
+                plan.addNext(endNode);
+                endNode.addPrevious(plan);
+            }
+
+        }
+
         return root;
     }
 
