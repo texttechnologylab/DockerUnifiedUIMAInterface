@@ -33,7 +33,7 @@ with open('dkpro-core-types.xml', 'rb') as f:
             print(post_body)
             print()
 
-            cas = load_cas_from_xmi(post_body, typesystem=typesystem,lenient=True)
+            cas = load_cas_from_xmi(post_body, typesystem=typesystem, lenient=True)
             #loaded = json.loads(post_body)
             #print(loaded)
             #cas = load_cas_from_xmi(loaded["cas"], typesystem=loaded["typesystem"])
@@ -46,7 +46,7 @@ with open('dkpro-core-types.xml', 'rb') as f:
 
             # Whenever using 'send_header', you also have to call 'end_headers'
             self.end_headers()
-            self.wfile.write(cas.to_xmi().encode('utf-8'))  # calls deserialize in lua
+            self.wfile.write(f"{PORT}".encode("utf-8"))  # calls deserialize in lua
         def do_GET(self):
             if self.path == '/v1/communication_layer':
                 # Sending an '200 OK' response
@@ -83,6 +83,6 @@ with open('dkpro-core-types.xml', 'rb') as f:
     # PORT = int(os.environ["PORT"])
     my_server = socketserver.TCPServer(("0.0.0.0", PORT), handler_object)
 
-    print("Server started on port " + str(PORT) + "\r\n")
+    print(f"Server started on port {PORT}\r\n")
     # Start the server
     my_server.serve_forever()
