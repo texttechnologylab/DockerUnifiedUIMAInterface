@@ -19,6 +19,11 @@ parsed_args = ap.parse_args()
 input, output, PORT = parsed_args.inputs, parsed_args.outputs, parsed_args.port
 input, output = json.loads(input), json.loads(output)
 
+print(PORT)
+print(json.dumps(input))
+print(json.dumps(output))
+print()
+
 with open('communication_xmi.lua', 'r') as f:
     communication = f.read()
 
