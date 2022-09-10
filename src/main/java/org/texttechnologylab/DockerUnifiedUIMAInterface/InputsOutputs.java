@@ -18,4 +18,12 @@ public class InputsOutputs {
     public List<String> getOutputs() {
         return outputs;
     }
+
+    @Override
+    public String toString() {
+        return "InputsOutputs{" +
+                "inputs=" + inputs +
+                ", outputs=" + outputs +
+                '}';
+    }
 }

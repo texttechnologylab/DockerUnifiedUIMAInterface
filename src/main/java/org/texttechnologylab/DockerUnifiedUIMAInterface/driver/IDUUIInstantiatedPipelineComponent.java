@@ -1,10 +1,7 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.driver;
 
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
+import com.google.gson.*;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.cas.CASException;
 import org.apache.uima.fit.factory.TypeSystemDescriptionFactory;
@@ -90,6 +87,7 @@ public interface IDUUIInstantiatedPipelineComponent {
         // side effect
         Triplet<IDUUIUrlAccessible, Long, Long> queue = comp.getComponent();
         int maxTries = 100;
+        System.out.println(queue.getValue0().generateURL() + V1_COMPONENT_ENDPOINT_INPUT_OUTPUT);
         for (int tries = 1; tries <= maxTries; tries++) {
             try {
                 HttpRequest request = HttpRequest.newBuilder()
@@ -103,19 +101,9 @@ public interface IDUUIInstantiatedPipelineComponent {
                     String body = new String(resp.body(), Charset.defaultCharset());
                     // side effect
                     comp.addComponent(queue.getValue0());
-                    JsonObject json = JsonParser.parseString(body).getAsJsonObject();
-                    JsonArray inputArray = json.get("input").getAsJsonArray();
-                    JsonArray outputArray = json.get("output").getAsJsonArray();
+                    Gson gson = new Gson();
+                    return gson.fromJson(body, InputsOutputs.class);
 
-                    List<String> inputs = new ArrayList<>();
-                    for(JsonElement input:inputArray)
-                        inputs.add(input.getAsString());
-
-                    List<String> outputs = new ArrayList<>();
-                    for(JsonElement output:outputArray)
-                        inputs.add(output.getAsString());
-
-                    return new InputsOutputs(inputs, outputs);
                 } else {
                     // side effect
                     comp.addComponent(queue.getValue0());
@@ -123,6 +111,7 @@ public interface IDUUIInstantiatedPipelineComponent {
                     return new InputsOutputs(List.of(), List.of());
                 }
             } catch (Exception e) {
+                e.printStackTrace();
                 System.out.printf("Cannot reach endpoint trying again %d/%d...\n", tries, maxTries);
             }
         }

@@ -206,7 +206,6 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
     }
 
     public InputsOutputs getInputsOutputs(String uuid) throws ResourceInitializationException {
-        // TODO implement
         DUUIRemoteDriver.InstantiatedComponent comp = _components.get(uuid);
         if (comp == null) {
             throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
