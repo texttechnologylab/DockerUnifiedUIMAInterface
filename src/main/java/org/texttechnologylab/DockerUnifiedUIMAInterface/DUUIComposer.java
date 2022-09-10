@@ -51,6 +51,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static java.lang.String.format;
+import static org.apache.uima.fit.factory.CollectionReaderFactory.createReaderDescription;
 
 class DUUIWorker extends Thread {
     Vector<DUUIComposer.PipelinePart> _flow;
@@ -891,16 +892,34 @@ public class DUUIComposer {
 
        // ByteArrayInputStream stream;
        // stream.read
-
+/*
         String val2 = "Dies ist ein kleiner Test Text für Abies!";
         JCas jc = JCasFactory.createJCas();
         jc.setDocumentLanguage("de");
         jc.setDocumentText(val2);
 
+
         // Run single document
         composer.run(jc,"fuchs");
 
+        OutputStream out2 = new ByteArrayOutputStream();
+        XmiCasSerializer.serialize(jc.getCas(),out2);
+        System.out.println(out2.toString());
+
+*/
+        String sInputPath = composer.getClass().getClassLoader().getResource("sample").getPath();
+        String sSuffix = "xmi.gz";
+
+        CollectionReaderDescription reader = createReaderDescription(XmiReader.class,
+                XmiReader.PARAM_SOURCE_LOCATION, sInputPath + "/**" + sSuffix,
+                XmiReader.PARAM_SORT_BY_SIZE, true
+        );
+
+        composer.run(reader);
+
+
         /*TypeSystemDescription desc = TypeSystemUtil.typeSystem2TypeSystemDescription(jc.getTypeSystem());
+         */
 
         //CAS: Dependency, Sentence, Token
         //Bar Chart: Wie viele Dependecies, Wie viele Sentences ....
@@ -916,9 +935,7 @@ public class DUUIComposer {
         lua.serialize(jc,out);
         System.out.println(out.toString());*/
 
-        OutputStream out2 = new ByteArrayOutputStream();
-        XmiCasSerializer.serialize(jc.getCas(),out2);
-        System.out.println(out2.toString());
+
 
         // Run Collection Reader
 
