@@ -8,10 +8,8 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUIExecutionPlan;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.FutureTask;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class DUUIParallelExecutionPlan implements IDUUIExecutionPlan {
 
@@ -22,6 +20,9 @@ public class DUUIParallelExecutionPlan implements IDUUIExecutionPlan {
     private final List<IDUUIExecutionPlan> previous = new ArrayList<>();
 
     private final List<IDUUIExecutionPlan> next = new ArrayList<>();
+
+    private AtomicBoolean merged = new AtomicBoolean(false);
+    private FutureTask<IDUUIExecutionPlan> future;
 
     public DUUIParallelExecutionPlan(DUUIComposer.PipelinePart pipelinePart, JCas jcas) {
         this.pipelinePart = pipelinePart;
@@ -47,12 +48,14 @@ public class DUUIParallelExecutionPlan implements IDUUIExecutionPlan {
     }
 
     @Override
-    public Future<IDUUIExecutionPlan> awaitMerge() {
-        FutureTask<IDUUIExecutionPlan> future = new FutureTask<>(() -> {
-            this.merge();
-            return this;
-        });
-        executor.execute(future);
+    public synchronized Future<IDUUIExecutionPlan> awaitMerge() {
+        if(!merged.getAndSet(true)) {
+            future = new FutureTask<>(() -> {
+                this.merge();
+                return this;
+            });
+            executor.execute(future);
+        }
         return future;
     }
 
@@ -86,16 +89,25 @@ public class DUUIParallelExecutionPlan implements IDUUIExecutionPlan {
     }
 
     /**
-     * Sets a merged jCas from previous.
-     * Reuses first previous JCas if exists.
+     * Creates a new CAS and merges all previous CASes.
      * Can handle null values from previous.
      * Can handle no previous.
      */
+    //* Reuses first previous JCas if exists.
     private void merge() {
-
-        jCas = null;
+//        try {
+//            System.out.println(jCas.getDocumentText());
+//            jCas = JCasFactory.createJCas(); //root?
+//        } catch (UIMAException e) {
+//            throw new RuntimeException(e);
+//        }
         for (IDUUIExecutionPlan iduuiExecutionPlan : previous) {
-            JCas previousJCas = iduuiExecutionPlan.getJCas();
+            JCas previousJCas;
+            try {
+                previousJCas = iduuiExecutionPlan.awaitMerge().get().getJCas();
+            } catch (InterruptedException | ExecutionException e) {
+                throw new RuntimeException(e);
+            }
             if (previousJCas != null) {
                 if (jCas == null) {
                     jCas = previousJCas;
@@ -104,6 +116,7 @@ public class DUUIParallelExecutionPlan implements IDUUIExecutionPlan {
                 }
             }
         }
+        // ensure that a jCas is set
         if (jCas == null) {
             try {
                 jCas = JCasFactory.createJCas();
