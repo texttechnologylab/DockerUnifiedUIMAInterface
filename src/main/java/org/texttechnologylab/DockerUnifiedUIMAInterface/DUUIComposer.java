@@ -117,6 +117,7 @@ class DUUIWorker extends Thread {
                     }
                 }
             }
+            System.out.println(object.getDocumentText());
             if(waitTimeEnd==0) waitTimeEnd = System.nanoTime();
             IDUUIExecutionPlan execPlan = _generator.generate(object);
 
@@ -859,7 +860,6 @@ public class DUUIComposer {
                         .withScale(1),
                 org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.class);*/
 
-
         // Engine 1 -> track 1 schreibt
         // Engine 2 -> track 2 schreibt
         // Merge -> Vereint das in _InitialView
@@ -907,12 +907,14 @@ public class DUUIComposer {
         System.out.println(out2.toString());
 
 */
-        String sInputPath = composer.getClass().getClassLoader().getResource("sample").getPath();
-        String sSuffix = "xmi.gz";
+        //String sInputPath = composer.getClass().getClassLoader().getResource("/home/nutzer/Dokumente/DockerUnifiedUIMAInterface/test_corpora_xmi").getPath();
+        String sInputPath  = "test_corpora2";
+        String sSuffix = ".xmi";
 
         CollectionReaderDescription reader = createReaderDescription(XmiReader.class,
                 XmiReader.PARAM_SOURCE_LOCATION, sInputPath + "/**" + sSuffix,
-                XmiReader.PARAM_SORT_BY_SIZE, true
+                XmiReader.PARAM_SORT_BY_SIZE, true,
+                XmiReader.PARAM_LENIENT, true
         );
 
         composer.run(reader);
