@@ -16,6 +16,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static java.lang.Thread.sleep;
+
 class IDUUIConnectionHandlerTest {
     private static int iWorkers = 1;
     private static String sourceLocation = "/home/alexander/Documents/Corpora/German-Political-Speeches-Corpus/processed/*.xmi";
@@ -26,8 +28,9 @@ class IDUUIConnectionHandlerTest {
     IDUUIConnectionHandlerTest() throws IOException {
     }
     @Test
-    void testWithWebsocket(String text, String name) throws Exception {
-        DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend("websocket_token_open_50_2.db")
+    void testWithWebsocket(String text, String name, int i) throws Exception {
+        String token_numbers = "9999"; // muss in 4 Ziffern sein
+        DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend("performance_dbs/local/websocket/"+token_numbers+"/"+i+"/performance.db")
                 .withConnectionPoolSize(iWorkers);
         DUUILuaContext ctx = new DUUILuaContext().withGlobalLibrary("json", DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/json.lua").toURI());
 
@@ -129,19 +132,20 @@ class IDUUIConnectionHandlerTest {
     }
     @Test
     void forWebsocketTest() throws Exception {
+        int repetition = 1;
         List<Path> filePaths = getFilePathes("sample_splitted");
         for (Path path: filePaths) {
             String link = "/sample_splitted/"+path;
             System.out.println(link);
             InputStream inputStream = IDUUIConnectionHandlerTest.class.getResourceAsStream(link);
             String text = readFromInputStream(inputStream);
-            testWithWebsocket(text, String.valueOf(path));
-
+            testWithWebsocket(text, String.valueOf(path), repetition);
         }
         DUUIComposer._clients.forEach(IDUUIConnectionHandler::close);
 
 
     }
+
 
 
     @Test

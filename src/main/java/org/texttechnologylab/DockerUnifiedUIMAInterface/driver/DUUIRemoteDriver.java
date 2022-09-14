@@ -14,7 +14,6 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.DUUIWebsocket
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.IDUUIConnectionHandler;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.DUUIWebsocketHandler;
 import org.xml.sax.SAXException;
 
 import java.io.IOException;
@@ -219,7 +218,7 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
                  */
 //                _socketio = new DUUIWebsocketHandler(wsurl);
                 _socketio = new DUUIWebsocketAlt(
-                        url.replaceFirst("http", "ws") + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS_WEBSOCKET, 50);
+                        url.replaceFirst("http", "ws") + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS_WEBSOCKET, 9999);
             }
             else {
                 _socketio = null;
