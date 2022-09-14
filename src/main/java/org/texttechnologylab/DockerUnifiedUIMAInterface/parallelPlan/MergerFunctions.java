@@ -19,9 +19,7 @@ public class MergerFunctions {
         destCas.removeAllExcludingSubtypes(annotationType);
 
         Class<? extends TOP> annotationClass = JCasRegistry.getClassForIndex(annotationType);
-        JCasUtil.select(srcCas, annotationClass).forEach(annotation -> {
-            destCas.addFsToIndexes(casCopier.copyFs(annotation));
-        });
+        JCasUtil.select(srcCas, annotationClass).forEach(annotation -> destCas.addFsToIndexes(casCopier.copyFs(annotation)));
     }
 
 
@@ -30,23 +28,24 @@ public class MergerFunctions {
      */
     public static void merge(JCas srcCas, JCas destCas, Collection<Integer> annotationTypes) {
         CasCopier casCopier = new CasCopier(srcCas.getCas(), destCas.getCas());
-        for(Integer annotationType:annotationTypes) {
+        for (Integer annotationType : annotationTypes) {
             destCas.removeAllExcludingSubtypes(annotationType);
 
             Class<? extends TOP> annotationClass = JCasRegistry.getClassForIndex(annotationType);
-            JCasUtil.select(srcCas, annotationClass).forEach(annotation -> {
-                destCas.addFsToIndexes(casCopier.copyFs(annotation));
-            });
+            JCasUtil.select(srcCas, annotationClass).forEach(annotation -> destCas.addFsToIndexes(casCopier.copyFs(annotation)));
         }
     }
 
     /**
      * copy all Annotations form srcCas to destCas
      */
-    public static void mergeAll(JCas srcCas, JCas destCas){
-        CasCopier casCopier = new CasCopier(srcCas.getCas(), destCas.getCas());
-        for(TOP annotation : JCasUtil.selectAll(srcCas)) {
-            destCas.addFsToIndexes(casCopier.copyFs(annotation));
-        }
+    public static void mergeAll(JCas srcCas, JCas destCas) {
+//        CasCopier casCopier = new CasCopier(srcCas.getCas(), destCas.getCas());
+//        casCopier.copyCasView(srcCas,destCas,true);
+//        for(TOP annotation : JCasUtil.selectAll(srcCas)) {
+//            destCas.addFsToIndexes(casCopier.copyFs(annotation));
+//        }
+        CasCopier.copyCas(srcCas.getCas(), destCas.getCas(), destCas.getSofa() == null);
+
     }
 }
