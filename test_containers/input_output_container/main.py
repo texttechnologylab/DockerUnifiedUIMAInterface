@@ -34,9 +34,9 @@ with open('dkpro-core-types.xml', 'rb') as f:
         def do_POST(self):
             content_len = int(self.headers.get('Content-Length'))
             post_body = self.rfile.read(content_len).decode("utf-8")
-            print("POST Body")
-            print(post_body)
-            print()
+            #print("POST Body")
+            #print(post_body)
+            #print()
 
             cas = load_cas_from_xmi(post_body, typesystem=typesystem, lenient=True)
             #loaded = json.loads(post_body)
