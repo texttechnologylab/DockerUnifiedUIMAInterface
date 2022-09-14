@@ -29,7 +29,7 @@ class IDUUIConnectionHandlerTest {
     }
     @Test
     void testWithWebsocket(String text, String name, int i) throws Exception {
-        String token_numbers = "9999"; // muss in 4 Ziffern sein
+        String token_numbers = "2000"; // muss in 4 Ziffern sein
         DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend("performance_dbs/local/websocket/"+token_numbers+"/"+i+"/performance.db")
                 .withConnectionPoolSize(iWorkers);
         DUUILuaContext ctx = new DUUILuaContext().withGlobalLibrary("json", DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/json.lua").toURI());
@@ -132,7 +132,7 @@ class IDUUIConnectionHandlerTest {
     }
     @Test
     void forWebsocketTest() throws Exception {
-        int repetition = 1;
+        int repetition = 4;
         List<Path> filePaths = getFilePathes("sample_splitted");
         for (Path path: filePaths) {
             String link = "/sample_splitted/"+path;
