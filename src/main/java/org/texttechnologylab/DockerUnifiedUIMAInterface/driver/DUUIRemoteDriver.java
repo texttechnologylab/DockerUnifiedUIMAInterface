@@ -17,7 +17,6 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPip
 import org.xml.sax.SAXException;
 
 import java.io.IOException;
-import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.http.HttpClient;
 import java.security.InvalidParameterException;
@@ -31,7 +30,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 public class DUUIRemoteDriver implements IDUUIDriverInterface {
     private HashMap<String, InstantiatedComponent> _components;
     private HttpClient _client;
-    private IDUUIConnectionHandler _socketio;
+    private IDUUIConnectionHandler _wsclient;
     private DUUICompressionHelper _helper;
     private DUUILuaContext _luaContext;
 
@@ -209,19 +208,13 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         boolean added_communication_layer = false;
 
         for(String url : comp.getUrls()) {
-            /** @see **/
             if (comp.isWebsocket()) {
-                String wsurl = String.valueOf(URI.create(
-                        url.substring(0, (url.length()-1))+ (Integer.parseInt(url.substring(url.length()-1)) +1)));
-                /*
-                 * Pick which websocket client to use.
-                 */
-//                _socketio = new DUUIWebsocketHandler(wsurl);
-                _socketio = new DUUIWebsocketAlt(
-                        url.replaceFirst("http", "ws") + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS_WEBSOCKET, 9999);
+
+                _wsclient = new DUUIWebsocketAlt(
+                        url.replaceFirst("http", "ws") + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS_WEBSOCKET, 50);
             }
             else {
-                _socketio = null;
+                _wsclient = null;
             }
             IDUUICommunicationLayer layer = DUUIDockerDriver.responsiveAfterTime(url, jc, 100000, _client, (msg) -> {
                 System.out.printf("[RemoteDriver][%s] %s\n", uuidCopy, msg);
@@ -231,7 +224,7 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
                 added_communication_layer = true;
             }
             for (int i = 0; i < comp.getScale(); i++) {
-                comp.addComponent(new ComponentInstance(url, _socketio));
+                comp.addComponent(new ComponentInstance(url, _wsclient));
             }
             _components.put(uuid, comp);
             System.out.printf("[RemoteDriver][%s] Remote URL %s is online and seems to understand DUUI V1 format!\n", uuid, url);
@@ -277,11 +270,7 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
          */
 
             if (comp.isWebsocket()) {
-                try {
                     IDUUIInstantiatedPipelineComponent.process_handler(aCas, comp, perf);
-                } catch (URISyntaxException e) {
-                    e.printStackTrace();
-                }
             }
             else {
                 IDUUIInstantiatedPipelineComponent.process(aCas, comp, perf);

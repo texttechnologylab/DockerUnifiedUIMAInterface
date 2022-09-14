@@ -8,8 +8,10 @@ import org.apache.uima.jcas.JCas;
 import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.javatuples.Triplet;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIDockerInterface;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUICommunicationLayer;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.DUUIWebsocketAlt;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.DUUIWebsocketHandler;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.IDUUIConnectionHandler;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
@@ -31,7 +33,7 @@ import static java.lang.String.format;
 public class DUUISwarmDriver implements IDUUIDriverInterface {
     private final DUUIDockerInterface _interface;
     private HttpClient _client;
-    private DUUIWebsocketHandler _socketio;
+    private IDUUIConnectionHandler _wsclient;
 
 
     private final HashMap<String, DUUISwarmDriver.InstantiatedComponent> _active_components;
@@ -135,7 +137,7 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
                 System.out.printf("[DockerSwarmDriver][%s][%d Replicas] %s\n", uuidCopy, comp.getScale(),msg);
             },_luaContext,skipVerification);
             System.out.printf("[DockerSwarmDriver][%s][%d Replicas] Service for image %s is online (URL http://localhost:%d) and seems to understand DUUI V1 format!\n", uuid, comp.getScale(),comp.getImageName(), port);
-            comp.initialise(serviceid,port);
+            comp.initialise(serviceid,port, _wsclient);
             Thread.sleep(500);
 
             comp.setCommunicationLayer(layer);
@@ -164,7 +166,13 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         if (comp == null) {
             throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
         }
-        IDUUIInstantiatedPipelineComponent.process(aCas,comp,perf);
+
+        if (comp.isWebsocket()) {
+            IDUUIInstantiatedPipelineComponent.process_handler(aCas, comp, perf);
+        }
+        else {
+            IDUUIInstantiatedPipelineComponent.process(aCas, comp, perf);
+        }
     }
 
     public void destroy(String uuid) {
@@ -186,6 +194,11 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
             _url = url;
         }
 
+        ComponentInstance(String url, IDUUIConnectionHandler handler) {
+            _url = url;
+            _handler = handler;
+        }
+
         public String generateURL() {
             return _url;
         }
@@ -203,6 +216,7 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         private final int _scale;
         private final String _fromLocalImage;
         private final ConcurrentLinkedQueue<ComponentInstance> _components;
+        private boolean _websocket;
 
         private final String _reg_password;
         private final String _reg_username;
@@ -227,6 +241,8 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
             _fromLocalImage = null;
             _reg_password = comp.getDockerAuthPassword();
             _reg_username = comp.getDockerAuthUsername();
+
+            _websocket = comp.isWebsocket();
         }
 
 
@@ -247,12 +263,23 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
             return _fromLocalImage;
         }
 
+        public boolean isWebsocket() {
+            return _websocket;
+        }
 
-        public InstantiatedComponent initialise(String service_id, int container_port) {
+        public InstantiatedComponent initialise(String service_id, int container_port, IDUUIConnectionHandler _wsclient) throws IOException, InterruptedException {
             _service_id = service_id;
             _service_port = container_port;
+
+            if (_websocket) {
+                _wsclient = new DUUIWebsocketAlt(
+                        getServiceUrl().replaceFirst("http", "ws") + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS_WEBSOCKET, 50);
+            }
+            else {
+                _wsclient = null;
+            }
             for(int i = 0; i < _scale; i++) {
-                _components.add(new ComponentInstance(getServiceUrl()));
+                _components.add(new ComponentInstance(getServiceUrl(), _wsclient));
             }
             return this;
         }
@@ -343,6 +370,11 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
 
         public Component withRunningAfterDestroy(boolean run) {
             component.withDockerRunAfterExit(run);
+            return this;
+        }
+
+        public Component withWebsocket(boolean b) {
+            component.withWebsocket(b);
             return this;
         }
 

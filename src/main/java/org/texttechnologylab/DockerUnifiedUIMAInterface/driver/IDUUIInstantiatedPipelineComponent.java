@@ -174,7 +174,7 @@ public interface IDUUIInstantiatedPipelineComponent {
 
     public static void process_handler(JCas jc,
                                        IDUUIInstantiatedPipelineComponent comp,
-                                       DUUIPipelineDocumentPerformance perf) throws CompressorException, IOException, SAXException, CASException, URISyntaxException, InterruptedException {
+                                       DUUIPipelineDocumentPerformance perf) throws CompressorException, IOException, SAXException, CASException, InterruptedException {
         Triplet<IDUUIUrlAccessible,Long,Long> queue = comp.getComponent();
 
         IDUUICommunicationLayer layer = comp.getCommunicationLayer();
