@@ -3,6 +3,10 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface.parallelPlan;
 import org.apache.uima.UIMAException;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.jcas.JCas;
+import org.apache.uima.resource.ResourceInitializationException;
+import org.jgrapht.Graph;
+import org.jgrapht.graph.DefaultDirectedGraph;
+import org.jgrapht.graph.DefaultEdge;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUIExecutionPlan;
 
@@ -17,12 +21,16 @@ public class DUUIParallelExecutionPlan implements IDUUIExecutionPlan {
 
     private final DUUIComposer.PipelinePart pipelinePart;
     private JCas jCas;
-    private final List<IDUUIExecutionPlan> previous = new ArrayList<>();
+    private final List<DUUIParallelExecutionPlan> previous = new ArrayList<>();
 
-    private final List<IDUUIExecutionPlan> next = new ArrayList<>();
+    private final List<DUUIParallelExecutionPlan> next = new ArrayList<>();
 
-    private AtomicBoolean merged = new AtomicBoolean(false);
+    private final AtomicBoolean merged = new AtomicBoolean(false);
     private FutureTask<IDUUIExecutionPlan> future;
+
+    //cache
+    private List<String> inputs;
+    private List<String> outputs;
 
     public DUUIParallelExecutionPlan(DUUIComposer.PipelinePart pipelinePart, JCas jcas) {
         this.pipelinePart = pipelinePart;
@@ -30,12 +38,12 @@ public class DUUIParallelExecutionPlan implements IDUUIExecutionPlan {
     }
 
     public DUUIParallelExecutionPlan(DUUIComposer.PipelinePart pipelinePart) {
-        this(pipelinePart,null);
+        this(pipelinePart, null);
     }
 
     @Override
     public List<IDUUIExecutionPlan> getNextExecutionPlans() {
-        return next;
+        return new ArrayList<>(next);
     }
 
     /**
@@ -49,7 +57,7 @@ public class DUUIParallelExecutionPlan implements IDUUIExecutionPlan {
 
     @Override
     public synchronized Future<IDUUIExecutionPlan> awaitMerge() {
-        if(!merged.getAndSet(true)) {
+        if (!merged.getAndSet(true)) {
             future = new FutureTask<>(() -> {
                 this.merge();
                 return this;
@@ -67,11 +75,11 @@ public class DUUIParallelExecutionPlan implements IDUUIExecutionPlan {
         return jCas;
     }
 
-    public List<IDUUIExecutionPlan> getPrevious() {
+    public List<DUUIParallelExecutionPlan> getPrevious() {
         return previous;
     }
 
-    public List<IDUUIExecutionPlan> getNext() {
+    public List<DUUIParallelExecutionPlan> getNext() {
         return next;
     }
 
@@ -84,8 +92,8 @@ public class DUUIParallelExecutionPlan implements IDUUIExecutionPlan {
         next.add(parallelExecutionPlan);
     }
 
-    protected void addPrevious(IDUUIExecutionPlan iduuiExecutionPlan) {
-        previous.add(iduuiExecutionPlan);
+    protected void addPrevious(DUUIParallelExecutionPlan parallelExecutionPlan) {
+        previous.add(parallelExecutionPlan);
     }
 
     /**
@@ -95,12 +103,13 @@ public class DUUIParallelExecutionPlan implements IDUUIExecutionPlan {
      */
     //* Reuses first previous JCas if exists.
     private void merge() {
-//        try {
-//            System.out.println(jCas.getDocumentText());
-//            jCas = JCasFactory.createJCas(); //root?
-//        } catch (UIMAException e) {
-//            throw new RuntimeException(e);
-//        }
+        if (jCas != null)
+            return;
+        try {
+            jCas = JCasFactory.createJCas();
+        } catch (UIMAException e) {
+            throw new RuntimeException(e);
+        }
         for (IDUUIExecutionPlan iduuiExecutionPlan : previous) {
             JCas previousJCas;
             try {
@@ -116,14 +125,29 @@ public class DUUIParallelExecutionPlan implements IDUUIExecutionPlan {
                 }
             }
         }
-        // ensure that a jCas is set
-        if (jCas == null) {
+    }
+
+    public List<String> getInputs(){
+        if(pipelinePart!=null && inputs==null) {
             try {
-                jCas = JCasFactory.createJCas();
-            } catch (UIMAException e) {
+                inputs = pipelinePart.getDriver().getInputsOutputs(pipelinePart.getUUID()).getInputs();
+            } catch (ResourceInitializationException e) {
                 throw new RuntimeException(e);
             }
         }
+        return inputs;
     }
+
+    public List<String> getOutputs(){
+        if(pipelinePart!=null && outputs==null) {
+            try {
+                outputs = pipelinePart.getDriver().getInputsOutputs(pipelinePart.getUUID()).getOutputs();
+            } catch (ResourceInitializationException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        return outputs;
+    }
+
 
 }

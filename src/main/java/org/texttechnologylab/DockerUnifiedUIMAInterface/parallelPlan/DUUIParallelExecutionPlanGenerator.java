@@ -14,14 +14,9 @@ import java.util.*;
 public class DUUIParallelExecutionPlanGenerator implements IDUUIExecutionPlanGenerator {
 
     private final Collection<DUUIComposer.PipelinePart> pipelineParts;
-    private final Map<String, InputsOutputs> part2IO;
 
     public DUUIParallelExecutionPlanGenerator(Collection<DUUIComposer.PipelinePart> pipelineParts) throws ResourceInitializationException {
         this.pipelineParts = pipelineParts;
-        // cache input and output
-        part2IO = new TreeMap<>();
-        for (DUUIComposer.PipelinePart part : pipelineParts)
-            part2IO.put(part.getUUID(), part.getDriver().getInputsOutputs(part.getUUID()));
     }
 
     @Override
@@ -41,7 +36,7 @@ public class DUUIParallelExecutionPlanGenerator implements IDUUIExecutionPlanGen
         // build a Map that maps from output to ParallelExecutionPlan
         Map<String, Set<DUUIParallelExecutionPlan>> satisfiesToPipelinePart = new HashMap<>();
         for (DUUIParallelExecutionPlan plan : remaining) {
-            for (String s : part2IO.get(plan.getPipelinePart().getUUID()).getOutputs()) {
+            for (String s : plan.getOutputs()) {
                 if (satisfiesToPipelinePart.containsKey(s))
                     satisfiesToPipelinePart.get(s).add(plan);
                 else
@@ -51,8 +46,9 @@ public class DUUIParallelExecutionPlanGenerator implements IDUUIExecutionPlanGen
 
         // plans with no inputs are processed after root
         for (DUUIParallelExecutionPlan plan : remaining) {
-            if (part2IO.get(plan.getPipelinePart().getUUID()).getInputs().size() == 0) {
+            if (plan.getInputs().size() == 0) {
                 root.addNext(plan);
+                plan.addPrevious(root);
             }
         }
 
@@ -61,9 +57,9 @@ public class DUUIParallelExecutionPlanGenerator implements IDUUIExecutionPlanGen
             for (Iterator<DUUIParallelExecutionPlan> iterator = remaining.iterator(); iterator.hasNext(); ) {
                 DUUIParallelExecutionPlan plan = iterator.next();
 
-                if (satisfied.containsAll(part2IO.get(plan.getPipelinePart().getUUID()).getInputs())) {
+                if (satisfied.containsAll(plan.getInputs())) {
                     // run
-                    for (String inputs : part2IO.get(plan.getPipelinePart().getUUID()).getInputs())
+                    for (String inputs : plan.getInputs())
                         for (DUUIParallelExecutionPlan requiredPlan : satisfiesToPipelinePart.get(inputs)) {
                             if(!remaining.contains(requiredPlan)) {  // needed if there are more than one node that with the same output
                                 requiredPlan.addNext(plan);
@@ -71,7 +67,7 @@ public class DUUIParallelExecutionPlanGenerator implements IDUUIExecutionPlanGen
                             }
                         }
 
-                    satisfied.addAll(part2IO.get(plan.getPipelinePart().getUUID()).getOutputs());
+                    satisfied.addAll(plan.getOutputs());
                     iterator.remove();
                 }
             }
@@ -85,9 +81,7 @@ public class DUUIParallelExecutionPlanGenerator implements IDUUIExecutionPlanGen
                 plan.addNext(endNode);
                 endNode.addPrevious(plan);
             }
-
         }
-
         return root;
     }
 
