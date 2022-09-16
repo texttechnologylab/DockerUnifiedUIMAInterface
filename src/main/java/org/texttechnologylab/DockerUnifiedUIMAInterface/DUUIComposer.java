@@ -645,6 +645,7 @@ public class DUUIComposer {
             } else if (_storage != null) {
                 _storage.shutdown();
             }
+            _clients.forEach(IDUUIConnectionHandler::close);
             try {
                 shutdown_pipeline();
             } catch (Exception e) {
@@ -656,7 +657,7 @@ public class DUUIComposer {
 //            System.out.println("[Composer]: DUUIWebsocketHandler is closed");
 //            System.out.println("[Composer]: it takes until 30 second to shut down DUUIWebsocketHandler");
             /** @see **/
-            // _clients.forEach(IDUUIConnectionHandler::close);
+
             _hasShutdown = true;
         }
         else {

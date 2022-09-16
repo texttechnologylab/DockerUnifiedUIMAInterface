@@ -89,6 +89,13 @@ public class DUUIWebsocketAlt implements IDUUIConnectionHandler{
         /** @see **/
         if (this.client.isOpen()) {
             client.close(1000, "Closed by DUUIComposer");
+            while (!client.isClosed()) {
+                try {
+                    Thread.sleep(10);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
             System.out.println("[DUUIWebsocketAlt]: Handler is closed!");
         }
     }

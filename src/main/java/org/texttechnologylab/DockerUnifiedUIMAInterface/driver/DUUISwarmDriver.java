@@ -122,8 +122,9 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         }
         System.out.printf("[DockerSwarmDriver] Assigned new pipeline component unique id %s\n", uuid);
 
-            String digest = _interface.getDigestFromImage(comp.getImageName());
-            comp.getPipelineComponent().__internalPinDockerImage(digest);
+//            String digest = _interface.getDigestFromImage(comp.getImageName());
+            //comp.getPipelineComponent().__internalPinDockerImage(digest);
+            String digest = comp.getImageName();
         System.out.printf("[DockerSwarmDriver] Transformed image %s to pinnable image name %s\n", comp.getImageName(),digest);
 
         String serviceid = _interface.run_service(digest,comp.getScale());
@@ -137,7 +138,7 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
                 System.out.printf("[DockerSwarmDriver][%s][%d Replicas] %s\n", uuidCopy, comp.getScale(),msg);
             },_luaContext,skipVerification);
             System.out.printf("[DockerSwarmDriver][%s][%d Replicas] Service for image %s is online (URL http://localhost:%d) and seems to understand DUUI V1 format!\n", uuid, comp.getScale(),comp.getImageName(), port);
-            comp.initialise(serviceid,port, _wsclient);
+            comp.initialise(serviceid,port, this);
             Thread.sleep(500);
 
             comp.setCommunicationLayer(layer);
@@ -267,19 +268,19 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
             return _websocket;
         }
 
-        public InstantiatedComponent initialise(String service_id, int container_port, IDUUIConnectionHandler _wsclient) throws IOException, InterruptedException {
+        public InstantiatedComponent initialise(String service_id, int container_port, DUUISwarmDriver swarmDriver) throws IOException, InterruptedException {
             _service_id = service_id;
             _service_port = container_port;
 
             if (_websocket) {
-                _wsclient = new DUUIWebsocketAlt(
+                swarmDriver._wsclient = new DUUIWebsocketAlt(
                         getServiceUrl().replaceFirst("http", "ws") + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS_WEBSOCKET, 50);
             }
             else {
-                _wsclient = null;
+                swarmDriver._wsclient = null;
             }
             for(int i = 0; i < _scale; i++) {
-                _components.add(new ComponentInstance(getServiceUrl(), _wsclient));
+                _components.add(new ComponentInstance(getServiceUrl(), swarmDriver._wsclient));
             }
             return this;
         }

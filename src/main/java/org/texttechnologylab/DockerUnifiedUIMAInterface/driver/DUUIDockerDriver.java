@@ -11,7 +11,7 @@ import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.apache.uima.util.TypeSystemUtil;
 import org.javatuples.Triplet;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.*;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.DUUIWebsocketHandler;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.DUUIWebsocketAlt;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.IDUUIConnectionHandler;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaCommunicationLayer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
@@ -44,7 +44,7 @@ interface ResponsiveMessageCallback {
 public class DUUIDockerDriver implements IDUUIDriverInterface {
     private DUUIDockerInterface _interface;
     private HttpClient _client;
-    private DUUIWebsocketHandler _socketio;
+    private IDUUIConnectionHandler _wsclient;
 
 
     private HashMap<String, InstantiatedComponent> _active_components;
@@ -195,8 +195,9 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
             }
         }
         System.out.printf("[DockerLocalDriver] Assigned new pipeline component unique id %s\n", uuid);
-        String digest = _interface.getDigestFromImage(comp.getImageName());
-        comp.getPipelineComponent().__internalPinDockerImage(digest);
+        // String digest = _interface.getDigestFromImage(comp.getImageName());
+        // comp.getPipelineComponent().__internalPinDockerImage(digest);
+        String digest = comp.getImageName();
         System.out.printf("[DockerLocalDriver] Transformed image %s to pinnable image name %s\n", comp.getImageName(),digest);
         _active_components.put(uuid, comp);
         for (int i = 0; i < comp.getScale(); i++) {
@@ -213,12 +214,20 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
                     System.out.printf("[DockerLocalDriver][%s][Docker Replication %d/%d] %s\n", uuidCopy, iCopy + 1, comp.getScale(), msg);
                 },_luaContext, skipVerification);
                 System.out.printf("[DockerLocalDriver][%s][Docker Replication %d/%d] Container for image %s is online (URL http://127.0.0.1:%d) and seems to understand DUUI V1 format!\n", uuid, i + 1, comp.getScale(), comp.getImageName(), port);
-                comp.addInstance(new ComponentInstance(containerid, port));
+                if (comp.isWebsocket()) {
+                    String url = "http://127.0.0.1:" + String.valueOf(port);
+                    _wsclient = new DUUIWebsocketAlt(
+                            url.replaceFirst("http", "ws") + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS_WEBSOCKET, 50);
+                }
+                else {
+                    _wsclient = null;
+                }
+                comp.addInstance(new ComponentInstance(containerid, port, _wsclient));
                 comp.setCommunicationLayer(layer);
             }
             catch(Exception e) {
-                _interface.stop_container(containerid);
-                throw e;
+                //_interface.stop_container(containerid);
+                //throw e;
             }
         }
         return uuid;
@@ -246,7 +255,12 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
         if (comp == null) {
             throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
         }
-        IDUUIInstantiatedPipelineComponent.process(aCas,comp,perf);
+        if (comp.isWebsocket()) {
+            IDUUIInstantiatedPipelineComponent.process_handler(aCas, comp, perf);
+        }
+        else {
+            IDUUIInstantiatedPipelineComponent.process(aCas, comp, perf);
+        }
     }
     public void shutdown() {
     }
@@ -276,6 +290,11 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
             _port = port;
         }
 
+        public ComponentInstance(String id, int port, IDUUIConnectionHandler handler) {
+            _container_id = id;
+            _port = port;
+            _handler = handler;
+        }
 
         String getContainerId() {
             return _container_id;
@@ -303,6 +322,7 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
         private boolean _keep_runnging_after_exit;
         private int _scale;
         private boolean _withImageFetching;
+        private boolean _websocket;
 
         private String _reg_password;
         private String _reg_username;
@@ -358,6 +378,8 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
 
             _reg_password = comp.getDockerAuthPassword();
             _reg_username = comp.getDockerAuthUsername();
+
+            _websocket = comp.isWebsocket();
         }
 
 
@@ -395,6 +417,10 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
         }
 
         public Map<String,String> getParameters() {return _parameters;}
+
+        public boolean isWebsocket() {
+            return _websocket;
+        }
     }
 
     public static class Component {
@@ -442,6 +468,11 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
 
         public Component withRunningAfterDestroy(boolean run) {
             _component.withDockerRunAfterExit(run);
+            return this;
+        }
+
+        public Component withWebsocket(boolean b) {
+            _component.withWebsocket(b);
             return this;
         }
 

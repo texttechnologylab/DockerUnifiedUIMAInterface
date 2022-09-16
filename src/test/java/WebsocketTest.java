@@ -8,7 +8,10 @@ import org.apache.uima.util.XmlCasSerializer;
 import org.dkpro.core.io.xmi.XmiReader;
 import org.testcontainers.shaded.org.yaml.snakeyaml.composer.Composer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.IDUUIConnectionHandler;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIDockerDriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUISwarmDriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIUIMADriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.xml.sax.SAXException;
@@ -81,6 +84,72 @@ public class WebsocketTest {
 
     }
 
+    public static void testSwarm(String test) throws Exception {
+
+        DUUILuaContext ctx = new DUUILuaContext().withGlobalLibrary("json",DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/json.lua").toURI());
+
+        DUUIComposer composer = new DUUIComposer()
+                //        .withStorageBackend(new DUUIArangoDBStorageBackend("password",8888))
+                .withLuaContext(ctx)
+                .withSkipVerification(true);
+
+        DUUISwarmDriver swarmDriver = new DUUISwarmDriver();
+
+        composer.addDriver(swarmDriver);
+
+        composer.add(new DUUISwarmDriver.Component("localhost:5000/textimager-duui-spacy:0.1.2")
+                .withScale(1)
+                .withWebsocket(true).build());
+
+        String val = test;
+        JCas jc = JCasFactory.createJCas();
+        jc.setDocumentLanguage("de");
+        jc.setDocumentText(val);
+
+        // Run single document
+        composer.run(jc,"fuchs");
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        XmlCasSerializer.serialize(jc.getCas(),out);
+//        System.out.println(new String(out.toByteArray()));
+
+        composer.shutdown();
+
+    }
+
+    public static void testDocker(String test) throws Exception {
+
+        DUUILuaContext ctx = new DUUILuaContext().withGlobalLibrary("json",DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/json.lua").toURI());
+
+        DUUIComposer composer = new DUUIComposer()
+                //        .withStorageBackend(new DUUIArangoDBStorageBackend("password",8888))
+                .withLuaContext(ctx)
+                .withSkipVerification(true);
+
+        DUUIDockerDriver driver = new DUUIDockerDriver()
+                .withTimeout(10000);
+
+        composer.addDriver(driver);
+
+        composer.add(new DUUIDockerDriver.Component("textimager-duui-spacy:0.1.2")
+                        .withWebsocket(true)
+                        .withScale(1)
+                         .build());
+
+        String val = test;
+        JCas jc = JCasFactory.createJCas();
+        jc.setDocumentLanguage("de");
+        jc.setDocumentText(val);
+
+        // Run single document
+        composer.run(jc,"fuchs");
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        XmlCasSerializer.serialize(jc.getCas(),out);
+//        System.out.println(new String(out.toByteArray()));
+
+        composer.shutdown();
+
+    }
+
     public static void testWithRest(String test) throws Exception {
 
         DUUILuaContext ctx = new DUUILuaContext().withGlobalLibrary("json", DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/json.lua").toURI());
@@ -134,9 +203,13 @@ public class WebsocketTest {
 //        InputStream inputStream = WebsocketTest.class.getResourceAsStream("/sample_splitted/sample_140.txt");
         InputStream inputStream = WebsocketTest.class.getResourceAsStream("/sample_splitted/sample_02_349.txt");
         String text = readFromInputStream1(inputStream);
+
         System.out.println(text);
 
-        testWithWebsocket(text);
+        //testDocker(text);
+        // DUUIComposer._clients.forEach(IDUUIConnectionHandler::close);
+        testSwarm(text);
+//        testWithWebsocket(text);
 //        testWithWebsocket(text);
 
 
