@@ -2,13 +2,15 @@ import sqlite3
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
-
+import os
 
 
 
 class Visualisation:
     def __init__(self, myindex):
         plt.figure(figsize=(40, 20))
+        self.test_number = '0'
+        self.token_numbers = '010'
         self.labels = []
         self.lines = []
         self.myindex = myindex
@@ -33,7 +35,6 @@ class Visualisation:
 
                     "serializedSize" # 9
                           ]
-
 
     def addLine(self, path):
         self.dbNames.append(path[-6:-3])
@@ -75,7 +76,15 @@ class Visualisation:
             "-------------------------------------------- Document size -------------------------------------------->",
             fontsize=16, fontweight="bold", labelpad=30)
         plt.ylabel("--------- " + self.all[self.myindex] + " --------->", fontsize=16, fontweight="bold", labelpad=30)
-        plt.savefig('./gradient.pdf')
+        dir = 'results'
+        newdir = dir+'/'+self.token_numbers+'/'+self.test_number+''
+        if not os.path.exists(newdir):
+            if not os.path.exists(dir+'/'+self.token_numbers+''):
+                os.mkdir(dir+'/'+self.token_numbers+'')
+            else:
+                os.mkdir(dir+'/'+self.token_numbers+'/'+self.test_number+'')
+
+        plt.savefig('results/'+self.token_numbers+'/'+self.test_number+'/plot.pdf')
 
 
     def gradientDescentCalcu(self, lx, x_train, y_train):
@@ -137,19 +146,29 @@ class Visualisation:
             fontsize=16, fontweight="bold", labelpad=30)
         plt.ylabel("--------- " + self.all[self.myindex] + " --------->", fontsize=16, fontweight="bold", labelpad=30)
         # plt.show()
-        plt.savefig('./gradientDescent.pdf')
+
+        dir = 'results'
+        newdir = dir+'/'+self.token_numbers+'/'+self.test_number+''
+        if not os.path.exists(newdir):
+            if not os.path.exists(dir+'/'+self.token_numbers+''):
+                os.mkdir(dir+'/'+self.token_numbers+'')
+            else:
+                os.mkdir(dir+'/'+self.token_numbers+'/'+self.test_number+'')
+
+        plt.savefig('results/'+self.token_numbers+'/'+self.test_number+'/gradientDescent.pdf')
+
 
 
 visualisation = Visualisation(6)
 # print(visualisation.all)
 # print(visualisation.myindex)
-visualisation.addLine("../websocket_token_open_200.db")
+# visualisation.addLine("../websocket_token_open_200.db")
 # visualisation.addLine("../websocket_token_open_100.db")
 # visualisation.addLine("../websocket_token_open_60.db")
-visualisation.addLine("../websocket_token_open_50.db")
+# visualisation.addLine("../websocket_token_open_50.db")
 # visualisation.addLine("../websocket_token_open_25.db")
-visualisation.addLine("../websocket_token_open_15.db")
+visualisation.addLine("../performance_dbs/local/websocket/010/0/performance.db")
 # print(visualisation.labels)
 # print(visualisation.lines)
-print(visualisation.dbNames)
 visualisation.plot()
+visualisation.gradientDescent()

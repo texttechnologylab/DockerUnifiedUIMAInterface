@@ -15,6 +15,7 @@ class Visualisation:
         self.lines = []
         self.myindex = myindex
         self.dbNames = []
+        self.dbNames_min_max = []
         self.all =["pipelinename" ,
 
                     "componenthash" , # 1
@@ -39,7 +40,7 @@ class Visualisation:
 
 
     def addLine(self, path):
-        self.dbNames.append(path[3:7])
+        self.dbNames.append(path[-20:])
         connction = sqlite3.connect(path)
         cursor = connction.cursor()
         pipeline_perf = cursor.execute("SELECT * FROM pipeline_perf;").fetchall()
@@ -90,6 +91,12 @@ class Visualisation:
         #plt.savefig('./remote.pdf')
 
 
+
+
+
+
+
+
     def gradientDescentCalcu(self, lx, x_train, y_train):
         m = 0.1
         c = 0.01
@@ -103,9 +110,8 @@ class Visualisation:
                 slope = slope + ((m * x_train[j] + c) - y_train[j]) * x_train[j]
             c = c - alpha * (intercept / lx)
             m = m - alpha * (slope / lx)
-        print(f"slope is {m}")
-
-        #print(f"intercept is {c}")
+        # print(f"slope is {m}")
+        # print(f"intercept is {c}")
         return {"m":m, "c":c}
 
     def gradientDescent(self):
@@ -114,6 +120,7 @@ class Visualisation:
         x_train = ""
         x_test = ""
         lx = ""
+        mAndC_s = [] # hier werden slope m und intercept c gespeichert
         y_s = []
         y_pred_s = []
         for line in self.lines:
@@ -123,16 +130,41 @@ class Visualisation:
             x_train, x_test, y_train, y_test = train_test_split(x, y, random_state=16)
             lx = len(x_train)
             mAndC = self.gradientDescentCalcu(lx, x_train, y_train)
-            y_pred = np.dot(mAndC["m"], x_test) + mAndC["c"]
+            mAndC_s.append(mAndC)
+
+        print(mAndC_s)
+        m_min = min(list(map(lambda x: x['m'], mAndC_s)))
+        print(m_min)
+
+        m_max = max(list(map(lambda x: x['m'], mAndC_s)))
+        print(m_max)
+
+        new_mAndC_s_with_min_max = []
+        for mc in mAndC_s:
+            if mc['m']==m_min:
+                new_mAndC_s_with_min_max.append(mc)
+                index = mAndC_s.index(mc)
+                print(index)
+                self.dbNames_min_max.append(self.dbNames[index])
+            if mc['m']==m_max:
+                new_mAndC_s_with_min_max.append(mc)
+                index = mAndC_s.index(mc)
+                print(index)
+                self.dbNames_min_max.append(self.dbNames[index])
+        print(new_mAndC_s_with_min_max)
+
+
+        for m_c in new_mAndC_s_with_min_max:
+            y_pred = np.dot(m_c["m"], x_test) + m_c["c"]
             y_pred_s.append(y_pred)
 
-        print(y_s)
 
 
-        for i in range(len(y_s)):
+
+        for i in range(len(new_mAndC_s_with_min_max)):
             plt.plot(x_test, y_pred_s[i],
                      # color='none',
-                     label= str(self.dbNames[i][:2] if self.dbNames[i][2]=="_" else self.dbNames[i]),
+                     label= str(self.dbNames_min_max[i]+" "+str(int(new_mAndC_s_with_min_max[i]['m'])/10000)),
                      linestyle='dashed',
                      linewidth=3,
                      marker='o',
@@ -155,12 +187,9 @@ class Visualisation:
         dir = 'results'
         newdir = dir+'/'+self.token_numbers+'/'+self.test_number+''
         if not os.path.exists(newdir):
-            if not os.path.exists(dir+'/'+self.token_numbers+''):
-                os.mkdir(dir+'/'+self.token_numbers+'')
-            else:
-                os.mkdir(dir+'/'+self.token_numbers+'/'+self.test_number+'')
+            os.mkdir(dir+'/'+self.token_numbers+'/')
 
-        plt.savefig('results/'+self.token_numbers+'/'+self.test_number+'/gradientDescent.pdf')
+        plt.savefig('results/'+self.token_numbers+'/gradientDescent.pdf')
 
 
 visualisation = Visualisation(6)
@@ -170,6 +199,11 @@ visualisation.addLine("../performance_dbs/local/websocket/010/2/performance.db")
 visualisation.addLine("../performance_dbs/local/websocket/010/3/performance.db")
 visualisation.addLine("../performance_dbs/local/websocket/010/4/performance.db")
 visualisation.addLine("../performance_dbs/local/websocket/010/5/performance.db")
+visualisation.addLine("../performance_dbs/local/websocket/010/6/performance.db")
+visualisation.addLine("../performance_dbs/local/websocket/010/7/performance.db")
+visualisation.addLine("../performance_dbs/local/websocket/010/8/performance.db")
+visualisation.addLine("../performance_dbs/local/websocket/010/9/performance.db")
+
 
 # print(visualisation.all)
 # print(visualisation.myindex)
