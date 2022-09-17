@@ -6,6 +6,7 @@ import json
 import base64
 import sys
 import argparse
+import time
 
 communication = ''
 
@@ -38,6 +39,8 @@ with open('dkpro-core-types.xml', 'rb') as f:
             #print(post_body)
             #print()
 
+            # time.sleep(5)
+
             cas = load_cas_from_xmi(post_body, typesystem=typesystem, lenient=True)
             #loaded = json.loads(post_body)
             #print(loaded)
@@ -51,7 +54,7 @@ with open('dkpro-core-types.xml', 'rb') as f:
 
             # Whenever using 'send_header', you also have to call 'end_headers'
             self.end_headers()
-            self.wfile.write(f"{PORT}".encode("utf-8"))  # calls deserialize in lua
+            self.wfile.write(f"{PORT}".encode("utf-8"))
         def do_GET(self):
             if self.path == '/v1/communication_layer':
                 # Sending an '200 OK' response

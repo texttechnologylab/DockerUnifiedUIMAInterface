@@ -9,6 +9,8 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUIExecutionPlan;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUIExecutionPlanGenerator;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.InputsOutputs;
 
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.util.*;
 
 public class DUUIParallelExecutionPlanGenerator implements IDUUIExecutionPlanGenerator {
@@ -24,7 +26,6 @@ public class DUUIParallelExecutionPlanGenerator implements IDUUIExecutionPlanGen
 
         DUUIParallelExecutionPlan root = new DUUIParallelExecutionPlan(null, jc);
 
-        Set<String> satisfied = new HashSet<>();
 
         // wrap PipelineParts in ParallelExecutionPlans
         Collection<DUUIParallelExecutionPlan> allNodes = new ArrayList<>();
@@ -53,6 +54,8 @@ public class DUUIParallelExecutionPlanGenerator implements IDUUIExecutionPlanGen
         }
 
         // build graph
+
+        Set<String> satisfied = new HashSet<>();
         while (!remaining.isEmpty()) {
             for (Iterator<DUUIParallelExecutionPlan> iterator = remaining.iterator(); iterator.hasNext(); ) {
                 DUUIParallelExecutionPlan plan = iterator.next();
@@ -82,6 +85,8 @@ public class DUUIParallelExecutionPlanGenerator implements IDUUIExecutionPlanGen
                 endNode.addPrevious(plan);
             }
         }
+
+        PlanToGraph.writeGraph(PlanToGraph.toGraph(root), "graph.graphml");
         return root;
     }
 
