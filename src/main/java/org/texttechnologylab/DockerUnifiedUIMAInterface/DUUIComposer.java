@@ -1,6 +1,7 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface;
 
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Sentence;
+import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
 import de.tudarmstadt.ukp.dkpro.core.api.syntax.type.dependency.Dependency;
 import de.tudarmstadt.ukp.dkpro.core.tokit.BreakIteratorSegmenter;
 import org.apache.commons.compress.compressors.CompressorException;
@@ -31,6 +32,7 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.parallelPlan.DUUIParalle
 import org.texttechnologylab.DockerUnifiedUIMAInterface.parallelPlan.DUUIParallelExecutionPlanGenerator;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.IDUUIStorageBackend;
+import org.texttechnologylab.annotation.DocumentModification;
 import org.texttechnologylab.annotation.SpacyAnnotatorMetaData;
 import org.xml.sax.SAXException;
 import org.yaml.snakeyaml.TypeDescription;
@@ -82,29 +84,29 @@ class DUUIWorker extends Thread {
     public void run() {
         int num = _threadsAlive.addAndGet(1);
         while(true) {
-            JCas object = null;
+            JCas document = null;
             long waitTimeStart = System.nanoTime();
             long waitTimeEnd = 0;
-            while(object == null) {
-                object = _loadedInstances.poll();
+            while(document == null) {
+                document = _loadedInstances.poll();
 
-                if(_shutdown.get() && object == null) {
+                if(_shutdown.get() && document == null) {
                     _threadsAlive.getAndDecrement();
                     return;
                 }
 
-                if(object==null && _reader!=null) {
-                    object = _instancesToBeLoaded.poll();
-                    if(object==null)
+                if(document==null && _reader!=null) {
+                    document = _instancesToBeLoaded.poll();
+                    if(document==null)
                         continue;
                     try {
                         waitTimeEnd = System.nanoTime();
-                        if(!_reader.getNextCAS(object)) {
+                        if(!_reader.getNextCAS(document)) {
                             _threadsAlive.getAndDecrement();
-                            _instancesToBeLoaded.add(object);
+                            _instancesToBeLoaded.add(document);
                             //Give the main IO Thread time to finish work
                             Thread.sleep(300);
-                            object = null;
+                            document = null;
                         }
                     } catch (IOException e) {
                         e.printStackTrace();
@@ -117,15 +119,15 @@ class DUUIWorker extends Thread {
                     }
                 }
             }
-            System.out.println(object.getDocumentText());
+            System.out.println(document.getDocumentText());
             if(waitTimeEnd==0) waitTimeEnd = System.nanoTime();
-            IDUUIExecutionPlan execPlan = _generator.generate(object);
+            IDUUIExecutionPlan execPlan = _generator.generate(document);
 
             //System.out.printf("[Composer] Thread %d still alive and doing work\n",num);
 
             DUUIPipelineDocumentPerformance perf = new DUUIPipelineDocumentPerformance(_runKey,
                     waitTimeEnd-waitTimeStart,
-                    object);
+                    document);
             // f32, 64d, e57
             // DAG, Directed Acyclic Graph
                 boolean done = false;
@@ -144,6 +146,12 @@ class DUUIWorker extends Thread {
                                 }
                                 for (IDUUIExecutionPlan plan : mergedPlan.getNextExecutionPlans()) {
                                     newFutures.add(plan.awaitMerge());
+                                }
+                                if(mergedPlan.getNextExecutionPlans().isEmpty()) {
+                                    System.out.println("finished merge");
+                                    for (DocumentModification t : JCasUtil.select(mergedPlan.getJCas(), DocumentModification.class)) {
+                                        System.out.println(t);
+                                    }
                                 }
                             } catch (InterruptedException e) {
                                 e.printStackTrace();
@@ -167,8 +175,8 @@ class DUUIWorker extends Thread {
                     pendingFutures.addAll(newFutures);
                 }
 
-            object.reset();
-            _instancesToBeLoaded.add(object);
+            document.reset();
+            _instancesToBeLoaded.add(document);
             if(_backend!=null) {
                 _backend.addMetricsForDocument(perf);
             }
