@@ -8,7 +8,6 @@ util = luajava.bindClass("org.apache.uima.fit.util.JCasUtil")
 
 function serialize(inputCas,outputStream,params)
 
-  --print("--serialize--")
   serial:serialize(inputCas:getCas(), outputStream)
   --print(luajava.newInstance("java.lang.String", outputStream:toByteArray(), StandardCharsets.UTF_8))
   local result = util:select(inputCas,token):iterator()
@@ -20,11 +19,9 @@ function serialize(inputCas,outputStream,params)
 	  --outputStream:write(x:getText())
 	  --outputStream:write("\n")
   end
-  --print("--serialize end--")
 end
 
 function deserialize(inputCas,inputStream)
-    --print("--deserialize--")
     -- Get string from stream, assume UTF-8 encoding
     local inputString = luajava.newInstance("java.lang.String", inputStream:readAllBytes(), StandardCharsets.UTF_8)
     --print(inputString)
@@ -32,5 +29,4 @@ function deserialize(inputCas,inputStream)
     mod:setUser(inputString)
     mod:setComment("annotation")
     mod:addToIndexes()
-    --print("--deserialize end--")
 end
