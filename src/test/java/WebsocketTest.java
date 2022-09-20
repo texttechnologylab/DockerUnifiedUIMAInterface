@@ -78,7 +78,7 @@ public class WebsocketTest {
         composer.run(jc,"fuchs");
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         XmlCasSerializer.serialize(jc.getCas(),out);
-//        System.out.println(new String(out.toByteArray()));
+        System.out.println(new String(out.toByteArray()));
 
         composer.shutdown();
 
@@ -200,15 +200,20 @@ public class WebsocketTest {
 
     public static void main(String[] args) throws Exception {
 
-//        InputStream inputStream = WebsocketTest.class.getResourceAsStream("/sample_splitted/sample_140.txt");
-        InputStream inputStream = WebsocketTest.class.getResourceAsStream("/sample_splitted/sample_02_349.txt");
+        InputStream inputStream = WebsocketTest.class.getResourceAsStream("/sample_splitted/sample_01_140.txt");
+//        InputStream inputStream = WebsocketTest.class.getResourceAsStream("/sample_splitted/sample_02_349.txt");
         String text = readFromInputStream1(inputStream);
 
         System.out.println(text);
 
         //testDocker(text);
         // DUUIComposer._clients.forEach(IDUUIConnectionHandler::close);
-        testSwarm(text);
+        testWithWebsocket(text);
+
+
+        testWithWebsocket(text);
+
+
 //        testWithWebsocket(text);
 //        testWithWebsocket(text);
 

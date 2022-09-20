@@ -41,7 +41,10 @@ class Visualiser:
                     "serializedSize", # 9
                    "remote" #10
                           ]
-        self.toPlotTests = [ "0010", "2000", "9999"]
+        self.toPlotTests = [ "0025", "0100", "0050", "0500", "1000", "2000", "5000", "9999"]
+        # self.toPlotTests = ["0025", "0050", "1000", "5000", "9999"]
+
+
 
     def setDir(self, dirPath):
         # print("dir = ", dirPath)
@@ -196,6 +199,7 @@ class Visualiser:
             result["test_number"] =index
             result["number_of_test"]= len(lines)
             result["y_pred"]= y_pred
+            result["x_test"]= x_tests[index]
             result["x_test"]= x_tests[index]
             print(mAndC_s)
             print(result)

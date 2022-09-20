@@ -2,20 +2,15 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="8a5b5611-44f4-436b-a8f5-4fd840475d6d" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/../../src/main/java/org/texttechnologylab/DockerUnifiedUIMAInterface/givara_tests/ClientSocketIO.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/../../src/main/java/org/texttechnologylab/DockerUnifiedUIMAInterface/givara_tests/MyClient.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/../../src/main/java/org/texttechnologylab/DockerUnifiedUIMAInterface/givara_tests/MyClient2.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/../lua_communication_xmi_websocket/.idea/inspectionProfiles/profiles_settings.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/../lua_communication_xmi_websocket/.idea/lua_communication_xmi_websocket.iml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/../lua_communication_xmi_websocket/.idea/misc.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/../lua_communication_xmi_websocket/.idea/modules.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/../lua_communication_xmi_websocket/.idea/vcs.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../../pom.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../performance_test_visualiser/results/gradientDescent.pdf" beforeDir="false" afterPath="$PROJECT_DIR$/../../performance_test_visualiser/results/gradientDescent.pdf" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../performance_test_visualiser/results/gradientDescent_with_first_and_last_value.pdf" beforeDir="false" afterPath="$PROJECT_DIR$/../../performance_test_visualiser/results/gradientDescent_with_first_and_last_value.pdf" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../performance_test_visualiser/results/plot.pdf" beforeDir="false" afterPath="$PROJECT_DIR$/../../performance_test_visualiser/results/plot.pdf" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../performance_test_visualiser/results/plot_with_first_and_last_value.pdf" beforeDir="false" afterPath="$PROJECT_DIR$/../../performance_test_visualiser/results/plot_with_first_and_last_value.pdf" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../performance_test_visualiser/visualizer.py" beforeDir="false" afterPath="$PROJECT_DIR$/../../performance_test_visualiser/visualizer.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../performance_test_visualiser/visualizer_with_first_and_last_value.py" beforeDir="false" afterPath="$PROJECT_DIR$/../../performance_test_visualiser/visualizer_with_first_and_last_value.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../../src/main/java/org/texttechnologylab/DockerUnifiedUIMAInterface/driver/DUUIRemoteDriver.java" beforeDir="false" afterPath="$PROJECT_DIR$/../../src/main/java/org/texttechnologylab/DockerUnifiedUIMAInterface/driver/DUUIRemoteDriver.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../src/main/java/org/texttechnologylab/DockerUnifiedUIMAInterface/driver/IDUUIInstantiatedPipelineComponent.java" beforeDir="false" afterPath="$PROJECT_DIR$/../../src/main/java/org/texttechnologylab/DockerUnifiedUIMAInterface/driver/IDUUIInstantiatedPipelineComponent.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../src/main/java/org/texttechnologylab/DockerUnifiedUIMAInterface/givara_tests/MyTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/../../src/main/java/org/texttechnologylab/DockerUnifiedUIMAInterface/givara_tests/MyTest.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../lua_communication_xmi_websocket/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../lua_communication_xmi_websocket/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../lua_communication_xmi_websocket/server.py" beforeDir="false" afterPath="$PROJECT_DIR$/../lua_communication_xmi_websocket/server.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../src/test/java/WebsocketTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/../../src/test/java/WebsocketTest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../src/test/java/org/texttechnologylab/DockerUnifiedUIMAInterface/connection/DUUIWebsocketHandlerTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/../../src/test/java/org/texttechnologylab/DockerUnifiedUIMAInterface/connection/DUUIWebsocketHandlerTest.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -39,7 +34,7 @@
     <property name="RunOnceActivity.OpenProjectViewOnStart" value="true" />
     <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
     <property name="WebServerToolWindowFactoryState" value="false" />
-    <property name="last_opened_file_path" value="$PROJECT_DIR$/../../../my_sever_python" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/../../../../DockerUnifiedUIMAInterface-main/test_containers/lua_communication_xmi" />
   </component>
   <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
   <component name="TaskManager">
@@ -52,6 +47,7 @@
       <workItem from="1655764654133" duration="1023000" />
       <workItem from="1655900197194" duration="2774000" />
       <workItem from="1655920204133" duration="3304000" />
+      <workItem from="1663616714256" duration="76000" />
     </task>
     <servers />
   </component>

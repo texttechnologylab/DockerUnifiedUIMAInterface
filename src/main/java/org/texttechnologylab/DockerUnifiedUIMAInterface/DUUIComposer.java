@@ -642,10 +642,15 @@ public class DUUIComposer {
             _shutdownAtomic.set(true);
             if (_monitor != null) {
                 _monitor.shutdown();
+                /**
+                 * @see
+                 * @Givara
+                 */
+                _clients.forEach(IDUUIConnectionHandler::close);
             } else if (_storage != null) {
                 _storage.shutdown();
             }
-            _clients.forEach(IDUUIConnectionHandler::close);
+            //_clients.forEach(IDUUIConnectionHandler::close);
             try {
                 shutdown_pipeline();
             } catch (Exception e) {
@@ -654,8 +659,6 @@ public class DUUIComposer {
             for (IDUUIDriverInterface driver : _drivers.values()) {
                 driver.shutdown();
             }
-//            System.out.println("[Composer]: DUUIWebsocketHandler is closed");
-//            System.out.println("[Composer]: it takes until 30 second to shut down DUUIWebsocketHandler");
             /** @see **/
 
             _hasShutdown = true;

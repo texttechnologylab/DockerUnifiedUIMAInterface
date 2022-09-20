@@ -41,7 +41,8 @@ class Visualiser:
                     "serializedSize", # 9
                    "remote" #10
                           ]
-        self.toPlotTests = [ "0010", "2000", "9999"]
+        self.toPlotTests = ["1000","2000", "5000", "9999"]
+        # self.toPlotTests = [ "0025", "0050", "1000", "5000", "9999"]
 
     def setDir(self, dirPath):
         # print("dir = ", dirPath)
