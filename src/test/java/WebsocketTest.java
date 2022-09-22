@@ -54,18 +54,16 @@ public class WebsocketTest {
         DUUIComposer composer = new DUUIComposer()
                 //        .withStorageBackend(new DUUIArangoDBStorageBackend("password",8888))
                 .withLuaContext(ctx)
+                .withOpenConnection(true)
                 .withSkipVerification(true);
 
 
         DUUIRemoteDriver remote_driver = new DUUIRemoteDriver(10000);
-        DUUIUIMADriver uima_driver = new DUUIUIMADriver()
-                .withDebug(true);
 
         composer.addDriver(remote_driver);
-        composer.addDriver(uima_driver);
 
         composer.add(new DUUIRemoteDriver.Component("http://localhost:9715")
-                .withScale(1).withWebsocket(true).build());
+                .withScale(1).withWebsocket(true, 50).build());
 
         String val = test;
         JCas jc = JCasFactory.createJCas();
@@ -207,11 +205,11 @@ public class WebsocketTest {
         System.out.println(text);
 
         //testDocker(text);
-        // DUUIComposer._clients.forEach(IDUUIConnectionHandler::close);
         testWithWebsocket(text);
 
 
         testWithWebsocket(text);
+        DUUIComposer._clients.forEach(IDUUIConnectionHandler::close);
 
 
 //        testWithWebsocket(text);

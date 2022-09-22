@@ -30,7 +30,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 public class DUUIRemoteDriver implements IDUUIDriverInterface {
     private HashMap<String, InstantiatedComponent> _components;
     private HttpClient _client;
-    private IDUUIConnectionHandler _wsclient;
+    private IDUUIConnectionHandler _wsclient = null;
     private DUUICompressionHelper _helper;
     private DUUILuaContext _luaContext;
 
@@ -68,6 +68,11 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
 
         public Component withWebsocket(boolean b) {
             component.withWebsocket(b);
+            return this;
+        }
+
+        public Component withWebsocket(boolean b, int elements) {
+            component.withWebsocket(b, elements);
             return this;
         }
 
@@ -112,6 +117,7 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         private Map<String,String> _parameters;
         private DUUIPipelineComponent _component;
         private boolean _websocket;
+        private int _ws_elements;
 
         public IDUUICommunicationLayer getCommunicationLayer() {
             return _layer;
@@ -148,6 +154,7 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
             _maximum_concurrency = comp.getScale(1);
             _components = new ConcurrentLinkedQueue<>();
             _websocket = comp.isWebsocket();
+            _ws_elements = comp.getWebsocketElements();
         }
 
         public DUUIPipelineComponent getPipelineComponent() {
@@ -169,6 +176,8 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         public boolean isWebsocket() {
             return _websocket;
         }
+
+        public int getWebsocketElements() { return _ws_elements; }
     }
 
     public DUUIRemoteDriver(int timeout) {
@@ -193,11 +202,6 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
     }
 
     public String instantiate(DUUIPipelineComponent component, JCas jc, boolean skipVerification) throws Exception {
-        /**
-         * @see
-         * @edited
-         * Dawit Terefe
-         */
         String uuid = UUID.randomUUID().toString();
         while (_components.containsKey(uuid)) {
             uuid = UUID.randomUUID().toString();
@@ -208,13 +212,17 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         boolean added_communication_layer = false;
 
         for(String url : comp.getUrls()) {
+            /**
+             * @see
+             * @edited
+             * Dawit Terefe
+             *
+             * Starts the websocket connection.
+             */
             if (comp.isWebsocket()) {
-
-                _wsclient = new DUUIWebsocketAlt(
-                        url.replaceFirst("http", "ws") + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS_WEBSOCKET, 1000);
-            }
-            else {
-                _wsclient = null;
+                String websocketUrl = url.replaceFirst("http", "ws")
+                        + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS_WEBSOCKET;
+                _wsclient = new DUUIWebsocketAlt(websocketUrl, comp.getWebsocketElements());
             }
             IDUUICommunicationLayer layer = DUUIDockerDriver.responsiveAfterTime(url, jc, 100000, _client, (msg) -> {
                 System.out.printf("[RemoteDriver][%s] %s\n", uuidCopy, msg);
@@ -224,6 +232,14 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
                 added_communication_layer = true;
             }
             for (int i = 0; i < comp.getScale(); i++) {
+                /**
+                 * @see
+                 * @edited
+                 * Dawit Terefe
+                 *
+                 * Saves websocket client in ComponentInstance for
+                 * retrieval in process_handler-function.
+                 */
                 comp.addComponent(new ComponentInstance(url, _wsclient));
             }
             _components.put(uuid, comp);
@@ -254,19 +270,14 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         long mutexStart = System.nanoTime();
         InstantiatedComponent comp = _components.get(uuid);
 
-        /**
-         * @edtited
-         * Givara Ebo
-        System.out.println("[DUUIPiplineDriver] uu_id "+ uuid);
-        System.out.println("[DUUIPiplineDriver] _components "+ _components);
-        System.out.println("[DUUIPiplineDriver] _components "+ _components.get(uuid));
-         */
         if (comp == null) {
             throw new InvalidParameterException("The given instantiated component uuid was not instantiated by the remote driver");
         }
         /**
-         * @edited
-         * Dawit Terefe
+         * @edtited
+         * Givara Ebo, Dawit Terefe
+         *
+         * Added option for websocket-process-function.
          */
 
             if (comp.isWebsocket()) {
