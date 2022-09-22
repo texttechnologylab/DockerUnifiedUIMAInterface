@@ -38,7 +38,8 @@ public class DUUIWebsocketAlt implements IDUUIConnectionHandler{
             connected = this.client.isOpen();
 
             if (!connected) { // If connection was closed.
-                this.client = new WebsocketClient(URI.create(uri));
+                System.out.println("[DUUIWebsocketAlt]: Trying to reconnect to "+uri);
+                this.client = new WebsocketClient(URI.create(uri+"/?tokens_num="+elements));
                 connected = this.client.connectBlocking();
             }
         }

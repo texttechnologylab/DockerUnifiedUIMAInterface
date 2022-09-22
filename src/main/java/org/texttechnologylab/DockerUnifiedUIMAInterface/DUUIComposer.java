@@ -649,15 +649,15 @@ public class DUUIComposer {
                  * @edited Dawit Terefe
                  * Added option to keep connection open.
                  */
-                if (!_connection_open) {
-                    _clients.forEach(IDUUIConnectionHandler::close);
-                }
+//                if (!_connection_open) {
+//                    _clients.forEach(IDUUIConnectionHandler::close);
+//                }
             } else if (_storage != null) {
                 _storage.shutdown();
             }
-//            if (!_connection_open) {
-//                _clients.forEach(IDUUIConnectionHandler::close);
-//            }
+            if (!_connection_open) {
+                _clients.forEach(IDUUIConnectionHandler::close);
+            }
             try {
                 shutdown_pipeline();
             } catch (Exception e) {

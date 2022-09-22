@@ -54,7 +54,7 @@ public class WebsocketTest {
         DUUIComposer composer = new DUUIComposer()
                 //        .withStorageBackend(new DUUIArangoDBStorageBackend("password",8888))
                 .withLuaContext(ctx)
-                .withOpenConnection(true)
+                .withOpenConnection(false)
                 .withSkipVerification(true);
 
 
