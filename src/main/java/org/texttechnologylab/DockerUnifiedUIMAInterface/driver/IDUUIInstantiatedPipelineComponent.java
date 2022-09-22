@@ -101,8 +101,13 @@ public interface IDUUIInstantiatedPipelineComponent {
                     // side effect
                     comp.addComponent(queue.getValue0());
                     Gson gson = new Gson();
-                    return gson.fromJson(body, InputsOutputs.class);
-
+                    InputsOutputs io = gson.fromJson(body, InputsOutputs.class);
+                    if(io.getOutputs()==null || io.getInputs()==null){
+                        System.err.println("Failed parsing InputsOutputs:");
+                        System.err.println(body);
+                        return new InputsOutputs(List.of(), List.of());
+                    }
+                    return io;
                 } else {
                     // side effect
                     comp.addComponent(queue.getValue0());
