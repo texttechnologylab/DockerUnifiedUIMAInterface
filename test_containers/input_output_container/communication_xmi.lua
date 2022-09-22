@@ -8,17 +8,17 @@ util = luajava.bindClass("org.apache.uima.fit.util.JCasUtil")
 
 function serialize(inputCas,outputStream,params)
 
-  serial:serialize(inputCas:getCas(), outputStream)
-  --print(luajava.newInstance("java.lang.String", outputStream:toByteArray(), StandardCharsets.UTF_8))
-  local result = util:select(inputCas,token):iterator()
-  while result:hasNext() do
-      local x = result:next()
-      print(x)
+    serial:serialize(inputCas:getCas(), outputStream)
+    --print(luajava.newInstance("java.lang.String", outputStream:toByteArray(), StandardCharsets.UTF_8))
+    local result = util:select(inputCas,token):iterator()
+    --while result:hasNext() do
+    --    local x = result:next()
+    --    print(x)
 
-	  --outputStream:write("DocumentModification: ")
-	  --outputStream:write(x:getText())
-	  --outputStream:write("\n")
-  end
+        --outputStream:write("DocumentModification: ")
+        --outputStream:write(x:getText())
+        --outputStream:write("\n")
+    --end
 end
 
 function deserialize(inputCas,inputStream)

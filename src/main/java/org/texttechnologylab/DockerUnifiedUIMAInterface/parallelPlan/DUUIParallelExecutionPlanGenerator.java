@@ -2,15 +2,10 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface.parallelPlan;
 
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.resource.ResourceInitializationException;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUIExecutionPlan;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUIExecutionPlanGenerator;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.InputsOutputs;
 
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.util.*;
 
 public class DUUIParallelExecutionPlanGenerator implements IDUUIExecutionPlanGenerator {
@@ -25,6 +20,7 @@ public class DUUIParallelExecutionPlanGenerator implements IDUUIExecutionPlanGen
     public IDUUIExecutionPlan generate(JCas jc) {
 
         DUUIParallelExecutionPlan root = new DUUIParallelExecutionPlan(null, jc);
+        root.setAnnotated();
 
 
         // wrap PipelineParts in ParallelExecutionPlans
@@ -54,7 +50,6 @@ public class DUUIParallelExecutionPlanGenerator implements IDUUIExecutionPlanGen
         }
 
         // build graph
-
         Set<String> satisfied = new HashSet<>();
         while (!remaining.isEmpty()) {
             for (Iterator<DUUIParallelExecutionPlan> iterator = remaining.iterator(); iterator.hasNext(); ) {
@@ -64,9 +59,11 @@ public class DUUIParallelExecutionPlanGenerator implements IDUUIExecutionPlanGen
                     // run
                     for (String inputs : plan.getInputs())
                         for (DUUIParallelExecutionPlan requiredPlan : satisfiesToPipelinePart.get(inputs)) {
+                            // add first plan
                             if(!remaining.contains(requiredPlan)) {  // needed if there are more than one node that with the same output
                                 requiredPlan.addNext(plan);
                                 plan.addPrevious(requiredPlan);
+                                break;
                             }
                         }
 
@@ -86,7 +83,7 @@ public class DUUIParallelExecutionPlanGenerator implements IDUUIExecutionPlanGen
             }
         }
 
-        PlanToGraph.writeGraph(PlanToGraph.toGraph(root), "graph.graphml");
+        //PlanToGraph.writeGraph(PlanToGraph.toGraph(root), "graph.graphml");
         return root;
     }
 

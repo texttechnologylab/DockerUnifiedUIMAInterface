@@ -2,13 +2,12 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface.parallelPlan;
 
 import org.apache.uima.UIMAException;
 import org.apache.uima.fit.factory.JCasFactory;
+import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.resource.ResourceInitializationException;
-import org.jgrapht.Graph;
-import org.jgrapht.graph.DefaultDirectedGraph;
-import org.jgrapht.graph.DefaultEdge;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUIExecutionPlan;
+import org.texttechnologylab.annotation.DocumentModification;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -26,21 +25,28 @@ public class DUUIParallelExecutionPlan implements IDUUIExecutionPlan {
     private final List<DUUIParallelExecutionPlan> next = new ArrayList<>();
 
     private final AtomicBoolean merged = new AtomicBoolean(false);
+
+    private final CompletableFuture<JCas> isAnnotated;
     private FutureTask<IDUUIExecutionPlan> future;
 
-    //cache
+    // cache
     private List<String> inputs;
     private List<String> outputs;
 
     public DUUIParallelExecutionPlan(DUUIComposer.PipelinePart pipelinePart, JCas jcas) {
         this.pipelinePart = pipelinePart;
         this.jCas = jcas;
+        isAnnotated = new CompletableFuture<>();
+
     }
 
     public DUUIParallelExecutionPlan(DUUIComposer.PipelinePart pipelinePart) {
         this(pipelinePart, null);
     }
 
+    /**
+     * @return
+     */
     @Override
     public List<IDUUIExecutionPlan> getNextExecutionPlans() {
         return new ArrayList<>(next);
@@ -51,7 +57,7 @@ public class DUUIParallelExecutionPlan implements IDUUIExecutionPlan {
      */
     @Override
     public IDUUIExecutionPlan copy() {
-        //TODO
+        // TODO
         return this;
     }
 
@@ -75,23 +81,43 @@ public class DUUIParallelExecutionPlan implements IDUUIExecutionPlan {
         return jCas;
     }
 
+    /**
+     *
+     * @return the predecessors of this ExecutionPlan
+     */
     public List<DUUIParallelExecutionPlan> getPrevious() {
         return previous;
     }
 
+    /**
+     *
+     * @return the successors of this ExecutionPlan
+     */
     public List<DUUIParallelExecutionPlan> getNext() {
         return next;
     }
 
+    /**
+     *
+     * @return The pipelinePart of this ExecutionPlan.
+     */
     @Override
-    public DUUIComposer.PipelinePart getPipelinePart() {
+    public synchronized DUUIComposer.PipelinePart getPipelinePart() {
         return pipelinePart;
     }
 
+    /**
+     *
+     * @param parallelExecutionPlan Adds ExecutionPlan as successor. Used for Graph generation.
+     */
     protected void addNext(DUUIParallelExecutionPlan parallelExecutionPlan) {
         next.add(parallelExecutionPlan);
     }
 
+    /**
+     *
+     * @param parallelExecutionPlan Adds ExecutionPlan as predecessor. Used for Graph generation.
+     */
     protected void addPrevious(DUUIParallelExecutionPlan parallelExecutionPlan) {
         previous.add(parallelExecutionPlan);
     }
@@ -101,7 +127,6 @@ public class DUUIParallelExecutionPlan implements IDUUIExecutionPlan {
      * Can handle null values from previous.
      * Can handle no previous.
      */
-    //* Reuses first previous JCas if exists.
     private void merge() {
         if (jCas != null)
             return;
@@ -113,20 +138,26 @@ public class DUUIParallelExecutionPlan implements IDUUIExecutionPlan {
         for (IDUUIExecutionPlan iduuiExecutionPlan : previous) {
             JCas previousJCas;
             try {
-                previousJCas = iduuiExecutionPlan.awaitMerge().get().getJCas();
+                previousJCas = iduuiExecutionPlan.awaitAnnotation().get();
             } catch (InterruptedException | ExecutionException e) {
                 throw new RuntimeException(e);
             }
-            if (previousJCas != null) {
-                if (jCas == null) {
-                    jCas = previousJCas;
-                } else {
-                    MergerFunctions.mergeAll(previousJCas, jCas);
-                }
-            }
+            MergerFunctions.mergeAll(previousJCas, jCas);
         }
+        System.out.println("merging... ");
+        System.out.println(previous.size());
+        System.out.println(getInputs());
+        System.out.println(getOutputs());
+        System.out.println("Java Document");
+        for (DocumentModification t : JCasUtil.select(jCas, DocumentModification.class)) {
+            System.out.println(t);
+        }
+        System.out.println();
     }
 
+    /**
+     * @return The inputs of the PipelinePart. Provides caching. Not thread safe.
+     */
     public List<String> getInputs(){
         if(pipelinePart!=null && inputs==null) {
             try {
@@ -138,6 +169,10 @@ public class DUUIParallelExecutionPlan implements IDUUIExecutionPlan {
         return inputs;
     }
 
+    /**
+     *
+     * @return The outputs of the PipelinePart. Provides caching. Not thread safe.
+     */
     public List<String> getOutputs(){
         if(pipelinePart!=null && outputs==null) {
             try {
@@ -149,5 +184,18 @@ public class DUUIParallelExecutionPlan implements IDUUIExecutionPlan {
         return outputs;
     }
 
+    /**
+     * marks the JCas of this Plan as annotated
+     */
+    @Override
+    public void setAnnotated() {
+        isAnnotated.complete(jCas);
+    }
 
+    /**
+     * @return Future for the annotated JCas
+     */
+    public Future<JCas> awaitAnnotation(){
+        return isAnnotated;
+    }
 }

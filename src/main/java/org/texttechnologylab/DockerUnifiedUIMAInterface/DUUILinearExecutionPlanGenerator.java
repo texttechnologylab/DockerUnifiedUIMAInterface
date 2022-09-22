@@ -57,6 +57,16 @@ public class DUUILinearExecutionPlanGenerator implements IDUUIExecutionPlanGener
         public Future<IDUUIExecutionPlan> awaitMerge() {
             return CompletableFuture.completedFuture(this);
         }
+
+        @Override
+        public void setAnnotated() {
+
+        }
+
+        public  Future<JCas> awaitAnnotation(){
+            return CompletableFuture.completedFuture(_jc);
+        }
+
     }
 
     public DUUILinearExecutionPlanGenerator(Vector<DUUIComposer.PipelinePart> pipeline) {
@@ -66,4 +76,5 @@ public class DUUILinearExecutionPlanGenerator implements IDUUIExecutionPlanGener
     public IDUUIExecutionPlan generate(JCas jc) {
         return new DUUILinearExecutionPlan(_pipeline,jc);
     }
+
 }

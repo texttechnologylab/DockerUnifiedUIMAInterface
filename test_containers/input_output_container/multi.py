@@ -29,4 +29,4 @@ def main2():
         t1 = threading.Thread(target=lambda:subprocess.run(['python3', 'main.py', '--inputs', '[]', '--outputs', '[]', '--port',str(9714+i)]))
         t1.start()
 
-main2()
+main()

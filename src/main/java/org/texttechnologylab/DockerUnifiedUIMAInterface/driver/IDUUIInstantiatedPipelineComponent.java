@@ -83,15 +83,14 @@ public interface IDUUIInstantiatedPipelineComponent {
      *
      */
     public static InputsOutputs getInputOutput(String uuid, IDUUIInstantiatedPipelineComponent comp) throws ResourceInitializationException {
-        String V1_COMPONENT_ENDPOINT_INPUT_OUTPUT = "/v1/details/input_output";
         // side effect
         Triplet<IDUUIUrlAccessible, Long, Long> queue = comp.getComponent();
         int maxTries = 100;
-        System.out.println(queue.getValue0().generateURL() + V1_COMPONENT_ENDPOINT_INPUT_OUTPUT);
+        System.out.println(queue.getValue0().generateURL() + DUUIComposer.V1_COMPONENT_ENDPOINT_INPUT_OUTPUT);
         for (int tries = 1; tries <= maxTries; tries++) {
             try {
                 HttpRequest request = HttpRequest.newBuilder()
-                        .uri(URI.create(queue.getValue0().generateURL() + V1_COMPONENT_ENDPOINT_INPUT_OUTPUT))
+                        .uri(URI.create(queue.getValue0().generateURL() + DUUIComposer.V1_COMPONENT_ENDPOINT_INPUT_OUTPUT))
                         .version(HttpClient.Version.HTTP_1_1)
                         .GET()
                         .build();

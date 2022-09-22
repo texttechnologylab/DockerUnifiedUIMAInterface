@@ -2,6 +2,9 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface;
 
 import java.util.List;
 
+/**
+ * Tuple of Inputs and Outputs.
+ */
 public class InputsOutputs {
     private final List<String> inputs;
     private final List<String> outputs;

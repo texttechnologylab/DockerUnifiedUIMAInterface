@@ -33,6 +33,7 @@ with open('dkpro-core-types.xml', 'rb') as f:
 
     class MyHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
         def do_POST(self):
+            print("Port:{PORT}")
             content_len = int(self.headers.get('Content-Length'))
             post_body = self.rfile.read(content_len).decode("utf-8")
             #print("POST Body")

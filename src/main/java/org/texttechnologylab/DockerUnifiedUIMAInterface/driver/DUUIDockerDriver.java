@@ -228,9 +228,12 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
     }
 
     @Override
-    public InputsOutputs getInputsOutputs(String uuid) {
-        // TODO implement
-        return null;
+    public InputsOutputs getInputsOutputs(String uuid) throws ResourceInitializationException {
+        InstantiatedComponent comp = _active_components.get(uuid);
+        if (comp == null) {
+            throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
+        }
+        return IDUUIInstantiatedPipelineComponent.getInputOutput(uuid, comp);
     }
 
 
