@@ -103,7 +103,7 @@ public interface IDUUIInstantiatedPipelineComponent {
                     Gson gson = new Gson();
                     InputsOutputs io = gson.fromJson(body, InputsOutputs.class);
                     if(io.getOutputs()==null || io.getInputs()==null){
-                        System.err.println("Failed parsing InputsOutputs:");
+                        System.err.println("Failed parsing InputsOutputs. Using Empty InputsOutputs. May cause errors:");
                         System.err.println(body);
                         return new InputsOutputs(List.of(), List.of());
                     }
