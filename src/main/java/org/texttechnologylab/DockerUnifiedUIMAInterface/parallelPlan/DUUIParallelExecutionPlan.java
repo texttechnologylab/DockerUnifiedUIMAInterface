@@ -7,6 +7,7 @@ import org.apache.uima.jcas.JCas;
 import org.apache.uima.resource.ResourceInitializationException;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUIExecutionPlan;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.InputsOutputs;
 import org.texttechnologylab.annotation.DocumentModification;
 
 import java.util.ArrayList;
@@ -29,9 +30,10 @@ public class DUUIParallelExecutionPlan implements IDUUIExecutionPlan {
     private final CompletableFuture<JCas> isAnnotated;
     private FutureTask<IDUUIExecutionPlan> future;
 
-    // cache
-    private List<String> inputs;
-    private List<String> outputs;
+    /**
+     * cache
+     */
+    private InputsOutputs inputsOutputs;
 
     public DUUIParallelExecutionPlan(DUUIComposer.PipelinePart pipelinePart, JCas jcas) {
         this.pipelinePart = pipelinePart;
@@ -61,6 +63,10 @@ public class DUUIParallelExecutionPlan implements IDUUIExecutionPlan {
         return this;
     }
 
+    /**
+     *
+     * @return Future of {@link IDUUIExecutionPlan} with merged JCas
+     */
     @Override
     public synchronized Future<IDUUIExecutionPlan> awaitMerge() {
         if (!merged.getAndSet(true)) {
@@ -159,14 +165,14 @@ public class DUUIParallelExecutionPlan implements IDUUIExecutionPlan {
      * @return The inputs of the PipelinePart. Provides caching. Not thread safe.
      */
     public List<String> getInputs(){
-        if(pipelinePart!=null && inputs==null) {
+        if(pipelinePart!=null && inputsOutputs==null) {
             try {
-                inputs = pipelinePart.getDriver().getInputsOutputs(pipelinePart.getUUID()).getInputs();
+                inputsOutputs = pipelinePart.getDriver().getInputsOutputs(pipelinePart.getUUID());
             } catch (ResourceInitializationException e) {
                 throw new RuntimeException(e);
             }
         }
-        return inputs;
+        return inputsOutputs==null?null:inputsOutputs.getInputs();
     }
 
     /**
@@ -174,14 +180,14 @@ public class DUUIParallelExecutionPlan implements IDUUIExecutionPlan {
      * @return The outputs of the PipelinePart. Provides caching. Not thread safe.
      */
     public List<String> getOutputs(){
-        if(pipelinePart!=null && outputs==null) {
+        if(pipelinePart!=null && inputsOutputs==null) {
             try {
-                outputs = pipelinePart.getDriver().getInputsOutputs(pipelinePart.getUUID()).getOutputs();
+                inputsOutputs = pipelinePart.getDriver().getInputsOutputs(pipelinePart.getUUID());
             } catch (ResourceInitializationException e) {
                 throw new RuntimeException(e);
             }
         }
-        return outputs;
+        return inputsOutputs==null?null:inputsOutputs.getOutputs();
     }
 
     /**

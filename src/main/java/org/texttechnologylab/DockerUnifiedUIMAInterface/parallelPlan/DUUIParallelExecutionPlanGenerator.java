@@ -52,6 +52,7 @@ public class DUUIParallelExecutionPlanGenerator implements IDUUIExecutionPlanGen
         // build graph
         Set<String> satisfied = new HashSet<>();
         while (!remaining.isEmpty()) {
+            boolean found = false;
             for (Iterator<DUUIParallelExecutionPlan> iterator = remaining.iterator(); iterator.hasNext(); ) {
                 DUUIParallelExecutionPlan plan = iterator.next();
 
@@ -59,17 +60,21 @@ public class DUUIParallelExecutionPlanGenerator implements IDUUIExecutionPlanGen
                     // run
                     for (String inputs : plan.getInputs())
                         for (DUUIParallelExecutionPlan requiredPlan : satisfiesToPipelinePart.get(inputs)) {
-                            // add first plan
-                            if(!remaining.contains(requiredPlan)) {  // needed if there are more than one node that with the same output
+                            // can only depend on plans that have already everything satisfied
+                            if(!remaining.contains(requiredPlan)) {
                                 requiredPlan.addNext(plan);
                                 plan.addPrevious(requiredPlan);
+                                // only add first plan with that output
                                 break;
                             }
                         }
 
                     satisfied.addAll(plan.getOutputs());
                     iterator.remove();
+                    found = true;
                 }
+                if(!iterator.hasNext() && !found)
+                    throw new RuntimeException("Can't satisfy dependency");
             }
         }
 

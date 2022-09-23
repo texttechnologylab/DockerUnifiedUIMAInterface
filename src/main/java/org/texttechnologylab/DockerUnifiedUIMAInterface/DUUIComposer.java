@@ -540,8 +540,8 @@ public class DUUIComposer {
                 System.out.printf("[Composer] Starting worker thread [%d/%d]\n", i + 1, _workers);
                 // TODO ParallelExecutionPlanGenerator
                 arr[i] = new DUUIWorker(_instantiatedPipeline, emptyCasDocuments, loadedCasDocuments, _shutdownAtomic, aliveThreads, _storage, name, null,
-                         //new DUUIParallelExecutionPlanGenerator(_instantiatedPipeline));
-                         new DUUILinearExecutionPlanGenerator(_instantiatedPipeline));
+                         new DUUIParallelExecutionPlanGenerator(_instantiatedPipeline));
+//                         new DUUILinearExecutionPlanGenerator(_instantiatedPipeline));
                 arr[i].start();
             }
             Instant starttime = Instant.now();
@@ -928,7 +928,7 @@ public class DUUIComposer {
         composer.withStorageBackend(sqlite);
 
 
-        composer.run(reader, "serial1-1");
+        composer.run(reader, "parallel3-4");
 
 
 
