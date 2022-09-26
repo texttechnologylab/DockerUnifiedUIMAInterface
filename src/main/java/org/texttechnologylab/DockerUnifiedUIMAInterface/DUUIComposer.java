@@ -129,17 +129,25 @@ class DUUIWorker extends Thread {
                             IDUUIExecutionPlan mergedPlan = null;
                             try {
                                 mergedPlan = pending.get();
-                                DUUIComposer.PipelinePart i = mergedPlan.getPipelinePart();
-                                if(i!=null) {
-                                    i.getDriver().run(i.getUUID(), mergedPlan.getJCas(), perf);
+                                if(mergedPlan.awaitAnnotation().isDone()) {
+                                    for (IDUUIExecutionPlan plan : mergedPlan.getNextExecutionPlans()) {
+                                        newFutures.add(plan.awaitMerge());
+                                    }
+                                    if(mergedPlan.getNextExecutionPlans().isEmpty()) {
+                                        jCas[0] = mergedPlan.getJCas();
+                                    }
                                 }
-                                mergedPlan.setAnnotated();
-                                for (IDUUIExecutionPlan plan : mergedPlan.getNextExecutionPlans()) {
-                                    newFutures.add(plan.awaitMerge());
+                                else {
+                                    DUUIComposer.PipelinePart i = mergedPlan.getPipelinePart();
+                                    if (i != null) {
+                                        newFutures.add(i.getDriver().run_future(i.getUUID(), mergedPlan.getJCas(), perf, mergedPlan));
+                                    }
+                                    else {
+                                        mergedPlan.setAnnotated();
+                                        newFutures.add(CompletableFuture.completedFuture(mergedPlan));
+                                    }
                                 }
-                                if(mergedPlan.getNextExecutionPlans().isEmpty()) {
-                                    jCas[0] = mergedPlan.getJCas();
-                                }
+
                             } catch (InterruptedException e) {
                                 e.printStackTrace();
                             } catch (ExecutionException e) {
@@ -857,7 +865,7 @@ public class DUUIComposer {
 
         composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.Component("http://127.0.0.1:9714"));
         composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.Component("http://127.0.0.1:9715"));
-        composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.Component("http://127.0.0.1:9716"));
+       // composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.Component("http://127.0.0.1:9716"));
 //        composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.Component("http://127.0.0.1:9717"));
        /* composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.Component("http://127.0.0.1:9714")
                         .withScale(1),
@@ -911,7 +919,7 @@ public class DUUIComposer {
 
 */
         //String sInputPath = composer.getClass().getClassLoader().getResource("/home/nutzer/Dokumente/DockerUnifiedUIMAInterface/test_corpora_xmi").getPath();
-        String sInputPath  = "test_corpora2";
+        String sInputPath  = "test_corpora_xmi";
         String sSuffix = ".xmi";
 
         CollectionReaderDescription reader = createReaderDescription(XmiReader.class,
@@ -922,10 +930,10 @@ public class DUUIComposer {
 
 
 
-        DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend("serialization_gercorpa.db")
-                .withConnectionPoolSize(2);
+        //DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend("serialization_gercorpa.db")
+        //        .withConnectionPoolSize(2);
 
-        composer.withStorageBackend(sqlite);
+        //composer.withStorageBackend(sqlite);
 
 
         composer.run(reader, "parallel3-4");
