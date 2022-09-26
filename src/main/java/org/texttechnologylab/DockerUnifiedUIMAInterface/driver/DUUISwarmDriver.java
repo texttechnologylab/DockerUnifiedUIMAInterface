@@ -3,16 +3,14 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface.driver;
 import okhttp3.OkHttpClient;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.UIMAException;
+import org.apache.uima.analysis_engine.AnalysisEngineProcessException;
 import org.apache.uima.cas.CASException;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.javatuples.Triplet;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIDockerInterface;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUICommunicationLayer;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.InputsOutputs;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.*;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
 import org.xml.sax.SAXException;
@@ -27,6 +25,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 import static java.lang.String.format;
@@ -90,6 +89,11 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
     DUUISwarmDriver withTimeout(int container_timeout_ms) {
         _container_timeout = container_timeout_ms;
         return this;
+    }
+
+    public CompletableFuture<IDUUIExecutionPlan> run_future(String uuid, JCas aCas, DUUIPipelineDocumentPerformance perf, IDUUIExecutionPlan initialPlan) throws InterruptedException, IOException, SAXException, AnalysisEngineProcessException, CompressorException, CASException {
+        throw new RuntimeException("Not implemented!");
+        //return CompletableFuture.completedFuture(null);
     }
 
     public boolean canAccept(DUUIPipelineComponent comp) {

@@ -2,15 +2,13 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface.driver;
 
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.commons.compress.compressors.CompressorStreamFactory;
+import org.apache.uima.analysis_engine.AnalysisEngineProcessException;
 import org.apache.uima.cas.CASException;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.javatuples.Triplet;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUICompressionHelper;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUICommunicationLayer;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.InputsOutputs;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.*;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
 import org.xml.sax.SAXException;
@@ -24,6 +22,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class DUUIRemoteDriver implements IDUUIDriverInterface {
@@ -165,6 +164,15 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
     }
 
     public void shutdown() {
+    }
+
+    public CompletableFuture<IDUUIExecutionPlan> run_future(String uuid, JCas aCas, DUUIPipelineDocumentPerformance perf, IDUUIExecutionPlan initialPlan) throws InterruptedException, IOException, SAXException, AnalysisEngineProcessException, CompressorException, CASException {
+        long mutexStart = System.nanoTime();
+        InstantiatedComponent comp = _components.get(uuid);
+        if (comp == null) {
+            throw new InvalidParameterException("The given instantiated component uuid was not instantiated by the remote driver");
+        }
+        return IDUUIInstantiatedPipelineComponent.process_future(aCas,comp,perf, initialPlan);
     }
 
     public String instantiate(DUUIPipelineComponent component, JCas jc, boolean skipVerification) throws Exception {

@@ -3,6 +3,7 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface.driver;
 
 import com.google.gson.*;
 import org.apache.commons.compress.compressors.CompressorException;
+import org.apache.uima.analysis_engine.AnalysisEngineProcessException;
 import org.apache.uima.cas.CASException;
 import org.apache.uima.fit.factory.TypeSystemDescriptionFactory;
 import org.apache.uima.jcas.JCas;
@@ -11,6 +12,7 @@ import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.javatuples.Triplet;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUICommunicationLayer;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUIExecutionPlan;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.InputsOutputs;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
 import org.texttechnologylab.duui.ReproducibleAnnotation;
@@ -29,6 +31,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 public interface IDUUIInstantiatedPipelineComponent {
     public static HttpClient _client = HttpClient.newBuilder()
@@ -210,5 +213,103 @@ public interface IDUUIInstantiatedPipelineComponent {
             comp.addComponent(queue.getValue0());
             throw new InvalidObjectException("Response code != 200, error");
         }
+    }
+
+    public static CompletableFuture<IDUUIExecutionPlan> process_future(JCas jc, IDUUIInstantiatedPipelineComponent comp, DUUIPipelineDocumentPerformance perf, IDUUIExecutionPlan plan) throws CompressorException, IOException, SAXException, CASException {
+        Triplet<IDUUIUrlAccessible,Long,Long> queue = comp.getComponent();
+
+        IDUUICommunicationLayer layer = queue.getValue0().getCommunicationLayer();
+        long serializeStart = System.nanoTime();
+
+        ByteArrayOutputStream out = new ByteArrayOutputStream(1024*1024);
+
+        DUUIPipelineComponent pipelineComponent = comp.getPipelineComponent();
+        String viewName = pipelineComponent.getViewName();
+        JCas viewJc;
+        if(viewName == null) {
+            viewJc = jc;
+        }
+        else {
+            try {
+                viewJc = jc.getView(viewName);
+            }
+            catch(CASException e) {
+                if(pipelineComponent.getCreateViewFromInitialView()) {
+                    viewJc = jc.createView(viewName);
+                    viewJc.setDocumentText(jc.getDocumentText());
+                    viewJc.setDocumentLanguage(jc.getDocumentLanguage());
+                }
+                else {
+                    throw e;
+                }
+            }
+        }
+
+        layer.serialize(viewJc,out,comp.getParameters());
+        // lua serialize call()
+
+        byte[] ok = out.toByteArray();
+        long sizeArray = ok.length;
+        long serializeEnd = System.nanoTime();
+
+        long annotatorStart = serializeEnd;
+        int tries = 0;
+        while(tries < 10) {
+            tries++;
+            try {
+                HttpRequest request = HttpRequest.newBuilder()
+                        .uri(URI.create(queue.getValue0().generateURL() + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS))
+                        .POST(HttpRequest.BodyPublishers.ofByteArray(ok))
+                        .version(HttpClient.Version.HTTP_1_1)
+                        .build();
+                JCas finalViewJc = viewJc;
+                CompletableFuture<IDUUIExecutionPlan> returnvalue = _client.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray())
+                        .thenApply((resp) -> {
+                            if(resp==null) {
+                                return plan;
+                                //throw new IOException("Could not reach endpoint after 10 tries!");
+                            }
+
+
+                            if (resp.statusCode() == 200) {
+                                ByteArrayInputStream st = new ByteArrayInputStream(resp.body());
+                                long annotatorEnd = System.nanoTime();
+                                long deserializeStart = annotatorEnd;
+
+                                try {
+                                    layer.deserialize(finalViewJc, st);
+                                }
+                                catch(Exception e) {
+                                    System.err.printf("Caught exception printing response %s\n",new String(resp.body(), StandardCharsets.UTF_8));
+                                    return plan;
+                                    //throw e;
+                                }
+                                long deserializeEnd = System.nanoTime();
+
+                                ReproducibleAnnotation ann = new ReproducibleAnnotation(jc);
+                                ann.setDescription(comp.getPipelineComponent().getFinalizedRepresentation());
+                                ann.setCompression(DUUIPipelineComponent.compressionMethod);
+                                ann.setTimestamp(System.nanoTime());
+                                ann.setPipelineName(perf.getRunKey());
+                                ann.addToIndexes();
+                                perf.addData(serializeEnd-serializeStart,deserializeEnd-deserializeStart,annotatorEnd-annotatorStart,queue.getValue2()-queue.getValue1(),deserializeEnd-queue.getValue1(), String.valueOf(comp.getPipelineComponent().getFinalizedRepresentationHash()), sizeArray, jc);
+
+                                comp.addComponent(queue.getValue0());
+                                plan.setAnnotated();
+                                return plan;
+                            } else {
+                                comp.addComponent(queue.getValue0());
+                                return plan;
+                                //throw new InvalidObjectException("Response code != 200, error");
+                            }
+                        });
+                break;
+            }
+            catch(Exception e) {
+                e.printStackTrace();
+                //System.out.printf("Cannot reach endpoint trying again %d/%d...\n",tries+1,10);
+            }
+        }
+        return CompletableFuture.completedFuture(plan);
     }
 }

@@ -3,6 +3,7 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface.driver;
 
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.UIMAException;
+import org.apache.uima.analysis_engine.AnalysisEngineProcessException;
 import org.apache.uima.cas.CASException;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.jcas.JCas;
@@ -31,6 +32,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -77,6 +79,11 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
         _container_timeout = 10000;
 
         _active_components = new HashMap<String, InstantiatedComponent>();
+    }
+
+    public CompletableFuture<IDUUIExecutionPlan> run_future(String uuid, JCas aCas, DUUIPipelineDocumentPerformance perf, IDUUIExecutionPlan initialPlan) throws InterruptedException, IOException, SAXException, AnalysisEngineProcessException, CompressorException, CASException {
+        throw new RuntimeException("Not implemented!");
+        //return CompletableFuture.completedFuture(null);
     }
 
     public void setLuaContext(DUUILuaContext luaContext) {
