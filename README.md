@@ -5,6 +5,17 @@
 # DockerUnifiedUIMAInterface (DUUI)
 Automatic analysis of large text corpora is a complex task. This complexity particularly concerns the question of time efficiency. Furthermore, efficient, flexible, and extensible textanalysis requires the continuous integration of every new text analysis tools. Since there are currently, in the area of NLP and especially in the application context of UIMA, only very few to no adequate frameworks for these purposes, which are not simultaneously outdated or can no longer be used for security reasons, this work will present a new approach to fill this gap. To this end, we present Docker Unified UIMA Interface (DUUI), a scalable, flexible, lightweight, and featurerich framework for automated and distributed analysis of text corpora that leverages experience in Big Data analytics and virtualization with Docker.
 
+## Features
+
+* Horizontal and vertical scaling
+* Capturing heterogeneous annotation landscapes
+* Capturing heterogeneous implementation landscapes
+* Reproducible & reusable annotations
+* Monitoring and error-reporting
+* Easy to use
+
+## Functions
+
 
 ## Requirements
 ![Java](https://img.shields.io/badge/Java-11-blue)
