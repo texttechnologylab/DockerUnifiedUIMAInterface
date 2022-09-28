@@ -9,6 +9,7 @@ import org.apache.uima.UIMAException;
 import org.apache.uima.analysis_engine.AnalysisEngineDescription;
 import org.apache.uima.cas.SerialFormat;
 import org.apache.uima.cas.impl.XmiCasSerializer;
+import org.apache.uima.collection.CollectionReader;
 import org.apache.uima.collection.CollectionReaderDescription;
 import org.apache.uima.fit.factory.AggregateBuilder;
 import org.apache.uima.fit.factory.AnalysisEngineFactory;
@@ -43,6 +44,7 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIMoc
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.sqlite.DUUISqliteStorageBackend;
 import org.texttechnologylab.annotation.AnnotationComment;
 import org.texttechnologylab.annotation.type.Taxon;
+import org.texttechnologylab.annotation.type.Time;
 import org.texttechnologylab.utilities.helper.FileUtils;
 import org.xml.sax.SAXException;
 
@@ -142,7 +144,7 @@ public class TestDUUI {
     public void SwarmTest() throws Exception {
 
         System.out.println("Running SwarmTest");
-
+CollectionReader();
         String sInputPath = TestDUUI.class.getClassLoader().getResource("sample").getPath();
         String sSuffix = "xmi.gz";
         String sOutputPath = "/tmp/";
@@ -226,7 +228,54 @@ public class TestDUUI {
 
         composer.run(jc);
 
+        JCasUtil.select(jc, Taxon.class).forEach(t -> {
+            System.out.println(t);
+        });
+
         JCasUtil.select(jc, AnnotationComment.class).forEach(t -> {
+            System.out.println(t);
+        });
+
+        System.out.println(jc.getDocumentLanguage());
+
+
+    }
+    @Test
+    public void TestHeidelTimeExt() throws Exception {
+        JCas jc = JCasFactory.createJCas();
+        String sText = "Wir feiern am 24.12. eines jeden Jahres Weihnachten!";
+
+        jc.setDocumentText(sText);
+        jc.setDocumentLanguage("de");
+
+        DUUILuaContext ctx = LuaConsts.getJSON();
+
+        DUUIComposer composer = new DUUIComposer()
+                //       .withStorageBackend(new DUUIArangoDBStorageBackend("password",8888))
+                .withLuaContext(ctx).withSkipVerification(true);
+
+        // Instantiate drivers with options
+        DUUIRemoteDriver remote_driver = new DUUIRemoteDriver(10000);
+        DUUIDockerDriver docker_driver = new DUUIDockerDriver(10000);
+        DUUISwarmDriver swarm_driver = new DUUISwarmDriver(10000).withSwarmVisualizer();
+
+        // A driver must be added before components can be added for it in the composer.
+        composer.addDriver(remote_driver);
+        composer.addDriver(docker_driver);
+        composer.addDriver(swarm_driver);
+
+        composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
+                .withScale(1).build());
+        composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/heideltime_ext:0.2")
+                .withScale(1).build());
+
+//        composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9715")
+//                        .withScale(1)
+//                        .build());
+
+        composer.run(jc);
+
+        JCasUtil.select(jc, Time.class).forEach(t -> {
             System.out.println(t);
         });
 
@@ -238,7 +287,7 @@ public class TestDUUI {
     @Test
     public void TestBFSRL() throws Exception {
         JCas jc = JCasFactory.createJCas();
-        jc.setDocumentText("Hallo Welt dies ist ein Abies!");
+        jc.setDocumentText("Guten Tag, ich möchte mich bei Ihnen kurz vorstellen; mein Name ist Peter Müller, angenehm.");
         jc.setDocumentLanguage("de");
 
         int iWorkers = 1;
@@ -257,10 +306,49 @@ public class TestDUUI {
         composer.addDriver(docker_driver);
         composer.addDriver(remote_driver);
 
-        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4").withScale(iWorkers).withImageFetching());
+//        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4").withScale(iWorkers).withImageFetching());
+//        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager_duui_bfsrl:0.1.1").withScale(iWorkers).withImageFetching());
 //        composer.add(new DUUIDockerDriver.Component("textimager_duui_bfsrl:0.0.1").withScale(iWorkers));
 
         composer.add(new DUUIRemoteDriver.Component("http://localhost:9715")
+                .withScale(iWorkers));
+
+        composer.run(jc);
+
+        JCasUtil.selectAll(jc).forEach(t -> {
+            System.out.println(t);
+        });
+
+
+    }
+
+    @Test
+    public void TestTreeTagger() throws Exception {
+        JCas jc = JCasFactory.createJCas();
+        jc.setDocumentText("Guten Tag, ich möchte mich bei Ihnen kurz vorstellen; mein Name ist Peter Müller, angenehm.");
+        jc.setDocumentLanguage("de");
+
+        int iWorkers = 1;
+
+        DUUILuaContext ctx = new DUUILuaContext().withJsonLibrary();
+
+        DUUIComposer composer = new DUUIComposer()
+                //       .withStorageBackend(new DUUIArangoDBStorageBackend("password",8888))
+                .withLuaContext(ctx);
+
+        // Instantiate drivers with options
+        DUUIDockerDriver docker_driver = new DUUIDockerDriver(10000);
+        DUUIRemoteDriver remote_driver = new DUUIRemoteDriver(10000);
+
+        // A driver must be added before components can be added for it in the composer.
+        composer.addDriver(docker_driver);
+        composer.addDriver(remote_driver);
+
+//        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4").withScale(iWorkers).withImageFetching());
+//        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager_duui_bfsrl:0.1.1").withScale(iWorkers).withImageFetching());
+//        composer.add(new DUUIDockerDriver.Component("textimager_duui_bfsrl:0.0.1").withScale(iWorkers));
+
+        composer.add(new DUUIDockerDriver.Component("textimager-duui-treetagger:1.1.1")
                 .withScale(iWorkers));
 
         composer.run(jc);
@@ -293,13 +381,13 @@ public class TestDUUI {
         // A driver must be added before components can be added for it in the composer.
         composer.addDriver(dockerDriver, remoteDriver);
 
-//        composer.add(new DUUIDockerDriver.Component("languagedetection:dev")
-//                        .withScale(1)
-//                , DUUIDockerDriver.class);
-//
-        composer.add(new DUUIRemoteDriver.Component("http://localhost:9714")
+        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/languagedetection:0.5")
                         .withScale(1)
-                        .build());
+                        .withImageFetching());
+
+//        composer.add(new DUUIRemoteDriver.Component("http://localhost:9719")
+//                        .withScale(1)
+//                        .build());
 
         composer.run(jc);
 
