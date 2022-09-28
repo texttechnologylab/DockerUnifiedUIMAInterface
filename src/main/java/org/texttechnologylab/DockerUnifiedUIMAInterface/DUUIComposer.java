@@ -806,7 +806,7 @@ public class DUUIComposer {
     public static void main(String[] args) throws Exception {
         DUUILuaContext ctx = new DUUILuaContext().withGlobalLibrary("json",DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/json.lua").toURI());
         DUUIComposer composer = new DUUIComposer()
-        //        .withStorageBackend(new DUUIArangoDBStorageBackend("password",8888))
+                //        .withStorageBackend(new DUUIArangoDBStorageBackend("password",8888))
                 .withLuaContext(ctx)
                 .withSkipVerification(true)
                 .withWorkers(2);
@@ -819,7 +819,7 @@ public class DUUIComposer {
         DUUIUIMADriver uima_driver = new DUUIUIMADriver()
                 .withDebug(true);
         DUUISwarmDriver swarm_driver = new DUUISwarmDriver();
-            //    .withSwarmVisualizer();
+        //    .withSwarmVisualizer();
 
         // A driver must be added before components can be added for it in the composer.
         composer.addDriver(driver);
@@ -834,14 +834,14 @@ public class DUUIComposer {
         //composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class))
         //                .withScale(4),
         //        DUUIUIMADriver.class);
-      /*  composer.add(new DUUILocalDriver.Component("java_segmentation:latest")*/
+        /*  composer.add(new DUUILocalDriver.Component("java_segmentation:latest")*/
 
         //composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class))
         //        .withScale(4)
         //        .build()
         //);
-       // composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/benchmark_serde_echo_msgpack:0.2")
-       //         .build());
+        // composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/benchmark_serde_echo_msgpack:0.2")
+        //         .build());
 //        composer.add(new DUUILocalDriver.Component("java_segmentation:latest")
 //                        .withScale(1)
 //                , DUUILocalDriver.class);
@@ -850,23 +850,23 @@ public class DUUIComposer {
 //                , DUUIDockerDriver.class);
         // input: [], outputs: [Token, Sentences]
         //composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9715"));
-       // composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
-       //         .withImageFetching());
+        // composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
+        //         .withImageFetching());
 
         //composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class)));
 //                , DUUIRemoteDriver.class);*/
 
         // Remote driver handles all pure URL endpoints
-       // composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class))
-       //                 .withScale(1));
+        // composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class))
+        //                 .withScale(1));
 
         //for(int i=0;i<16;i++)
         //   composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.Component("http://127.0.0.1:"+(9714+i)));
 
         composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.Component("http://127.0.0.1:9714"));
         composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.Component("http://127.0.0.1:9715"));
-       // composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.Component("http://127.0.0.1:9716"));
-//        composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.Component("http://127.0.0.1:9717"));
+        composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.Component("http://127.0.0.1:9716"));
+        composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.Component("http://127.0.0.1:9717"));
        /* composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.Component("http://127.0.0.1:9714")
                         .withScale(1),
                 org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.class);*/
@@ -901,8 +901,8 @@ public class DUUIComposer {
         //composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.Component("http://127.0.0.1:9715")
         //                .withScale(1).build());
 
-       // ByteArrayInputStream stream;
-       // stream.read
+        // ByteArrayInputStream stream;
+        // stream.read
 /*
         String val2 = "Dies ist ein kleiner Test Text für Abies!";
         JCas jc = JCasFactory.createJCas();
@@ -919,7 +919,7 @@ public class DUUIComposer {
 
 */
         //String sInputPath = composer.getClass().getClassLoader().getResource("/home/nutzer/Dokumente/DockerUnifiedUIMAInterface/test_corpora_xmi").getPath();
-        String sInputPath  = "test_corpora_xmi";
+        String sInputPath  = "test_corpora2";
         String sSuffix = ".xmi";
 
         CollectionReaderDescription reader = createReaderDescription(XmiReader.class,
@@ -930,15 +930,12 @@ public class DUUIComposer {
 
 
 
-        //DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend("serialization_gercorpa.db")
-        //        .withConnectionPoolSize(2);
+        DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend("serialization_gercorpa.db")
+                .withConnectionPoolSize(2);
 
-        //composer.withStorageBackend(sqlite);
+        composer.withStorageBackend(sqlite);
 
-
-        composer.run(reader, "parallel3-4");
-
-
+        composer.run(reader, "test-" + System.currentTimeMillis());
 
 
         /*TypeSystemDescription desc = TypeSystemUtil.typeSystem2TypeSystemDescription(jc.getTypeSystem());
