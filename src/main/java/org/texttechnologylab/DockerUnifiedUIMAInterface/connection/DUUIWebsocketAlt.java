@@ -13,31 +13,34 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+/**
+ * @author Dawit Terefe, Givara Ebo
+ *
+ * Interface between DUUIComposer and WebsocketClient.
+ */
 public class DUUIWebsocketAlt implements IDUUIConnectionHandler{
 
     private static List<DUUIWebsocketAlt> clients = new ArrayList<>();
     private WebsocketClient client;
     private static Map<String, WebsocketClient> _clients = new HashMap<>();
 
-    public DUUIWebsocketAlt(String uri, int tokens_num) throws InterruptedException, IOException {
-        boolean connected = false;
-        if (!_clients.containsKey(uri)) {
+    public DUUIWebsocketAlt(String uri, int elements) throws InterruptedException, IOException {
+        boolean connected;
 
-            this.client = new WebsocketClient(URI.create(uri+"/?tokens_num="+tokens_num)); //  Anzahl der Tokens
-            System.out.println("__________________"+uri);
+        if (!_clients.containsKey(uri)) { // If not already connected to uri.
+            this.client = new WebsocketClient(URI.create(uri+"/?tokens_num="+elements)); //  Anzahl der Tokens
+            System.out.println("[DUUIWebsocketAlt]: Trying to connect to "+uri);
             connected = this.client.connectBlocking();
-            System.out.println("##################################################### IS OPEN "+ connected);
             _clients.put(uri, this.client);
         }
-        else {
-            System.out.println("##################################################### IS URI "+ uri);
+        else { // If already connected to uri.
             this.client = _clients.get(uri);
             connected = this.client.isOpen();
 
-            if (!connected) {
-                this.client = new WebsocketClient(URI.create(uri));
+            if (!connected) { // If connection was closed.
+                System.out.println("[DUUIWebsocketAlt]: Trying to reconnect to "+uri);
+                this.client = new WebsocketClient(URI.create(uri+"/?tokens_num="+elements));
                 connected = this.client.connectBlocking();
-
             }
         }
 
@@ -46,38 +49,40 @@ public class DUUIWebsocketAlt implements IDUUIConnectionHandler{
             throw new IOException("Could not reach endpoint!");
         }
 
+        System.out.println("[DUUIWebsocketAlt] Successfully connected to " + uri);
+
         this.client.setConnectionLostTimeout(0);
         DUUIComposer._clients.add(this);
         System.out.println("[DUUIWebsocketAlt] Remote URL %s is online and seems to understand DUUI V1 format!\n"+URI.create(uri));
-
-
     }
 
-    public WebsocketClient getClient() {
-        return this.client;
-    }
-
-    public List<ByteArrayInputStream> get(byte[] jc) throws InterruptedException {
-
+    /**
+     * Sends serialized JCAS Object and returns result of analysis.
+     *
+     * @param jc serialized JCAS Object in bytes.
+     * @return List of results.
+     */
+    public List<ByteArrayInputStream> send(byte[] jc) {
 
         this.client.send(jc);
+//        System.out.println("[DUUIWebsocketAlt]: Message sending \n"+
+//                StandardCharsets.UTF_8.decode(ByteBuffer.wrap(jc)));
 
-        System.out.println("[DUUIWebsocketAlt]: Message sending \n"+
-                StandardCharsets.UTF_8.decode(ByteBuffer.wrap(jc)));
 
         while (!client.isFinished()) {
-            Thread.sleep(0, 1);
-
+            // Stops main thread to wait for results.
+            try {
+                Thread.sleep(0, 1);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
         }
 
-//        byte[] result = client.messageStack.get(0);
         List<ByteArrayInputStream> results = client.messageStack.subList(0, client.messageStack.size()-1)
                 .stream()
                 .map(ByteArrayInputStream::new)
                 .collect(Collectors.toList());
         client.messageStack = new ArrayList<>();
-
-//        byte[] result = client.mergeResults();
 
         System.out.println("[DUUIWebsocketAlt]: Message received "); //\n"+
 //                StandardCharsets.UTF_8.decode(ByteBuffer.wrap(result)));
@@ -85,8 +90,11 @@ public class DUUIWebsocketAlt implements IDUUIConnectionHandler{
         return results;
     }
 
+    /**
+     * Closes connection to websocket.
+     */
     public void close() {
-        /** @see **/
+
         if (this.client.isOpen()) {
             client.close(1000, "Closed by DUUIComposer");
             while (!client.isClosed()) {

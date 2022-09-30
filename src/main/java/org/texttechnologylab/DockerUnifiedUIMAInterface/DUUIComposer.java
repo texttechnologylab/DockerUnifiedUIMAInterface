@@ -1,6 +1,5 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface;
 
-import io.socket.client.Socket;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.collection.CollectionReader;
 import org.apache.uima.collection.CollectionReaderDescription;
@@ -11,10 +10,8 @@ import org.apache.uima.jcas.JCas;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.apache.uima.util.CasCreationUtils;
 import org.apache.uima.util.InvalidXMLException;
-import org.apache.uima.util.XmlCasSerializer;
 import org.luaj.vm2.Globals;
 import org.luaj.vm2.lib.jse.JsePlatform;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.DUUIWebsocketHandler;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.IDUUIConnectionHandler;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.*;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.AsyncCollectionReader;
@@ -24,7 +21,6 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPip
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.IDUUIStorageBackend;
 import org.xml.sax.SAXException;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
@@ -147,7 +143,8 @@ public class DUUIComposer {
     public static final String V1_COMPONENT_ENDPOINT_TYPESYSTEM = "/v1/typesystem";
     public static final String V1_COMPONENT_ENDPOINT_COMMUNICATION_LAYER = "/v1/communication_layer";
 
-    public static List<IDUUIConnectionHandler> _clients = new ArrayList<>();
+    public static List<IDUUIConnectionHandler> _clients = new ArrayList<>(); // Saves Websocket-Clients.
+    private boolean _connection_open = false; // Let connection open for multiple consecutive use.
 
     private TypeSystemDescription _minimalTypesystem;
 
@@ -210,9 +207,13 @@ public class DUUIComposer {
         return this;
     }
 
-
     public DUUIComposer withWorkers(int workers) {
         _workers = workers;
+        return this;
+    }
+
+    public DUUIComposer withOpenConnection(boolean open) {
+        _connection_open = open;
         return this;
     }
 
@@ -645,12 +646,18 @@ public class DUUIComposer {
                 /**
                  * @see
                  * @Givara
+                 * @edited Dawit Terefe
+                 * Added option to keep connection open.
                  */
-                //_clients.forEach(IDUUIConnectionHandler::close);
+//                if (!_connection_open) {
+//                    _clients.forEach(IDUUIConnectionHandler::close);
+//                }
             } else if (_storage != null) {
                 _storage.shutdown();
             }
-            //_clients.forEach(IDUUIConnectionHandler::close);
+            if (!_connection_open) {
+                _clients.forEach(IDUUIConnectionHandler::close);
+            }
             try {
                 shutdown_pipeline();
             } catch (Exception e) {
@@ -659,7 +666,6 @@ public class DUUIComposer {
             for (IDUUIDriverInterface driver : _drivers.values()) {
                 driver.shutdown();
             }
-            /** @see **/
 
             _hasShutdown = true;
         }
@@ -667,7 +673,6 @@ public class DUUIComposer {
             System.out.println("Skipped shutdown since it already happened!");
         }
     }
-
 
     public static void main(String[] args) throws Exception {
 
@@ -692,7 +697,6 @@ public class DUUIComposer {
 //        composer.addDriver(driver);
         composer.addDriver(remote_driver);
         composer.addDriver(uima_driver);
-        //SocketIO socketIO= new SocketIO("http://127.0.0.1:9716");
 
 //        composer.addDriver(swarm_driver);
 

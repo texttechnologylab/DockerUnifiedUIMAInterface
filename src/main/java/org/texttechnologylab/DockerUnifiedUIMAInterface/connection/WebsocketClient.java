@@ -1,7 +1,6 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.connection;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import de.tudarmstadt.ukp.dkpro.core.api.syntax.type.constituent.S;
 import org.java_websocket.client.WebSocketClient;
 import org.java_websocket.handshake.ServerHandshake;
 
@@ -20,22 +19,20 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class WebsocketClient extends WebSocketClient{
 
-
-    public interface SocketListener  {
-        void onOpen(ServerHandshake serverHandshake);
-        void onMessage(String s);
-        void onClose(int i, String s, boolean b);
-
-    }
-
-
     List<byte []> messageStack = new ArrayList<>();
 
     public WebsocketClient(URI serverUri) {
         super(serverUri);
-
     }
 
+    /**
+     * @author Dawit Terefe
+     * Checks if the analysis is finished
+     * by reading the last message in the message stack.
+     * If the message is "200" the analysis is finished.
+     *
+     * @return true if analysis is finished, false otherwise.
+     */
     public boolean isFinished() {
         {
             if (messageStack.size() == 0)
@@ -43,12 +40,19 @@ public class WebsocketClient extends WebSocketClient{
 
             byte[] lastMessage = messageStack.get(messageStack.size() - 1);
             String last = new String(lastMessage, StandardCharsets.UTF_8);
-            if (last.equals("200"))
-                return true;
-            else return false;
+
+            return last.equals("200");
         }
     }
 
+    /**
+     * @author Dawit Terefe
+     * Merges JSON results from the spacy annotator.
+     * Is called through the LUA-Skript in the communication layer.
+     *
+     * @param results List of results where the ByteArrayInputStreams are JSON files.
+     * @return One ByteArrayInputstream containing all the data of the results variable.
+     */
     public static ByteArrayInputStream mergeResults(List<ByteArrayInputStream> results) {
 
         List<Map<String, Object>> resultsMaps = results.stream()
@@ -67,8 +71,6 @@ public class WebsocketClient extends WebSocketClient{
                             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)) : null;
                 }).collect(Collectors.toList());
 
-        //resultsMaps.forEach(System.out::println);
-
         Map<String, Object> resultsMap = resultsMaps.stream()
                 .flatMap(jsonMap -> jsonMap.entrySet().stream())
                 .collect(Collectors.toMap(
@@ -84,10 +86,8 @@ public class WebsocketClient extends WebSocketClient{
                         }
                 ));
 
-        // System.out.println(resultsMap);
-
         ObjectMapper mapper = new ObjectMapper();
-        String jsonMap = null;
+        String jsonMap;
         try {
             jsonMap = mapper.writeValueAsString(resultsMap);
         } catch (JsonProcessingException e) {
@@ -96,7 +96,7 @@ public class WebsocketClient extends WebSocketClient{
         }
 
         byte[] jsonBytes = jsonMap.getBytes(StandardCharsets.UTF_8);
-        System.out.println("##################################################### \n"+resultsMap);
+        System.out.println("[WebsocketClient] Merged files: \n"+resultsMap);
 
         return new ByteArrayInputStream(jsonBytes);
     }
@@ -105,16 +105,11 @@ public class WebsocketClient extends WebSocketClient{
      * @edited
      * Givara Ebo
      */
-
     @Override
     public void onMessage(ByteBuffer b) {
 
         byte[] data = b.array();
 //        System.out.println("[WebsocketClient]: ByteBuffer received: " + b);
-
-        //String jsonString = StandardCharsets.UTF_8.decode(b).toString();
-
-        //System.out.println("[WebsocketClient]: ByteBuffer received: "+jsonString);
         this.messageStack.add(data);
     }
 

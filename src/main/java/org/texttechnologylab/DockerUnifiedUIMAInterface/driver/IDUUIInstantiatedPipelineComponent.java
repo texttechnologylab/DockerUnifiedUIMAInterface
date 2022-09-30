@@ -19,7 +19,6 @@ import org.xml.sax.SAXException;
 import java.io.*;
 import java.net.ProxySelector;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -188,7 +187,6 @@ public interface IDUUIInstantiatedPipelineComponent {
         JCas viewJc;
         if(viewName == null) {
             viewJc = jc;
-
         }
         else {
             try {
@@ -208,36 +206,26 @@ public interface IDUUIInstantiatedPipelineComponent {
         // lua serialize call()
         layer.serialize(viewJc,out,comp.getParameters());
 
-
-
-
-        // ok ist message.
+        // ok is the message.
         byte[] ok = out.toByteArray();
         long sizeArray = ok.length;
         long serializeEnd = System.nanoTime();
 
         long annotatorStart = serializeEnd;
 
-        /***
-         * @edited
-         * Givara Ebo
-         * Installation
-         */
-//        handler.initiate(uri);
         /**
-         * send a message with Socket
-         * an Dawit
-         * du kannst es noch mal freischalten.
+         * @edited Givara Ebo, Dawit Terefe
+         *
+         * Retrieve websocket-client from IDUUIUrlAccessible (ComponentInstance).
+         *
          */
-
         IDUUIUrlAccessible accessible = queue.getValue0();
         IDUUIConnectionHandler handler = accessible.getHandler();
+
         if (handler.getClass() == DUUIWebsocketAlt.class){
             JCas finalViewJc = viewJc;
 
-            List<ByteArrayInputStream> results = handler.get(ok);
-
-//            ByteArrayInputStream st = new ByteArrayInputStream(result);
+            List<ByteArrayInputStream> results = handler.send(ok);
 
             long annotatorEnd = System.nanoTime();
             long deserializeStart = annotatorEnd;
@@ -246,18 +234,11 @@ public interface IDUUIInstantiatedPipelineComponent {
             try {
                 /***
                  * @edited
-                 * Givara Ebo
-                 * ich habe es auskommentiert, um zu testen
-                 * now
+                 * Givara Ebo, Dawit Terefe
+                 *
+                 * Merging results before deserializing.
                  */
-                /** @see **/
-
-                // hier wird Lua-Funktion aufgerufen
-//                layer.myLuaTestMerging();
-
-
                 result = layer.merge(results);
-                System.out.println(result);
                 layer.deserialize(finalViewJc, result);
             }
             catch(Exception e) {
@@ -277,103 +258,6 @@ public interface IDUUIInstantiatedPipelineComponent {
             ann.addToIndexes();
             perf.addData(serializeEnd-serializeStart,deserializeEnd-deserializeStart,annotatorEnd-annotatorStart,queue.getValue2()-queue.getValue1(),deserializeEnd-queue.getValue1(), String.valueOf(comp.getPipelineComponent().getFinalizedRepresentationHash()), sizeArray, jc);
             comp.addComponent(accessible);
-
         }
-
-//        else if (handler.getClass() == DUUIWebsocketHandler.class) {
-//            JCas finalViewJc = viewJc;
-//
-//            System.out.println("[DUUIWebsocketHandler]: Message sending \n"+
-//                    StandardCharsets.UTF_8.decode(ByteBuffer.wrap(ok)));
-//
-//            Socket client = (Socket) handler.getClient();
-//
-//
-//            client.emit("json", ok, (Ack) objects -> {
-//
-//                System.out.println("[DUUIWebsocketHandler]: Message received "+
-//                        StandardCharsets.UTF_8.decode(ByteBuffer.wrap((byte[]) objects[0])));
-//
-//
-//                byte[] sioresult = (byte[]) objects[0];
-//                ByteArrayInputStream st = new ByteArrayInputStream(sioresult);
-//
-//                try {
-//                    /***
-//                     * @edited
-//                     * Givara Ebo
-//                     * ich habe es auskommentiert, um zu testen
-//                     * now
-//                     */
-//                    long annotatorEnd = System.nanoTime();
-//                    long deserializeStart = annotatorEnd;
-//
-//                    layer.deserialize(finalViewJc, st);
-//
-//                    long deserializeEnd = System.nanoTime();
-//
-//                    comp.addComponent(accessible);
-//
-//                    ReproducibleAnnotation ann = new ReproducibleAnnotation(jc);
-//                    ann.setDescription(comp.getPipelineComponent().getFinalizedRepresentation());
-//                    ann.setCompression(DUUIPipelineComponent.compressionMethod);
-//                    ann.setTimestamp(System.nanoTime());
-//                    ann.setPipelineName(perf.getRunKey());
-//                    ann.addToIndexes();
-//                    perf.addData(serializeEnd-serializeStart,deserializeEnd-deserializeStart,annotatorEnd-annotatorStart,queue.getValue2()-queue.getValue1(),deserializeEnd-queue.getValue1(), String.valueOf(comp.getPipelineComponent().getFinalizedRepresentationHash()), sizeArray, jc);
-//                    comp.addComponent(accessible);
-//
-//
-//
-//                }
-//                catch(Exception e) {
-//                    System.err.printf("Caught exception printing response %s\n",new String(sioresult, StandardCharsets.UTF_8));
-//                }
-//
-//
-//
-//            });
-//
-//
-//        }
-//        else {
-//
-//            System.out.println("[SocketIO]: SocketIO is not active");
-//            System.out.println("[SocketIO]: Message is not sent");
-//            /*
-//            byte[] result = handler.sendAwaitResponse(ok);
-//            comp.addComponent(accessible);
-//
-//
-//
-//            ByteArrayInputStream st = new ByteArrayInputStream(result);
-//            long annotatorEnd = System.nanoTime();
-//            long deserializeStart = annotatorEnd;
-//
-//            try {
-//                /***
-//                 * @edited
-//                 * Givara Ebo
-//                 * ich habe es auskommentiert, um zu testen
-//                 * now
-//                 *
-//                layer.deserialize(viewJc, st);
-//            }
-//            catch(Exception e) {
-//                System.err.printf("Caught exception printing response %s\n",new String(result, StandardCharsets.UTF_8));
-//            }
-//            long deserializeEnd = System.nanoTime();
-//
-//            ReproducibleAnnotation ann = new ReproducibleAnnotation(jc);
-//            ann.setDescription(comp.getPipelineComponent().getFinalizedRepresentation());
-//            ann.setCompression(DUUIPipelineComponent.compressionMethod);
-//            ann.setTimestamp(System.nanoTime());
-//            ann.setPipelineName(perf.getRunKey());
-//            ann.addToIndexes();
-//            perf.addData(serializeEnd-serializeStart,deserializeEnd-deserializeStart,annotatorEnd-annotatorStart,queue.getValue2()-queue.getValue1(),deserializeEnd-queue.getValue1(), String.valueOf(comp.getPipelineComponent().getFinalizedRepresentationHash()), sizeArray, jc);
-//            comp.addComponent(accessible);
-//            */
-//        }
-
     }
 }

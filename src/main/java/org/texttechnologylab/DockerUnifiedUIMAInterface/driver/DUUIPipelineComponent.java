@@ -31,6 +31,7 @@ public class DUUIPipelineComponent {
     private int _finalizedEncodedHash;
     private String _compression;
     private boolean _websocket = false;
+    private int _ws_elements = 50;
 
     public static String compressionMethod = CompressorStreamFactory.XZ;
 
@@ -38,7 +39,7 @@ public class DUUIPipelineComponent {
     private static String scaleOptionName = "scale";
     private static String urlOptionName = "url";
     private static String websocketOptionName = "websocket";
-
+    private String websocketElementsOptionName = "websocketElements";
 
     private static String dockerPasswordOptionName = "dockerPassword";
     private static String dockerUsernameOptionName = "dockerUsername";
@@ -418,11 +419,29 @@ public class DUUIPipelineComponent {
         return js.toString();
     }
 
+    /**
+     * @edited Dawit Terefe
+     *
+     * Option to choose websocket as protocol.
+     * Default is false.
+     * Option to choose number of elements for
+     * partition size.
+     *
+     */
     public boolean isWebsocket() { return _websocket; }
 
     public DUUIPipelineComponent withWebsocket(boolean b) {
         _websocket = b;
         return withParameter(websocketOptionName, String.valueOf(b));
+    }
+
+    public int getWebsocketElements () { return _ws_elements; }
+
+    public DUUIPipelineComponent withWebsocket(boolean b, int elements) {
+        _websocket = b;
+        _ws_elements = elements;
+        return withParameter(websocketOptionName, String.valueOf(b))
+                .withParameter(websocketElementsOptionName, String.valueOf(elements));
     }
 
     public DUUIPipelineComponent withParameter(String key, String value) {
