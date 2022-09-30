@@ -39,8 +39,11 @@ class Visualiser:
                     "serializedSize", # 9
                    "remote" #10
                           ]
+        """    #################################################################################################    """
+
         self.toPlotTests = ["0010", "0025", "0050", "0075", "0090", "0100", "0110", "0125", "0150", "0175", "0190", "0200"]
-        #hier werden die Anzahl der Token zum Ploten ausgewählt.
+        #hier werden die Anzahl der Token (die Namen der Ordner) zum Ploten ausgewählt.
+        """    #################################################################################################    """
 
 
     def setDir(self, dirPath):

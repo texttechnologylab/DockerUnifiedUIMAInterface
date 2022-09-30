@@ -40,8 +40,10 @@ class Visualiser:
                    "remote" #10
                           ]
         # self.toPlotTests = [ "local 0010", "local 0025", "local 0050", "local 0100", "remote 0010", "remote 0025", "remote 0050", "remote 0100"]
+        """    #################################################################################################    """
         self.toPlotTests = [ "local 0100", "remote 0100"]
-
+        #hier werden die Namen der Ordner zum Ploten ausgewählt.
+        """    #################################################################################################    """
 
 
     def setDir(self, dirPath):

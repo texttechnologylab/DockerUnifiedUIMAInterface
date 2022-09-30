@@ -39,8 +39,11 @@ class Visualiser:
                     "serializedSize", # 9
                    "remote" #10
                           ]
-        self.toPlotTests = [ "ws", "rest"]
+        """    #################################################################################################    """
 
+        self.toPlotTests = [ "ws", "rest"]
+        #hier werden die Namen der Ordner zum Ploten ausgewählt.
+        """    #################################################################################################    """
 
 
     def setDir(self, dirPath):
