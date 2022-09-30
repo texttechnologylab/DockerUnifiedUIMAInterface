@@ -24,6 +24,7 @@ import org.apache.uima.util.CasIOUtils;
 import org.apache.uima.util.XmlCasSerializer;
 import org.dkpro.core.io.xmi.XmiReader;
 import org.dkpro.core.io.xmi.XmiWriter;
+import org.hucompute.textimager.uima.type.GerVaderSentiment;
 import org.json.JSONArray;
 import org.junit.jupiter.api.Test;
 import org.msgpack.core.MessageBufferPacker;
@@ -283,6 +284,96 @@ CollectionReader();
 
 
     }
+    @Test
+    public void TestBioFID() throws Exception {
+        JCas jc = JCasFactory.createJCas();
+        String sText = "Wir feiern am 24.12. eines jeden Jahres Weihnachten!";
+
+        jc.setDocumentText(sText);
+        jc.setDocumentLanguage("de");
+
+        DUUILuaContext ctx = LuaConsts.getJSON();
+
+        DUUIComposer composer = new DUUIComposer()
+                //       .withStorageBackend(new DUUIArangoDBStorageBackend("password",8888))
+                .withLuaContext(ctx).withSkipVerification(true);
+
+        // Instantiate drivers with options
+        DUUIRemoteDriver remote_driver = new DUUIRemoteDriver(10000);
+        DUUIDockerDriver docker_driver = new DUUIDockerDriver(10000);
+        DUUISwarmDriver swarm_driver = new DUUISwarmDriver(1000000000).withSwarmVisualizer();
+
+        // A driver must be added before components can be added for it in the composer.
+        composer.addDriver(remote_driver);
+        composer.addDriver(docker_driver);
+        composer.addDriver(swarm_driver);
+
+        composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/gazetteer-rs/biofid:latest")
+                .withScale(1).build());
+//        composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/gazetteer-rs/biofid-habitat:latest")
+//                .withScale(1).build());
+//        composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/gazetteer-rs/geonames:latest")
+//                .withScale(1).build());
+//        composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/gazetteer-rs/gnd:latest")
+//                .withScale(1).build());
+
+//        composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9715")
+//                        .withScale(1)
+//                        .build());
+
+        composer.run(jc);
+
+        JCasUtil.select(jc, Time.class).forEach(t -> {
+            System.out.println(t);
+        });
+
+        System.out.println(jc.getDocumentLanguage());
+
+
+    }
+    @Test
+    public void TestGerVader() throws Exception {
+        JCas jc = JCasFactory.createJCas();
+        String sText = "Wir feiern am 24.12. eines jeden Jahres Weihnachten!";
+
+        jc.setDocumentText(sText);
+        jc.setDocumentLanguage("de");
+
+        DUUILuaContext ctx = LuaConsts.getJSON();
+
+        DUUIComposer composer = new DUUIComposer()
+                //       .withStorageBackend(new DUUIArangoDBStorageBackend("password",8888))
+                .withLuaContext(ctx).withSkipVerification(true);
+
+        // Instantiate drivers with options
+        DUUIRemoteDriver remote_driver = new DUUIRemoteDriver(10000);
+        DUUIDockerDriver docker_driver = new DUUIDockerDriver(10000);
+        DUUISwarmDriver swarm_driver = new DUUISwarmDriver(10000);
+
+        // A driver must be added before components can be added for it in the composer.
+        composer.addDriver(remote_driver);
+        composer.addDriver(docker_driver);
+        composer.addDriver(swarm_driver);
+
+        composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
+                .withScale(1).build());
+        composer.add(new DUUIDockerDriver.Component("gervader_duui:1.0")
+                .withScale(1));
+
+//        composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9715")
+//                        .withScale(1)
+//                        .build());
+
+        composer.run(jc);
+
+        JCasUtil.select(jc, GerVaderSentiment.class).forEach(t -> {
+            System.out.println(t);
+        });
+
+        System.out.println(jc.getDocumentLanguage());
+
+
+    }
 
     @Test
     public void TestBFSRL() throws Exception {
@@ -310,7 +401,7 @@ CollectionReader();
 //        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager_duui_bfsrl:0.1.1").withScale(iWorkers).withImageFetching());
 //        composer.add(new DUUIDockerDriver.Component("textimager_duui_bfsrl:0.0.1").withScale(iWorkers));
 
-        composer.add(new DUUIRemoteDriver.Component("http://localhost:9715")
+        composer.add(new DUUIRemoteDriver.Component("http://localhost:9714")
                 .withScale(iWorkers));
 
         composer.run(jc);
