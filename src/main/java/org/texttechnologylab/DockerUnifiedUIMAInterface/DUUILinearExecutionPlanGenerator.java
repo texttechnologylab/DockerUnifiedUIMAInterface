@@ -60,7 +60,6 @@ public class DUUILinearExecutionPlanGenerator implements IDUUIExecutionPlanGener
 
         @Override
         public void setAnnotated() {
-
         }
 
         public  Future<JCas> awaitAnnotation(){

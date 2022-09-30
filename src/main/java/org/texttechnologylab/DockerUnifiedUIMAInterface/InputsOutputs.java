@@ -24,9 +24,6 @@ public class InputsOutputs {
 
     @Override
     public String toString() {
-        return "InputsOutputs{" +
-                "inputs=" + inputs +
-                ", outputs=" + outputs +
-                '}';
+        return "InputsOutputs{" + "inputs=" + inputs + ", outputs=" + outputs + '}';
     }
 }

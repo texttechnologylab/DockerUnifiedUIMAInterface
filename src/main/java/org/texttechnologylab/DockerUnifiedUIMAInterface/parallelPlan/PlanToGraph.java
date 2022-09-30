@@ -9,7 +9,6 @@ import org.jgrapht.nio.DefaultAttribute;
 import org.jgrapht.nio.graphml.GraphMLExporter;
 
 import java.io.File;
-import java.io.OutputStream;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
@@ -18,14 +17,14 @@ import java.util.Queue;
 public class PlanToGraph {
 
     /**
-     * generates a jgrapht from an ExecutionPlan
+     * generates a jgrapht graph from an DUUIParallelExecutionPlan
      */
-    public static Graph<DUUIParallelExecutionPlan, DefaultEdge> toGraph(DUUIParallelExecutionPlan root){
+    public static Graph<DUUIParallelExecutionPlan, DefaultEdge> toGraph(DUUIParallelExecutionPlan root) {
         Graph<DUUIParallelExecutionPlan, DefaultEdge> g = new DefaultDirectedGraph<>(DefaultEdge.class);
         Queue<DUUIParallelExecutionPlan> queue = new LinkedList<>();
         queue.add(root);
         g.addVertex(root);
-        while(!queue.isEmpty()){
+        while (!queue.isEmpty()) {
             DUUIParallelExecutionPlan plan = queue.poll();
             for (DUUIParallelExecutionPlan next : plan.getNext()) {
                 g.addVertex(next);
@@ -39,16 +38,16 @@ public class PlanToGraph {
     /**
      * exports a graph
      */
-    public static void writeGraph(Graph<DUUIParallelExecutionPlan, DefaultEdge> graph, String fileName){
+    public static void writeGraph(Graph<DUUIParallelExecutionPlan, DefaultEdge> graph, String fileName) {
         GraphMLExporter<DUUIParallelExecutionPlan, DefaultEdge> exporter = new GraphMLExporter<>();
         exporter.registerAttribute("inputs", GraphMLExporter.AttributeCategory.NODE, AttributeType.STRING);
         exporter.registerAttribute("outputs", GraphMLExporter.AttributeCategory.NODE, AttributeType.STRING);
         exporter.registerAttribute("uuid", GraphMLExporter.AttributeCategory.NODE, AttributeType.STRING);
         exporter.setVertexAttributeProvider(vertex -> {
             Map<String, Attribute> m = new HashMap<>();
-            m.put("inputs", new DefaultAttribute<>(vertex.getPipelinePart()!=null?String.valueOf(vertex.getInputs()):"null", AttributeType.STRING));
-            m.put("outputs", new DefaultAttribute<>(vertex.getPipelinePart()!=null?String.valueOf(vertex.getOutputs()):"null", AttributeType.STRING));
-            m.put("uuid", new DefaultAttribute<>(vertex.getPipelinePart()!=null?vertex.getPipelinePart().getUUID():"null", AttributeType.STRING));
+            m.put("inputs", new DefaultAttribute<>(vertex.getPipelinePart() != null ? String.valueOf(vertex.getInputs()) : "null", AttributeType.STRING));
+            m.put("outputs", new DefaultAttribute<>(vertex.getPipelinePart() != null ? String.valueOf(vertex.getOutputs()) : "null", AttributeType.STRING));
+            m.put("uuid", new DefaultAttribute<>(vertex.getPipelinePart() != null ? vertex.getPipelinePart().getUUID() : "null", AttributeType.STRING));
             return m;
         });
         exporter.exportGraph(graph, new File(fileName));

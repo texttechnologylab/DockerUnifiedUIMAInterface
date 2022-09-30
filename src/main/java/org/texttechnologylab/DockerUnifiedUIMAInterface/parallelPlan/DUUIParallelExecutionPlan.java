@@ -64,7 +64,6 @@ public class DUUIParallelExecutionPlan implements IDUUIExecutionPlan {
     }
 
     /**
-     *
      * @return Future of {@link IDUUIExecutionPlan} with merged JCas
      */
     @Override
@@ -88,7 +87,6 @@ public class DUUIParallelExecutionPlan implements IDUUIExecutionPlan {
     }
 
     /**
-     *
      * @return the predecessors of this ExecutionPlan
      */
     public List<DUUIParallelExecutionPlan> getPrevious() {
@@ -96,7 +94,6 @@ public class DUUIParallelExecutionPlan implements IDUUIExecutionPlan {
     }
 
     /**
-     *
      * @return the successors of this ExecutionPlan
      */
     public List<DUUIParallelExecutionPlan> getNext() {
@@ -104,7 +101,6 @@ public class DUUIParallelExecutionPlan implements IDUUIExecutionPlan {
     }
 
     /**
-     *
      * @return The pipelinePart of this ExecutionPlan.
      */
     @Override
@@ -113,7 +109,6 @@ public class DUUIParallelExecutionPlan implements IDUUIExecutionPlan {
     }
 
     /**
-     *
      * @param parallelExecutionPlan Adds ExecutionPlan as successor. Used for Graph generation.
      */
     protected void addNext(DUUIParallelExecutionPlan parallelExecutionPlan) {
@@ -121,7 +116,6 @@ public class DUUIParallelExecutionPlan implements IDUUIExecutionPlan {
     }
 
     /**
-     *
      * @param parallelExecutionPlan Adds ExecutionPlan as predecessor. Used for Graph generation.
      */
     protected void addPrevious(DUUIParallelExecutionPlan parallelExecutionPlan) {
@@ -164,30 +158,29 @@ public class DUUIParallelExecutionPlan implements IDUUIExecutionPlan {
     /**
      * @return The inputs of the PipelinePart. Provides caching. Not thread safe.
      */
-    public List<String> getInputs(){
-        if(pipelinePart!=null && inputsOutputs==null) {
+    public List<String> getInputs() {
+        if (pipelinePart != null && inputsOutputs == null) {
             try {
                 inputsOutputs = pipelinePart.getDriver().getInputsOutputs(pipelinePart.getUUID());
             } catch (ResourceInitializationException e) {
                 throw new RuntimeException(e);
             }
         }
-        return inputsOutputs==null?null:inputsOutputs.getInputs();
+        return inputsOutputs == null ? null : inputsOutputs.getInputs();
     }
 
     /**
-     *
      * @return The outputs of the PipelinePart. Provides caching. Not thread safe.
      */
-    public List<String> getOutputs(){
-        if(pipelinePart!=null && inputsOutputs==null) {
+    public List<String> getOutputs() {
+        if (pipelinePart != null && inputsOutputs == null) {
             try {
                 inputsOutputs = pipelinePart.getDriver().getInputsOutputs(pipelinePart.getUUID());
             } catch (ResourceInitializationException e) {
                 throw new RuntimeException(e);
             }
         }
-        return inputsOutputs==null?null:inputsOutputs.getOutputs();
+        return inputsOutputs == null ? null : inputsOutputs.getOutputs();
     }
 
     /**
@@ -201,7 +194,7 @@ public class DUUIParallelExecutionPlan implements IDUUIExecutionPlan {
     /**
      * @return Future for the annotated JCas
      */
-    public Future<JCas> awaitAnnotation(){
+    public Future<JCas> awaitAnnotation() {
         return isAnnotated;
     }
 }

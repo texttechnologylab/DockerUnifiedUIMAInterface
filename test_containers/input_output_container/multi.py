@@ -26,7 +26,7 @@ def main():
 
 def main2():
     for i in range(num):
-        t1 = threading.Thread(target=lambda:subprocess.run(['python3', 'main.py', '--inputs', '[]', '--outputs', '[]', '--port',str(9714+i)]))
-        t1.start()
+        t = threading.Thread(target=lambda:subprocess.run(['python3', 'main.py', '--inputs', '[]', '--outputs', '[]', '--port',str(9714+i)]))
+        t.start()
 
 main()

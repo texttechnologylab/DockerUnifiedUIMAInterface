@@ -42,7 +42,5 @@ public class Test {
 //        System.out.println(JCasUtil.select(jCas3, Annotation.class).size());
 
 
-
-
     }
 }

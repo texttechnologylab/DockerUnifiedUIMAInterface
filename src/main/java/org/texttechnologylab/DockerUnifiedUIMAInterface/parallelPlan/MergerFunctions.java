@@ -14,13 +14,13 @@ import java.util.Collection;
 public class MergerFunctions {
 
     /**
-     * copy single annotation from srcCas to destCas described by annotationType
+     * copy single annotation from srcCas to destCas described by annotationTypeName
      */
     public static void merge(JCas srcCas, JCas destCas, String annotationTypeName) throws ClassNotFoundException {
         Class<? extends TOP> annotationClass = (Class<? extends TOP>) IDUUIInstantiatedPipelineComponent.class.getClassLoader().loadClass(annotationTypeName);
         CasCopier casCopier = new CasCopier(srcCas.getCas(), destCas.getCas());
-        Collection<TOP> annotations = JCasUtil.select(srcCas,(Class<TOP>) annotationClass);
-        for(TOP annotation : annotations) {
+        Collection<TOP> annotations = JCasUtil.select(srcCas, (Class<TOP>) annotationClass);
+        for (TOP annotation : annotations) {
             destCas.addFsToIndexes(casCopier.copyFs(annotation));
         }
     }
@@ -37,19 +37,6 @@ public class MergerFunctions {
         JCasUtil.select(srcCas, annotationClass).forEach(annotation -> destCas.addFsToIndexes(casCopier.copyFs(annotation)));
     }
 
-
-    /**
-     * copy multiple annotations from srcCas to destCas described by List annotationTypes
-     */
-    public static void merge(JCas srcCas, JCas destCas, Collection<Integer> annotationTypes) {
-        CasCopier casCopier = new CasCopier(srcCas.getCas(), destCas.getCas());
-        for (Integer annotationType : annotationTypes) {
-            destCas.removeAllExcludingSubtypes(annotationType);
-
-            Class<? extends TOP> annotationClass = JCasRegistry.getClassForIndex(annotationType);
-            JCasUtil.select(srcCas, annotationClass).forEach(annotation -> destCas.addFsToIndexes(casCopier.copyFs(annotation)));
-        }
-    }
 
     /**
      * copy all Annotations form srcCas to destCas

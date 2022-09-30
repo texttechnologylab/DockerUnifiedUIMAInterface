@@ -12,10 +12,16 @@ public class DUUIParallelExecutionPlanGenerator implements IDUUIExecutionPlanGen
 
     private final Collection<DUUIComposer.PipelinePart> pipelineParts;
 
+    /**
+     * @param pipelineParts They are contained in the created graph.
+     */
     public DUUIParallelExecutionPlanGenerator(Collection<DUUIComposer.PipelinePart> pipelineParts) throws ResourceInitializationException {
         this.pipelineParts = pipelineParts;
     }
 
+    /**
+     * Returns a new created Graph of DUUIExecutionPlans. A start and end node is added.
+     */
     @Override
     public IDUUIExecutionPlan generate(JCas jc) {
 
@@ -61,7 +67,7 @@ public class DUUIParallelExecutionPlanGenerator implements IDUUIExecutionPlanGen
                     for (String inputs : plan.getInputs())
                         for (DUUIParallelExecutionPlan requiredPlan : satisfiesToPipelinePart.get(inputs)) {
                             // can only depend on plans that have already everything satisfied
-                            if(!remaining.contains(requiredPlan)) {
+                            if (!remaining.contains(requiredPlan)) {
                                 requiredPlan.addNext(plan);
                                 plan.addPrevious(requiredPlan);
                                 // only add first plan with that output
@@ -73,16 +79,16 @@ public class DUUIParallelExecutionPlanGenerator implements IDUUIExecutionPlanGen
                     iterator.remove();
                     found = true;
                 }
-                if(!iterator.hasNext() && !found)
+                if (!iterator.hasNext() && !found)
                     throw new RuntimeException("Can't satisfy dependency");
             }
         }
 
         // add final merge node
         DUUIParallelExecutionPlan endNode = new DUUIParallelExecutionPlan(null);
-        for(DUUIParallelExecutionPlan plan:allNodes){
+        for (DUUIParallelExecutionPlan plan : allNodes) {
             // add all nodes without successor
-            if(plan.getNext().isEmpty()) {
+            if (plan.getNext().isEmpty()) {
                 plan.addNext(endNode);
                 endNode.addPrevious(plan);
             }
