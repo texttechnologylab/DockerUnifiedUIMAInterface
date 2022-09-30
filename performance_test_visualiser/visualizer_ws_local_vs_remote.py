@@ -11,6 +11,7 @@ class Visualiser:
         self.figur = plt.figure(figsize=(40, 20))
         self.dirPath = ""
         self.local = ""
+        self.remote = ""
         self.l_websocket = ""
         self.l_websocket_tests_list = ""
         self.pipeline_document_perfs = []
@@ -38,8 +39,8 @@ class Visualiser:
                     "serializedSize", # 9
                    "remote" #10
                           ]
-        self.toPlotTests = ["0010", "0025", "0050", "0075", "0090", "0100", "0110", "0125", "0150", "0175", "0190", "0200"]
-        # self.toPlotTests = ["0025", "0050", "1000", "5000", "9999"]
+        # self.toPlotTests = [ "local 0010", "local 0025", "local 0050", "local 0100", "remote 0010", "remote 0025", "remote 0050", "remote 0100"]
+        self.toPlotTests = [ "local 0100", "remote 0100"]
 
 
 
@@ -47,9 +48,8 @@ class Visualiser:
         # print("dir = ", dirPath)
         self.entries = os.listdir(dirPath)
         # print(self.entries)
-        self.local = dirPath+"/local"
-        self.remote = dirPath+"/remote"
-        self.l_websocket = dirPath+"/local/websocket"
+        self.local = dirPath+"/ws_local_vs_remote"
+        self.l_websocket = dirPath+"/ws_local_vs_remote/local_vs_remote"
         self.addTestsLocal()
         return
 
@@ -237,6 +237,7 @@ class Visualiser:
             if i['test'] in self.toPlotTests:
                 tests_.append(i)
 
+        print("test_ ", tests_)
         for test1 in tests_:
             plt.plot(test1['x_test'], test1['y_pred'],
                          # color='none',
@@ -250,7 +251,8 @@ class Visualiser:
                          )
 
 
-        plt.title(self.all[self.myindex]+": local  => Gradient descent \n mit den ersten und letzten Wert", fontsize=40, fontweight="bold", pad=40)
+        plt.title(self.all[self.myindex]+": local und remote  => Gradient descent \n mit den ersten und letzten Wert\n"
+                                         " Rest vs Websocket (100)", fontsize=40, fontweight="bold", pad=40)
 
         plt.legend(loc='upper left', fontsize=15)
         plt.xticks(np.arange(min(self.labels)/10000, max(self.labels)/10000, step=0.4))
@@ -260,7 +262,7 @@ class Visualiser:
         plt.ylabel("--------- " + self.all[self.myindex] + " --------->", fontsize=16, fontweight="bold", labelpad=30)
         # plt.show()
 
-        plt.savefig('results/gradientDescent_with_first_and_last_value.pdf')
+        plt.savefig('results/gradientDescent_ws_local_vs_remote.pdf')
 
     def plot(self):
         tests_ =[]
@@ -287,7 +289,7 @@ class Visualiser:
                          )
 
 
-        plt.title(self.all[self.myindex]+": local \n mit den ersten und letzten Wert", fontsize=40, fontweight="bold", pad=40)
+        plt.title(self.all[self.myindex]+": local und remote \n mit den ersten und letzten Wert\n Rest vs Websocket (100)", fontsize=40, fontweight="bold", pad=40)
 
         plt.legend(loc='upper left', fontsize=15)
         plt.xticks(np.arange(min(self.labels), max(self.labels), step=4000))
@@ -297,7 +299,7 @@ class Visualiser:
         plt.ylabel("--------- " + self.all[self.myindex] + " --------->", fontsize=16, fontweight="bold", labelpad=30)
         # plt.show()
 
-        plt.savefig('results/plot_with_first_and_last_value.pdf')
+        plt.savefig('results/plot_ws_local_vs_remote.pdf')
 
 
 

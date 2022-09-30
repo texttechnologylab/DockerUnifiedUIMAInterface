@@ -34,6 +34,8 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
     private DUUICompressionHelper _helper;
     private DUUILuaContext _luaContext;
 
+    private int tokns_number = 175;
+
 
     public static class Component {
         private DUUIPipelineComponent component;
@@ -211,7 +213,7 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
             if (comp.isWebsocket()) {
 
                 _wsclient = new DUUIWebsocketAlt(
-                        url.replaceFirst("http", "ws") + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS_WEBSOCKET, 1000);
+                        url.replaceFirst("http", "ws") + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS_WEBSOCKET, tokns_number);
             }
             else {
                 _wsclient = null;

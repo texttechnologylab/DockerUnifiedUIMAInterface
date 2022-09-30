@@ -13,9 +13,7 @@ class Visualiser:
         self.local = ""
         self.remote = ""
         self.l_websocket = ""
-        self.r_websocket = ""
         self.l_websocket_tests_list = ""
-        self.r_websocket_tests_list = ""
         self.pipeline_document_perfs = []
         self.bestTests = []
         self.labels = []
@@ -41,18 +39,16 @@ class Visualiser:
                     "serializedSize", # 9
                    "remote" #10
                           ]
-        self.toPlotTests = ["1000","2000", "5000", "9999"]
-        # self.toPlotTests = [ "0025", "0050", "1000", "5000", "9999"]
+        self.toPlotTests = ["0010", "0025", "0050", "0075", "0090", "0100", "0110", "0125", "0150", "0175", "0190", "0200"]
+        #hier werden die Anzahl der Token zum Ploten ausgewählt.
+
 
     def setDir(self, dirPath):
         # print("dir = ", dirPath)
         self.entries = os.listdir(dirPath)
         # print(self.entries)
         self.local = dirPath+"/local"
-        self.remote = dirPath+"/remote"
         self.l_websocket = dirPath+"/local/websocket"
-        self.r_websocket = dirPath+"/remote/websocket"
-        self.r_websocket_tests_list = os.listdir(self.r_websocket)
         self.addTestsLocal()
         return
 

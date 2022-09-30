@@ -14,20 +14,20 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class WebsocketCachTest {
     private static int iWorkers = 1;
-    private static int fileCounter = 0;
+    private static int fileCounter = 4;
 
 
     @Test
     void testWithWebsocket(String text, String name) throws Exception {
         fileCounter+=1;
         String token_numbers = "0050"; // muss in 4 Ziffern sein
-        DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend("performance_dbs/local/websocket/cach"+fileCounter+".db")
-                .withConnectionPoolSize(iWorkers);
+        //DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend("performance_dbs/cach"+fileCounter+".db")
+          //      .withConnectionPoolSize(iWorkers);
         DUUILuaContext ctx = new DUUILuaContext().withGlobalLibrary("json", DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/json.lua").toURI());
 
         DUUIComposer composer = new DUUIComposer()
                 //        .withStorageBackend(new DUUIArangoDBStorageBackend("password",8888))
-                .withStorageBackend(sqlite)
+            //    .withStorageBackend(sqlite)
                 .withLuaContext(ctx)
                 .withSkipVerification(true)
                 .withWorkers(iWorkers);
@@ -40,7 +40,7 @@ class WebsocketCachTest {
         composer.addDriver(remote_driver);
         composer.addDriver(uima_driver);
 
-        composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9715")
+        composer.add(new DUUIRemoteDriver.Component("http://10.79.22.241:9715")
                 .withScale(iWorkers).withWebsocket(true).build());
 //        composer.add(new SocketIO("http://127.0.0.1:9715"));
 
@@ -55,7 +55,7 @@ class WebsocketCachTest {
         composer.run(jc,name);
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         XmlCasSerializer.serialize(jc.getCas(),out);
-        System.out.println(new String(out.toByteArray()));
+        // System.out.println(new String(out.toByteArray()));
 
         composer.shutdown();
     }
@@ -77,8 +77,10 @@ class WebsocketCachTest {
         InputStream inputStream = WebsocketTest.class.getResourceAsStream("/sample_splitted/sample_01_140.txt");
         String text = readFromInputStream1(inputStream);
         System.out.println(text);
-        testWithWebsocket(text, "cachTest");
+        //testWithWebsocket(text, "cachTest");
         testWithWebsocket(text, "cachTest");
     }
+
+
 
 }

@@ -20,29 +20,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class CorrectnessTest {
 
-    public static List<DUUIComposer> _composers = new ArrayList<>();
-    public static List<Path> getFilePathes(String dirPathInResources) {
-        List<Path> paths = new ArrayList<>();
-        InputStream resourcesPath = CorrectnessTest.class.getClassLoader().getResourceAsStream(dirPathInResources);
-        BufferedReader br = new BufferedReader(new InputStreamReader(resourcesPath));
-        List<String> fileNameList = br.lines().collect(Collectors.toList());
-        for (String path: fileNameList) {
-            paths.add(Path.of(path));
-        }
-        return paths;
-    }
-    public static String readFromInputStream(InputStream inputStream)
-            throws IOException {
-        StringBuilder resultStringBuilder = new StringBuilder();
-        try (BufferedReader br = new BufferedReader(new InputStreamReader(inputStream))) {
-            String line;
-            while ((line = br.readLine()) != null) {
-                resultStringBuilder.append(line).append("\n");
-            }
-        }
-        return resultStringBuilder.toString();
-    }
-
     public static String testWithWebsocket(String test) throws Exception {
 
         DUUILuaContext ctx = new DUUILuaContext().withGlobalLibrary("json",DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/json.lua").toURI());

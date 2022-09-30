@@ -38,7 +38,7 @@ class Visualiser:
                     "serializedSize", # 9
                    "remote" #10
                           ]
-        self.toPlotTests = ["0010", "0025", "0050", "0075", "0090", "0100", "0110", "0125", "0150", "0175", "0190", "0200"]
+        self.toPlotTests = [ "0010", "0025", "0050", "0075", "0090", "0100"]
         # self.toPlotTests = ["0025", "0050", "1000", "5000", "9999"]
 
 
@@ -47,9 +47,8 @@ class Visualiser:
         # print("dir = ", dirPath)
         self.entries = os.listdir(dirPath)
         # print(self.entries)
-        self.local = dirPath+"/local"
         self.remote = dirPath+"/remote"
-        self.l_websocket = dirPath+"/local/websocket"
+        self.l_websocket = dirPath+"/remote/websocket"
         self.addTestsLocal()
         return
 
@@ -119,8 +118,8 @@ class Visualiser:
 
 
             # x = np.array(x[1:])
-            # x = np.array(x[1:-1]) ###########################_
-            x = np.array(x)
+            x = np.array(x[1:-1]) ###########################_
+            # x = np.array(x)
             x = list(map(lambda x: x / 10000, x))
             x_train = ""
             x_test = ""
@@ -134,8 +133,8 @@ class Visualiser:
             y_tests=[]
             for line in lines:
                 # y = np.array(line[1:])
-                # y = np.array(line[1:-1])
-                y = np.array(line) ###########################_
+                y = np.array(line[1:-1])
+                # y = np.array(line) ###########################_
                 y = list(map(lambda x: x / 10000, y))
                 y_s.append(y)
                 x_train, x_test, y_train, y_test = train_test_split(x, y, random_state=16)
@@ -250,7 +249,7 @@ class Visualiser:
                          )
 
 
-        plt.title(self.all[self.myindex]+": local  => Gradient descent \n mit den ersten und letzten Wert", fontsize=40, fontweight="bold", pad=40)
+        plt.title(self.all[self.myindex]+": remote  => Gradient descent \n ohne den ersten und letzten Wert", fontsize=40, fontweight="bold", pad=40)
 
         plt.legend(loc='upper left', fontsize=15)
         plt.xticks(np.arange(min(self.labels)/10000, max(self.labels)/10000, step=0.4))
@@ -260,7 +259,7 @@ class Visualiser:
         plt.ylabel("--------- " + self.all[self.myindex] + " --------->", fontsize=16, fontweight="bold", labelpad=30)
         # plt.show()
 
-        plt.savefig('results/gradientDescent_with_first_and_last_value.pdf')
+        plt.savefig('results/gradientDescent_remote.pdf')
 
     def plot(self):
         tests_ =[]
@@ -271,11 +270,11 @@ class Visualiser:
         for test1 in tests_:
             plt.plot(
                 #test1['x'][1:],
-                test1['x'],
-                # test1['x'][1:-1],  ###########################_
+                # test1['x'],
+                test1['x'][1:-1],  ###########################_
                 # test1['y'][1:],
-                test1['y'],
-                # test1['y'][1:-1],  ###########################_
+                # test1['y'],
+                test1['y'][1:-1],  ###########################_
                          # color='none',
                          label= str(test1['test'])+", m = "+str(int(test1['mc']['m'])/10000),
                          linestyle='dashed',
@@ -287,7 +286,7 @@ class Visualiser:
                          )
 
 
-        plt.title(self.all[self.myindex]+": local \n mit den ersten und letzten Wert", fontsize=40, fontweight="bold", pad=40)
+        plt.title(self.all[self.myindex]+": romte \n ohne den ersten und letzten Wert", fontsize=40, fontweight="bold", pad=40)
 
         plt.legend(loc='upper left', fontsize=15)
         plt.xticks(np.arange(min(self.labels), max(self.labels), step=4000))
@@ -297,7 +296,7 @@ class Visualiser:
         plt.ylabel("--------- " + self.all[self.myindex] + " --------->", fontsize=16, fontweight="bold", labelpad=30)
         # plt.show()
 
-        plt.savefig('results/plot_with_first_and_last_value.pdf')
+        plt.savefig('results/plot_remote.pdf')
 
 
 

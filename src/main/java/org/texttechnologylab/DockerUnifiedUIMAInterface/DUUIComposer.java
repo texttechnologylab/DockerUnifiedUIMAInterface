@@ -646,7 +646,7 @@ public class DUUIComposer {
                  * @see
                  * @Givara
                  */
-                _clients.forEach(IDUUIConnectionHandler::close);
+                //_clients.forEach(IDUUIConnectionHandler::close);
             } else if (_storage != null) {
                 _storage.shutdown();
             }

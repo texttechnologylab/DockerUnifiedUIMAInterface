@@ -38,7 +38,7 @@ class Visualiser:
                     "serializedSize", # 9
                    "remote" #10
                           ]
-        self.toPlotTests = ["0010", "0025", "0050", "0075", "0090", "0100", "0110", "0125", "0150", "0175", "0190", "0200"]
+        self.toPlotTests = [ "0010", "0025", "0050", "0075", "0090", "0100"]
         # self.toPlotTests = ["0025", "0050", "1000", "5000", "9999"]
 
 
@@ -47,9 +47,8 @@ class Visualiser:
         # print("dir = ", dirPath)
         self.entries = os.listdir(dirPath)
         # print(self.entries)
-        self.local = dirPath+"/local"
         self.remote = dirPath+"/remote"
-        self.l_websocket = dirPath+"/local/websocket"
+        self.l_websocket = dirPath+"/remote/websocket"
         self.addTestsLocal()
         return
 
@@ -250,7 +249,7 @@ class Visualiser:
                          )
 
 
-        plt.title(self.all[self.myindex]+": local  => Gradient descent \n mit den ersten und letzten Wert", fontsize=40, fontweight="bold", pad=40)
+        plt.title(self.all[self.myindex]+": remote  => Gradient descent \n mit den ersten und letzten Wert", fontsize=40, fontweight="bold", pad=40)
 
         plt.legend(loc='upper left', fontsize=15)
         plt.xticks(np.arange(min(self.labels)/10000, max(self.labels)/10000, step=0.4))
@@ -260,7 +259,7 @@ class Visualiser:
         plt.ylabel("--------- " + self.all[self.myindex] + " --------->", fontsize=16, fontweight="bold", labelpad=30)
         # plt.show()
 
-        plt.savefig('results/gradientDescent_with_first_and_last_value.pdf')
+        plt.savefig('results/gradientDescent_remote_with_first_and_last_value.pdf')
 
     def plot(self):
         tests_ =[]
@@ -287,7 +286,7 @@ class Visualiser:
                          )
 
 
-        plt.title(self.all[self.myindex]+": local \n mit den ersten und letzten Wert", fontsize=40, fontweight="bold", pad=40)
+        plt.title(self.all[self.myindex]+": romte \n mit den ersten und letzten Wert", fontsize=40, fontweight="bold", pad=40)
 
         plt.legend(loc='upper left', fontsize=15)
         plt.xticks(np.arange(min(self.labels), max(self.labels), step=4000))
@@ -297,7 +296,7 @@ class Visualiser:
         plt.ylabel("--------- " + self.all[self.myindex] + " --------->", fontsize=16, fontweight="bold", labelpad=30)
         # plt.show()
 
-        plt.savefig('results/plot_with_first_and_last_value.pdf')
+        plt.savefig('results/plot_remote_with_first_and_last_value.pdf')
 
 
 

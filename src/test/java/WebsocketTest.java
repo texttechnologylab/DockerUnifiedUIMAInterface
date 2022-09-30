@@ -64,7 +64,8 @@ public class WebsocketTest {
         composer.addDriver(remote_driver);
         composer.addDriver(uima_driver);
 
-        composer.add(new DUUIRemoteDriver.Component("http://localhost:9715")
+       composer.add(new DUUIRemoteDriver.Component("http://10.79.22.241:9715")
+        //  composer.add(new DUUIRemoteDriver.Component("http://localhost:9715")
                 .withScale(1).withWebsocket(true).build());
 
         String val = test;
@@ -78,7 +79,7 @@ public class WebsocketTest {
         composer.run(jc,"fuchs");
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         XmlCasSerializer.serialize(jc.getCas(),out);
-        System.out.println(new String(out.toByteArray()));
+//        System.out.println(new String(out.toByteArray()));
 
         composer.shutdown();
 
@@ -96,8 +97,12 @@ public class WebsocketTest {
         DUUISwarmDriver swarmDriver = new DUUISwarmDriver();
 
         composer.addDriver(swarmDriver);
+        DUUIRemoteDriver driver = new DUUIRemoteDriver();
 
-        composer.add(new DUUISwarmDriver.Component("localhost:5000/textimager-duui-spacy:0.1.2")
+        composer.addDriver(driver);
+
+
+        composer.add(new DUUIRemoteDriver.Component("localhost:9714")
                 .withScale(1)
                 .withWebsocket(true).build());
 
@@ -200,8 +205,8 @@ public class WebsocketTest {
 
     public static void main(String[] args) throws Exception {
 
-        InputStream inputStream = WebsocketTest.class.getResourceAsStream("/sample_splitted/sample_01_140.txt");
-//        InputStream inputStream = WebsocketTest.class.getResourceAsStream("/sample_splitted/sample_02_349.txt");
+//        InputStream inputStream = WebsocketTest.class.getResourceAsStream("/sample_splitted/sample_01_140.txt");
+        InputStream inputStream = WebsocketTest.class.getResourceAsStream("/sample_splitted/sample_02_349.txt");
         String text = readFromInputStream1(inputStream);
 
         System.out.println(text);
@@ -209,11 +214,6 @@ public class WebsocketTest {
         //testDocker(text);
         // DUUIComposer._clients.forEach(IDUUIConnectionHandler::close);
         testWithWebsocket(text);
-
-
-        testWithWebsocket(text);
-
-
 //        testWithWebsocket(text);
 //        testWithWebsocket(text);
 
