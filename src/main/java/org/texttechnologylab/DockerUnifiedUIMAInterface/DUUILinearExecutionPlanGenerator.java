@@ -15,6 +15,7 @@ public class DUUILinearExecutionPlanGenerator implements IDUUIExecutionPlanGener
     public class DUUILinearExecutionPlan implements IDUUIExecutionPlan {
         private Vector<DUUIComposer.PipelinePart> _pipeline;
         private JCas _jc;
+        private CompletableFuture<JCas> _isAnnotated;
         int _index;
 
         public IDUUIExecutionPlan copy() {
@@ -25,12 +26,14 @@ public class DUUILinearExecutionPlanGenerator implements IDUUIExecutionPlanGener
             _pipeline = flow;
             _jc = jc;
             _index = 0;
+            _isAnnotated = new CompletableFuture<>();
         }
 
         public DUUILinearExecutionPlan(Vector<DUUIComposer.PipelinePart> flow, JCas jc, int index) {
             _pipeline = flow;
             _jc = jc;
             _index = index;
+            _isAnnotated = new CompletableFuture<>();
         }
 
         public List<IDUUIExecutionPlan> getNextExecutionPlans() {
@@ -60,11 +63,11 @@ public class DUUILinearExecutionPlanGenerator implements IDUUIExecutionPlanGener
 
         @Override
         public void setAnnotated() {
-
+            _isAnnotated.complete(_jc);
         }
 
         public  Future<JCas> awaitAnnotation(){
-            return CompletableFuture.completedFuture(_jc);
+            return _isAnnotated;
         }
 
     }

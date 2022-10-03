@@ -548,8 +548,8 @@ public class DUUIComposer {
                 System.out.printf("[Composer] Starting worker thread [%d/%d]\n", i + 1, _workers);
                 // TODO ParallelExecutionPlanGenerator
                 arr[i] = new DUUIWorker(_instantiatedPipeline, emptyCasDocuments, loadedCasDocuments, _shutdownAtomic, aliveThreads, _storage, name, null,
-                         new DUUIParallelExecutionPlanGenerator(_instantiatedPipeline));
-//                         new DUUILinearExecutionPlanGenerator(_instantiatedPipeline));
+//                         new DUUIParallelExecutionPlanGenerator(_instantiatedPipeline));
+                         new DUUILinearExecutionPlanGenerator(_instantiatedPipeline));
                 arr[i].start();
             }
             Instant starttime = Instant.now();
@@ -919,7 +919,7 @@ public class DUUIComposer {
 
 */
         //String sInputPath = composer.getClass().getClassLoader().getResource("/home/nutzer/Dokumente/DockerUnifiedUIMAInterface/test_corpora_xmi").getPath();
-        String sInputPath  = "test_corpora_xmi";
+        String sInputPath  = "test_corpora_xmi2";
         String sSuffix = ".xmi";
 
         CollectionReaderDescription reader = createReaderDescription(XmiReader.class,

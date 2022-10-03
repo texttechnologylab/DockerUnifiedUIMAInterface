@@ -31,7 +31,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.*;
 
 public interface IDUUIInstantiatedPipelineComponent {
     public static HttpClient _client = HttpClient.newBuilder()
@@ -39,7 +39,7 @@ public interface IDUUIInstantiatedPipelineComponent {
             .followRedirects(HttpClient.Redirect.ALWAYS)
             .proxy(ProxySelector.getDefault())
             .connectTimeout(Duration.ofSeconds(1000)).build();
-
+    static ExecutorService pool = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
     public DUUIPipelineComponent getPipelineComponent();
     public Triplet<IDUUIUrlAccessible,Long,Long> getComponent();
     public void addComponent(IDUUIUrlAccessible item);
@@ -215,7 +215,7 @@ public interface IDUUIInstantiatedPipelineComponent {
         }
     }
 
-    public static CompletableFuture<IDUUIExecutionPlan> process_future(JCas jc, IDUUIInstantiatedPipelineComponent comp, DUUIPipelineDocumentPerformance perf, IDUUIExecutionPlan plan) throws CompressorException, IOException, SAXException, CASException {
+    public static Future<IDUUIExecutionPlan> process_future(JCas jc, IDUUIInstantiatedPipelineComponent comp, DUUIPipelineDocumentPerformance perf, IDUUIExecutionPlan plan) throws CompressorException, IOException, SAXException, CASException {
         Triplet<IDUUIUrlAccessible,Long,Long> queue = comp.getComponent();
 
         IDUUICommunicationLayer layer = queue.getValue0().getCommunicationLayer();
@@ -263,47 +263,49 @@ public interface IDUUIInstantiatedPipelineComponent {
                         .version(HttpClient.Version.HTTP_1_1)
                         .build();
                 JCas finalViewJc = viewJc;
-                CompletableFuture<IDUUIExecutionPlan> returnvalue = _client.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray())
-                        .thenApply((resp) -> {
-                            if(resp==null) {
-                                return plan;
-                                //throw new IOException("Could not reach endpoint after 10 tries!");
-                            }
-
-
-                            if (resp.statusCode() == 200) {
-                                ByteArrayInputStream st = new ByteArrayInputStream(resp.body());
-                                long annotatorEnd = System.nanoTime();
-                                long deserializeStart = annotatorEnd;
-
-                                try {
-                                    layer.deserialize(finalViewJc, st);
-                                }
-                                catch(Exception e) {
-                                    System.err.printf("Caught exception printing response %s\n",new String(resp.body(), StandardCharsets.UTF_8));
+                FutureTask<IDUUIExecutionPlan> future = new FutureTask<IDUUIExecutionPlan>(() -> {
+                    HttpResponse<byte[]> resp = _client.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray()).join();
+                                if(resp==null) {
+                                    plan.setAnnotated();
                                     return plan;
-                                    //throw e;
+                                    //throw new IOException("Could not reach endpoint after 10 tries!");
                                 }
-                                long deserializeEnd = System.nanoTime();
 
-                                ReproducibleAnnotation ann = new ReproducibleAnnotation(jc);
-                                ann.setDescription(comp.getPipelineComponent().getFinalizedRepresentation());
-                                ann.setCompression(DUUIPipelineComponent.compressionMethod);
-                                ann.setTimestamp(System.nanoTime());
-                                ann.setPipelineName(perf.getRunKey());
-                                ann.addToIndexes();
-                                perf.addData(serializeEnd-serializeStart,deserializeEnd-deserializeStart,annotatorEnd-annotatorStart,queue.getValue2()-queue.getValue1(),deserializeEnd-queue.getValue1(), String.valueOf(comp.getPipelineComponent().getFinalizedRepresentationHash()), sizeArray, jc);
 
-                                comp.addComponent(queue.getValue0());
-                                plan.setAnnotated();
-                                return plan;
-                            } else {
-                                comp.addComponent(queue.getValue0());
-                                return plan;
-                                //throw new InvalidObjectException("Response code != 200, error");
-                            }
-                        });
-                break;
+                                if (resp.statusCode() == 200) {
+                                    ByteArrayInputStream st = new ByteArrayInputStream(resp.body());
+                                    long annotatorEnd = System.nanoTime();
+                                    long deserializeStart = annotatorEnd;
+
+                                    try {
+                                        layer.deserialize(finalViewJc, st);
+                                    }
+                                    catch(Exception e) {
+                                        System.err.printf("Caught exception printing response %s\n",new String(resp.body(), StandardCharsets.UTF_8));
+                                        return plan;
+                                        //throw e;
+                                    }
+                                    long deserializeEnd = System.nanoTime();
+
+                                    ReproducibleAnnotation ann = new ReproducibleAnnotation(jc);
+                                    ann.setDescription(comp.getPipelineComponent().getFinalizedRepresentation());
+                                    ann.setCompression(DUUIPipelineComponent.compressionMethod);
+                                    ann.setTimestamp(System.nanoTime());
+                                    ann.setPipelineName(perf.getRunKey());
+                                    ann.addToIndexes();
+                                    perf.addData(serializeEnd-serializeStart,deserializeEnd-deserializeStart,annotatorEnd-annotatorStart,queue.getValue2()-queue.getValue1(),deserializeEnd-queue.getValue1(), String.valueOf(comp.getPipelineComponent().getFinalizedRepresentationHash()), sizeArray, jc);
+
+                                    comp.addComponent(queue.getValue0());
+                                    plan.setAnnotated();
+                                    return plan;
+                                } else {
+                                    comp.addComponent(queue.getValue0());
+                                    return plan;
+                                    //throw new InvalidObjectException("Response code != 200, error");
+                                }
+                });
+                pool.execute(future);
+                return future;
             }
             catch(Exception e) {
                 e.printStackTrace();
