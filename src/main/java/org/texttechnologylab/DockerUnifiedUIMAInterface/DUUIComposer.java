@@ -901,8 +901,8 @@ public class DUUIComposer {
         //composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.Component("http://127.0.0.1:9715")
         //                .withScale(1).build());
 
-        // ByteArrayInputStream stream;
-        // stream.read
+       // ByteArrayInputStream stream;
+       // stream.read
 /*
         String val2 = "Dies ist ein kleiner Test Text für Abies!";
         JCas jc = JCasFactory.createJCas();
@@ -919,7 +919,7 @@ public class DUUIComposer {
 
 */
         //String sInputPath = composer.getClass().getClassLoader().getResource("/home/nutzer/Dokumente/DockerUnifiedUIMAInterface/test_corpora_xmi").getPath();
-        String sInputPath  = "test_corpora2";
+        String sInputPath  = "test_corpora_xmi";
         String sSuffix = ".xmi";
 
         CollectionReaderDescription reader = createReaderDescription(XmiReader.class,
