@@ -62,11 +62,18 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
 
         _active_components = new HashMap<>();
     }
-
     public DUUISwarmDriver withSwarmVisualizer() throws InterruptedException {
+        return withSwarmVisualizer(null);
+    }
+    public DUUISwarmDriver withSwarmVisualizer(Integer port) throws InterruptedException {
         if(_withSwarmVisualizer==null) {
             _interface.pullImage("dockersamples/visualizer",null,null);
-            _withSwarmVisualizer = _interface.run("dockersamples/visualizer",false,true,8080,true);
+            if(port == null) {
+                _withSwarmVisualizer = _interface.run("dockersamples/visualizer",false,true,8080,true);
+            }
+            else {
+                _withSwarmVisualizer = _interface.run("dockersamples/visualizer",false,true,8080,port,true);
+            }
             int port_mapping = _interface.extract_port_mapping(_withSwarmVisualizer,8080);
             System.out.printf("[DUUISwarmDriver] Running visualizer on address http://localhost:%d\n",port_mapping);
             Thread.sleep(1500);

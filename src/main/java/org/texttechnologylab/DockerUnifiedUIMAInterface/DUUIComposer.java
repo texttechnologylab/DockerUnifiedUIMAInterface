@@ -823,8 +823,8 @@ public class DUUIComposer {
         DUUIRemoteDriver remote_driver = new DUUIRemoteDriver(10000);
         DUUIUIMADriver uima_driver = new DUUIUIMADriver()
                 .withDebug(true);
-        DUUISwarmDriver swarm_driver = new DUUISwarmDriver();
-            //    .withSwarmVisualizer();
+        DUUISwarmDriver swarm_driver = new DUUISwarmDriver()
+                .withSwarmVisualizer(18872);
 
         // A driver must be added before components can be added for it in the composer.
         composer.addDriver(driver);
