@@ -5,16 +5,13 @@ import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.commons.compress.compressors.CompressorStreamFactory;
 import org.apache.commons.io.FileUtils;
-import org.apache.uima.UIMAException;
 import org.apache.uima.cas.impl.XmiCasDeserializer;
-import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.javaync.io.AsyncFiles;
 import org.texttechnologylab.utilities.helper.StringUtils;
 import org.xml.sax.SAXException;
 
-import javax.swing.text.Document;
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -247,11 +244,7 @@ public class AsyncCollectionReader {
             XmiCasDeserializer.deserialize(decodedFile, empty.getCas(), true);
         }
         catch (Exception e){
-            try {
-                empty = JCasFactory.createText(StringUtils.getContent(new File(result)));
-            } catch (UIMAException ex) {
-                throw new RuntimeException(ex);
-            }
+            empty.setDocumentText(StringUtils.getContent(new File(result)));
         }
 
         if(_addMetadata) {

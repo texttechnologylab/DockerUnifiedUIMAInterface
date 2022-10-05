@@ -7,21 +7,21 @@ import com.github.dockerjava.api.command.*;
 import com.github.dockerjava.api.exception.DockerClientException;
 import com.github.dockerjava.api.exception.NotModifiedException;
 import com.github.dockerjava.api.model.*;
-import com.github.dockerjava.core.*;
+import com.github.dockerjava.core.DockerClientBuilder;
 import com.github.dockerjava.core.command.LogContainerResultCallback;
 import com.google.common.collect.ImmutableList;
-import org.testcontainers.dockerclient.DockerClientConfigUtils;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.URI;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.InvalidParameterException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-import static com.github.dockerjava.api.model.Ports.Binding.bindPort;
 import static java.lang.String.format;
 
 //TODO: Enable different tags here
@@ -151,8 +151,10 @@ public class DUUIDockerInterface {
      * @throws IOException
      */
     public DUUIDockerInterface() throws IOException {
-        DockerClientConfig config = DefaultDockerClientConfig.createDefaultConfigBuilder().withDockerHost("tcp://localhost:2375").build();
-        _docker = DockerClientBuilder.getInstance(config).build();
+        _docker = DockerClientBuilder.getInstance().build();
+
+//        DockerClientConfig config = DefaultDockerClientConfig.createDefaultConfigBuilder().withDockerHost("tcp://localhost:2375").build();
+//        _docker = DockerClientBuilder.getInstance(config).build();
     }
 
     /**

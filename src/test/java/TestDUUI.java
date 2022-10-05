@@ -9,7 +9,6 @@ import org.apache.uima.UIMAException;
 import org.apache.uima.analysis_engine.AnalysisEngineDescription;
 import org.apache.uima.cas.SerialFormat;
 import org.apache.uima.cas.impl.XmiCasSerializer;
-import org.apache.uima.collection.CollectionReader;
 import org.apache.uima.collection.CollectionReaderDescription;
 import org.apache.uima.fit.factory.AggregateBuilder;
 import org.apache.uima.fit.factory.AnalysisEngineFactory;
@@ -37,6 +36,7 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIDockerDriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUISwarmDriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIUIMADriver;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.io.AsyncCollectionReader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaCommunicationLayer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaSandbox;
@@ -308,14 +308,16 @@ CollectionReader();
         composer.addDriver(docker_driver);
         composer.addDriver(swarm_driver);
 
+        int iScale = 2;
+
         composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/gazetteer-rs/biofid:latest")
-                .withScale(1).build());
+                .withScale(iScale).build());
         composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/gazetteer-rs/biofid-habitat:latest")
-                .withScale(1).build());
+                .withScale(iScale).build());
         composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/gazetteer-rs/geonames:latest")
-                .withScale(1).build());
+                .withScale(iScale).build());
         composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/gazetteer-rs/gnd:latest")
-                .withScale(1).build());
+                .withScale(iScale).build());
 
 //        composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9715")
 //                        .withScale(1)
@@ -372,6 +374,31 @@ CollectionReader();
 
         System.out.println(jc.getDocumentLanguage());
 
+
+    }
+
+    @Test
+    public void AsynchronCollectionReader() throws Exception {
+
+        AsyncCollectionReader rd = new AsyncCollectionReader("/home/staff_homes/abrami/Projects/GitHub/abrami/DockerUnifiedUIMAInterface/test_corpora", ".txt", true);
+
+        DUUILuaContext ctx = new DUUILuaContext().withJsonLibrary();
+        DUUIComposer composer = new DUUIComposer()
+                .withSkipVerification(true)
+                .withLuaContext(ctx)
+                .withWorkers(1);
+        composer.addDriver(new DUUIUIMADriver());
+
+        composer.add(new DUUIUIMADriver.Component(
+                createEngineDescription(XmiWriter.class,
+                        XmiWriter.PARAM_TARGET_LOCATION, "/tmp/files/",
+                        XmiWriter.PARAM_PRETTY_PRINT, true,
+                        XmiWriter.PARAM_OVERWRITE, true,
+                        XmiWriter.PARAM_VERSION, "1.1",
+                        XmiWriter.PARAM_COMPRESSION, "GZIP"
+                )).withScale(1).build());
+
+        composer.run(rd, "test");
 
     }
 
