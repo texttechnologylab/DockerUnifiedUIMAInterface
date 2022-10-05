@@ -17,6 +17,7 @@ import java.security.InvalidParameterException;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 
+import static com.github.dockerjava.api.model.Ports.Binding.bindPort;
 import static java.lang.String.format;
 
 //TODO: Enable different tags here
@@ -445,7 +446,6 @@ public class DUUIDockerInterface {
      * @throws InterruptedException
      */
     public String run(String imageid, boolean gpu, boolean autoremove, int port, boolean mapDaemon) throws InterruptedException {
-
 
         HostConfig cfg = new HostConfig();
         if (autoremove) {

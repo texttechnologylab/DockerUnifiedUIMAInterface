@@ -53,7 +53,7 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         JCas _basic = JCasFactory.createJCas();
         _basic.setDocumentLanguage("en");
         _basic.setDocumentText("Hello World!");
-        _container_timeout = 10000;
+        _container_timeout = timeout;
         _client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(timeout)).build();
 
         _active_components = new HashMap<>();

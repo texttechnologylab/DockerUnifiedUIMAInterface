@@ -2,6 +2,7 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface.driver;
 
 
 import org.apache.commons.compress.compressors.CompressorException;
+import org.apache.tools.ant.taskdefs.Sleep;
 import org.apache.uima.UIMAException;
 import org.apache.uima.cas.CASException;
 import org.apache.uima.fit.factory.JCasFactory;
@@ -23,6 +24,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.StringWriter;
+import java.net.ConnectException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.http.HttpClient;
@@ -35,6 +37,7 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeoutException;
 import java.util.logging.Logger;
@@ -77,7 +80,7 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
         _interface = new DUUIDockerInterface();
         _client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(timeout)).build();
 
-        _container_timeout = 10000;
+        _container_timeout = timeout;
 
         _active_components = new HashMap<String, InstantiatedComponent>();
     }
@@ -98,12 +101,35 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
         int iError = 0;
         while(true) {
             HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(url + DUUIComposer.V1_COMPONENT_ENDPOINT_COMMUNICATION_LAYER))
-                    .version(HttpClient.Version.HTTP_1_1)
-                    .GET()
-                    .build();
+                            .uri(URI.create(url + DUUIComposer.V1_COMPONENT_ENDPOINT_COMMUNICATION_LAYER))
+                            .version(HttpClient.Version.HTTP_1_1)
+                            .timeout(Duration.ofSeconds(timeout_ms))
+                            .GET()
+                            .build();
+
             try {
-                HttpResponse<byte[]> resp = client.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray()).join();
+                HttpResponse<byte[]> resp = null;
+
+                boolean connectionError = true;
+                int iCount = 0;
+                while(connectionError && iCount<10) {
+
+                    try {
+                        resp = client.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray()).join();
+                        connectionError = false;
+                    }
+                    catch (Exception e){
+                        System.out.println(e.getMessage()+"\t"+url);
+                        if(e instanceof java.net.ConnectException){
+                            Thread.sleep(timeout_ms);
+                            iCount++;
+                        }
+                        else if(e instanceof CompletionException){
+                            Thread.sleep(timeout_ms);
+                            iCount++;
+                        }
+                    }
+                }
                 if (resp.statusCode()== 200) {
                     String body2 = new String(resp.body(), Charset.defaultCharset());
                     try {
