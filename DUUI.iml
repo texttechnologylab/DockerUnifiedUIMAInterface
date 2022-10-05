@@ -18,6 +18,11 @@
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="library" name="Maven: commons-io:commons-io:2.11.0" level="project" />
+    <orderEntry type="library" name="Maven: com.fasterxml.jackson.core:jackson-databind:2.9.8" level="project" />
+    <orderEntry type="library" name="Maven: com.fasterxml.jackson.core:jackson-annotations:2.9.0" level="project" />
+    <orderEntry type="library" name="Maven: com.fasterxml.jackson.core:jackson-core:2.9.8" level="project" />
+    <orderEntry type="library" name="Maven: org.java-websocket:Java-WebSocket:1.5.3" level="project" />
+    <orderEntry type="library" name="Maven: org.slf4j:slf4j-api:1.7.25" level="project" />
     <orderEntry type="library" name="Maven: com.influxdb:influxdb-client-java:5.0.0" level="project" />
     <orderEntry type="library" name="Maven: com.influxdb:influxdb-client-core:5.0.0" level="project" />
     <orderEntry type="library" name="Maven: com.influxdb:influxdb-client-utils:5.0.0" level="project" />
@@ -109,11 +114,7 @@
     <orderEntry type="library" name="Maven: org.json:json:20211205" level="project" />
     <orderEntry type="library" name="Maven: com.arangodb:arangodb-java-driver:6.16.1" level="project" />
     <orderEntry type="library" name="Maven: com.arangodb:velocypack:2.5.4" level="project" />
-    <orderEntry type="library" name="Maven: org.slf4j:slf4j-api:1.7.32" level="project" />
     <orderEntry type="library" name="Maven: com.arangodb:jackson-dataformat-velocypack:3.0.0" level="project" />
-    <orderEntry type="library" name="Maven: com.fasterxml.jackson.core:jackson-core:2.13.0" level="project" />
-    <orderEntry type="library" name="Maven: com.fasterxml.jackson.core:jackson-databind:2.13.0" level="project" />
-    <orderEntry type="library" name="Maven: com.fasterxml.jackson.core:jackson-annotations:2.13.0" level="project" />
     <orderEntry type="library" name="Maven: com.github.texttechnologylab.textimager-uima:textimager-uima-types:b10db8275163d19d63b9512cc20ca5872e52499b" level="project" />
     <orderEntry type="library" name="Maven: org.dkpro.core:dkpro-core-api-lexmorph-asl:1.12.0" level="project" />
     <orderEntry type="library" name="Maven: org.dkpro.core:dkpro-core-api-parameter-asl:1.12.0" level="project" />
@@ -156,14 +157,14 @@
     <orderEntry type="library" name="Maven: de.tudarmstadt.ukp.dkpro.core:de.tudarmstadt.ukp.dkpro.core.tokit-asl:1.10.0" level="project" />
     <orderEntry type="library" name="Maven: org.apache.commons:commons-lang3:3.8" level="project" />
     <orderEntry type="library" name="Maven: commons-jxpath:commons-jxpath:1.3" level="project" />
-    <orderEntry type="library" name="Maven: org.junit.jupiter:junit-jupiter:5.9.0" level="project" />
-    <orderEntry type="library" name="Maven: org.junit.jupiter:junit-jupiter-api:5.9.0" level="project" />
+    <orderEntry type="library" name="Maven: org.junit.jupiter:junit-jupiter:5.9.1" level="project" />
+    <orderEntry type="library" name="Maven: org.junit.jupiter:junit-jupiter-api:5.9.1" level="project" />
     <orderEntry type="library" name="Maven: org.opentest4j:opentest4j:1.2.0" level="project" />
-    <orderEntry type="library" name="Maven: org.junit.platform:junit-platform-commons:1.9.0" level="project" />
+    <orderEntry type="library" name="Maven: org.junit.platform:junit-platform-commons:1.9.1" level="project" />
     <orderEntry type="library" name="Maven: org.apiguardian:apiguardian-api:1.1.2" level="project" />
-    <orderEntry type="library" name="Maven: org.junit.jupiter:junit-jupiter-params:5.9.0" level="project" />
-    <orderEntry type="library" scope="RUNTIME" name="Maven: org.junit.jupiter:junit-jupiter-engine:5.9.0" level="project" />
-    <orderEntry type="library" scope="RUNTIME" name="Maven: org.junit.platform:junit-platform-engine:1.9.0" level="project" />
+    <orderEntry type="library" name="Maven: org.junit.jupiter:junit-jupiter-params:5.9.1" level="project" />
+    <orderEntry type="library" scope="RUNTIME" name="Maven: org.junit.jupiter:junit-jupiter-engine:5.9.1" level="project" />
+    <orderEntry type="library" scope="RUNTIME" name="Maven: org.junit.platform:junit-platform-engine:1.9.1" level="project" />
     <orderEntry type="library" name="Maven: com.github.texttechnologylab.textimager-uima:textimager-uima-io:b10db8275163d19d63b9512cc20ca5872e52499b" level="project" />
     <orderEntry type="library" name="Maven: org.dkpro.core:dkpro-core-io-tei-asl:1.12.0" level="project" />
     <orderEntry type="library" name="Maven: jaxen:jaxen:1.1.1" level="project" />
@@ -258,6 +259,7 @@
     <orderEntry type="library" name="Maven: commons-beanutils:commons-beanutils-core:1.8.0" level="project" />
     <orderEntry type="library" name="Maven: org.apache.commons:commons-collections4:4.4" level="project" />
     <orderEntry type="library" name="Maven: net.sf.trove4j:trove4j:3.0.3" level="project" />
-    <orderEntry type="library" name="Maven: org.java-websocket:Java-WebSocket:1.4.1" level="project" />
+    <orderEntry type="library" name="Maven: io.socket:socket.io-client:2.0.1" level="project" />
+    <orderEntry type="library" name="Maven: io.socket:engine.io-client:2.0.0" level="project" />
   </component>
 </module>

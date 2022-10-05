@@ -1,12 +1,6 @@
-import de.tudarmstadt.ukp.dkpro.core.api.syntax.type.constituent.S;
-import org.apache.commons.compress.compressors.CompressorException;
-import org.apache.uima.UIMAException;
-import org.apache.uima.fit.factory.CollectionReaderFactory;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.util.XmlCasSerializer;
-import org.dkpro.core.io.xmi.XmiReader;
-import org.testcontainers.shaded.org.yaml.snakeyaml.composer.Composer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.IDUUIConnectionHandler;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIDockerDriver;
@@ -14,10 +8,8 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUISwarmDriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIUIMADriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
-import org.xml.sax.SAXException;
 
 import java.io.*;
-import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
