@@ -27,12 +27,12 @@ import java.net.UnknownHostException;
 import java.security.InvalidParameterException;
 import java.time.Instant;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static java.lang.String.format;
-import static org.apache.uima.fit.factory.CollectionReaderFactory.createReaderDescription;
 
 class DUUIWorker extends Thread {
     Vector<DUUIComposer.PipelinePart> _flow;
@@ -63,6 +63,7 @@ class DUUIWorker extends Thread {
         while(true) {
             JCas object = null;
             long waitTimeStart = System.nanoTime();
+            long waitTimeEnd = 0;
             while(object == null) {
                 object = _loadedInstances.poll();
 
@@ -76,6 +77,7 @@ class DUUIWorker extends Thread {
                     if(object==null)
                         continue;
                     try {
+                        waitTimeEnd = System.nanoTime();
                         if(!_reader.getNextCAS(object)) {
                             _threadsAlive.getAndDecrement();
                             _instancesToBeLoaded.add(object);
@@ -91,32 +93,117 @@ class DUUIWorker extends Thread {
                         e.printStackTrace();
                     } catch (InterruptedException e) {
                         e.printStackTrace();
+                    } catch (NullPointerException e){
+                        e.printStackTrace();
                     }
                 }
             }
-            long waitTimeEnd = System.nanoTime();
+            if(waitTimeEnd==0) waitTimeEnd = System.nanoTime();
+
+            //System.out.printf("[Composer] Thread %d still alive and doing work\n",num);
+
+            try {
+                DUUIPipelineDocumentPerformance perf = new DUUIPipelineDocumentPerformance(_runKey,
+                        waitTimeEnd - waitTimeStart,
+                        object);
+                for (DUUIComposer.PipelinePart i : _flow) {
+                    try {
+                        i.getDriver().run(i.getUUID(), object, perf);
+                    } catch (Exception e) {
+                        //Ignore errors at the moment
+                        e.printStackTrace();
+                        System.out.println("Thread continues work!");
+                    }
+                }
+
+                object.reset();
+                _instancesToBeLoaded.add(object);
+                if (_backend != null) {
+                    _backend.addMetricsForDocument(perf);
+                }
+            }
+            catch (Exception e){
+                e.printStackTrace();
+            }
+        }
+    }
+}
+
+class DUUIWorkerAsyncReader extends Thread {
+    Vector<DUUIComposer.PipelinePart> _flow;
+    AtomicInteger _threadsAlive;
+    AtomicBoolean _shutdown;
+    IDUUIStorageBackend _backend;
+    JCas _jc;
+    String _runKey;
+    AsyncCollectionReader _reader;
+
+    DUUIWorkerAsyncReader(Vector<DUUIComposer.PipelinePart> engineFlow, JCas jc, AtomicBoolean shutdown, AtomicInteger error,
+                          IDUUIStorageBackend backend, String runKey, AsyncCollectionReader reader) {
+        super();
+        _flow = engineFlow;
+        _jc = jc;
+        _shutdown = shutdown;
+        _threadsAlive = error;
+        _backend = backend;
+        _runKey = runKey;
+        _reader = reader;
+    }
+
+    @Override
+    public void run() {
+        int num = _threadsAlive.addAndGet(1);
+        while (true) {
+            long waitTimeStart = System.nanoTime();
+            long waitTimeEnd = 0;
+            while (true) {
+                if (_shutdown.get()) {
+                    _threadsAlive.getAndDecrement();
+                    return;
+                }
+                try {
+                    if (!_reader.getNextCAS(_jc)) {
+                        //Give the main IO Thread time to finish work
+                        Thread.sleep(300);
+                    } else {
+                        break;
+                    }
+
+                } catch (IOException e) {
+                    e.printStackTrace();
+                } catch (CompressorException e) {
+                    e.printStackTrace();
+                } catch (SAXException e) {
+                    e.printStackTrace();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+            if (waitTimeEnd == 0) waitTimeEnd = System.nanoTime();
+
             //System.out.printf("[Composer] Thread %d still alive and doing work\n",num);
 
             DUUIPipelineDocumentPerformance perf = new DUUIPipelineDocumentPerformance(_runKey,
-                    waitTimeEnd-waitTimeStart,
-                    object);
+                    waitTimeEnd - waitTimeStart,
+                    _jc);
             for (DUUIComposer.PipelinePart i : _flow) {
                 try {
-                    i.getDriver().run(i.getUUID(),object,perf);
+                    i.getDriver().run(i.getUUID(), _jc, perf);
                 } catch (Exception e) {
                     //Ignore errors at the moment
-                    e.printStackTrace();
+                    //e.printStackTrace();
+                    System.err.println(e.getMessage());
                     System.out.println("Thread continues work!");
                 }
             }
-            object.reset();
-            _instancesToBeLoaded.add(object);
-            if(_backend!=null) {
+            _jc.reset();
+            if (_backend != null) {
                 _backend.addMetricsForDocument(perf);
             }
         }
     }
 }
+
 
 
 public class DUUIComposer {
@@ -335,27 +422,33 @@ public class DUUIComposer {
             Thread []arr = new Thread[_workers];
             for(int i = 0; i < _workers; i++) {
                 System.out.printf("[Composer] Starting worker thread [%d/%d]\n",i+1,_workers);
-                arr[i] = new DUUIWorker(_instantiatedPipeline,emptyCasDocuments,loadedCasDocuments,_shutdownAtomic,aliveThreads,_storage,name,collectionReader);
+                arr[i] = new DUUIWorkerAsyncReader(_instantiatedPipeline,emptyCasDocuments.poll(),_shutdownAtomic,aliveThreads,_storage,name,collectionReader);
                 arr[i].start();
             }
             Instant starttime = Instant.now();
+            final int maxNumberOfFutures = 20;
+            CompletableFuture<Integer> []futures = new CompletableFuture[maxNumberOfFutures];
+            boolean breakit = false;
             while(!_shutdownAtomic.get()) {
-                JCas jc = emptyCasDocuments.poll();
-                while(jc == null) {
-                    jc = emptyCasDocuments.poll();
+                if(collectionReader.getCachedSize() > collectionReader.getMaxMemory()) {
+                    Thread.sleep(50);
+                    continue;
                 }
-                if(collectionReader.getNextCAS(jc)) {
-                    loadedCasDocuments.add(jc);
+                for(int i = 0; i < maxNumberOfFutures; i++) {
+                    futures[i] = collectionReader.getAsyncNextByteArray();
                 }
-                else {
-                    emptyCasDocuments.add(jc);
-                    break;
+                CompletableFuture.allOf(futures).join();
+                for(int i = 0; i < maxNumberOfFutures; i++) {
+                    if(futures[i].join() != 0) {
+                        breakit=true;
+                    }
                 }
+                if(breakit) break;
             }
 
-            while(emptyCasDocuments.size() != _cas_poolsize) {
+            while(emptyCasDocuments.size() != _cas_poolsize && !collectionReader.isEmpty()) {
                 System.out.println("[Composer] Waiting for threads to finish document processing...");
-                Thread.sleep(1000);
+                Thread.sleep(1000*_workers); // to fast or in relation with threads?
             }
             System.out.println("[Composer] All documents have been processed. Signaling threads to shut down now...");
             _shutdownAtomic.set(true);

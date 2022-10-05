@@ -21,6 +21,7 @@ import java.security.InvalidParameterException;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 
+import static com.github.dockerjava.api.model.Ports.Binding.bindPort;
 import static java.lang.String.format;
 
 //TODO: Enable different tags here
@@ -359,6 +360,11 @@ public class DUUIDockerInterface {
     }
 
     public boolean hasLocalImage(String imageName) {
+        InspectImageResponse resp = _docker.inspectImageCmd(imageName).exec();
+        if(resp!=null) {
+            return true;
+        }
+
         List<Image> images = _docker.listImagesCmd()
                 .withShowAll(true)
                 .exec();
@@ -367,9 +373,18 @@ public class DUUIDockerInterface {
                 return true;
             }
 
-            for(String repo : i.getRepoTags()) {
-                if(repo.equals(imageName)) {
-                    return true;
+            if(i.getRepoTags()!=null) {
+                for (String repo : i.getRepoTags()) {
+                    if (repo.equals(imageName)) {
+                        return true;
+                    }
+                }
+            }
+            else if(i.getRepoDigests()!=null) {
+                for (String dig : i.getRepoDigests()) {
+                    if (dig.equals(imageName)) {
+                        return true;
+                    }
                 }
             }
         }
@@ -445,7 +460,6 @@ public class DUUIDockerInterface {
      * @throws InterruptedException
      */
     public String run(String imageid, boolean gpu, boolean autoremove, int port, boolean mapDaemon) throws InterruptedException {
-
 
         HostConfig cfg = new HostConfig();
         if (autoremove) {

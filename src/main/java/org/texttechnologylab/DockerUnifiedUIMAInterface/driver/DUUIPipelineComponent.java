@@ -61,8 +61,12 @@ public class DUUIPipelineComponent {
 
     private String getVersion() throws URISyntaxException, IOException {
         ClassLoader classLoader = DUUIPipelineComponent.class.getClassLoader();
-        String properties = Files.readString(Paths.get(classLoader.getResource("git.properties").toURI()));
-        return properties;
+        try {
+            return classLoader.getResourceAsStream("git.properties").toString();
+        } catch (NullPointerException e) {
+            System.err.println("Could not find resource \"git.properties\"!");
+            return "undefined";
+        }
     }
 
     public DUUIPipelineComponent() throws URISyntaxException, IOException {

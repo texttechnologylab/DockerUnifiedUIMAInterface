@@ -1,13 +1,11 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage;
 
 import com.arangodb.entity.BaseDocument;
-import com.arangodb.entity.BaseEdgeDocument;
 import org.apache.uima.jcas.JCas;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Vector;
-import java.util.stream.Collectors;
 
 public class DUUIPipelineDocumentPerformance {
     private Vector<DUUIPipelinePerformancePoint> _points;
@@ -30,7 +28,13 @@ public class DUUIPipelineDocumentPerformance {
         _durationTotalAnnotator = 0L;
         _durationTotalMutexWait = 0L;
         _durationTotal = 0L;
-        _documentSize = jc.getDocumentText().length();
+        if(jc.getDocumentText()!=null) {
+            _documentSize = jc.getDocumentText().length();
+        }
+        else{
+            _documentSize = -1;
+        }
+
     }
 
     public String getRunKey() {

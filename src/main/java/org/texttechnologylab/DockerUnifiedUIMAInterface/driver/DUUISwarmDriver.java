@@ -8,7 +8,6 @@ import org.apache.uima.jcas.JCas;
 import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.javatuples.Triplet;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIDockerInterface;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUICommunicationLayer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.DUUIWebsocketAlt;
@@ -57,7 +56,7 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         JCas _basic = JCasFactory.createJCas();
         _basic.setDocumentLanguage("en");
         _basic.setDocumentText("Hello World!");
-        _container_timeout = 10000;
+        _container_timeout = timeout;
         _client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(timeout)).build();
 
         _active_components = new HashMap<>();
@@ -126,16 +125,24 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
             String digest = comp.getImageName();
         System.out.printf("[DockerSwarmDriver] Transformed image %s to pinnable image name %s\n", comp.getImageName(),digest);
 
-        String serviceid = _interface.run_service(digest,comp.getScale());
+            String serviceid = _interface.run_service(digest,comp.getScale());
             int port = _interface.extract_service_port_mapping(serviceid);
 
             if (port == 0) {
                 throw new UnknownError("Could not read the service port!");
             }
             final String uuidCopy = uuid;
-            IDUUICommunicationLayer layer = DUUIDockerDriver.responsiveAfterTime("http://localhost:" + port, jc, _container_timeout, _client, (msg) -> {
-                System.out.printf("[DockerSwarmDriver][%s][%d Replicas] %s\n", uuidCopy, comp.getScale(),msg);
-            },_luaContext,skipVerification);
+            IDUUICommunicationLayer layer = null;
+            try {
+                    layer = DUUIDockerDriver.responsiveAfterTime("http://localhost:" + port, jc, _container_timeout, _client, (msg) -> {
+                    System.out.printf("[DockerSwarmDriver][%s][%d Replicas] %s\n", uuidCopy, comp.getScale(), msg);
+                }, _luaContext, skipVerification);
+            }
+            catch (Exception e){
+                _interface.rm_service(serviceid);
+                throw e;
+            }
+
             System.out.printf("[DockerSwarmDriver][%s][%d Replicas] Service for image %s is online (URL http://localhost:%d) and seems to understand DUUI V1 format!\n", uuid, comp.getScale(),comp.getImageName(), port);
             comp.initialise(serviceid,port, this);
             Thread.sleep(500);
