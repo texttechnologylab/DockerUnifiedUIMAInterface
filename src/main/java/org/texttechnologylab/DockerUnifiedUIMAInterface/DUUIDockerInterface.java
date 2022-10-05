@@ -282,10 +282,12 @@ public class DUUIDockerInterface {
             if(i.getId() == imageName) {
                 return i;
             }
-
-            for(String repo : i.getRepoTags()) {
-                if(repo.equals(imageName)) {
-                    return i;
+            String[] repoTags = i.getRepoTags();
+            if(repoTags!=null) {
+                for (String repo : repoTags) {
+                    if (repo.equals(imageName)) {
+                        return i;
+                    }
                 }
             }
         }
@@ -426,6 +428,10 @@ public class DUUIDockerInterface {
     }
 
     public String getDigestFromImage(String imagename) {
+
+        if(imagename.split(":").length == 1) {
+            imagename = imagename+":latest";
+        }
         InspectImageResponse resp = _docker.inspectImageCmd(imagename).exec();
         List<String> digests = resp.getRepoDigests();
 

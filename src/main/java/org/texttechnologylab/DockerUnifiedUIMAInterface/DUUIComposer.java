@@ -126,7 +126,10 @@ class DUUIWorker extends Thread {
             // DAG, Directed Acyclic Graph
                 boolean done = false;
                 List<Future<IDUUIExecutionPlan>> pendingFutures = new LinkedList<>();
+                // await entry
                 pendingFutures.add(execPlan.awaitMerge());
+                //pendingFutures = [exec(entry)]
+
                 while(!pendingFutures.isEmpty()) {
                     List<Future<IDUUIExecutionPlan>> newFutures = new LinkedList<>();
                     pendingFutures.removeIf(pending -> {
@@ -134,11 +137,21 @@ class DUUIWorker extends Thread {
                             IDUUIExecutionPlan mergedPlan = null;
                             try {
                                 mergedPlan = pending.get();
+                                //0: exec(entry)
+                                //1: exec(a)
+                                //2: exec(b)
+                                //3: exec(c)
+
                                 DUUIComposer.PipelinePart i = mergedPlan.getPipelinePart();
                                 if(i!=null) {
                                     i.getDriver().run(i.getUUID(), mergedPlan.getJCas(), perf);
                                 }
+                                //0: a,b,c
+                                //1: exec(a) : d
+                                //2: exec(b) : d
+                                //3: exec(c) : d
                                 for (IDUUIExecutionPlan plan : mergedPlan.getNextExecutionPlans()) {
+                                    //0: newFutures = [fut(exec(a)), fut(exec(b)), future(exec(c))]
                                     newFutures.add(plan.awaitMerge());
                                 }
                             } catch (InterruptedException e) {
@@ -161,6 +174,8 @@ class DUUIWorker extends Thread {
                         return false;
                     });
                     pendingFutures.addAll(newFutures);
+                    //0: pendingFutures = [fut(exec(a)), fut(exec(b)), future(exec(c))]
+                    //4: pendingFutures = [fut(exec(d)), fut(exec(d)), fut(exec(d))]
                 }
 
             object.reset();
@@ -535,6 +550,8 @@ public class DUUIComposer {
             Thread []arr = new Thread[_workers];
             for(int i = 0; i < _workers; i++) {
                 System.out.printf("[Composer] Starting worker thread [%d/%d]\n",i+1,_workers);
+                //TODO: Use Inputs and Outputs to create paralel execution plan
+                //Implement new ExecutionPlanGenerator & ExecutionPlan
                 arr[i] = new DUUIWorker(_instantiatedPipeline,emptyCasDocuments,loadedCasDocuments,_shutdownAtomic,aliveThreads,_storage,name,null,
                         new DUUILinearExecutionPlanGenerator(_instantiatedPipeline));
                 arr[i].start();
@@ -652,6 +669,7 @@ public class DUUIComposer {
                 if (desc != null) {
                     descriptions.add(desc);
                 }
+                //TODO: get input output of every annotator
                 _instantiatedPipeline.add(new PipelinePart(driver, uuid));
             }
 
@@ -837,8 +855,7 @@ public class DUUIComposer {
 //                , DUUIDockerDriver.class);
         // input: [], outputs: [Token, Sentences]
         //composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9715"));
-       // composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
-       //         .withImageFetching());
+        composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/textimager-uima-service-gervader:0.5"));
 
         //composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class)));
 //                , DUUIRemoteDriver.class);*/
@@ -847,8 +864,8 @@ public class DUUIComposer {
        // composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class))
        //                 .withScale(1));
 
-        composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.Component("http://127.0.0.1:9715")
-                .withParameter("fuchs","damn"));
+      //  composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.Component("http://127.0.0.1:9715")
+      //          .withParameter("fuchs","damn"));
        /* composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.Component("http://127.0.0.1:9714")
                         .withScale(1),
                 org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.class);*/
@@ -869,10 +886,8 @@ public class DUUIComposer {
 
         // Input: [de.org.tudarmstadt.sentence, de.org.tudarmstadt.Token]
         // Output: []
-        /*composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/languagedetection:0.3")
-                .withScale(1)
-                , DUUISwarmDriver.class);
-
+       // composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/languagedetection:0.3").withScale(1));
+/*
         composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
                 .withScale(1)
                 , DUUISwarmDriver.class);

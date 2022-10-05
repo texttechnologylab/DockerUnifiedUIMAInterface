@@ -3,8 +3,12 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface.driver;
 
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.cas.CASException;
+import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.fit.factory.TypeSystemDescriptionFactory;
+import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
+import org.apache.uima.jcas.cas.AnnotationBase_Type;
+import org.apache.uima.jcas.cas.TOP;
 import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.javatuples.Triplet;
@@ -15,6 +19,7 @@ import org.texttechnologylab.duui.ReproducibleAnnotation;
 import org.xml.sax.SAXException;
 
 import java.io.*;
+import java.lang.annotation.Annotation;
 import java.net.ProxySelector;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -23,6 +28,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 
 public interface IDUUIInstantiatedPipelineComponent {

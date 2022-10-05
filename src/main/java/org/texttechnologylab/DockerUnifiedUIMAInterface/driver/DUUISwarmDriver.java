@@ -1,5 +1,6 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.driver;
 
+import com.github.dockerjava.api.model.Image;
 import okhttp3.OkHttpClient;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.UIMAException;
@@ -111,6 +112,11 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         }
         DUUISwarmDriver.InstantiatedComponent comp = new DUUISwarmDriver.InstantiatedComponent(component);
 
+        if(_interface.getLocalImage(comp.getImageName()) == null) {
+            // If image is not available try to pull it
+            _interface.pullImage(comp.getImageName(),null,null);
+        }
+
         if(comp.isBackedByLocalImage()) {
             System.out.printf("[DockerSwarmDriver] Attempting to push local image %s to remote image registry %s\n", comp.getLocalImageName(),comp.getImageName());
             if(comp.getUsername() != null && comp.getPassword() != null) {
@@ -120,11 +126,11 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         }
         System.out.printf("[DockerSwarmDriver] Assigned new pipeline component unique id %s\n", uuid);
 
-            String digest = _interface.getDigestFromImage(comp.getImageName());
-            comp.getPipelineComponent().__internalPinDockerImage(digest);
+        String digest = _interface.getDigestFromImage(comp.getImageName());
+        comp.getPipelineComponent().__internalPinDockerImage(comp.getImageName(),digest);
         System.out.printf("[DockerSwarmDriver] Transformed image %s to pinnable image name %s\n", comp.getImageName(),digest);
 
-        String serviceid = _interface.run_service(digest,comp.getScale());
+        String serviceid = _interface.run_service(comp.getPipelineComponent().getDockerImageName(),comp.getScale());
             int port = _interface.extract_service_port_mapping(serviceid);
 
             System.out.printf("[DockerSwarmDriver][%s] Started service, waiting for it to become responsive...\n",uuid);

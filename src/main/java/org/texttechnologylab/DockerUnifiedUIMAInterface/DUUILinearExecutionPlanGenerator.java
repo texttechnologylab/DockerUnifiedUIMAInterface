@@ -17,10 +17,6 @@ public class DUUILinearExecutionPlanGenerator implements IDUUIExecutionPlanGener
         private JCas _jc;
         int _index;
 
-        public IDUUIExecutionPlan copy() {
-            return new DUUILinearExecutionPlan(_pipeline,_jc,_index);
-        }
-
         public DUUILinearExecutionPlan(Vector<DUUIComposer.PipelinePart> flow, JCas jc) {
             _pipeline = flow;
             _jc = jc;
@@ -54,6 +50,7 @@ public class DUUILinearExecutionPlanGenerator implements IDUUIExecutionPlanGener
             return _jc;
         }
 
+        //Wait for previous nodes, merge results of previous nodes.
         public Future<IDUUIExecutionPlan> awaitMerge() {
             return CompletableFuture.completedFuture(this);
         }
