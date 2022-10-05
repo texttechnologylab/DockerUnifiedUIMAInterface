@@ -37,6 +37,7 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeoutException;
 import java.util.logging.Logger;
@@ -102,6 +103,7 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
             HttpRequest request = HttpRequest.newBuilder()
                             .uri(URI.create(url + DUUIComposer.V1_COMPONENT_ENDPOINT_COMMUNICATION_LAYER))
                             .version(HttpClient.Version.HTTP_1_1)
+                            .timeout(Duration.ofSeconds(timeout_ms))
                             .GET()
                             .build();
 
@@ -109,20 +111,23 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
                 HttpResponse<byte[]> resp = null;
 
                 boolean connectionError = true;
-                while(connectionError) {
+                int iCount = 0;
+                while(connectionError && iCount<10) {
 
                     try {
                         resp = client.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray()).join();
                         connectionError = false;
                     }
                     catch (Exception e){
-
+                        System.out.println(e.getMessage()+"\t"+url);
                         if(e instanceof java.net.ConnectException){
-                            System.out.println(e.getMessage());
-                            Thread.sleep(10000l);
+                            Thread.sleep(timeout_ms);
+                            iCount++;
                         }
-
-
+                        else if(e instanceof CompletionException){
+                            Thread.sleep(timeout_ms);
+                            iCount++;
+                        }
                     }
                 }
                 if (resp.statusCode()== 200) {

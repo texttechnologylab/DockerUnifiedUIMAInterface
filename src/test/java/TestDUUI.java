@@ -287,7 +287,7 @@ CollectionReader();
     @Test
     public void TestBioFID() throws Exception {
         JCas jc = JCasFactory.createJCas();
-        String sText = "Wir feiern am 24.12. eines jeden Jahres Weihnachten!";
+        String sText = "Wir feiern am 24.12. eines jeden Jahres Weihnachten! Das ist so ein schöner Tümpel.";
 
         jc.setDocumentText(sText);
         jc.setDocumentLanguage("de");
@@ -301,7 +301,7 @@ CollectionReader();
         // Instantiate drivers with options
         DUUIRemoteDriver remote_driver = new DUUIRemoteDriver(10000);
         DUUIDockerDriver docker_driver = new DUUIDockerDriver(10000);
-        DUUISwarmDriver swarm_driver = new DUUISwarmDriver(1000000000).withSwarmVisualizer();
+        DUUISwarmDriver swarm_driver = new DUUISwarmDriver(10000).withSwarmVisualizer();
 
         // A driver must be added before components can be added for it in the composer.
         composer.addDriver(remote_driver);
@@ -310,12 +310,12 @@ CollectionReader();
 
         composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/gazetteer-rs/biofid:latest")
                 .withScale(1).build());
-//        composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/gazetteer-rs/biofid-habitat:latest")
-//                .withScale(1).build());
-//        composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/gazetteer-rs/geonames:latest")
-//                .withScale(1).build());
-//        composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/gazetteer-rs/gnd:latest")
-//                .withScale(1).build());
+        composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/gazetteer-rs/biofid-habitat:latest")
+                .withScale(1).build());
+        composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/gazetteer-rs/geonames:latest")
+                .withScale(1).build());
+        composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/gazetteer-rs/gnd:latest")
+                .withScale(1).build());
 
 //        composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9715")
 //                        .withScale(1)
@@ -323,7 +323,7 @@ CollectionReader();
 
         composer.run(jc);
 
-        JCasUtil.select(jc, Time.class).forEach(t -> {
+        JCasUtil.select(jc, Annotation.class).forEach(t -> {
             System.out.println(t);
         });
 
