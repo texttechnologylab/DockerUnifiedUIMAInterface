@@ -1,17 +1,20 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.io;
 
 import de.tudarmstadt.ukp.dkpro.core.api.io.ProgressMeter;
+import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.commons.compress.compressors.CompressorStreamFactory;
 import org.apache.commons.io.FileUtils;
 import org.apache.uima.UIMAException;
 import org.apache.uima.cas.impl.XmiCasDeserializer;
 import org.apache.uima.fit.factory.JCasFactory;
+import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.javaync.io.AsyncFiles;
 import org.texttechnologylab.utilities.helper.StringUtils;
 import org.xml.sax.SAXException;
 
+import javax.swing.text.Document;
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -53,20 +56,31 @@ public class AsyncCollectionReader {
     private long _maxMemory;
     private AtomicLong _currentMemorySize;
 
+    private boolean _addMetadata = true;
+
     private ProgressMeter progress = null;
 
     private int debugCount = 25;
 
     public AsyncCollectionReader(String folder, String ending) {
-        this(folder, ending, 25, -1, false, "");
+        this(folder, ending, 25, -1, false, "", false);
+    }
+
+    public AsyncCollectionReader(String folder, String ending, boolean bAddMetadata) {
+        this(folder, ending, 25, -1, false, "", bAddMetadata);
     }
 
     public AsyncCollectionReader(String folder, String ending, int debugCount, boolean bSort) {
-        this(folder, ending, debugCount, -1, bSort, "");
+        this(folder, ending, debugCount, -1, bSort, "", false);
     }
 
-    public AsyncCollectionReader(String folder, String ending, int debugCount, int iRandom, boolean bSort, String savePath) {
+    public AsyncCollectionReader(String folder, String ending, int debugCount, int iRandom, boolean bSort, String savePath){
+        this(folder, ending, debugCount, iRandom, bSort, savePath, false);
+    }
 
+    public AsyncCollectionReader(String folder, String ending, int debugCount, int iRandom, boolean bSort, String savePath, boolean bAddMetadata) {
+
+        _addMetadata = bAddMetadata;
         _filePaths = new ConcurrentLinkedQueue<>();
         _loadedFiles = new ConcurrentLinkedQueue<>();
         _filePathsBackup = new ConcurrentLinkedQueue<>();
@@ -239,6 +253,18 @@ public class AsyncCollectionReader {
                 throw new RuntimeException(ex);
             }
         }
+
+        if(_addMetadata) {
+            if (JCasUtil.select(empty, DocumentMetaData.class).size() == 0) {
+                DocumentMetaData dmd = DocumentMetaData.create(empty);
+                File pFile = new File(result);
+                dmd.setDocumentId(pFile.getName());
+                dmd.setDocumentTitle(pFile.getName());
+                dmd.setDocumentUri(pFile.getAbsolutePath());
+                dmd.addToIndexes();
+            }
+        }
+
         return true;
     }
 
