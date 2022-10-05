@@ -12,6 +12,7 @@ import org.apache.uima.util.CasCreationUtils;
 import org.apache.uima.util.InvalidXMLException;
 import org.luaj.vm2.Globals;
 import org.luaj.vm2.lib.jse.JsePlatform;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.IDUUIConnectionHandler;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.*;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.AsyncCollectionReader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
@@ -225,8 +226,12 @@ public class DUUIComposer {
     public static final String COMPONENT_COMPONENT_UNIQUE_KEY = "duuid.storage.componentkey";
 
     public static final String V1_COMPONENT_ENDPOINT_PROCESS = "/v1/process";
+    public static final String V1_COMPONENT_ENDPOINT_PROCESS_WEBSOCKET = "/v1/process_websocket";
     public static final String V1_COMPONENT_ENDPOINT_TYPESYSTEM = "/v1/typesystem";
     public static final String V1_COMPONENT_ENDPOINT_COMMUNICATION_LAYER = "/v1/communication_layer";
+
+    public static List<IDUUIConnectionHandler> _clients = new ArrayList<>(); // Saves Websocket-Clients.
+    private boolean _connection_open = false; // Let connection open for multiple consecutive use.
 
     private TypeSystemDescription _minimalTypesystem;
 
@@ -252,6 +257,7 @@ public class DUUIComposer {
         _shutdownHook = new Thread(() -> {
             try {
                 System.out.println("[Composer] ShutdownHook... ");
+                /** @see */
                 that.shutdown();
                 System.out.println("[Composer] ShutdownHook finished.");
             } catch (UnknownHostException e) {
@@ -288,9 +294,13 @@ public class DUUIComposer {
         return this;
     }
 
-
     public DUUIComposer withWorkers(int workers) {
         _workers = workers;
+        return this;
+    }
+
+    public DUUIComposer withOpenConnection(boolean open) {
+        _connection_open = open;
         return this;
     }
 
@@ -629,6 +639,7 @@ public class DUUIComposer {
     private JCas run_pipeline(String name, JCas jc, long documentWaitTime, Vector<PipelinePart> pipeline) throws Exception {
         DUUIPipelineDocumentPerformance perf = new DUUIPipelineDocumentPerformance(name,documentWaitTime,jc);
         for (PipelinePart comp : pipeline) {
+
             comp.getDriver().run(comp.getUUID(), jc, perf);
         }
 
@@ -643,6 +654,8 @@ public class DUUIComposer {
         for (PipelinePart comp : _instantiatedPipeline) {
             System.out.printf("[Composer] Shutting down %s...\n", comp.getUUID());
             comp.getDriver().destroy(comp.getUUID());
+
+
         }
         _instantiatedPipeline.clear();
         System.out.println("[Composer] Shut down complete.");
@@ -650,6 +663,9 @@ public class DUUIComposer {
         if(_monitor!=null) {
             System.out.printf("[Composer] Visit %s to view the data.\n",_monitor.generateURL());
         }
+
+
+
     }
 
     public void printConcurrencyGraph() throws Exception {
@@ -703,7 +719,8 @@ public class DUUIComposer {
             System.out.println("[Composer] Something went wrong, shutting down remaining components...");
             catched = e;
         }
-        shutdown_pipeline();
+        /** shutdown **/
+        //shutdown_pipeline();
         if (catched != null) {
             throw catched;
         }
@@ -719,8 +736,20 @@ public class DUUIComposer {
             _shutdownAtomic.set(true);
             if (_monitor != null) {
                 _monitor.shutdown();
+                /**
+                 * @see
+                 * @Givara
+                 * @edited Dawit Terefe
+                 * Added option to keep connection open.
+                 */
+//                if (!_connection_open) {
+//                    _clients.forEach(IDUUIConnectionHandler::close);
+//                }
             } else if (_storage != null) {
                 _storage.shutdown();
+            }
+            if (!_connection_open) {
+                _clients.forEach(IDUUIConnectionHandler::close);
             }
             try {
                 shutdown_pipeline();
@@ -730,13 +759,13 @@ public class DUUIComposer {
             for (IDUUIDriverInterface driver : _drivers.values()) {
                 driver.shutdown();
             }
+
             _hasShutdown = true;
         }
         else {
             System.out.println("Skipped shutdown since it already happened!");
         }
     }
-
 
     public static void main(String[] args) throws Exception {
 
@@ -748,20 +777,21 @@ public class DUUIComposer {
                 .withSkipVerification(true);
 
         // Instantiate drivers with options
-        DUUIDockerDriver driver = new DUUIDockerDriver()
-                .withTimeout(10000);
+//        DUUIDockerDriver driver = new DUUIDockerDriver()
+//                .withTimeout(10000);
 
         DUUIRemoteDriver remote_driver = new DUUIRemoteDriver(10000);
         DUUIUIMADriver uima_driver = new DUUIUIMADriver()
                 .withDebug(true);
-        DUUISwarmDriver swarm_driver = new DUUISwarmDriver();
-            //    .withSwarmVisualizer();
+//        DUUISwarmDriver swarm_driver = new DUUISwarmDriver();
+//                .withSwarmVisualizer();
 
         // A driver must be added before components can be added for it in the composer.
-        composer.addDriver(driver);
+//        composer.addDriver(driver);
         composer.addDriver(remote_driver);
         composer.addDriver(uima_driver);
-        composer.addDriver(swarm_driver);
+
+//        composer.addDriver(swarm_driver);
 
         // Every component needs a driver which instantiates and runs them
         // Local driver manages local docker container and pulls docker container from remote repositories
@@ -825,20 +855,30 @@ public class DUUIComposer {
         composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/gnfinder:latest")
                 .withScale(1)
                 , DUUISwarmDriver.class);*/
-
-        //composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.Component("http://127.0.0.1:9715")
-        //                .withScale(1).build());
+        composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9715")
+                        .withScale(1).withWebsocket(true).build());
+//        composer.add(new SocketIO("http://127.0.0.1:9715"));
 
        // ByteArrayInputStream stream;
        // stream.read
 
-        String val2 = "Dies ist ein kleiner Test Text für Abies!";
+        String val = "Dies ist ein kleiner Test Text für Abies!";
         JCas jc = JCasFactory.createJCas();
         jc.setDocumentLanguage("de");
-        jc.setDocumentText(val2);
+        jc.setDocumentText(val);
+
+        String va2 = "Dies ist ein ganz kleiner Test Text für Abies!";
+        JCas jc2 = JCasFactory.createJCas();
+        jc2.setDocumentLanguage("de");
+        jc2.setDocumentText(val);
 
         // Run single document
         composer.run(jc,"fuchs");
+        composer.run(jc2,"fuchs1");
+//        ByteArrayOutputStream out = new ByteArrayOutputStream();
+//        XmlCasSerializer.serialize(jc.getCas(),out);
+//        System.out.println(new String(out.toByteArray()));
+
 
         /*
         String val = Files.readString(Path.of(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/uima_xmi_communication_token_only.lua").toURI()));
@@ -856,6 +896,9 @@ public class DUUIComposer {
         /*composer.run(createReaderDescription(TextReader.class,
                 TextReader.PARAM_SOURCE_LOCATION, "test_corpora/**.txt",
                 TextReader.PARAM_LANGUAGE, "en"),"next11");*/
+        /** @see **/
         composer.shutdown();
   }
+
+
 }
