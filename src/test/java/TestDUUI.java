@@ -376,6 +376,45 @@ CollectionReader();
     }
 
     @Test
+    public void TestMatMot() throws Exception {
+        JCas jc = JCasFactory.createJCas();
+        String sText = "Wir feiern am 24.12. eines jeden Jahres Weihnachten!";
+
+        jc.setDocumentText(sText);
+        jc.setDocumentLanguage("de");
+
+        DUUILuaContext ctx = LuaConsts.getJSON();
+
+        DUUIComposer composer = new DUUIComposer()
+                //       .withStorageBackend(new DUUIArangoDBStorageBackend("password",8888))
+                .withLuaContext(ctx).withSkipVerification(true);
+
+        // Instantiate drivers with options
+        DUUIRemoteDriver remote_driver = new DUUIRemoteDriver(10000);
+        DUUIDockerDriver docker_driver = new DUUIDockerDriver(10000);
+        DUUISwarmDriver swarm_driver = new DUUISwarmDriver(10000);
+
+        // A driver must be added before components can be added for it in the composer.
+        composer.addDriver(remote_driver);
+        composer.addDriver(docker_driver);
+        composer.addDriver(swarm_driver);
+
+        composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9715")
+                        .withScale(1)
+                        .build());
+
+        composer.run(jc);
+
+        JCasUtil.select(jc, GerVaderSentiment.class).forEach(t -> {
+            System.out.println(t);
+        });
+
+        System.out.println(jc.getDocumentLanguage());
+
+
+    }
+
+    @Test
     public void TestBFSRL() throws Exception {
         JCas jc = JCasFactory.createJCas();
         jc.setDocumentText("Guten Tag, ich möchte mich bei Ihnen kurz vorstellen; mein Name ist Peter Müller, angenehm.");

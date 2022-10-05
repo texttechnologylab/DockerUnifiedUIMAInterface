@@ -4,7 +4,9 @@ import de.tudarmstadt.ukp.dkpro.core.api.io.ProgressMeter;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.commons.compress.compressors.CompressorStreamFactory;
 import org.apache.commons.io.FileUtils;
+import org.apache.uima.UIMAException;
 import org.apache.uima.cas.impl.XmiCasDeserializer;
+import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.jcas.JCas;
 import org.javaync.io.AsyncFiles;
 import org.texttechnologylab.utilities.helper.StringUtils;
@@ -227,7 +229,16 @@ public class AsyncCollectionReader {
         else {
             decodedFile = new ByteArrayInputStream(file);
         }
-        XmiCasDeserializer.deserialize(decodedFile, empty.getCas(), true);
+        try {
+            XmiCasDeserializer.deserialize(decodedFile, empty.getCas(), true);
+        }
+        catch (Exception e){
+            try {
+                empty = JCasFactory.createText(StringUtils.getContent(new File(result)));
+            } catch (UIMAException ex) {
+                throw new RuntimeException(ex);
+            }
+        }
         return true;
     }
 
