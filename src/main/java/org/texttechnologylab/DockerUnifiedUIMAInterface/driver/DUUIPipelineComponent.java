@@ -1,11 +1,9 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.driver;
 
-import kotlin.text.Regex;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.commons.compress.compressors.CompressorInputStream;
 import org.apache.commons.compress.compressors.CompressorOutputStream;
 import org.apache.commons.compress.compressors.CompressorStreamFactory;
-import org.apache.tools.ant.util.regexp.Regexp;
 import org.apache.uima.analysis_engine.AnalysisEngineDescription;
 import org.apache.uima.fit.factory.AnalysisEngineFactory;
 import org.apache.uima.util.InvalidXMLException;
@@ -340,13 +338,10 @@ public class DUUIPipelineComponent {
         return this;
     }
 
-    public DUUIPipelineComponent __internalPinDockerImage(String imageName, String pinName) {
+    public DUUIPipelineComponent __internalPinDockerImage(String pinName) {
         if(pinName==null) {
-            System.err.println("Could not add the digest since this image has not been pushed and pulled from a registry V2");
-            _options.put(dockerImageName,imageName);
-            return this;
+            throw new RuntimeException("Cannot pin an image with a null value!");
         }
-
         _options.put(dockerImageName,pinName);
         return this;
     }
