@@ -295,12 +295,10 @@ public class DUUIDockerInterface {
             if(i.getId() == imageName) {
                 return i;
             }
-            String[] repoTags = i.getRepoTags();
-            if(repoTags!=null) {
-                for (String repo : repoTags) {
-                    if (repo.equals(imageName)) {
-                        return i;
-                    }
+
+            for(String repo : i.getRepoTags()) {
+                if(repo.equals(imageName)) {
+                    return i;
                 }
             }
         }
@@ -445,10 +443,6 @@ public class DUUIDockerInterface {
     }
 
     public String getDigestFromImage(String imagename) {
-
-        if(imagename.split(":").length == 1) {
-            imagename = imagename+":latest";
-        }
         InspectImageResponse resp = _docker.inspectImageCmd(imagename).exec();
         List<String> digests = resp.getRepoDigests();
 
@@ -484,40 +478,6 @@ public class DUUIDockerInterface {
         CreateContainerCmd cmd = _docker.createContainerCmd(imageid)
                 .withHostConfig(cfg)
                 .withExposedPorts(ExposedPort.tcp(port)).withPublishAllPorts(true);
-
-        CreateContainerResponse feedback = cmd.exec();
-        _docker.startContainerCmd(feedback.getId()).exec();
-        return feedback.getId();
-    }
-
-    /**
-     * Builds and runs the container with a specified temporary build directory and some flags.
-     *
-     * @param gpu        If the gpu should be used
-     * @param autoremove If the autoremove flag is set for the container
-     * @return The docker container id
-     * @throws InterruptedException
-     */
-    public String run(String imageid, boolean gpu, boolean autoremove, int portContainer, int portHost, boolean mapDaemon) throws InterruptedException {
-
-
-        HostConfig cfg = new HostConfig();
-        if (autoremove) {
-            cfg = cfg.withAutoRemove(true);
-        }
-        if (gpu) {
-            cfg = cfg.withDeviceRequests(ImmutableList.of(new DeviceRequest()
-                    .withCapabilities(ImmutableList.of(ImmutableList.of("gpu")))));
-        }
-
-        cfg.withPortBindings(new PortBinding(new Ports.Binding(null,String.valueOf(portHost)), new ExposedPort(portContainer)));
-
-        if(mapDaemon) {
-            cfg = cfg.withBinds(Bind.parse("/var/run/docker.sock:/var/run/docker.sock"));
-        }
-        CreateContainerCmd cmd = _docker.createContainerCmd(imageid)
-                .withHostConfig(cfg)
-                .withExposedPorts(ExposedPort.tcp(portContainer)).withPublishAllPorts(true);
 
         CreateContainerResponse feedback = cmd.exec();
         _docker.startContainerCmd(feedback.getId()).exec();
