@@ -32,12 +32,16 @@ public class DUUIPipelineComponent {
     private String _finalizedEncoded;
     private int _finalizedEncodedHash;
     private String _compression;
+    private boolean _websocket = false;
+    private int _ws_elements = 50;
 
     public static String compressionMethod = CompressorStreamFactory.XZ;
 
     private static String engineOptionName = "engine";
     private static String scaleOptionName = "scale";
     private static String urlOptionName = "url";
+    private static String websocketOptionName = "websocket";
+    private String websocketElementsOptionName = "websocketElements";
 
     private static String dockerPasswordOptionName = "dockerPassword";
     private static String dockerUsernameOptionName = "dockerUsername";
@@ -59,8 +63,12 @@ public class DUUIPipelineComponent {
 
     private String getVersion() throws URISyntaxException, IOException {
         ClassLoader classLoader = DUUIPipelineComponent.class.getClassLoader();
-        String properties = Files.readString(Paths.get(classLoader.getResource("git.properties").toURI()));
-        return properties;
+        try {
+            return classLoader.getResourceAsStream("git.properties").toString();
+        } catch (NullPointerException e) {
+            System.err.println("Could not find resource \"git.properties\"!");
+            return "undefined";
+        }
     }
 
     public DUUIPipelineComponent() throws URISyntaxException, IOException {
@@ -74,6 +82,7 @@ public class DUUIPipelineComponent {
         else {
             _options.put(versionInformation,version);
         }
+        _parameters.put(websocketOptionName, String.valueOf(_websocket));
     }
 
     public void finalizeComponent() throws CompressorException, IOException, SAXException {
@@ -417,6 +426,31 @@ public class DUUIPipelineComponent {
         js.put("options",_options);
         js.put("parameters",_parameters);
         return js.toString();
+    }
+
+    /**
+     * @edited Dawit Terefe
+     *
+     * Option to choose websocket as protocol.
+     * Default is false.
+     * Option to choose number of elements for
+     * partition size.
+     *
+     */
+    public boolean isWebsocket() { return _websocket; }
+
+    public DUUIPipelineComponent withWebsocket(boolean b) {
+        _websocket = b;
+        return withParameter(websocketOptionName, String.valueOf(b));
+    }
+
+    public int getWebsocketElements () { return _ws_elements; }
+
+    public DUUIPipelineComponent withWebsocket(boolean b, int elements) {
+        _websocket = b;
+        _ws_elements = elements;
+        return withParameter(websocketOptionName, String.valueOf(b))
+                .withParameter(websocketElementsOptionName, String.valueOf(elements));
     }
 
     public DUUIPipelineComponent withParameter(String key, String value) {

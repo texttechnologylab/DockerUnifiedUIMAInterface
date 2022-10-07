@@ -2,8 +2,10 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface;
 
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.async.ResultCallback;
+import com.github.dockerjava.api.async.ResultCallbackTemplate;
 import com.github.dockerjava.api.command.*;
 import com.github.dockerjava.api.exception.DockerClientException;
+import com.github.dockerjava.api.exception.NotModifiedException;
 import com.github.dockerjava.api.model.*;
 import com.github.dockerjava.core.DockerClientBuilder;
 import com.github.dockerjava.core.command.LogContainerResultCallback;
@@ -14,7 +16,10 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.InvalidParameterException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import static java.lang.String.format;
@@ -41,6 +46,7 @@ class PullImageStdout extends PullImageResultCallback {
             }
         }
     }
+
 }
 
 class PushImageStdout extends ResultCallback.Adapter<PushResponseItem> {
@@ -146,6 +152,9 @@ public class DUUIDockerInterface {
      */
     public DUUIDockerInterface() throws IOException {
         _docker = DockerClientBuilder.getInstance().build();
+
+//        DockerClientConfig config = DefaultDockerClientConfig.createDefaultConfigBuilder().withDockerHost("tcp://localhost:2375").build();
+//        _docker = DockerClientBuilder.getInstance(config).build();
     }
 
     /**
@@ -249,7 +258,11 @@ public class DUUIDockerInterface {
      * @param id The id of the container to stop.
      */
     public void stop_container(String id) {
-        _docker.stopContainerCmd(id).withTimeout(10).exec();
+        try{
+            _docker.stopContainerCmd(id).withTimeout(10).exec();
+        } catch (NotModifiedException e) {
+        } catch (Exception e) {
+        }
     }
 
     /**
@@ -413,12 +426,16 @@ public class DUUIDockerInterface {
                 AuthConfig cfg = new AuthConfig();
                 cfg.withUsername(username);
                 cfg.withPassword(password);
-                _docker.pullImageCmd(tag)
+                ResultCallbackTemplate temp = _docker.pullImageCmd(tag)
                         .withAuthConfig(cfg)
-                        .exec(new PullImageStdout()).awaitCompletion();
+                        .exec(new PullImageStdout());
+                temp.onError(new Exception());
+                temp.awaitCompletion();
             } else {
-                _docker.pullImageCmd(tag)
-                        .exec(new PullImageStdout()).awaitCompletion();
+                ResultCallbackTemplate template = _docker.pullImageCmd(tag)
+                        .exec(new PullImageStdout());
+                template.onError(new Exception());
+                template.awaitCompletion();
             }
         }
         catch(Exception e) {
@@ -451,7 +468,6 @@ public class DUUIDockerInterface {
      * @throws InterruptedException
      */
     public String run(String imageid, boolean gpu, boolean autoremove, int port, boolean mapDaemon) throws InterruptedException {
-
 
         HostConfig cfg = new HostConfig();
         if (autoremove) {

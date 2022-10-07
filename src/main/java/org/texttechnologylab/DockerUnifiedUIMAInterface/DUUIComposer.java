@@ -9,11 +9,9 @@ import org.apache.uima.cas.CASException;
 import org.apache.uima.cas.impl.XmiCasSerializer;
 import org.apache.uima.collection.CollectionReader;
 import org.apache.uima.collection.CollectionReaderDescription;
-import org.apache.uima.fit.factory.AnalysisEngineFactory;
 import org.apache.uima.fit.factory.CollectionReaderFactory;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.fit.factory.TypeSystemDescriptionFactory;
-import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.jcas.cas.TOP;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
@@ -23,6 +21,7 @@ import org.apache.uima.util.TypeSystemUtil;
 import org.dkpro.core.io.xmi.XmiReader;
 import org.luaj.vm2.Globals;
 import org.luaj.vm2.lib.jse.JsePlatform;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.IDUUIConnectionHandler;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.*;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.AsyncCollectionReader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
@@ -32,10 +31,9 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.IDUUISt
 import org.texttechnologylab.annotation.SpacyAnnotatorMetaData;
 import org.xml.sax.SAXException;
 import org.yaml.snakeyaml.TypeDescription;
-
 import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.io.OutputStream;
+import java.io.IOException;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
 import java.security.InvalidParameterException;
@@ -111,6 +109,8 @@ class DUUIWorker extends Thread {
                         e.printStackTrace();
                     } catch (InterruptedException e) {
                         e.printStackTrace();
+                    } catch (NullPointerException e){
+                        e.printStackTrace();
                     }
                 }
             }
@@ -118,6 +118,7 @@ class DUUIWorker extends Thread {
             IDUUIExecutionPlan execPlan = _generator.generate(object);
 
             //System.out.printf("[Composer] Thread %d still alive and doing work\n",num);
+
 
             DUUIPipelineDocumentPerformance perf = new DUUIPipelineDocumentPerformance(_runKey,
                     waitTimeEnd-waitTimeStart,
@@ -182,6 +183,30 @@ class DUUIWorker extends Thread {
             _instancesToBeLoaded.add(object);
             if(_backend!=null) {
                 _backend.addMetricsForDocument(perf);
+
+            try {
+                DUUIPipelineDocumentPerformance perf = new DUUIPipelineDocumentPerformance(_runKey,
+                        waitTimeEnd - waitTimeStart,
+                        object);
+                for (DUUIComposer.PipelinePart i : _flow) {
+                    try {
+                        i.getDriver().run(i.getUUID(), object, perf);
+                    } catch (Exception e) {
+                        //Ignore errors at the moment
+                        e.printStackTrace();
+                        System.out.println("Thread continues work!");
+                    }
+                }
+
+                object.reset();
+                _instancesToBeLoaded.add(object);
+                if (_backend != null) {
+                    _backend.addMetricsForDocument(perf);
+                }
+            }
+            catch (Exception e){
+                e.printStackTrace();
+
             }
         }
     }
@@ -249,7 +274,8 @@ class DUUIWorkerAsyncReader extends Thread {
                     i.getDriver().run(i.getUUID(), _jc, perf);
                 } catch (Exception e) {
                     //Ignore errors at the moment
-                    e.printStackTrace();
+                    //e.printStackTrace();
+                    System.err.println(e.getMessage());
                     System.out.println("Thread continues work!");
                 }
             }
@@ -283,8 +309,12 @@ public class DUUIComposer {
     public static final String COMPONENT_COMPONENT_UNIQUE_KEY = "duuid.storage.componentkey";
 
     public static final String V1_COMPONENT_ENDPOINT_PROCESS = "/v1/process";
+    public static final String V1_COMPONENT_ENDPOINT_PROCESS_WEBSOCKET = "/v1/process_websocket";
     public static final String V1_COMPONENT_ENDPOINT_TYPESYSTEM = "/v1/typesystem";
     public static final String V1_COMPONENT_ENDPOINT_COMMUNICATION_LAYER = "/v1/communication_layer";
+
+    public static List<IDUUIConnectionHandler> _clients = new ArrayList<>(); // Saves Websocket-Clients.
+    private boolean _connection_open = false; // Let connection open for multiple consecutive use.
 
     private TypeSystemDescription _minimalTypesystem;
 
@@ -310,6 +340,7 @@ public class DUUIComposer {
         _shutdownHook = new Thread(() -> {
             try {
                 System.out.println("[Composer] ShutdownHook... ");
+                /** @see */
                 that.shutdown();
                 System.out.println("[Composer] ShutdownHook finished.");
             } catch (UnknownHostException e) {
@@ -346,9 +377,13 @@ public class DUUIComposer {
         return this;
     }
 
-
     public DUUIComposer withWorkers(int workers) {
         _workers = workers;
+        return this;
+    }
+
+    public DUUIComposer withOpenConnection(boolean open) {
+        _connection_open = open;
         return this;
     }
 
@@ -496,7 +531,7 @@ public class DUUIComposer {
 
             while(emptyCasDocuments.size() != _cas_poolsize && !collectionReader.isEmpty()) {
                 System.out.println("[Composer] Waiting for threads to finish document processing...");
-                Thread.sleep(1000);
+                Thread.sleep(1000*_workers); // to fast or in relation with threads?
             }
             System.out.println("[Composer] All documents have been processed. Signaling threads to shut down now...");
             _shutdownAtomic.set(true);
@@ -697,6 +732,7 @@ public class DUUIComposer {
     private JCas run_pipeline(String name, JCas jc, long documentWaitTime, Vector<PipelinePart> pipeline) throws Exception {
         DUUIPipelineDocumentPerformance perf = new DUUIPipelineDocumentPerformance(name,documentWaitTime,jc);
         for (PipelinePart comp : pipeline) {
+
             comp.getDriver().run(comp.getUUID(), jc, perf);
         }
 
@@ -708,6 +744,7 @@ public class DUUIComposer {
     }
 
     private void shutdown_pipeline() throws Exception {
+
         if(!_instantiatedPipeline.isEmpty()) {
             for (PipelinePart comp : _instantiatedPipeline) {
                 System.out.printf("[Composer] Shutting down %s...\n", comp.getUUID());
@@ -715,11 +752,21 @@ public class DUUIComposer {
             }
             _instantiatedPipeline.clear();
             System.out.println("[Composer] Shut down complete.");
+
+//        for (PipelinePart comp : _instantiatedPipeline) {
+//            System.out.printf("[Composer] Shutting down %s...\n", comp.getUUID());
+//            comp.getDriver().destroy(comp.getUUID());
+
+
+
         }
 
         if(_monitor!=null) {
             System.out.printf("[Composer] Visit %s to view the data.\n",_monitor.generateURL());
         }
+
+
+
     }
 
     public void printConcurrencyGraph() throws Exception {
@@ -773,7 +820,8 @@ public class DUUIComposer {
             System.out.println("[Composer] Something went wrong, shutting down remaining components...");
             catched = e;
         }
-        shutdown_pipeline();
+        /** shutdown **/
+        //shutdown_pipeline();
         if (catched != null) {
             throw catched;
         }
@@ -789,8 +837,20 @@ public class DUUIComposer {
             _shutdownAtomic.set(true);
             if (_monitor != null) {
                 _monitor.shutdown();
+                /**
+                 * @see
+                 * @Givara
+                 * @edited Dawit Terefe
+                 * Added option to keep connection open.
+                 */
+//                if (!_connection_open) {
+//                    _clients.forEach(IDUUIConnectionHandler::close);
+//                }
             } else if (_storage != null) {
                 _storage.shutdown();
+            }
+            if (!_connection_open) {
+                _clients.forEach(IDUUIConnectionHandler::close);
             }
             try {
                 shutdown_pipeline();
@@ -800,13 +860,13 @@ public class DUUIComposer {
             for (IDUUIDriverInterface driver : _drivers.values()) {
                 driver.shutdown();
             }
+
             _hasShutdown = true;
         }
         else {
             System.out.println("Skipped shutdown since it already happened!");
         }
     }
-
 
     public static void main(String[] args) throws Exception {
         DUUILuaContext ctx = new DUUILuaContext().withGlobalLibrary("json",DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/json.lua").toURI());
@@ -817,20 +877,26 @@ public class DUUIComposer {
                 .withWorkers(2);
 
         // Instantiate drivers with options
-        DUUIDockerDriver driver = new DUUIDockerDriver()
-                .withTimeout(10000);
+//        DUUIDockerDriver driver = new DUUIDockerDriver()
+//                .withTimeout(10000);
 
         DUUIRemoteDriver remote_driver = new DUUIRemoteDriver(10000);
         DUUIUIMADriver uima_driver = new DUUIUIMADriver()
                 .withDebug(true);
+
         DUUISwarmDriver swarm_driver = new DUUISwarmDriver()
                 .withSwarmVisualizer(18872);
 
+//        DUUISwarmDriver swarm_driver = new DUUISwarmDriver();
+//                .withSwarmVisualizer();
+
+
         // A driver must be added before components can be added for it in the composer.
-        composer.addDriver(driver);
+//        composer.addDriver(driver);
         composer.addDriver(remote_driver);
         composer.addDriver(uima_driver);
-        composer.addDriver(swarm_driver);
+
+//        composer.addDriver(swarm_driver);
 
         // Every component needs a driver which instantiates and runs them
         // Local driver manages local docker container and pulls docker container from remote repositories
@@ -895,20 +961,30 @@ public class DUUIComposer {
         composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/gnfinder:latest")
                 .withScale(1)
                 , DUUISwarmDriver.class);*/
-
-        //composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.Component("http://127.0.0.1:9715")
-        //                .withScale(1).build());
+        composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9715")
+                        .withScale(1).withWebsocket(true).build());
+//        composer.add(new SocketIO("http://127.0.0.1:9715"));
 
        // ByteArrayInputStream stream;
        // stream.read
 
-        String val2 = "Dies ist ein kleiner Test Text für Abies!";
+        String val = "Dies ist ein kleiner Test Text für Abies!";
         JCas jc = JCasFactory.createJCas();
         jc.setDocumentLanguage("de");
-        jc.setDocumentText(val2);
+        jc.setDocumentText(val);
+
+        String va2 = "Dies ist ein ganz kleiner Test Text für Abies!";
+        JCas jc2 = JCasFactory.createJCas();
+        jc2.setDocumentLanguage("de");
+        jc2.setDocumentText(val);
 
         // Run single document
         composer.run(jc,"fuchs");
+        composer.run(jc2,"fuchs1");
+//        ByteArrayOutputStream out = new ByteArrayOutputStream();
+//        XmlCasSerializer.serialize(jc.getCas(),out);
+//        System.out.println(new String(out.toByteArray()));
+
 
         /*TypeSystemDescription desc = TypeSystemUtil.typeSystem2TypeSystemDescription(jc.getTypeSystem());
 
@@ -935,7 +1011,10 @@ public class DUUIComposer {
         /*composer.run(createReaderDescription(TextReader.class,
                 TextReader.PARAM_SOURCE_LOCATION, "test_corpora/**.txt",
                 TextReader.PARAM_LANGUAGE, "en"),"next11");*/
+        /** @see **/
         composer.shutdown();
   }
+
+
 }
 
