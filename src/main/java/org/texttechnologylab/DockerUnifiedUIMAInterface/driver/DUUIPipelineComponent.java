@@ -13,7 +13,6 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 import org.xml.sax.SAXException;
 
-
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -34,6 +33,8 @@ public class DUUIPipelineComponent {
     private String _compression;
     private boolean _websocket = false;
     private int _ws_elements = 50;
+
+    private List<String> _constraints = new ArrayList<>(0);
 
     public static String compressionMethod = CompressorStreamFactory.XZ;
 
@@ -191,6 +192,20 @@ public class DUUIPipelineComponent {
         }
         _options.put(scaleOptionName,String.valueOf(iScale));
         return this;
+    }
+
+    public DUUIPipelineComponent withConstraints(List<String> constraints) {
+        _constraints.addAll(constraints);
+        return this;
+    }
+
+    public DUUIPipelineComponent withConstraint(String constraints) {
+        _constraints.add(constraints);
+        return this;
+    }
+
+    public List<String> getConstraints(){
+        return _constraints;
     }
 
     public Integer getScale() {
