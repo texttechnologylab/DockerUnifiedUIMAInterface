@@ -4,7 +4,6 @@ import org.luaj.vm2.*;
 import org.luaj.vm2.compiler.LuaC;
 import org.luaj.vm2.lib.*;
 import org.luaj.vm2.lib.jse.*;
-import org.luaj.vm2.luajc.LuaJC;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -68,7 +67,6 @@ public class DUUILuaContext {
             globals.load(new LuajavaLib());
             LoadState.install(globals);
             LuaC.install(globals);
-            LuaJC.install(globals);
 
             for (Map.Entry<String, String> val : _luaScripts.entrySet()) {
                 LuaValue valsec = globals.load(val.getValue(), "global_script" + val.getKey(), globals);

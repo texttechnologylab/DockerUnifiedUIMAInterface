@@ -1,0 +1,88 @@
+from cassis import *
+import http.server
+import socketserver
+import json
+import base64
+import sys
+
+communication = ''
+input = []
+output = []
+
+if len(sys.argv)>2:
+    print(sys.argv)
+    if sys.argv[1] == '--inputs':
+        input = json.loads(sys.argv[2])
+    elif sys.argv[1] == '--outputs':
+        output = json.loads(sys.argv[2])
+if len(sys.argv) > 4:
+    if sys.argv[3] == '--inputs':
+        input = json.loads(sys.argv[4])
+    elif sys.argv[3] == '--outputs':
+        output = json.loads(sys.argv[4])
+
+with open('communication_xmi.lua','r') as f:
+    communication = f.read()
+
+with open('dkpro-core-types.xml', 'rb') as f:
+    typesystem = load_typesystem(f)
+
+    class MyHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
+        def do_POST(self):
+            content_len = int(self.headers.get('Content-Length'))
+            post_body = self.rfile.read(content_len).decode("utf-8")
+            print(post_body)
+
+            cas = load_cas_from_xmi(post_body, typesystem=typesystem,lenient=True)
+            #loaded = json.loads(post_body)
+            #print(loaded)
+            #cas = load_cas_from_xmi(loaded["cas"], typesystem=loaded["typesystem"])
+
+            # Sending an '200 OK' response
+            self.send_response(200)
+
+            # Setting the header
+            self.send_header("Content-type", "application/json")
+
+            # Whenever using 'send_header', you also have to call 'end_headers'
+            self.end_headers()
+            self.wfile.write(cas.to_xmi().encode('utf-8'))
+        def do_GET(self):
+            if self.path == '/v1/communication_layer':
+                # Sending an '200 OK' response
+                if communication == '':
+                    self.send_response(404)
+                    return
+                self.send_response(200)
+
+                # Setting the header
+                self.send_header("Content-type", "text/plain")
+
+                # Whenever using 'send_header', you also have to call 'end_headers'
+                self.end_headers()
+                self.wfile.write(communication.encode('utf-8'))
+            elif self.path == '/v1/details/input_output':
+                self.send_response(200)
+                self.send_header("Content-type", "application/json")
+                self.end_headers()
+                dictjs = {'inputs': input, 'outputs': output}
+                self.wfile.write(json.dumps(dictjs).encode('utf-8'))
+            else:
+                # Sending an '200 OK' response
+                self.send_response(200)
+
+                # Setting the header
+                self.send_header("Content-type", "application/json")
+
+                # Whenever using 'send_header', you also have to call 'end_headers'
+                self.end_headers()
+                self.wfile.write(typesystem.to_xml().encode('utf-8'))
+    # Create an object of the above class
+    handler_object = MyHttpRequestHandler
+
+    PORT = 9715
+    my_server = socketserver.TCPServer(("0.0.0.0", PORT), handler_object)
+
+    print("Server started on port 9715\r\n")
+    # Star the server
+    my_server.serve_forever()

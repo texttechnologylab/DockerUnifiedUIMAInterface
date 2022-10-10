@@ -3,8 +3,12 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface.driver;
 
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.cas.CASException;
+import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.fit.factory.TypeSystemDescriptionFactory;
+import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
+import org.apache.uima.jcas.cas.AnnotationBase_Type;
+import org.apache.uima.jcas.cas.TOP;
 import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.javatuples.Triplet;
@@ -17,6 +21,7 @@ import org.texttechnologylab.duui.ReproducibleAnnotation;
 import org.xml.sax.SAXException;
 
 import java.io.*;
+import java.lang.annotation.Annotation;
 import java.net.ProxySelector;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -35,14 +40,12 @@ public interface IDUUIInstantiatedPipelineComponent {
             .proxy(ProxySelector.getDefault())
             .connectTimeout(Duration.ofSeconds(1000)).build();
 
-    public IDUUICommunicationLayer getCommunicationLayer();
     public DUUIPipelineComponent getPipelineComponent();
     public Triplet<IDUUIUrlAccessible,Long,Long> getComponent();
     public void addComponent(IDUUIUrlAccessible item);
 
     public Map<String,String> getParameters();
     public String getUniqueComponentKey();
-    public void setCommunicationLayer(IDUUICommunicationLayer layer);
 
     public static TypeSystemDescription getTypesystem(String uuid, IDUUIInstantiatedPipelineComponent comp) throws ResourceInitializationException {
         Triplet<IDUUIUrlAccessible,Long,Long> queue = comp.getComponent();
@@ -84,10 +87,10 @@ public interface IDUUIInstantiatedPipelineComponent {
     public static void process(JCas jc, IDUUIInstantiatedPipelineComponent comp, DUUIPipelineDocumentPerformance perf) throws CompressorException, IOException, SAXException, CASException {
         Triplet<IDUUIUrlAccessible,Long,Long> queue = comp.getComponent();
 
-        IDUUICommunicationLayer layer = comp.getCommunicationLayer();
+        IDUUICommunicationLayer layer = queue.getValue0().getCommunicationLayer();
         long serializeStart = System.nanoTime();
 
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ByteArrayOutputStream out = new ByteArrayOutputStream(1024*1024);
 
         DUUIPipelineComponent pipelineComponent = comp.getPipelineComponent();
         String viewName = pipelineComponent.getViewName();
@@ -176,7 +179,7 @@ public interface IDUUIInstantiatedPipelineComponent {
                                        DUUIPipelineDocumentPerformance perf) throws CompressorException, IOException, SAXException, CASException, InterruptedException {
         Triplet<IDUUIUrlAccessible,Long,Long> queue = comp.getComponent();
 
-        IDUUICommunicationLayer layer = comp.getCommunicationLayer();
+        IDUUICommunicationLayer layer = queue.getValue0().getCommunicationLayer();
         long serializeStart = System.nanoTime();
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
