@@ -88,7 +88,6 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
 
     private static class ComponentInstance implements IDUUIUrlAccessible {
         String _url;
-
         IDUUIConnectionHandler _handler;
         IDUUICommunicationLayer _communication_layer;
 

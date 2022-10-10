@@ -1,9 +1,5 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface;
 
-import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Sentence;
-import de.tudarmstadt.ukp.dkpro.core.api.syntax.type.dependency.Dependency;
-import de.tudarmstadt.ukp.dkpro.core.tokit.BreakIteratorSegmenter;
-
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.analysis_engine.AnalysisEngineProcessException;
 import org.apache.uima.cas.CASException;
@@ -30,7 +26,6 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPip
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.IDUUIStorageBackend;
 
 import org.xml.sax.SAXException;
-import org.yaml.snakeyaml.TypeDescription;
 
 import java.io.IOException;
 import java.io.ByteArrayOutputStream;
@@ -184,7 +179,6 @@ class DUUIWorker extends Thread {
             _instancesToBeLoaded.add(object);
             if(_backend!=null) {
                 _backend.addMetricsForDocument(perf);
-
             }
         }
     }

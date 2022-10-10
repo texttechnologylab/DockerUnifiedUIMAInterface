@@ -133,7 +133,6 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         }
         System.out.printf("[DockerSwarmDriver] Assigned new pipeline component unique id %s\n", uuid);
 
-
         String digest = _interface.getDigestFromImage(comp.getImageName());
         comp.getPipelineComponent().__internalPinDockerImage(comp.getImageName(),digest);
         System.out.printf("[DockerSwarmDriver] Transformed image %s to pinnable image name %s\n", comp.getImageName(),digest);
@@ -302,6 +301,7 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
 
 
         public InstantiatedComponent initialise(String service_id, int container_port, IDUUICommunicationLayer layer, DUUISwarmDriver swarmDriver) throws IOException, InterruptedException {
+
             _service_id = service_id;
             _service_port = container_port;
 
@@ -314,6 +314,7 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
             }
             for(int i = 0; i < _scale; i++) {
                 _components.add(new ComponentInstance(getServiceUrl(), layer.copy(), swarmDriver._wsclient));
+
             }
             return this;
         }
