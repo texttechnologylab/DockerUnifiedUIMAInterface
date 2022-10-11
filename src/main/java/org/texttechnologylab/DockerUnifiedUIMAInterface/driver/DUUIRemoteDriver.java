@@ -88,26 +88,23 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
 
     private static class ComponentInstance implements IDUUIUrlAccessible {
         String _url;
-
-        IDUUICommunicationLayer _communication_layer;
-
         IDUUIConnectionHandler _handler;
-
+        IDUUICommunicationLayer _communication_layer;
 
         ComponentInstance(String val, IDUUICommunicationLayer layer) {
             _url = val;
+            _communication_layer = layer;
+            _handler = null;
+        }
 
+        ComponentInstance(String val,  IDUUICommunicationLayer layer, IDUUIConnectionHandler handler) {
+            _url = val;
+            _handler = handler;
             _communication_layer = layer;
         }
 
         public IDUUICommunicationLayer getCommunicationLayer() {
             return _communication_layer;
-            _handler = null;
-        }
-
-        ComponentInstance(String val, IDUUIConnectionHandler handler) {
-            _url = val;
-            _handler = handler;
         }
 
         public String generateURL() {
@@ -237,7 +234,6 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
                 added_communication_layer = true;
             }
             for (int i = 0; i < comp.getScale(); i++) {
-                comp.addComponent(new ComponentInstance(url,layer.copy()));
                 /**
                  * @see
                  * @edited
@@ -246,7 +242,7 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
                  * Saves websocket client in ComponentInstance for
                  * retrieval in process_handler-function.
                  */
-                //comp.addComponent(new ComponentInstance(url, _wsclient));
+                comp.addComponent(new ComponentInstance(url,layer.copy(), _wsclient));
             }
             _components.put(uuid, comp);
             System.out.printf("[RemoteDriver][%s] Remote URL %s is online and seems to understand DUUI V1 format!\n", uuid, url);

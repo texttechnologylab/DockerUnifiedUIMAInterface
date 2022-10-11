@@ -236,11 +236,6 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
         comp.getPipelineComponent().__internalPinDockerImage(comp.getImageName(),digest);
         System.out.printf("[DockerLocalDriver] Transformed image %s to pinnable image name %s\n", comp.getImageName(),comp.getPipelineComponent().getDockerImageName());
 
-        // String digest = _interface.getDigestFromImage(comp.getImageName());
-        // comp.getPipelineComponent().__internalPinDockerImage(digest);
-        // String digest = comp.getImageName();
-        // System.out.printf("[DockerLocalDriver] Transformed image %s to pinnable image name %s\n", comp.getImageName(),digest);
-
         _active_components.put(uuid, comp);
         for (int i = 0; i < comp.getScale(); i++) {
             String containerid = _interface.run(comp.getPipelineComponent().getDockerImageName(), comp.usesGPU(), true, 9714,false);
@@ -256,8 +251,6 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
                     System.out.printf("[DockerLocalDriver][%s][Docker Replication %d/%d] %s\n", uuidCopy, iCopy + 1, comp.getScale(), msg);
                 },_luaContext, skipVerification);
                 System.out.printf("[DockerLocalDriver][%s][Docker Replication %d/%d] Container for image %s is online (URL http://127.0.0.1:%d) and seems to understand DUUI V1 format!\n", uuid, i + 1, comp.getScale(), comp.getImageName(), port);
-
-                comp.addInstance(new ComponentInstance(containerid, port, layer.copy()));
 
                 /**
                  * @see
@@ -282,9 +275,7 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
                  * Saves websocket client in ComponentInstance for
                  * retrieval in process_handler-function.
                  */
-                comp.addInstance(new ComponentInstance(containerid, port, _wsclient));
-                comp.setCommunicationLayer(layer);
-
+                comp.addInstance(new ComponentInstance(containerid, port, layer, _wsclient));
             }
             catch(Exception e) {
                 //_interface.stop_container(containerid);
@@ -344,11 +335,8 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
     public static class ComponentInstance implements IDUUIUrlAccessible {
         private String _container_id;
         private int _port;
-
-        private IDUUICommunicationLayer _communicationLayer;
-
         private IDUUIConnectionHandler _handler;
-
+        private IDUUICommunicationLayer _communicationLayer;
 
         public ComponentInstance(String id, int port, IDUUICommunicationLayer communicationLayer) {
             _container_id = id;
@@ -360,9 +348,10 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
             return _communicationLayer;
         }
 
-        public ComponentInstance(String id, int port, IDUUIConnectionHandler handler) {
+        public ComponentInstance(String id, int port, IDUUICommunicationLayer layer, IDUUIConnectionHandler handler) {
             _container_id = id;
             _port = port;
+            _communicationLayer = layer;
             _handler = handler;
         }
 
@@ -401,14 +390,6 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
         private Map<String,String> _parameters;
         private DUUIPipelineComponent _component;
 
-
-        public IDUUICommunicationLayer getCommunicationLayer() {
-            return _layer;
-        }
-
-        public void setCommunicationLayer(IDUUICommunicationLayer layer) {
-            _layer = layer;
-        }
 
         public Triplet<IDUUIUrlAccessible,Long,Long> getComponent() {
             long mutexStart = System.nanoTime();

@@ -1,8 +1,5 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface;
 
-import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Sentence;
-import de.tudarmstadt.ukp.dkpro.core.api.syntax.type.dependency.Dependency;
-import de.tudarmstadt.ukp.dkpro.core.tokit.BreakIteratorSegmenter;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.analysis_engine.AnalysisEngineProcessException;
 import org.apache.uima.cas.CASException;
@@ -17,8 +14,7 @@ import org.apache.uima.jcas.cas.TOP;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.apache.uima.util.CasCreationUtils;
 import org.apache.uima.util.InvalidXMLException;
-import org.apache.uima.util.TypeSystemUtil;
-import org.dkpro.core.io.xmi.XmiReader;
+
 import org.luaj.vm2.Globals;
 import org.luaj.vm2.lib.jse.JsePlatform;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.IDUUIConnectionHandler;
@@ -28,12 +24,13 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.DUUIMonitor;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.IDUUIStorageBackend;
-import org.texttechnologylab.annotation.SpacyAnnotatorMetaData;
+
 import org.xml.sax.SAXException;
-import org.yaml.snakeyaml.TypeDescription;
+
+import java.io.IOException;
 import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
-import java.io.IOException;
+
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
 import java.security.InvalidParameterException;
@@ -119,7 +116,6 @@ class DUUIWorker extends Thread {
 
             //System.out.printf("[Composer] Thread %d still alive and doing work\n",num);
 
-
             DUUIPipelineDocumentPerformance perf = new DUUIPipelineDocumentPerformance(_runKey,
                     waitTimeEnd-waitTimeStart,
                     object);
@@ -183,30 +179,6 @@ class DUUIWorker extends Thread {
             _instancesToBeLoaded.add(object);
             if(_backend!=null) {
                 _backend.addMetricsForDocument(perf);
-
-            try {
-                DUUIPipelineDocumentPerformance perf = new DUUIPipelineDocumentPerformance(_runKey,
-                        waitTimeEnd - waitTimeStart,
-                        object);
-                for (DUUIComposer.PipelinePart i : _flow) {
-                    try {
-                        i.getDriver().run(i.getUUID(), object, perf);
-                    } catch (Exception e) {
-                        //Ignore errors at the moment
-                        e.printStackTrace();
-                        System.out.println("Thread continues work!");
-                    }
-                }
-
-                object.reset();
-                _instancesToBeLoaded.add(object);
-                if (_backend != null) {
-                    _backend.addMetricsForDocument(perf);
-                }
-            }
-            catch (Exception e){
-                e.printStackTrace();
-
             }
         }
     }
@@ -744,7 +716,6 @@ public class DUUIComposer {
     }
 
     private void shutdown_pipeline() throws Exception {
-
         if(!_instantiatedPipeline.isEmpty()) {
             for (PipelinePart comp : _instantiatedPipeline) {
                 System.out.printf("[Composer] Shutting down %s...\n", comp.getUUID());
@@ -752,13 +723,6 @@ public class DUUIComposer {
             }
             _instantiatedPipeline.clear();
             System.out.println("[Composer] Shut down complete.");
-
-//        for (PipelinePart comp : _instantiatedPipeline) {
-//            System.out.printf("[Composer] Shutting down %s...\n", comp.getUUID());
-//            comp.getDriver().destroy(comp.getUUID());
-
-
-
         }
 
         if(_monitor!=null) {
@@ -883,13 +847,8 @@ public class DUUIComposer {
         DUUIRemoteDriver remote_driver = new DUUIRemoteDriver(10000);
         DUUIUIMADriver uima_driver = new DUUIUIMADriver()
                 .withDebug(true);
-
         DUUISwarmDriver swarm_driver = new DUUISwarmDriver()
                 .withSwarmVisualizer(18872);
-
-//        DUUISwarmDriver swarm_driver = new DUUISwarmDriver();
-//                .withSwarmVisualizer();
-
 
         // A driver must be added before components can be added for it in the composer.
 //        composer.addDriver(driver);

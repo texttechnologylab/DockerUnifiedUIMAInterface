@@ -179,7 +179,7 @@ public interface IDUUIInstantiatedPipelineComponent {
                                        DUUIPipelineDocumentPerformance perf) throws CompressorException, IOException, SAXException, CASException, InterruptedException {
         Triplet<IDUUIUrlAccessible,Long,Long> queue = comp.getComponent();
 
-        IDUUICommunicationLayer layer = comp.getCommunicationLayer();
+        IDUUICommunicationLayer layer = queue.getValue0().getCommunicationLayer();
         long serializeStart = System.nanoTime();
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
