@@ -1,5 +1,8 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.driver;
 
+
+import com.github.dockerjava.api.model.Image;
+import okhttp3.OkHttpClient;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.UIMAException;
 import org.apache.uima.cas.CASException;
@@ -22,9 +25,7 @@ import java.net.URISyntaxException;
 import java.net.http.HttpClient;
 import java.security.InvalidParameterException;
 import java.time.Duration;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 import static java.lang.String.format;
@@ -33,8 +34,6 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
     private final DUUIDockerInterface _interface;
     private HttpClient _client;
     private IDUUIConnectionHandler _wsclient;
-
-
     private final HashMap<String, DUUISwarmDriver.InstantiatedComponent> _active_components;
     private int _container_timeout;
     private DUUILuaContext _luaContext;
@@ -62,6 +61,7 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
 
         _active_components = new HashMap<>();
     }
+
     public DUUISwarmDriver withSwarmVisualizer() throws InterruptedException {
         return withSwarmVisualizer(null);
     }
@@ -137,7 +137,7 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         comp.getPipelineComponent().__internalPinDockerImage(comp.getImageName(),digest);
         System.out.printf("[DockerSwarmDriver] Transformed image %s to pinnable image name %s\n", comp.getImageName(),digest);
 
-        String serviceid = _interface.run_service(comp.getPipelineComponent().getDockerImageName(),comp.getScale());
+        String serviceid = _interface.run_service(digest,comp.getScale(),comp.getConstraints());
 
             int port = _interface.extract_service_port_mapping(serviceid);
 
@@ -248,6 +248,8 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         private final boolean _websocket;
         private final int _ws_elements;
 
+        private final List<String> _constraints = new ArrayList<>(0);
+
         private final String _reg_password;
         private final String _reg_username;
         private final Map<String,String> _parameters;
@@ -263,6 +265,7 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
 
             _parameters = comp.getParameters();
             _scale = comp.getScale(1);
+            _constraints.addAll(comp.getConstraints());
             _components = new ConcurrentLinkedQueue<>();
 
             _keep_runnging_after_exit = comp.getDockerRunAfterExit(false);
@@ -340,11 +343,16 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
             return _scale;
         }
 
+        public List<String> getConstraints() {
+            return _constraints;
+        }
+
         public boolean getRunningAfterExit() {
             return _keep_runnging_after_exit;
         }
 
         public Map<String,String> getParameters() {return _parameters;}
+
 
         public Triplet<IDUUIUrlAccessible,Long,Long> getComponent() {
             long mutexStart = System.nanoTime();
@@ -384,6 +392,20 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
 
         public Component withScale(int scale) {
             component.withScale(scale);
+            return this;
+        }
+
+        public Component withConstraintHost(String sHost){
+            component.withConstraint("node.hostname=="+sHost);
+            return this;
+        }
+        public Component withConstraintLabel(String sKey, String sValue){
+            component.withConstraint("node.labels."+sKey+"=="+sValue);
+            return this;
+        }
+
+        public Component withConstraints(List<String> constraints) {
+            component.withConstraints(constraints);
             return this;
         }
 

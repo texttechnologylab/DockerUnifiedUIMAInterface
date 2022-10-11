@@ -59,10 +59,7 @@ import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static org.apache.uima.fit.factory.AnalysisEngineFactory.createEngineDescription;
@@ -288,9 +285,14 @@ CollectionReader();
 
     }
     @Test
-    public void TestBioFID() throws Exception {
+    public void TestCuda() throws Exception {
         JCas jc = JCasFactory.createJCas();
-        String sText = "Wir feiern am 24.12. eines jeden Jahres Weihnachten! Das ist so ein schöner Tümpel.";
+        String sText = "Wir feiern am 24.12. eines jeden Jahres Weihnachten!";
+
+        int iWorkers = 5;
+
+        AsyncCollectionReader testReader = new AsyncCollectionReader("/mnt/corpora2/xmi/ParliamentOutNew/Bremen/xmi/07", "xmi.gz", 1, -1, true, "", false);
+
 
         jc.setDocumentText(sText);
         jc.setDocumentLanguage("de");
@@ -299,41 +301,98 @@ CollectionReader();
 
         DUUIComposer composer = new DUUIComposer()
                 //       .withStorageBackend(new DUUIArangoDBStorageBackend("password",8888))
+                .withWorkers(iWorkers)
                 .withLuaContext(ctx).withSkipVerification(true);
+
+        // Instantiate drivers with options
+        DUUIUIMADriver uima_driver = new DUUIUIMADriver();
+        DUUIRemoteDriver remote_driver = new DUUIRemoteDriver(1000);
+        DUUIDockerDriver docker_driver = new DUUIDockerDriver(10000);
+        DUUISwarmDriver swarm_driver = new DUUISwarmDriver(10000);
+
+        // A driver must be added before components can be added for it in the composer.
+        composer.addDriver(uima_driver);
+        composer.addDriver(remote_driver);
+        composer.addDriver(docker_driver);
+        composer.addDriver(swarm_driver);
+
+//        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
+//                .withScale(1)
+//                .build());
+
+        List<String> urls = new ArrayList<>(0);
+        for(int a=1; a<6; a++) {
+            urls.add("http://geltlin.hucompute.org:800"+a);
+        }
+
+        composer.add(new DUUIRemoteDriver.Component(urls)
+                        .withScale(1)
+                        .build());
+
+
+        composer.add(new DUUIUIMADriver.Component(
+                createEngineDescription(XmiWriter.class,
+                        XmiWriter.PARAM_TARGET_LOCATION, "/tmp/cuda/",
+                        XmiWriter.PARAM_PRETTY_PRINT, true,
+                        XmiWriter.PARAM_OVERWRITE, true,
+                        XmiWriter.PARAM_VERSION, "1.1",
+                        XmiWriter.PARAM_COMPRESSION, "GZIP"
+                )).withScale(1).build());
+
+
+        composer.run(testReader, "test");
+
+//        JCasUtil.select(jc, Entity.class).forEach(t -> {
+//            System.out.println(t.getCoveredText());
+//        });
+
+//        System.out.println(jc.getDocumentLanguage());
+
+
+    }
+    @Test
+    public void TestBioFID() throws Exception {
+        AsyncCollectionReader testReader = new AsyncCollectionReader("/mnt/corpora2/xmi/ParliamentOutNew/Bremen/xmi/07", "xmi.gz", 1, -1, true, "", false);
+        int iScale = 12;
+
+        DUUILuaContext ctx = LuaConsts.getJSON();
+
+        DUUIComposer composer = new DUUIComposer()
+                //       .withStorageBackend(new DUUIArangoDBStorageBackend("password",8888))
+                .withWorkers(iScale)
+                .withLuaContext(ctx)
+                .withSkipVerification(true);
 
         // Instantiate drivers with options
         DUUIRemoteDriver remote_driver = new DUUIRemoteDriver(10000);
         DUUIDockerDriver docker_driver = new DUUIDockerDriver(10000);
-        DUUISwarmDriver swarm_driver = new DUUISwarmDriver(10000).withSwarmVisualizer();
+        DUUISwarmDriver swarm_driver = new DUUISwarmDriver(10000);
 
         // A driver must be added before components can be added for it in the composer.
         composer.addDriver(remote_driver);
         composer.addDriver(docker_driver);
         composer.addDriver(swarm_driver);
 
-        int iScale = 2;
+        // only on host huaxal
+//        List<String> constraints = new ArrayList<>(0);
+//        constraints.add("node.hostname!=huaxal");
 
-        composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/gazetteer-rs/biofid:latest")
-                .withScale(iScale).build());
-        composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/gazetteer-rs/biofid-habitat:latest")
-                .withScale(iScale).build());
-        composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/gazetteer-rs/geonames:latest")
-                .withScale(iScale).build());
-        composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/gazetteer-rs/gnd:latest")
-                .withScale(iScale).build());
+        composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
+                .withScale(iScale).withConstraintHost("huaxal").build());
+//        composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/gazetteer-rs/biofid:latest")
+//                .withScale(iScale).withLabels(labels).build());
+//        composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/gazetteer-rs/biofid-habitat:latest")
+//                .withScale(iScale).build());
+//        composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/gazetteer-rs/geonames:latest")
+//                .withScale(iScale).build());
+//        composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/gazetteer-rs/gnd:latest")
+//                .withScale(iScale).build());
 
 //        composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9715")
 //                        .withScale(1)
 //                        .build());
 
-        composer.run(jc);
-
-        JCasUtil.select(jc, Annotation.class).forEach(t -> {
-            System.out.println(t);
-        });
-
-        System.out.println(jc.getDocumentLanguage());
-
+        composer.run(testReader, "test");
 
     }
     @Test

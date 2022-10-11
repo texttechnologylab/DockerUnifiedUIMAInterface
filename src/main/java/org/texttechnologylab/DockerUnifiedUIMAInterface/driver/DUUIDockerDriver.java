@@ -2,7 +2,6 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface.driver;
 
 
 import org.apache.commons.compress.compressors.CompressorException;
-import org.apache.tools.ant.taskdefs.Sleep;
 import org.apache.uima.UIMAException;
 import org.apache.uima.cas.CASException;
 import org.apache.uima.fit.factory.JCasFactory;
@@ -11,7 +10,10 @@ import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.apache.uima.util.TypeSystemUtil;
 import org.javatuples.Triplet;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.*;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIDockerInterface;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIFallbackCommunicationLayer;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUICommunicationLayer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.DUUIWebsocketAlt;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.IDUUIConnectionHandler;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaCommunicationLayer;
@@ -23,7 +25,6 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.StringWriter;
-import java.net.ConnectException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.http.HttpClient;
@@ -51,7 +52,6 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
     private DUUIDockerInterface _interface;
     private HttpClient _client;
     private IDUUIConnectionHandler _wsclient;
-
 
     private HashMap<String, InstantiatedComponent> _active_components;
     private int _container_timeout;
@@ -135,6 +135,7 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
                     String body2 = new String(resp.body(), Charset.defaultCharset());
                     try {
                         printfunc.operation("Component lua communication layer, loading...");
+
                         System.out.printf("Got script %s\n",body2);
                         IDUUICommunicationLayer lua_com = new DUUILuaCommunicationLayer(body2,"requester",context);
                         layer = lua_com;

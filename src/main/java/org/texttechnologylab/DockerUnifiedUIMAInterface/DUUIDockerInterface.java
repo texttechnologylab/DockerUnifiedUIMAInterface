@@ -144,7 +144,6 @@ public class DUUIDockerInterface {
      */
     DockerClient _docker;
 
-
     /**
      * Creates a default object which connects to the local docker daemon, may need admin rights depending on the docker installation
      *
@@ -331,16 +330,23 @@ public class DUUIDockerInterface {
     }
 
     public String run_service(String imagename, int scale) throws InterruptedException {
+        return run_service(imagename, scale, new ArrayList<>(0));
+    }
+    public String run_service(String imagename, int scale, List<String> constraints) throws InterruptedException {
         ServiceSpec spec = new ServiceSpec();
         ServiceModeConfig cfg = new ServiceModeConfig();
         ServiceReplicatedModeOptions opts = new ServiceReplicatedModeOptions();
         cfg.withReplicated(opts.withReplicas(scale));
         spec.withMode(cfg);
 
+
         TaskSpec task = new TaskSpec();
         ContainerSpec cont = new ContainerSpec();
         cont = cont.withImage(imagename);
         task.withContainerSpec(cont);
+        if(constraints.size()>0) {
+            task.withPlacement(new ServicePlacement().withConstraints(constraints));
+        }
 
         spec.withTaskTemplate(task);
         EndpointSpec end = new EndpointSpec();
