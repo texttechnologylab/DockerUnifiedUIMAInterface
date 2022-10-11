@@ -61,4 +61,27 @@ public class DUUILuaCompiledFile {
             return _globals.get(funcName).call(arg1,arg2);
         }
     }
+
+    LuaValue call(String funcName, LuaValue arg1) {
+        if(_sethook != null) {
+            LuaThread thread = new LuaThread(_globals, _globals.get(funcName));
+            LuaValue hookfunc = new ZeroArgFunction() {
+                public LuaValue call() {
+                    throw new Error("Script overran resource while running \""+funcName+"\"");
+                }
+            };
+            _sethook.invoke(LuaValue.varargsOf(new LuaValue[] { thread, hookfunc,
+                    LuaValue.EMPTYSTRING, LuaValue.valueOf(_sandbox.getMaxInstructionCount()) }));
+
+            Varargs result = thread.resume(arg1);
+            if(!result.arg1().toboolean()) {
+                throw new RuntimeException(result.arg(2).tojstring());
+            }
+            return result.arg(2);
+        }
+        else {
+            return _globals.get(funcName).call(arg1);
+        }
+    }
+
 }

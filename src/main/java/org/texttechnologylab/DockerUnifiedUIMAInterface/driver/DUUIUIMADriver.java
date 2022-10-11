@@ -1,4 +1,5 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.driver;
+
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.UIMAException;
 import org.apache.uima.analysis_engine.AnalysisEngine;
@@ -23,7 +24,7 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPip
 import org.texttechnologylab.duui.ReproducibleAnnotation;
 import org.xml.sax.SAXException;
 
-import java.io.*;
+import java.io.IOException;
 import java.net.URISyntaxException;
 import java.security.InvalidParameterException;
 import java.util.*;

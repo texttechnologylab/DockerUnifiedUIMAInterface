@@ -1,5 +1,7 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.driver;
 
+
+import com.github.dockerjava.api.model.Image;
 import okhttp3.OkHttpClient;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.UIMAException;
@@ -16,7 +18,6 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPip
 import org.xml.sax.SAXException;
 
 import java.io.IOException;
-import java.lang.reflect.InvocationTargetException;
 import java.net.URISyntaxException;
 import java.net.http.HttpClient;
 import java.security.InvalidParameterException;
@@ -33,6 +34,7 @@ import static java.lang.String.format;
 public class DUUISwarmDriver implements IDUUIDriverInterface {
     private final DUUIDockerInterface _interface;
     private HttpClient _client;
+    private IDUUIConnectionHandler _wsclient;
 
 
     private final HashMap<String, DUUISwarmDriver.InstantiatedComponent> _active_components;
@@ -57,16 +59,23 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         JCas _basic = JCasFactory.createJCas();
         _basic.setDocumentLanguage("en");
         _basic.setDocumentText("Hello World!");
-        _container_timeout = 10000;
+        _container_timeout = timeout;
         _client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(timeout)).build();
 
         _active_components = new HashMap<>();
     }
-
     public DUUISwarmDriver withSwarmVisualizer() throws InterruptedException {
+        return withSwarmVisualizer(null);
+    }
+    public DUUISwarmDriver withSwarmVisualizer(Integer port) throws InterruptedException {
         if(_withSwarmVisualizer==null) {
             _interface.pullImage("dockersamples/visualizer",null,null);
-            _withSwarmVisualizer = _interface.run("dockersamples/visualizer",false,true,8080,true);
+            if(port == null) {
+                _withSwarmVisualizer = _interface.run("dockersamples/visualizer",false,true,8080,true);
+            }
+            else {
+                _withSwarmVisualizer = _interface.run("dockersamples/visualizer",false,true,8080,port,true);
+            }
             int port_mapping = _interface.extract_port_mapping(_withSwarmVisualizer,8080);
             System.out.printf("[DUUISwarmDriver] Running visualizer on address http://localhost:%d\n",port_mapping);
             Thread.sleep(1500);
@@ -117,6 +126,11 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         }
         DUUISwarmDriver.InstantiatedComponent comp = new DUUISwarmDriver.InstantiatedComponent(component);
 
+        if(_interface.getLocalImage(comp.getImageName()) == null) {
+            // If image is not available try to pull it
+            _interface.pullImage(comp.getImageName(),null,null);
+        }
+
         if(comp.isBackedByLocalImage()) {
             System.out.printf("[DockerSwarmDriver] Attempting to push local image %s to remote image registry %s\n", comp.getLocalImageName(),comp.getImageName());
             if(comp.getUsername() != null && comp.getPassword() != null) {
@@ -126,11 +140,19 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         }
         System.out.printf("[DockerSwarmDriver] Assigned new pipeline component unique id %s\n", uuid);
 
-            String digest = _interface.getDigestFromImage(comp.getImageName());
-            comp.getPipelineComponent().__internalPinDockerImage(digest);
+        String digest = _interface.getDigestFromImage(comp.getImageName());
+        comp.getPipelineComponent().__internalPinDockerImage(comp.getImageName(),digest);
         System.out.printf("[DockerSwarmDriver] Transformed image %s to pinnable image name %s\n", comp.getImageName(),digest);
 
-        String serviceid = _interface.run_service(digest,comp.getScale());
+        String serviceid = _interface.run_service(comp.getPipelineComponent().getDockerImageName(),comp.getScale());
+
+//            String digest = _interface.getDigestFromImage(comp.getImageName());
+            //comp.getPipelineComponent().__internalPinDockerImage(digest);
+//            String digest = comp.getImageName();
+//        System.out.printf("[DockerSwarmDriver] Transformed image %s to pinnable image name %s\n", comp.getImageName(),digest);
+
+//            String serviceid = _interface.run_service(digest,comp.getScale());
+
             int port = _interface.extract_service_port_mapping(serviceid);
 
             System.out.printf("[DockerSwarmDriver][%s] Started service, waiting for it to become responsive...\n",uuid);
@@ -139,11 +161,23 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
                 throw new UnknownError("Could not read the service port!");
             }
             final String uuidCopy = uuid;
-            IDUUICommunicationLayer layer = DUUIDockerDriver.responsiveAfterTime("http://localhost:" + port, jc, _container_timeout, _client, (msg) -> {
-                System.out.printf("[DockerSwarmDriver][%s][%d Replicas] %s\n", uuidCopy, comp.getScale(),msg);
-            },_luaContext,skipVerification);
+            IDUUICommunicationLayer layer = null;
+            try {
+                    layer = DUUIDockerDriver.responsiveAfterTime("http://localhost:" + port, jc, _container_timeout, _client, (msg) -> {
+                    System.out.printf("[DockerSwarmDriver][%s][%d Replicas] %s\n", uuidCopy, comp.getScale(), msg);
+                }, _luaContext, skipVerification);
+            }
+            catch (Exception e){
+                _interface.rm_service(serviceid);
+                throw e;
+            }
+
             System.out.printf("[DockerSwarmDriver][%s][%d Replicas] Service for image %s is online (URL http://localhost:%d) and seems to understand DUUI V1 format!\n", uuid, comp.getScale(),comp.getImageName(), port);
+
             comp.initialise(serviceid,port, layer);
+
+            // comp.initialise(serviceid,port, this);
+
             Thread.sleep(500);
 
             _active_components.put(uuid, comp);
@@ -177,7 +211,13 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         if (comp == null) {
             throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
         }
-        IDUUIInstantiatedPipelineComponent.process(aCas,comp,perf);
+
+        if (comp.isWebsocket()) {
+            IDUUIInstantiatedPipelineComponent.process_handler(aCas, comp, perf);
+        }
+        else {
+            IDUUIInstantiatedPipelineComponent.process(aCas, comp, perf);
+        }
     }
 
     public void destroy(String uuid) {
@@ -194,17 +234,30 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
     private static class ComponentInstance implements IDUUIUrlAccessible {
         String _url;
         IDUUICommunicationLayer _communication_layer;
+        IDUUIConnectionHandler _handler;
 
         public ComponentInstance(String url, IDUUICommunicationLayer layer) {
             _url = url;
             _communication_layer = layer;
         }
 
+        public ComponentInstance(String url, IDUUIConnectionHandler handler) {
+            _url = url;
+            _handler = handler;
+        }
+
         public String generateURL() {
             return _url;
         }
+
         public IDUUICommunicationLayer getCommunicationLayer() {
             return _communication_layer;
+
+        }
+
+        public IDUUIConnectionHandler getHandler() {
+            return _handler;
+
         }
     }
 
@@ -216,6 +269,8 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         private final int _scale;
         private final String _fromLocalImage;
         private final ConcurrentLinkedQueue<ComponentInstance> _components;
+        private final boolean _websocket;
+        private final int _ws_elements;
 
         private final String _reg_password;
         private final String _reg_username;
@@ -239,6 +294,9 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
             _fromLocalImage = null;
             _reg_password = comp.getDockerAuthPassword();
             _reg_username = comp.getDockerAuthUsername();
+
+            _websocket = comp.isWebsocket();
+            _ws_elements = comp.getWebsocketElements();
         }
 
 
@@ -259,12 +317,28 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
             return _fromLocalImage;
         }
 
+        public boolean isWebsocket() {
+            return _websocket;
+        }
+
+        public int getWebsocketElements() { return _ws_elements; }
 
         public InstantiatedComponent initialise(String service_id, int container_port, IDUUICommunicationLayer layer) {
+
+        //public InstantiatedComponent initialise(String service_id, int container_port, DUUISwarmDriver swarmDriver) throws IOException, InterruptedException {
             _service_id = service_id;
             _service_port = container_port;
+
+            if (_websocket) {
+                swarmDriver._wsclient = new DUUIWebsocketAlt(
+                        getServiceUrl().replaceFirst("http", "ws") + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS_WEBSOCKET, _ws_elements);
+            }
+            else {
+                swarmDriver._wsclient = null;
+            }
             for(int i = 0; i < _scale; i++) {
                 _components.add(new ComponentInstance(getServiceUrl(), layer.copy()));
+                //_components.add(new ComponentInstance(getServiceUrl(), swarmDriver._wsclient));
             }
             return this;
         }
@@ -272,7 +346,6 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         public String getServiceUrl() {
             return format("http://localhost:%d",_service_port);
         }
-
 
 
         public String getImageName() {
@@ -346,6 +419,16 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
 
         public Component withRunningAfterDestroy(boolean run) {
             component.withDockerRunAfterExit(run);
+            return this;
+        }
+
+        public Component withWebsocket(boolean b) {
+            component.withWebsocket(b);
+            return this;
+        }
+
+        public Component withWebsocket(boolean b, int elements) {
+            component.withWebsocket(b, elements);
             return this;
         }
 

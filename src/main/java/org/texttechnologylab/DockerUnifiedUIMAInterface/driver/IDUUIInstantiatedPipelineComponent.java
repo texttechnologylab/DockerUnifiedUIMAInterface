@@ -5,8 +5,12 @@ import com.google.gson.*;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.analysis_engine.AnalysisEngineProcessException;
 import org.apache.uima.cas.CASException;
+import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.fit.factory.TypeSystemDescriptionFactory;
+import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
+import org.apache.uima.jcas.cas.AnnotationBase_Type;
+import org.apache.uima.jcas.cas.TOP;
 import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.javatuples.Triplet;
@@ -14,11 +18,14 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUICommunicationLayer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUIExecutionPlan;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.InputsOutputs;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.DUUIWebsocketAlt;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.IDUUIConnectionHandler;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
 import org.texttechnologylab.duui.ReproducibleAnnotation;
 import org.xml.sax.SAXException;
 
 import java.io.*;
+import java.lang.annotation.Annotation;
 import java.net.ProxySelector;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -69,6 +76,8 @@ public interface IDUUIInstantiatedPipelineComponent {
                     writer.flush();
                     writer.close();
                     comp.addComponent(queue.getValue0());
+
+
                     return TypeSystemDescriptionFactory.createTypeSystemDescriptionFromPath(tmp.toURI().toString());
                 } else {
                     comp.addComponent(queue.getValue0());
@@ -215,6 +224,7 @@ public interface IDUUIInstantiatedPipelineComponent {
         }
     }
 
+
     public static Future<IDUUIExecutionPlan> process_future(JCas jc, IDUUIInstantiatedPipelineComponent comp, DUUIPipelineDocumentPerformance perf, IDUUIExecutionPlan plan) throws CompressorException, IOException, SAXException, CASException {
         Triplet<IDUUIUrlAccessible,Long,Long> queue = comp.getComponent();
 
@@ -224,6 +234,7 @@ public interface IDUUIInstantiatedPipelineComponent {
         ByteArrayOutputStream out = new ByteArrayOutputStream(1024*1024);
 
         DUUIPipelineComponent pipelineComponent = comp.getPipelineComponent();
+
         String viewName = pipelineComponent.getViewName();
         JCas viewJc;
         if(viewName == null) {
@@ -244,6 +255,7 @@ public interface IDUUIInstantiatedPipelineComponent {
                 }
             }
         }
+
 
         layer.serialize(viewJc,out,comp.getParameters());
         // lua serialize call()

@@ -2,8 +2,10 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface;
 
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.async.ResultCallback;
+import com.github.dockerjava.api.async.ResultCallbackTemplate;
 import com.github.dockerjava.api.command.*;
 import com.github.dockerjava.api.exception.DockerClientException;
+import com.github.dockerjava.api.exception.NotModifiedException;
 import com.github.dockerjava.api.model.*;
 import com.github.dockerjava.core.DockerClientBuilder;
 import com.github.dockerjava.core.command.LogContainerResultCallback;
@@ -14,7 +16,10 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.InvalidParameterException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import static java.lang.String.format;
@@ -41,6 +46,7 @@ class PullImageStdout extends PullImageResultCallback {
             }
         }
     }
+
 }
 
 class PushImageStdout extends ResultCallback.Adapter<PushResponseItem> {
@@ -146,6 +152,9 @@ public class DUUIDockerInterface {
      */
     public DUUIDockerInterface() throws IOException {
         _docker = DockerClientBuilder.getInstance().build();
+
+//        DockerClientConfig config = DefaultDockerClientConfig.createDefaultConfigBuilder().withDockerHost("tcp://localhost:2375").build();
+//        _docker = DockerClientBuilder.getInstance(config).build();
     }
 
     /**
@@ -249,7 +258,11 @@ public class DUUIDockerInterface {
      * @param id The id of the container to stop.
      */
     public void stop_container(String id) {
-        _docker.stopContainerCmd(id).withTimeout(10).exec();
+        try{
+            _docker.stopContainerCmd(id).withTimeout(10).exec();
+        } catch (NotModifiedException e) {
+        } catch (Exception e) {
+        }
     }
 
     /**
@@ -282,10 +295,12 @@ public class DUUIDockerInterface {
             if(i.getId() == imageName) {
                 return i;
             }
-
-            for(String repo : i.getRepoTags()) {
-                if(repo.equals(imageName)) {
-                    return i;
+            String[] repoTags = i.getRepoTags();
+            if(repoTags!=null) {
+                for (String repo : repoTags) {
+                    if (repo.equals(imageName)) {
+                        return i;
+                    }
                 }
             }
         }
@@ -411,12 +426,16 @@ public class DUUIDockerInterface {
                 AuthConfig cfg = new AuthConfig();
                 cfg.withUsername(username);
                 cfg.withPassword(password);
-                _docker.pullImageCmd(tag)
+                ResultCallbackTemplate temp = _docker.pullImageCmd(tag)
                         .withAuthConfig(cfg)
-                        .exec(new PullImageStdout()).awaitCompletion();
+                        .exec(new PullImageStdout());
+                temp.onError(new Exception());
+                temp.awaitCompletion();
             } else {
-                _docker.pullImageCmd(tag)
-                        .exec(new PullImageStdout()).awaitCompletion();
+                ResultCallbackTemplate template = _docker.pullImageCmd(tag)
+                        .exec(new PullImageStdout());
+                template.onError(new Exception());
+                template.awaitCompletion();
             }
         }
         catch(Exception e) {
@@ -426,6 +445,10 @@ public class DUUIDockerInterface {
     }
 
     public String getDigestFromImage(String imagename) {
+
+        if(imagename.split(":").length == 1) {
+            imagename = imagename+":latest";
+        }
         InspectImageResponse resp = _docker.inspectImageCmd(imagename).exec();
         List<String> digests = resp.getRepoDigests();
 
@@ -446,7 +469,6 @@ public class DUUIDockerInterface {
      */
     public String run(String imageid, boolean gpu, boolean autoremove, int port, boolean mapDaemon) throws InterruptedException {
 
-
         HostConfig cfg = new HostConfig();
         if (autoremove) {
             cfg = cfg.withAutoRemove(true);
@@ -462,6 +484,40 @@ public class DUUIDockerInterface {
         CreateContainerCmd cmd = _docker.createContainerCmd(imageid)
                 .withHostConfig(cfg)
                 .withExposedPorts(ExposedPort.tcp(port)).withPublishAllPorts(true);
+
+        CreateContainerResponse feedback = cmd.exec();
+        _docker.startContainerCmd(feedback.getId()).exec();
+        return feedback.getId();
+    }
+
+    /**
+     * Builds and runs the container with a specified temporary build directory and some flags.
+     *
+     * @param gpu        If the gpu should be used
+     * @param autoremove If the autoremove flag is set for the container
+     * @return The docker container id
+     * @throws InterruptedException
+     */
+    public String run(String imageid, boolean gpu, boolean autoremove, int portContainer, int portHost, boolean mapDaemon) throws InterruptedException {
+
+
+        HostConfig cfg = new HostConfig();
+        if (autoremove) {
+            cfg = cfg.withAutoRemove(true);
+        }
+        if (gpu) {
+            cfg = cfg.withDeviceRequests(ImmutableList.of(new DeviceRequest()
+                    .withCapabilities(ImmutableList.of(ImmutableList.of("gpu")))));
+        }
+
+        cfg.withPortBindings(new PortBinding(new Ports.Binding(null,String.valueOf(portHost)), new ExposedPort(portContainer)));
+
+        if(mapDaemon) {
+            cfg = cfg.withBinds(Bind.parse("/var/run/docker.sock:/var/run/docker.sock"));
+        }
+        CreateContainerCmd cmd = _docker.createContainerCmd(imageid)
+                .withHostConfig(cfg)
+                .withExposedPorts(ExposedPort.tcp(portContainer)).withPublishAllPorts(true);
 
         CreateContainerResponse feedback = cmd.exec();
         _docker.startContainerCmd(feedback.getId()).exec();

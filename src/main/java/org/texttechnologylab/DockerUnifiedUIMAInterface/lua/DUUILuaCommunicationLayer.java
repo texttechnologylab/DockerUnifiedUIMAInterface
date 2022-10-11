@@ -4,10 +4,12 @@ import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.jcas.JCas;
 import org.luaj.vm2.LuaTable;
 import org.luaj.vm2.lib.jse.CoerceJavaToLua;
+import org.luaj.vm2.lib.jse.CoerceLuaToJava;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUICommunicationLayer;
 import org.xml.sax.SAXException;
 
 import java.io.*;
+import java.util.List;
 import java.util.Map;
 
 public class DUUILuaCommunicationLayer implements IDUUICommunicationLayer {
@@ -35,7 +37,22 @@ public class DUUILuaCommunicationLayer implements IDUUICommunicationLayer {
         _file.call("deserialize",CoerceJavaToLua.coerce(jc),CoerceJavaToLua.coerce(input));
     }
 
+
     public IDUUICommunicationLayer copy() {
         return new DUUILuaCommunicationLayer(_script,_origin,_globalContext);
     }
+
+    @Override
+    public ByteArrayInputStream merge(List<ByteArrayInputStream> results) {
+        return (ByteArrayInputStream) CoerceLuaToJava.coerce(_file.call("merge", CoerceJavaToLua.coerce(results)), ByteArrayInputStream.class);
+    }
+
+    @Override
+    public String myLuaTestMerging() {
+        // Die Funktion von Lua wird hier aufgerufen
+        _file.call("merging",null, null);
+        return "merging.................. ";
+    }
+
+
 }
