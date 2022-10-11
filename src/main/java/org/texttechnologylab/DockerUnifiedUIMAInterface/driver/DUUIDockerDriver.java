@@ -4,6 +4,7 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface.driver;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.tools.ant.taskdefs.Sleep;
 import org.apache.uima.UIMAException;
+import org.apache.uima.analysis_engine.AnalysisEngineProcessException;
 import org.apache.uima.cas.CASException;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.jcas.JCas;
@@ -34,8 +35,10 @@ import java.nio.charset.StandardCharsets;
 import java.security.InvalidParameterException;
 import java.time.Duration;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeoutException;
@@ -83,6 +86,11 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
         _container_timeout = timeout;
 
         _active_components = new HashMap<String, InstantiatedComponent>();
+    }
+
+    public CompletableFuture<IDUUIExecutionPlan> run_future(String uuid, JCas aCas, DUUIPipelineDocumentPerformance perf, IDUUIExecutionPlan initialPlan) throws InterruptedException, IOException, SAXException, AnalysisEngineProcessException, CompressorException, CASException {
+        throw new RuntimeException("Not implemented!");
+        //return CompletableFuture.completedFuture(null);
     }
 
     public void setLuaContext(DUUILuaContext luaContext) {
@@ -300,6 +308,16 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
         }
         System.out.printf("[DockerLocalDriver][%s]: Maximum concurrency %d\n",uuid,component.getInstances().size());
     }
+
+    @Override
+    public InputsOutputs getInputsOutputs(String uuid) throws ResourceInitializationException {
+        InstantiatedComponent comp = _active_components.get(uuid);
+        if (comp == null) {
+            throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
+        }
+        return IDUUIInstantiatedPipelineComponent.getInputOutput(uuid, comp);
+    }
+
 
     public TypeSystemDescription get_typesystem(String uuid) throws InterruptedException, IOException, SAXException, CompressorException, ResourceInitializationException {
         InstantiatedComponent comp = _active_components.get(uuid);

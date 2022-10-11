@@ -5,17 +5,14 @@ import com.github.dockerjava.api.model.Image;
 import okhttp3.OkHttpClient;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.UIMAException;
+import org.apache.uima.analysis_engine.AnalysisEngineProcessException;
 import org.apache.uima.cas.CASException;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.javatuples.Triplet;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIDockerInterface;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUICommunicationLayer;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.DUUIWebsocketAlt;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.IDUUIConnectionHandler;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.*;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
 import org.xml.sax.SAXException;
@@ -26,8 +23,10 @@ import java.net.http.HttpClient;
 import java.security.InvalidParameterException;
 import java.time.Duration;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 import static java.lang.String.format;
@@ -99,6 +98,11 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
     DUUISwarmDriver withTimeout(int container_timeout_ms) {
         _container_timeout = container_timeout_ms;
         return this;
+    }
+
+    public CompletableFuture<IDUUIExecutionPlan> run_future(String uuid, JCas aCas, DUUIPipelineDocumentPerformance perf, IDUUIExecutionPlan initialPlan) throws InterruptedException, IOException, SAXException, AnalysisEngineProcessException, CompressorException, CASException {
+        throw new RuntimeException("Not implemented!");
+        //return CompletableFuture.completedFuture(null);
     }
 
     public boolean canAccept(DUUIPipelineComponent comp) {
@@ -186,6 +190,12 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
             throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
         }
         System.out.printf("[DockerSwarmDriver][%s]: Maximum concurrency %d\n",uuid,component.getScale());
+    }
+
+    @Override
+    public InputsOutputs getInputsOutputs(String uuid) {
+        // TODO implement
+        return null;
     }
 
     public TypeSystemDescription get_typesystem(String uuid) throws IOException, ResourceInitializationException {

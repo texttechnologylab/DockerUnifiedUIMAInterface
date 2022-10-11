@@ -2,11 +2,13 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface.driver;
 
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.commons.compress.compressors.CompressorStreamFactory;
+import org.apache.uima.analysis_engine.AnalysisEngineProcessException;
 import org.apache.uima.cas.CASException;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.javatuples.Triplet;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.*;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUICompressionHelper;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUICommunicationLayer;
@@ -25,7 +27,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.Future;
 
 public class DUUIRemoteDriver implements IDUUIDriverInterface {
     private HashMap<String, InstantiatedComponent> _components;
@@ -204,6 +208,15 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
     public void shutdown() {
     }
 
+    public Future<IDUUIExecutionPlan> run_future(String uuid, JCas aCas, DUUIPipelineDocumentPerformance perf, IDUUIExecutionPlan initialPlan) throws InterruptedException, IOException, SAXException, AnalysisEngineProcessException, CompressorException, CASException {
+        long mutexStart = System.nanoTime();
+        InstantiatedComponent comp = _components.get(uuid);
+        if (comp == null) {
+            throw new InvalidParameterException("The given instantiated component uuid was not instantiated by the remote driver");
+        }
+        return IDUUIInstantiatedPipelineComponent.process_future(aCas,comp,perf, initialPlan);
+    }
+
     public String instantiate(DUUIPipelineComponent component, JCas jc, boolean skipVerification) throws Exception {
         String uuid = UUID.randomUUID().toString();
         while (_components.containsKey(uuid)) {
@@ -262,6 +275,14 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
             throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
         }
         System.out.printf("[RemoteDriver][%s]: Maximum concurrency %d\n",uuid,component.getScale());
+    }
+
+    public InputsOutputs getInputsOutputs(String uuid) throws ResourceInitializationException {
+        DUUIRemoteDriver.InstantiatedComponent comp = _components.get(uuid);
+        if (comp == null) {
+            throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
+        }
+        return IDUUIInstantiatedPipelineComponent.getInputOutput(uuid, comp);
     }
 
     public TypeSystemDescription get_typesystem(String uuid) throws InterruptedException, IOException, SAXException, CompressorException, ResourceInitializationException {

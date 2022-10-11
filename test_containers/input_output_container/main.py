@@ -1,27 +1,31 @@
 from cassis import *
+import os
 import http.server
 import socketserver
 import json
 import base64
 import sys
+import argparse
+import time
 
 communication = ''
-input = []
-output = []
 
-if len(sys.argv)>2:
-    print(sys.argv)
-    if sys.argv[1] == '--inputs':
-        input = json.loads(sys.argv[2])
-    elif sys.argv[1] == '--outputs':
-        output = json.loads(sys.argv[2])
-if len(sys.argv) > 4:
-    if sys.argv[3] == '--inputs':
-        input = json.loads(sys.argv[4])
-    elif sys.argv[3] == '--outputs':
-        output = json.loads(sys.argv[4])
 
-with open('communication_xmi.lua','r') as f:
+ap = argparse.ArgumentParser()
+ap.add_argument('--inputs', type=str, default="[]", help="")
+ap.add_argument('--outputs', type=str, default="[]", help="")
+ap.add_argument('--port', type=int, default=9714, help="port")
+parsed_args = ap.parse_args()
+
+input, output, PORT = parsed_args.inputs, parsed_args.outputs, parsed_args.port
+input, output = json.loads(input), json.loads(output)
+
+print(PORT)
+print(json.dumps(input))
+print(json.dumps(output))
+print()
+
+with open('communication_xmi.lua', 'r') as f:
     communication = f.read()
 
 with open('dkpro-core-types.xml', 'rb') as f:
@@ -29,11 +33,17 @@ with open('dkpro-core-types.xml', 'rb') as f:
 
     class MyHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
         def do_POST(self):
+            print(f"Port:{PORT}")
             content_len = int(self.headers.get('Content-Length'))
             post_body = self.rfile.read(content_len).decode("utf-8")
-            print(post_body)
+            #print("POST Body")
+            #print(post_body)
+            #print()
 
-            cas = load_cas_from_xmi(post_body, typesystem=typesystem,lenient=True)
+            time.sleep(10)
+            print("sleep(10)")
+
+            cas = load_cas_from_xmi(post_body, typesystem=typesystem, lenient=True)
             #loaded = json.loads(post_body)
             #print(loaded)
             #cas = load_cas_from_xmi(loaded["cas"], typesystem=loaded["typesystem"])
@@ -46,7 +56,7 @@ with open('dkpro-core-types.xml', 'rb') as f:
 
             # Whenever using 'send_header', you also have to call 'end_headers'
             self.end_headers()
-            self.wfile.write(cas.to_xmi().encode('utf-8'))
+            self.wfile.write(f"{PORT}".encode("utf-8"))
         def do_GET(self):
             if self.path == '/v1/communication_layer':
                 # Sending an '200 OK' response
@@ -80,9 +90,9 @@ with open('dkpro-core-types.xml', 'rb') as f:
     # Create an object of the above class
     handler_object = MyHttpRequestHandler
 
-    PORT = 9715
+    # PORT = int(os.environ["PORT"])
     my_server = socketserver.TCPServer(("0.0.0.0", PORT), handler_object)
 
-    print("Server started on port 9715\r\n")
-    # Star the server
+    print(f"Server started on port {PORT}\r\n")
+    # Start the server
     my_server.serve_forever()

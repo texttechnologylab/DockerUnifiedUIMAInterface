@@ -1,23 +1,17 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface;
 
-import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Sentence;
-import de.tudarmstadt.ukp.dkpro.core.api.syntax.type.dependency.Dependency;
-import de.tudarmstadt.ukp.dkpro.core.tokit.BreakIteratorSegmenter;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.analysis_engine.AnalysisEngineProcessException;
 import org.apache.uima.cas.CASException;
-import org.apache.uima.cas.impl.XmiCasSerializer;
 import org.apache.uima.collection.CollectionReader;
 import org.apache.uima.collection.CollectionReaderDescription;
 import org.apache.uima.fit.factory.CollectionReaderFactory;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.fit.factory.TypeSystemDescriptionFactory;
 import org.apache.uima.jcas.JCas;
-import org.apache.uima.jcas.cas.TOP;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.apache.uima.util.CasCreationUtils;
 import org.apache.uima.util.InvalidXMLException;
-import org.apache.uima.util.TypeSystemUtil;
 import org.dkpro.core.io.xmi.XmiReader;
 import org.luaj.vm2.Globals;
 import org.luaj.vm2.lib.jse.JsePlatform;
@@ -26,10 +20,13 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.*;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.AsyncCollectionReader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.DUUIMonitor;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.parallelPlan.DUUIParallelExecutionPlanGenerator;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.IDUUIStorageBackend;
-import org.texttechnologylab.annotation.SpacyAnnotatorMetaData;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.sqlite.DUUISqliteStorageBackend;
+import org.texttechnologylab.annotation.DocumentModification;
 import org.xml.sax.SAXException;
+
 import org.yaml.snakeyaml.TypeDescription;
 import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
@@ -47,6 +44,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static java.lang.String.format;
+import static org.apache.uima.fit.factory.CollectionReaderFactory.createReaderDescription;
 
 class DUUIWorker extends Thread {
     Vector<DUUIComposer.PipelinePart> _flow;
@@ -77,29 +75,29 @@ class DUUIWorker extends Thread {
     public void run() {
         int num = _threadsAlive.addAndGet(1);
         while(true) {
-            JCas object = null;
+            JCas document = null;
             long waitTimeStart = System.nanoTime();
             long waitTimeEnd = 0;
-            while(object == null) {
-                object = _loadedInstances.poll();
+            while(document == null) {
+                document = _loadedInstances.poll();
 
-                if(_shutdown.get() && object == null) {
+                if(_shutdown.get() && document == null) {
                     _threadsAlive.getAndDecrement();
                     return;
                 }
 
-                if(object==null && _reader!=null) {
-                    object = _instancesToBeLoaded.poll();
-                    if(object==null)
+                if(document==null && _reader!=null) {
+                    document = _instancesToBeLoaded.poll();
+                    if(document==null)
                         continue;
                     try {
                         waitTimeEnd = System.nanoTime();
-                        if(!_reader.getNextCAS(object)) {
+                        if(!_reader.getNextCAS(document)) {
                             _threadsAlive.getAndDecrement();
-                            _instancesToBeLoaded.add(object);
+                            _instancesToBeLoaded.add(document);
                             //Give the main IO Thread time to finish work
                             Thread.sleep(300);
-                            object = null;
+                            document = null;
                         }
                     } catch (IOException e) {
                         e.printStackTrace();
@@ -114,23 +112,23 @@ class DUUIWorker extends Thread {
                     }
                 }
             }
+            System.out.println(document.getDocumentText());
             if(waitTimeEnd==0) waitTimeEnd = System.nanoTime();
-            IDUUIExecutionPlan execPlan = _generator.generate(object);
+            IDUUIExecutionPlan execPlan = _generator.generate(document);
 
             //System.out.printf("[Composer] Thread %d still alive and doing work\n",num);
 
 
             DUUIPipelineDocumentPerformance perf = new DUUIPipelineDocumentPerformance(_runKey,
                     waitTimeEnd-waitTimeStart,
-                    object);
+                    document);
             // f32, 64d, e57
             // DAG, Directed Acyclic Graph
                 boolean done = false;
                 List<Future<IDUUIExecutionPlan>> pendingFutures = new LinkedList<>();
                 // await entry
                 pendingFutures.add(execPlan.awaitMerge());
-                //pendingFutures = [exec(entry)]
-
+            final JCas[] jCas = new JCas[1];
                 while(!pendingFutures.isEmpty()) {
                     List<Future<IDUUIExecutionPlan>> newFutures = new LinkedList<>();
                     pendingFutures.removeIf(pending -> {
@@ -138,23 +136,25 @@ class DUUIWorker extends Thread {
                             IDUUIExecutionPlan mergedPlan = null;
                             try {
                                 mergedPlan = pending.get();
-                                //0: exec(entry)
-                                //1: exec(a)
-                                //2: exec(b)
-                                //3: exec(c)
+                                if(mergedPlan.awaitAnnotation().isDone()) {
+                                    for (IDUUIExecutionPlan plan : mergedPlan.getNextExecutionPlans()) {
+                                        newFutures.add(plan.awaitMerge());
+                                    }
+                                    if(mergedPlan.getNextExecutionPlans().isEmpty()) {
+                                        jCas[0] = mergedPlan.getJCas();
+                                    }
+                                }
+                                else {
+                                    DUUIComposer.PipelinePart i = mergedPlan.getPipelinePart();
+                                    if (i != null) {
+                                        newFutures.add(i.getDriver().run_future(i.getUUID(), mergedPlan.getJCas(), perf, mergedPlan));
+                                    }
+                                    else {
+                                        mergedPlan.setAnnotated();
+                                        newFutures.add(CompletableFuture.completedFuture(mergedPlan));
+                                    }
+                                }
 
-                                DUUIComposer.PipelinePart i = mergedPlan.getPipelinePart();
-                                if(i!=null) {
-                                    i.getDriver().run(i.getUUID(), mergedPlan.getJCas(), perf);
-                                }
-                                //0: a,b,c
-                                //1: exec(a) : d
-                                //2: exec(b) : d
-                                //3: exec(c) : d
-                                for (IDUUIExecutionPlan plan : mergedPlan.getNextExecutionPlans()) {
-                                    //0: newFutures = [fut(exec(a)), fut(exec(b)), future(exec(c))]
-                                    newFutures.add(plan.awaitMerge());
-                                }
                             } catch (InterruptedException e) {
                                 e.printStackTrace();
                             } catch (ExecutionException e) {
@@ -178,9 +178,13 @@ class DUUIWorker extends Thread {
                     //0: pendingFutures = [fut(exec(a)), fut(exec(b)), future(exec(c))]
                     //4: pendingFutures = [fut(exec(d)), fut(exec(d)), fut(exec(d))]
                 }
+            System.out.println("finished merge");
+            for (DocumentModification t : JCasUtil.select(jCas[0], DocumentModification.class)) {
+                System.out.println(t);
+            }
 
-            object.reset();
-            _instancesToBeLoaded.add(object);
+            document.reset();
+            _instancesToBeLoaded.add(document);
             if(_backend!=null) {
                 _backend.addMetricsForDocument(perf);
 
@@ -312,6 +316,7 @@ public class DUUIComposer {
     public static final String V1_COMPONENT_ENDPOINT_PROCESS_WEBSOCKET = "/v1/process_websocket";
     public static final String V1_COMPONENT_ENDPOINT_TYPESYSTEM = "/v1/typesystem";
     public static final String V1_COMPONENT_ENDPOINT_COMMUNICATION_LAYER = "/v1/communication_layer";
+    public static final String V1_COMPONENT_ENDPOINT_INPUT_OUTPUT  = "/v1/details/input_output";
 
     public static List<IDUUIConnectionHandler> _clients = new ArrayList<>(); // Saves Websocket-Clients.
     private boolean _connection_open = false; // Let connection open for multiple consecutive use.
@@ -871,7 +876,7 @@ public class DUUIComposer {
     public static void main(String[] args) throws Exception {
         DUUILuaContext ctx = new DUUILuaContext().withGlobalLibrary("json",DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/json.lua").toURI());
         DUUIComposer composer = new DUUIComposer()
-        //        .withStorageBackend(new DUUIArangoDBStorageBackend("password",8888))
+                //        .withStorageBackend(new DUUIArangoDBStorageBackend("password",8888))
                 .withLuaContext(ctx)
                 .withSkipVerification(true)
                 .withWorkers(2);
@@ -883,13 +888,6 @@ public class DUUIComposer {
         DUUIRemoteDriver remote_driver = new DUUIRemoteDriver(10000);
         DUUIUIMADriver uima_driver = new DUUIUIMADriver()
                 .withDebug(true);
-
-        DUUISwarmDriver swarm_driver = new DUUISwarmDriver()
-                .withSwarmVisualizer(18872);
-
-//        DUUISwarmDriver swarm_driver = new DUUISwarmDriver();
-//                .withSwarmVisualizer();
-
 
         // A driver must be added before components can be added for it in the composer.
 //        composer.addDriver(driver);
@@ -905,14 +903,14 @@ public class DUUIComposer {
         //composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class))
         //                .withScale(4),
         //        DUUIUIMADriver.class);
-      /*  composer.add(new DUUILocalDriver.Component("java_segmentation:latest")*/
+        /*  composer.add(new DUUILocalDriver.Component("java_segmentation:latest")*/
 
         //composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class))
         //        .withScale(4)
         //        .build()
         //);
-       // composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/benchmark_serde_echo_msgpack:0.2")
-       //         .build());
+        // composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/benchmark_serde_echo_msgpack:0.2")
+        //         .build());
 //        composer.add(new DUUILocalDriver.Component("java_segmentation:latest")
 //                        .withScale(1)
 //                , DUUILocalDriver.class);
@@ -921,21 +919,23 @@ public class DUUIComposer {
 //                , DUUIDockerDriver.class);
         // input: [], outputs: [Token, Sentences]
         //composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9715"));
+
         composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/textimager-uima-service-gervader:0.5"));
+
 
         //composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class)));
 //                , DUUIRemoteDriver.class);*/
 
         // Remote driver handles all pure URL endpoints
-       // composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class))
-       //                 .withScale(1));
+        // composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class))
+        //                 .withScale(1));
 
-      //  composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.Component("http://127.0.0.1:9715")
-      //          .withParameter("fuchs","damn"));
+        //for(int i=0;i<16;i++)
+        //   composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.Component("http://127.0.0.1:"+(9714+i)));
+
        /* composer.add(new org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.Component("http://127.0.0.1:9714")
                         .withScale(1),
                 org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.class);*/
-
 
         // Engine 1 -> track 1 schreibt
         // Engine 2 -> track 2 schreibt
@@ -968,6 +968,7 @@ public class DUUIComposer {
        // ByteArrayInputStream stream;
        // stream.read
 
+
         String val = "Dies ist ein kleiner Test Text für Abies!";
         JCas jc = JCasFactory.createJCas();
         jc.setDocumentLanguage("de");
@@ -978,6 +979,7 @@ public class DUUIComposer {
         jc2.setDocumentLanguage("de");
         jc2.setDocumentText(val);
 
+
         // Run single document
         composer.run(jc,"fuchs");
         composer.run(jc2,"fuchs1");
@@ -986,7 +988,32 @@ public class DUUIComposer {
 //        System.out.println(new String(out.toByteArray()));
 
 
+        OutputStream out2 = new ByteArrayOutputStream();
+        XmiCasSerializer.serialize(jc.getCas(),out2);
+        System.out.println(out2.toString());
+/*
+        //String sInputPath = composer.getClass().getClassLoader().getResource("/home/nutzer/Dokumente/DockerUnifiedUIMAInterface/test_corpora_xmi").getPath();
+        String sInputPath  = "test_corpora_xmi";
+        String sSuffix = ".xmi";
+
+        CollectionReaderDescription reader = createReaderDescription(XmiReader.class,
+                XmiReader.PARAM_SOURCE_LOCATION, sInputPath + "/**" + sSuffix,
+                XmiReader.PARAM_SORT_BY_SIZE, true,
+                XmiReader.PARAM_LENIENT, true
+        );
+
+
+
+        DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend("serialization_gercorpa.db")
+                .withConnectionPoolSize(2);
+
+        composer.withStorageBackend(sqlite);
+
+        composer.run(reader, "test-" + System.currentTimeMillis());
+
+*/
         /*TypeSystemDescription desc = TypeSystemUtil.typeSystem2TypeSystemDescription(jc.getTypeSystem());
+         */
 
         //CAS: Dependency, Sentence, Token
         //Bar Chart: Wie viele Dependecies, Wie viele Sentences ....
@@ -1002,9 +1029,7 @@ public class DUUIComposer {
         lua.serialize(jc,out);
         System.out.println(out.toString());*/
 
-        OutputStream out2 = new ByteArrayOutputStream();
-        XmiCasSerializer.serialize(jc.getCas(),out2);
-        System.out.println(out2.toString());
+
 
         // Run Collection Reader
 

@@ -8,22 +8,27 @@ import org.apache.uima.jcas.JCas;
 import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.apache.uima.util.InvalidXMLException;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUIExecutionPlan;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.InputsOutputs;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
 import org.xml.sax.SAXException;
 
 import java.io.IOException;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Future;
 
 public interface IDUUIDriverInterface {
     public void setLuaContext(DUUILuaContext luaContext);
     public boolean canAccept(DUUIPipelineComponent component) throws InvalidXMLException, IOException, SAXException;
     public String instantiate(DUUIPipelineComponent component, JCas jc, boolean skipVerification) throws Exception;
     public void printConcurrencyGraph(String uuid);
-
-    //TODO: public InputOutput get_inputs_and_outputs(String uuid)
-    //Example: get_typesystem(...)
+    public InputsOutputs getInputsOutputs(String uuid) throws ResourceInitializationException;
     public TypeSystemDescription get_typesystem(String uuid) throws InterruptedException, IOException, SAXException, CompressorException, ResourceInitializationException;
     public void run(String uuid, JCas aCas, DUUIPipelineDocumentPerformance perf) throws InterruptedException, IOException, SAXException, AnalysisEngineProcessException, CompressorException, CASException;
+    public Future<IDUUIExecutionPlan> run_future(String uuid, JCas aCas, DUUIPipelineDocumentPerformance perf, IDUUIExecutionPlan initialPlan) throws InterruptedException, IOException, SAXException, AnalysisEngineProcessException, CompressorException, CASException;
+
 
     public void destroy(String uuid);
     public void shutdown();
