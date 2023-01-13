@@ -142,12 +142,12 @@ After the build, the image can be used / tried locally and after pushing it to t
 # Cite
 If you want to use the project please quote this as follows:
 
-A. Leonhardt, G. Abrami and A. Mehler, “Unlocking the Heterogeneous Landscape of Big Data NLP with DUUI” in Proceedings of ... 2022 ![[Link]]() ![[PDF]]()
+A. Leonhardt, G. Abrami, D. Baumartz and A. Mehler, “Unlocking the Heterogeneous Landscape of Big Data NLP with DUUI” in Proceedings of ... 2022 ![[Link]]() ![[PDF]]()
 
 ## BibTeX
 ```
-@InProceedings{Leonhardt:Abrami:Mehler:2022,
-  author         = {Leonhardt, Alexander and Abrami, Giuseppe and Mehler, Alexander},
+@InProceedings{Leonhardt:Abrami:Baumartz:Mehler:2022,
+  author         = {Leonhardt, Alexander and Abrami, Giuseppe and Baumartz, Daniel and Mehler, Alexander},
   title          = {Unlocking the Heterogeneous Landscape of Big Data NLP with DUUI},
   booktitle      = {},
   month          = {},
@@ -155,6 +155,7 @@ A. Leonhardt, G. Abrami and A. Mehler, “Unlocking the Heterogeneous Landscape 
   address        = {},
   publisher      = {},
   pages          = {},
-  url            = {}
+  url            = {},
+  note           = {submitted}
 }
 ```
