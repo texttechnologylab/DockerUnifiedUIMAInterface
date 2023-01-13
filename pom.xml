@@ -250,7 +250,7 @@
         <dependency>
             <groupId>com.github.texttechnologylab</groupId>
             <artifactId>UIMATypeSystem</artifactId>
-            <version>033beaa593</version>
+            <version>c68030b5b0</version>
         </dependency>
 
         <!-- https://mvnrepository.com/artifact/org.msgpack/msgpack-core -->

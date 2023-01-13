@@ -6,6 +6,7 @@ import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.commons.compress.compressors.CompressorStreamFactory;
 import org.apache.commons.io.FileUtils;
 import org.apache.uima.cas.impl.XmiCasDeserializer;
+import org.apache.uima.cas.impl.XmiSerializationSharedData;
 import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.javaync.io.AsyncFiles;
@@ -18,6 +19,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -48,6 +50,8 @@ public class AsyncCollectionReader {
     private ConcurrentLinkedQueue<String> _filePaths;
     private ConcurrentLinkedQueue<String> _filePathsBackup;
     private ConcurrentLinkedQueue<ByteReadFuture> _loadedFiles;
+
+    private HashMap<JCas, XmiSerializationSharedData> _sharedFiles;
     private int _initialSize;
     private AtomicInteger _docNumber;
     private long _maxMemory;
@@ -161,6 +165,14 @@ public class AsyncCollectionReader {
         return this;
     }
 
+    public XmiSerializationSharedData getSharedData(JCas pCas){
+        return _sharedFiles.get(pCas);
+    }
+
+    public void finishSharedData(JCas pCas){
+        _sharedFiles.remove(pCas);
+    }
+
     public long getMaxMemory() {
         return _maxMemory;
     }
@@ -242,11 +254,14 @@ public class AsyncCollectionReader {
         }
 
         try {
-            XmiCasDeserializer.deserialize(decodedFile, empty.getCas(), true);
+            XmiSerializationSharedData sharedData = new XmiSerializationSharedData();
+            XmiCasDeserializer.deserialize(decodedFile, empty.getCas(), true, sharedData);
+            _sharedFiles.put(empty, sharedData);
         }
         catch (Exception e){
             empty.setDocumentText(StringUtils.getContent(new File(result)));
         }
+
 
         if(_addMetadata) {
             if (JCasUtil.select(empty, DocumentMetaData.class).size() == 0) {
