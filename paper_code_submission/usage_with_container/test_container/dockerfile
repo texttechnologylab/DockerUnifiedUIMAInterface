@@ -1,0 +1,10 @@
+FROM rust:buster
+ADD Cargo.toml Cargo.toml
+ADD src src
+ADD rust_communication_msgpack.lua rust_communication_msgpack.lua
+ADD https://huggingface.co/distilbert-base-uncased-finetuned-sst-2-english/resolve/main/rust_model.ot rust_model.ot
+ADD https://huggingface.co/distilbert-base-uncased-finetuned-sst-2-english/raw/main/tokenizer_config.json tokenizer_config.json
+ADD https://huggingface.co/distilbert-base-uncased-finetuned-sst-2-english/raw/main/vocab.txt vocab.txt
+ADD https://huggingface.co/distilbert-base-uncased-finetuned-sst-2-english/raw/main/config.json config.json
+RUN cargo build --release
+CMD cargo run --release

@@ -1,0 +1,2 @@
+# Language Detection with Python
+This container detects and annotates the language recognized in texts to enable pipelines further downstream to use this information to improve the performance on the detected texts.

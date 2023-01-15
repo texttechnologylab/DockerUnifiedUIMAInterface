@@ -1,0 +1,2 @@
+# UIMA Driver component
+This shows that traditional components can still be used as before. One can easily scale container based components on multiple machines while integrating local analysis engine with the `UIMADriver`. 
