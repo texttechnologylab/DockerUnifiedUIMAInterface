@@ -31,13 +31,13 @@ app = FastAPI(
     docs_url="/api",
     redoc_url=None,
     title="LanguageDetection",
-    description="LanguageDetection implementation for TTLab TextImager DUUI",
+    description="LanguageDetection implementation DUUI",
     version="0.1",
-    terms_of_service="https://www.texttechnologylab.org/legal_notice/",
+    terms_of_service="https://www.my-domain.org/legal_notice/",
     contact={
-        "name": "TTLab Team",
-        "url": "https://texttechnologylab.org",
-        "email": "abrami@em.uni-frankfurt.de",
+        "name": "My Team",
+        "url": "https://my-domain.org",
+        "email": "name@ny-domain.de",
     },
     license_info={
         "name": "AGPL",
