@@ -6,10 +6,11 @@ import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.commons.compress.compressors.CompressorStreamFactory;
 import org.apache.commons.io.FileUtils;
 import org.apache.uima.cas.impl.XmiCasDeserializer;
-import org.apache.uima.cas.impl.XmiSerializationSharedData;
 import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
+import org.apache.uima.jcas.cas.ByteArray;
 import org.javaync.io.AsyncFiles;
+import org.texttechnologylab.annotation.SharedData;
 import org.texttechnologylab.utilities.helper.StringUtils;
 import org.xml.sax.SAXException;
 
@@ -165,14 +166,6 @@ public class AsyncCollectionReader {
         return this;
     }
 
-    public XmiSerializationSharedData getSharedData(JCas pCas){
-        return _sharedFiles.get(pCas);
-    }
-
-    public void finishSharedData(JCas pCas){
-        _sharedFiles.remove(pCas);
-    }
-
     public long getMaxMemory() {
         return _maxMemory;
     }
@@ -202,6 +195,63 @@ public class AsyncCollectionReader {
                     return 0;
                 });
         return val;
+    }
+
+    public static byte[] serialize(Object pObject){
+
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        ObjectOutputStream out = null;
+        byte[] rBytes = null;
+        try {
+            out = new ObjectOutputStream(bos);
+            out.writeObject(pObject);
+            out.flush();
+            rBytes = bos.toByteArray();
+
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        } finally {
+            try {
+                bos.close();
+            } catch (IOException ex) {
+                // ignore close exception
+            }
+        }
+        return rBytes;
+
+    }
+
+    public static XmiSerializationSharedData deserialize(JCas pCas){
+
+        XmiSerializationSharedData sharedData = null;
+        SharedData result = JCasUtil.selectSingle(pCas, SharedData.class);
+
+        if(result != null) {
+            byte[] rArray = new byte[result.getValue().size()];
+            result.getValue().copyToArray(0, rArray, 0, rArray.length);
+            ByteArrayInputStream bis = new ByteArrayInputStream(rArray);
+
+            ObjectInput in = null;
+            try {
+                in = new ObjectInputStream(bis);
+                Object o = in.readObject();
+                sharedData=(XmiSerializationSharedData) o;
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            } catch (ClassNotFoundException e) {
+                throw new RuntimeException(e);
+            } finally {
+                try {
+                    if (in != null) {
+                        in.close();
+                    }
+                } catch (IOException ex) {
+                    // ignore close exception
+                }
+            }
+        }
+        return sharedData;
+
     }
 
     public boolean getNextCAS(JCas empty) throws IOException, CompressorException, SAXException {
@@ -256,9 +306,15 @@ public class AsyncCollectionReader {
         try {
             XmiSerializationSharedData sharedData = new XmiSerializationSharedData();
             XmiCasDeserializer.deserialize(decodedFile, empty.getCas(), true, sharedData);
-            _sharedFiles.put(empty, sharedData);
+            byte[] serializedSharedDada = serialize(sharedData);
+            SharedData da = new SharedData(empty);
+            ByteArray ba = new ByteArray(empty, serializedSharedDada.length);
+            ba.copyFromArray(serializedSharedDada, 0, 0, serializedSharedDada.length);
+            da.setValue(ba);
+            da.addToIndexes();
         }
         catch (Exception e){
+            e.printStackTrace();
             empty.setDocumentText(StringUtils.getContent(new File(result)));
         }
 
@@ -273,6 +329,7 @@ public class AsyncCollectionReader {
                 dmd.addToIndexes();
             }
         }
+
 
         return true;
     }

@@ -10,9 +10,9 @@ import org.apache.uima.jcas.JCas;
 import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.util.TypeSystemUtil;
 import org.apache.uima.util.XMLSerializer;
+import org.dkpro.core.api.io.JCasFileWriter_ImplBase;
 import org.dkpro.core.api.parameter.ComponentParameters;
 import org.dkpro.core.api.resources.CompressionUtils;
-import org.dkpro.core.io.xmi.XmiWriter;
 import org.xml.sax.SAXException;
 
 import javax.xml.transform.OutputKeys;
@@ -23,15 +23,7 @@ import java.io.OutputStream;
 import static java.util.Arrays.asList;
 import static org.apache.commons.io.IOUtils.closeQuietly;
 
-public class TTLabXmiWriter extends XmiWriter {
-
-    public static final String PARAM_ASYNC_COLLECTION_READER = "asyncCollectionReader";
-    @ConfigurationParameter(name = PARAM_ASYNC_COLLECTION_READER, mandatory = false, defaultValue = "false")
-    public AsyncCollectionReader asyncCollectionReader;
-
-    public void setAsyncCollectionReader(AsyncCollectionReader asyncCollectionReader) {
-        this.asyncCollectionReader = asyncCollectionReader;
-    }
+public class TTLabXmiWriter extends JCasFileWriter_ImplBase {
 
     @Override
     public void process(JCas aJCas) throws AnalysisEngineProcessException {
@@ -42,10 +34,7 @@ public class TTLabXmiWriter extends XmiWriter {
             sax2xml.setOutputProperty(OutputKeys.VERSION, version);
 
             XmiSerializationSharedData sharedObject = null;
-
-            if(asyncCollectionReader!=null){
-                sharedObject = asyncCollectionReader.getSharedData(aJCas);
-            }
+            sharedObject = AsyncCollectionReader.deserialize(aJCas);
 
             if(sharedObject!=null){
                 xmiCasSerializer.serialize(aJCas.getCas(), sax2xml.getContentHandler(), null, sharedObject,

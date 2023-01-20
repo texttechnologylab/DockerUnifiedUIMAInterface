@@ -453,7 +453,7 @@ CollectionReader();
 
     @Test
     public void runningGerParCor() throws Exception {
-        AsyncCollectionReader testReader = new AsyncCollectionReader("/tmp/bundestag/19/xmi", "xmi.gz", 1, -1, true, "", false);
+        AsyncCollectionReader testReader = new AsyncCollectionReader("/resources/corpora/parlamentary_germany/Bundestag/19/", "xmi.gz", 1, -1, true, "", false);
         int iScale = 3;
 
         DUUILuaContext ctx = LuaConsts.getJSON();
@@ -481,7 +481,7 @@ CollectionReader();
 //        constraints.add("node.hostname!=huaxal");
 
         composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.5")
-                .withScale(iScale).build());
+                .withScale(iScale).withImageFetching().build());
 
         composer.add(new DUUIUIMADriver.Component(
                 createEngineDescription(AnnotationRemover.class)).withScale(iScale).build());
