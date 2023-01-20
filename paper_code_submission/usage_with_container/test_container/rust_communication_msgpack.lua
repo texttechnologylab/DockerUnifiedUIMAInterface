@@ -35,7 +35,7 @@ function deserialize(inputCas,inputStream)
       local endv = x:getEnd()
       local pol = unpack:unpackInt()
       local score =unpack:unpackFloat()
-      local sent = luajava.newInstance("org.hucompute.textimager.uima.type.Sentiment",inputCas)
+      local sent = luajava.newInstance("Sentiment",inputCas)
       sent:setBegin(beg)
       sent:setEnd(endv)
       if pol == 0 then
