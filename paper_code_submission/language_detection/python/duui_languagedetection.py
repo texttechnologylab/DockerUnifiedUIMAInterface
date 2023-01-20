@@ -24,8 +24,6 @@ class DUUIResponse(BaseModel):
 communication = ''
 
 # Start fastapi
-# TODO openapi types are not shown?
-# TODO self host swagger files: https://fastapi.tiangolo.com/advanced/extending-openapi/#self-hosting-javascript-and-css-for-docs
 app = FastAPI(
     openapi_url="/openapi.json",
     docs_url="/api",
