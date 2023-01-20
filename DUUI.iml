@@ -138,7 +138,7 @@
     <orderEntry type="library" name="Maven: org.ow2.asm:asm-analysis:7.3.1" level="project" />
     <orderEntry type="library" name="Maven: org.ow2.asm:asm-tree:7.3.1" level="project" />
     <orderEntry type="library" name="Maven: org.ow2.asm:asm-util:7.3.1" level="project" />
-    <orderEntry type="library" name="Maven: com.github.texttechnologylab:UIMATypeSystem:c68030b5b0" level="project" />
+    <orderEntry type="library" name="Maven: com.github.texttechnologylab:UIMATypeSystem:31a37a1f67" level="project" />
     <orderEntry type="library" name="Maven: org.apache.uima:uimaj-json:2.10.4" level="project" />
     <orderEntry type="library" name="Maven: org.msgpack:msgpack-core:0.9.1" level="project" />
     <orderEntry type="library" name="Maven: org.javatuples:javatuples:1.2" level="project" />
