@@ -10,6 +10,7 @@ import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.jcas.cas.ByteArray;
 import org.javaync.io.AsyncFiles;
+import org.springframework.util.SerializationUtils;
 import org.texttechnologylab.annotation.SharedData;
 import org.texttechnologylab.utilities.helper.StringUtils;
 import org.xml.sax.SAXException;
@@ -199,24 +200,7 @@ public class AsyncCollectionReader {
 
     public static byte[] serialize(Object pObject){
 
-        ByteArrayOutputStream bos = new ByteArrayOutputStream();
-        ObjectOutputStream out = null;
-        byte[] rBytes = null;
-        try {
-            out = new ObjectOutputStream(bos);
-            out.writeObject(pObject);
-            out.flush();
-            rBytes = bos.toByteArray();
-
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        } finally {
-            try {
-                bos.close();
-            } catch (IOException ex) {
-                // ignore close exception
-            }
-        }
+        byte[] rBytes = SerializationUtils.serialize(pObject);
         return rBytes;
 
     }
@@ -229,26 +213,7 @@ public class AsyncCollectionReader {
         if(result != null) {
             byte[] rArray = new byte[result.getValue().size()];
             result.getValue().copyToArray(0, rArray, 0, rArray.length);
-            ByteArrayInputStream bis = new ByteArrayInputStream(rArray);
-
-            ObjectInput in = null;
-            try {
-                in = new ObjectInputStream(bis);
-                Object o = in.readObject();
-                sharedData=(XmiSerializationSharedData) o;
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            } catch (ClassNotFoundException e) {
-                throw new RuntimeException(e);
-            } finally {
-                try {
-                    if (in != null) {
-                        in.close();
-                    }
-                } catch (IOException ex) {
-                    // ignore close exception
-                }
-            }
+            sharedData=(XmiSerializationSharedData) SerializationUtils.deserialize(rArray);
         }
         return sharedData;
 
