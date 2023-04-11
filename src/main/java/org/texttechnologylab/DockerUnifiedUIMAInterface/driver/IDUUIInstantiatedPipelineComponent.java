@@ -170,7 +170,10 @@ public interface IDUUIInstantiatedPipelineComponent {
             comp.addComponent(queue.getValue0());
         } else {
             comp.addComponent(queue.getValue0());
-            throw new InvalidObjectException("Response code != 200, error");
+            ByteArrayInputStream st = new ByteArrayInputStream(resp.body());
+            String responseBody = new String(st.readAllBytes(), StandardCharsets.UTF_8);
+            st.close();
+            throw new InvalidObjectException(String.format("Expected response 200, got %d: %s", resp.statusCode(), responseBody));
         }
     }
 
