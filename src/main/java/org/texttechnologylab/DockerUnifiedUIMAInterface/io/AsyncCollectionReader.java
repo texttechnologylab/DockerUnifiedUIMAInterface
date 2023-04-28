@@ -55,29 +55,44 @@ public class AsyncCollectionReader {
 
     private boolean _addMetadata = true;
 
+    private String _language = null;
+
     private ProgressMeter progress = null;
 
     private int debugCount = 25;
 
     public AsyncCollectionReader(String folder, String ending) {
-        this(folder, ending, 25, -1, false, "", false);
+        this(folder, ending, 25, -1, false, "", false, null);
     }
 
     public AsyncCollectionReader(String folder, String ending, boolean bAddMetadata) {
-        this(folder, ending, 25, -1, false, "", bAddMetadata);
+        this(folder, ending, 25, -1, false, "", bAddMetadata, null);
+    }
+
+    public AsyncCollectionReader(String folder, String ending, boolean bAddMetadata, String language) {
+        this(folder, ending, 25, -1, false, "", bAddMetadata, language);
+    }
+
+    public AsyncCollectionReader(String folder, String ending, String language) {
+        this(folder, ending, 25, -1, false, "", false, language);
     }
 
     public AsyncCollectionReader(String folder, String ending, int debugCount, boolean bSort) {
-        this(folder, ending, debugCount, -1, bSort, "", false);
+        this(folder, ending, debugCount, -1, bSort, "", false, null);
     }
 
     public AsyncCollectionReader(String folder, String ending, int debugCount, int iRandom, boolean bSort, String savePath){
-        this(folder, ending, debugCount, iRandom, bSort, savePath, false);
+        this(folder, ending, debugCount, iRandom, bSort, savePath, false, null);
     }
 
     public AsyncCollectionReader(String folder, String ending, int debugCount, int iRandom, boolean bSort, String savePath, boolean bAddMetadata) {
+        this(folder, ending, debugCount, iRandom, bSort, savePath, bAddMetadata, null);
+    }
+
+    public AsyncCollectionReader(String folder, String ending, int debugCount, int iRandom, boolean bSort, String savePath, boolean bAddMetadata, String language) {
 
         _addMetadata = bAddMetadata;
+        _language = language;
         _filePaths = new ConcurrentLinkedQueue<>();
         _loadedFiles = new ConcurrentLinkedQueue<>();
         _filePathsBackup = new ConcurrentLinkedQueue<>();
@@ -257,6 +272,10 @@ public class AsyncCollectionReader {
                 dmd.setDocumentUri(pFile.getAbsolutePath());
                 dmd.addToIndexes();
             }
+        }
+
+        if (_language != null && !_language.isEmpty()) {
+            empty.setDocumentLanguage(_language);
         }
 
         return true;
