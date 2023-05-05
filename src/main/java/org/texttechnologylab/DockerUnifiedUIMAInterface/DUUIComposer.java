@@ -664,6 +664,11 @@ public class DUUIComposer {
             System.out.println("[Composer] Running without verification, no process calls will be made during initialization!");
         }
 
+        // Reset "instantiated pipeline" as the components will duplicate otherwise
+        // See https://github.com/texttechnologylab/DockerUnifiedUIMAInterface/issues/34
+        // TODO should this only be done in "resetPipeline"?
+        _instantiatedPipeline.clear();
+
         List<TypeSystemDescription> descriptions = new LinkedList<>();
         descriptions.add(_minimalTypesystem);
         descriptions.add(TypeSystemDescriptionFactory.createTypeSystemDescription());
