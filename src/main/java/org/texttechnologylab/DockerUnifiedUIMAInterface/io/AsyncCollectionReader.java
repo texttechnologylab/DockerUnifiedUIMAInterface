@@ -5,17 +5,20 @@ import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.commons.compress.compressors.CompressorStreamFactory;
 import org.apache.commons.io.FileUtils;
+import org.apache.uima.UIMAException;
 import org.apache.uima.cas.impl.XmiCasDeserializer;
+import org.apache.uima.cas.impl.XmiSerializationSharedData;
+import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
-import org.apache.uima.jcas.cas.ByteArray;
+import org.apache.uima.util.CasIOUtils;
 import org.javaync.io.AsyncFiles;
-import org.springframework.util.SerializationUtils;
 import org.texttechnologylab.annotation.SharedData;
 import org.texttechnologylab.utilities.helper.StringUtils;
 import org.xml.sax.SAXException;
 
 import java.io.*;
+import java.net.MalformedURLException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -53,6 +56,8 @@ public class AsyncCollectionReader {
     private ConcurrentLinkedQueue<String> _filePathsBackup;
     private ConcurrentLinkedQueue<ByteReadFuture> _loadedFiles;
 
+    private String _language = "all";
+
     private HashMap<JCas, XmiSerializationSharedData> _sharedFiles;
     private int _initialSize;
     private AtomicInteger _docNumber;
@@ -66,27 +71,32 @@ public class AsyncCollectionReader {
     private int debugCount = 25;
 
     public AsyncCollectionReader(String folder, String ending) {
-        this(folder, ending, 25, -1, false, "", false);
+        this(folder, ending, 25, -1, false, "", false, "en");
     }
 
     public AsyncCollectionReader(String folder, String ending, boolean bAddMetadata) {
-        this(folder, ending, 25, -1, false, "", bAddMetadata);
+        this(folder, ending, 25, -1, false, "", bAddMetadata, "en");
     }
 
     public AsyncCollectionReader(String folder, String ending, int debugCount, boolean bSort) {
-        this(folder, ending, debugCount, -1, bSort, "", false);
+        this(folder, ending, debugCount, -1, bSort, "", false, "en");
+    }
+
+    public AsyncCollectionReader(String folder, String ending, int debugCount, boolean bSort, String sLanguage) {
+        this(folder, ending, debugCount, -1, bSort, "", false, sLanguage);
     }
 
     public AsyncCollectionReader(String folder, String ending, int debugCount, int iRandom, boolean bSort, String savePath){
-        this(folder, ending, debugCount, iRandom, bSort, savePath, false);
+        this(folder, ending, debugCount, iRandom, bSort, savePath, false, "en");
     }
 
-    public AsyncCollectionReader(String folder, String ending, int debugCount, int iRandom, boolean bSort, String savePath, boolean bAddMetadata) {
+    public AsyncCollectionReader(String folder, String ending, int debugCount, int iRandom, boolean bSort, String savePath, boolean bAddMetadata, String sLanguage) {
 
         _addMetadata = bAddMetadata;
         _filePaths = new ConcurrentLinkedQueue<>();
         _loadedFiles = new ConcurrentLinkedQueue<>();
         _filePathsBackup = new ConcurrentLinkedQueue<>();
+        _language = sLanguage;
 
         if(new File(savePath).exists() && savePath.length()>0) {
             File sPath = new File(savePath);
@@ -120,6 +130,12 @@ public class AsyncCollectionReader {
 
         if(iRandom>0){
             _filePaths = random(_filePaths, iRandom);
+        }
+
+        try {
+            _filePaths = filterByLanguage(_filePaths);
+        } catch (UIMAException e) {
+            throw new RuntimeException(e);
         }
 
         if(savePath.length()>0){
@@ -198,22 +214,13 @@ public class AsyncCollectionReader {
         return val;
     }
 
-    public static byte[] serialize(Object pObject){
-
-        byte[] rBytes = SerializationUtils.serialize(pObject);
-        return rBytes;
-
-    }
-
     public static XmiSerializationSharedData deserialize(JCas pCas){
 
         XmiSerializationSharedData sharedData = null;
         SharedData result = JCasUtil.selectSingle(pCas, SharedData.class);
 
         if(result != null) {
-            byte[] rArray = new byte[result.getValue().size()];
-            result.getValue().copyToArray(0, rArray, 0, rArray.length);
-            sharedData=(XmiSerializationSharedData) SerializationUtils.deserialize(rArray);
+            sharedData = XmiSerializationSharedData.deserialize(result.getValue());
         }
         return sharedData;
 
@@ -271,11 +278,9 @@ public class AsyncCollectionReader {
         try {
             XmiSerializationSharedData sharedData = new XmiSerializationSharedData();
             XmiCasDeserializer.deserialize(decodedFile, empty.getCas(), true, sharedData);
-            byte[] serializedSharedDada = serialize(sharedData);
+            String serializedSharedDada = sharedData.serialize();
             SharedData da = new SharedData(empty);
-            ByteArray ba = new ByteArray(empty, serializedSharedDada.length);
-            ba.copyFromArray(serializedSharedDada, 0, 0, serializedSharedDada.length);
-            da.setValue(ba);
+            da.setValue(serializedSharedDada);
             da.addToIndexes();
         }
         catch (Exception e){
@@ -322,6 +327,42 @@ public class AsyncCollectionReader {
             Long secondLength = new File(s2).length();
 
             return firstLength.compareTo(secondLength)*-1;
+        }).collect(Collectors.toList()));
+
+        return rQueue;
+
+    }
+
+    public ConcurrentLinkedQueue<String> filterByLanguage(ConcurrentLinkedQueue<String> paths) throws UIMAException {
+
+        ConcurrentLinkedQueue<String> rQueue = new ConcurrentLinkedQueue<String>();
+
+        JCas pCas = JCasFactory.createJCas();
+
+        rQueue.addAll(paths.stream().filter(path->{
+
+            boolean lFilter = false;
+            if(_language.equalsIgnoreCase("all")){
+                lFilter = true;
+            }
+            else{
+                if(path.endsWith(".xmi")){
+                    pCas.reset();
+                    try {
+                        CasIOUtils.load(new File(path).toURL(), pCas.getCas());
+                    } catch (FileNotFoundException e) {
+                        throw new RuntimeException(e);
+                    } catch (MalformedURLException e) {
+                        throw new RuntimeException(e);
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+
+                    lFilter = pCas.getDocumentLanguage().equalsIgnoreCase(_language);
+                }
+            }
+
+            return lFilter;
         }).collect(Collectors.toList()));
 
         return rQueue;
