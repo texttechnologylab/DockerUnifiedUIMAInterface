@@ -1,8 +1,6 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.driver;
 
 
-import com.github.dockerjava.api.model.Image;
-import okhttp3.OkHttpClient;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.UIMAException;
 import org.apache.uima.cas.CASException;
