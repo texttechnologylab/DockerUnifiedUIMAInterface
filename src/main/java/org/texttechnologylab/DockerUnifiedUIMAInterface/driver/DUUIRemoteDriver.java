@@ -15,7 +15,6 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.IDUUIConnecti
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.segmentation.DUUISegmentationStrategy;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.segmentation.IDUUISegmentationStrategy;
 import org.xml.sax.SAXException;
 
 import java.io.IOException;
@@ -79,7 +78,7 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
             return this;
         }
 
-        public Component withSegmentationStrategy(IDUUISegmentationStrategy strategy) {
+        public Component withSegmentationStrategy(DUUISegmentationStrategy strategy) {
             component.withSegmentationStrategy(strategy);
             return this;
         }

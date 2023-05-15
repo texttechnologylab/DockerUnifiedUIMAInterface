@@ -24,8 +24,8 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.DUUIMonitor;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.IDUUIStorageBackend;
 
+import org.texttechnologylab.DockerUnifiedUIMAInterface.segmentation.DUUISegmentationStrategy;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.segmentation.DUUISegmentationStrategyNone;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.segmentation.IDUUISegmentationStrategy;
 import org.xml.sax.SAXException;
 
 import java.io.IOException;
@@ -427,9 +427,9 @@ public class DUUIComposer {
     public static class PipelinePart {
         private final IDUUIDriverInterface _driver;
         private final String _uuid;
-        private final IDUUISegmentationStrategy segmentationStrategy;
+        private final DUUISegmentationStrategy segmentationStrategy;
 
-        PipelinePart(IDUUIDriverInterface driver, String uuid, IDUUISegmentationStrategy segmentationStrategy) {
+        PipelinePart(IDUUIDriverInterface driver, String uuid, DUUISegmentationStrategy segmentationStrategy) {
             _driver = driver;
             _uuid = uuid;
             this.segmentationStrategy = segmentationStrategy;
@@ -443,7 +443,7 @@ public class DUUIComposer {
             return _uuid;
         }
 
-        public IDUUISegmentationStrategy getSegmentationStrategy() {
+        public DUUISegmentationStrategy getSegmentationStrategy() {
             return segmentationStrategy;
         }
     }
@@ -678,7 +678,7 @@ public class DUUIComposer {
             for (DUUIPipelineComponent comp : _pipeline) {
                 IDUUIDriverInterface driver = _drivers.get(comp.getDriver());
                 String uuid = driver.instantiate(comp, jc, _skipVerification);
-                IDUUISegmentationStrategy segmentationStrategy = comp.getSegmentationStrategy();
+                DUUISegmentationStrategy segmentationStrategy = comp.getSegmentationStrategy();
 
                 TypeSystemDescription desc = driver.get_typesystem(uuid);
                 if (desc != null) {
@@ -715,19 +715,22 @@ public class DUUIComposer {
 
             // Segment document for each item in the pipeline separately
             // TODO support "complete pipeline" segmentation to only segment once
-            IDUUISegmentationStrategy segmentationStrategy = comp.getSegmentationStrategy();
+            DUUISegmentationStrategy segmentationStrategy = comp.getSegmentationStrategy();
             if (segmentationStrategy == null) {
                 segmentationStrategy = new DUUISegmentationStrategyNone();
             }
-            List<JCas> jCasSegmenteds = segmentationStrategy.segment(jc);
-            for (JCas jCasSegmeted : jCasSegmenteds) {
+            segmentationStrategy.setJCas(jc);
 
+            for (JCas jCasSegmeted : segmentationStrategy) {
                 // Process each cas sequentially
                 // TODO add parallel variant later
                 comp.getDriver().run(comp.getUUID(), jCasSegmeted, perf);
 
+                segmentationStrategy.merge(jCasSegmeted);
+
             }
-            segmentationStrategy.combine(jCasSegmenteds, jc);
+
+            jc = segmentationStrategy.getJCas();
         }
 
         if(_storage!=null) {

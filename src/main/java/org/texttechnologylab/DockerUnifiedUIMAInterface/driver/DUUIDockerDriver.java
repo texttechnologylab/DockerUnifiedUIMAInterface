@@ -19,12 +19,14 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.IDUUIConnecti
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaCommunicationLayer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.segmentation.DUUISegmentationStrategy;
 import org.xml.sax.SAXException;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.StringWriter;
+import java.lang.reflect.InvocationTargetException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.http.HttpClient;
@@ -528,6 +530,16 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
 
         public Component withWebsocket(boolean b, int elements) {
             _component.withWebsocket(b, elements);
+            return this;
+        }
+
+        public Component withSegmentationStrategy(DUUISegmentationStrategy strategy) {
+            _component.withSegmentationStrategy(strategy);
+            return this;
+        }
+
+        public <T extends DUUISegmentationStrategy> Component withSegmentationStrategy(Class<T> strategyClass) throws InstantiationException, IllegalAccessException, NoSuchMethodException, InvocationTargetException {
+            _component.withSegmentationStrategy(strategyClass.getDeclaredConstructor().newInstance());
             return this;
         }
 
