@@ -12,10 +12,6 @@ public abstract class DUUISegmentationStrategy implements Iterable<JCas> {
         this.initialize();
     }
 
-    public JCas getJCas() {
-        return jCas;
-    }
-
     // Initialize the state of the segmentation strategy,
     // this is called when a new JCas is set
     protected abstract void initialize();

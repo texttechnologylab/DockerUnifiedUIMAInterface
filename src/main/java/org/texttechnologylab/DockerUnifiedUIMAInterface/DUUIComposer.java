@@ -729,8 +729,6 @@ public class DUUIComposer {
                 segmentationStrategy.merge(jCasSegmeted);
 
             }
-
-            jc = segmentationStrategy.getJCas();
         }
 
         if(_storage!=null) {

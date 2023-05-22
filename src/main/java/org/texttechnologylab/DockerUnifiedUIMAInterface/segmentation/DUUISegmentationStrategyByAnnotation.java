@@ -194,10 +194,12 @@ public class DUUISegmentationStrategyByAnnotation extends DUUISegmentationStrate
             // Add relevant document text
             jCasNextSegment.setDocumentLanguage(jCas.getDocumentLanguage());
             jCasNextSegment.setDocumentText(documentText);
+
+            System.out.println("Created new CAS segment with " + JCasUtil.select(jCasNextSegment, TOP.class).size() + " annotations from " + segmentBegin + " to " + segmentEnd + ".");
         }
 
         void nextSegment() {
-            //System.out.println("Processed " + annotationCount + "/" + annotations.size() + " annotations of type \"" + SegmentationClass.getCanonicalName() + "\" for CAS segmentation.");
+            System.out.println("Processed " + annotationCount + "/" + annotations.size() + " annotations of type \"" + SegmentationClass.getCanonicalName() + "\" for CAS segmentation.");
 
             // Assume we have no more segments
             hasMore = false;
@@ -221,6 +223,7 @@ public class DUUISegmentationStrategyByAnnotation extends DUUISegmentationStrate
                 // Create CAS from segment if over limit
                 if (!canAdd) {
                     createSegment(segmentBegin, segmentEnd);
+                    currentSegment.clear();
 
                     // Step back to continue with this annotation in the next segment
                     annotationIt.previous();
@@ -316,7 +319,7 @@ public class DUUISegmentationStrategyByAnnotation extends DUUISegmentationStrate
                 copiedCounter++;
             }
         }
-        //System.out.println("Merged " + copiedCounter + "/" + annotationCount + " annotations.");
+        System.out.println("Merged " + copiedCounter + "/" + annotationCount + " annotations.");
 
         // Remove meta information used for segmentation
         // TODO already filter on copy
@@ -330,6 +333,6 @@ public class DUUISegmentationStrategyByAnnotation extends DUUISegmentationStrate
             comment.removeFromIndexes();
             deletedCounter++;
         }
-        //System.out.println("Deleted " + deletedCounter + " temp annotations.");
+        System.out.println("Deleted " + deletedCounter + " temp annotations.");
     }
 }
