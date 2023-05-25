@@ -5,26 +5,19 @@ import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.commons.compress.compressors.CompressorStreamFactory;
 import org.apache.commons.io.FileUtils;
-import org.apache.uima.UIMAException;
 import org.apache.uima.cas.impl.XmiCasDeserializer;
-import org.apache.uima.cas.impl.XmiSerializationSharedData;
-import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
-import org.apache.uima.util.CasIOUtils;
 import org.javaync.io.AsyncFiles;
-import org.texttechnologylab.annotation.SharedData;
 import org.texttechnologylab.utilities.helper.StringUtils;
 import org.xml.sax.SAXException;
 
 import java.io.*;
-import java.net.MalformedURLException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -55,10 +48,6 @@ public class AsyncCollectionReader {
     private ConcurrentLinkedQueue<String> _filePaths;
     private ConcurrentLinkedQueue<String> _filePathsBackup;
     private ConcurrentLinkedQueue<ByteReadFuture> _loadedFiles;
-
-    private String _language = "all";
-
-    private HashMap<JCas, XmiSerializationSharedData> _sharedFiles;
     private int _initialSize;
     private AtomicInteger _docNumber;
     private long _maxMemory;
@@ -66,37 +55,47 @@ public class AsyncCollectionReader {
 
     private boolean _addMetadata = true;
 
+    private String _language = null;
+
     private ProgressMeter progress = null;
 
     private int debugCount = 25;
 
     public AsyncCollectionReader(String folder, String ending) {
-        this(folder, ending, 25, -1, false, "", false, "en");
+        this(folder, ending, 25, -1, false, "", false, null);
     }
 
     public AsyncCollectionReader(String folder, String ending, boolean bAddMetadata) {
-        this(folder, ending, 25, -1, false, "", bAddMetadata, "en");
+        this(folder, ending, 25, -1, false, "", bAddMetadata, null);
+    }
+
+    public AsyncCollectionReader(String folder, String ending, boolean bAddMetadata, String language) {
+        this(folder, ending, 25, -1, false, "", bAddMetadata, language);
+    }
+
+    public AsyncCollectionReader(String folder, String ending, String language) {
+        this(folder, ending, 25, -1, false, "", false, language);
     }
 
     public AsyncCollectionReader(String folder, String ending, int debugCount, boolean bSort) {
-        this(folder, ending, debugCount, -1, bSort, "", false, "en");
-    }
-
-    public AsyncCollectionReader(String folder, String ending, int debugCount, boolean bSort, String sLanguage) {
-        this(folder, ending, debugCount, -1, bSort, "", false, sLanguage);
+        this(folder, ending, debugCount, -1, bSort, "", false, null);
     }
 
     public AsyncCollectionReader(String folder, String ending, int debugCount, int iRandom, boolean bSort, String savePath){
-        this(folder, ending, debugCount, iRandom, bSort, savePath, false, "en");
+        this(folder, ending, debugCount, iRandom, bSort, savePath, false, null);
     }
 
-    public AsyncCollectionReader(String folder, String ending, int debugCount, int iRandom, boolean bSort, String savePath, boolean bAddMetadata, String sLanguage) {
+    public AsyncCollectionReader(String folder, String ending, int debugCount, int iRandom, boolean bSort, String savePath, boolean bAddMetadata) {
+        this(folder, ending, debugCount, iRandom, bSort, savePath, bAddMetadata, null);
+    }
+
+    public AsyncCollectionReader(String folder, String ending, int debugCount, int iRandom, boolean bSort, String savePath, boolean bAddMetadata, String language) {
 
         _addMetadata = bAddMetadata;
+        _language = language;
         _filePaths = new ConcurrentLinkedQueue<>();
         _loadedFiles = new ConcurrentLinkedQueue<>();
         _filePathsBackup = new ConcurrentLinkedQueue<>();
-        _language = sLanguage;
 
         if(new File(savePath).exists() && savePath.length()>0) {
             File sPath = new File(savePath);
@@ -130,12 +129,6 @@ public class AsyncCollectionReader {
 
         if(iRandom>0){
             _filePaths = random(_filePaths, iRandom);
-        }
-
-        try {
-            _filePaths = filterByLanguage(_filePaths);
-        } catch (UIMAException e) {
-            throw new RuntimeException(e);
         }
 
         if(savePath.length()>0){
@@ -214,18 +207,6 @@ public class AsyncCollectionReader {
         return val;
     }
 
-    public static XmiSerializationSharedData deserialize(JCas pCas){
-
-        XmiSerializationSharedData sharedData = null;
-        SharedData result = JCasUtil.selectSingle(pCas, SharedData.class);
-
-        if(result != null) {
-            sharedData = XmiSerializationSharedData.deserialize(result.getValue());
-        }
-        return sharedData;
-
-    }
-
     public boolean getNextCAS(JCas empty) throws IOException, CompressorException, SAXException {
         ByteReadFuture future = _loadedFiles.poll();
 
@@ -276,18 +257,11 @@ public class AsyncCollectionReader {
         }
 
         try {
-            XmiSerializationSharedData sharedData = new XmiSerializationSharedData();
-            XmiCasDeserializer.deserialize(decodedFile, empty.getCas(), true, sharedData);
-            String serializedSharedDada = sharedData.serialize();
-            SharedData da = new SharedData(empty);
-            da.setValue(serializedSharedDada);
-            da.addToIndexes();
+            XmiCasDeserializer.deserialize(decodedFile, empty.getCas(), true);
         }
         catch (Exception e){
-            e.printStackTrace();
             empty.setDocumentText(StringUtils.getContent(new File(result)));
         }
-
 
         if(_addMetadata) {
             if (JCasUtil.select(empty, DocumentMetaData.class).size() == 0) {
@@ -300,6 +274,9 @@ public class AsyncCollectionReader {
             }
         }
 
+        if (_language != null && !_language.isEmpty()) {
+            empty.setDocumentLanguage(_language);
+        }
 
         return true;
     }
@@ -327,42 +304,6 @@ public class AsyncCollectionReader {
             Long secondLength = new File(s2).length();
 
             return firstLength.compareTo(secondLength)*-1;
-        }).collect(Collectors.toList()));
-
-        return rQueue;
-
-    }
-
-    public ConcurrentLinkedQueue<String> filterByLanguage(ConcurrentLinkedQueue<String> paths) throws UIMAException {
-
-        ConcurrentLinkedQueue<String> rQueue = new ConcurrentLinkedQueue<String>();
-
-        JCas pCas = JCasFactory.createJCas();
-
-        rQueue.addAll(paths.stream().filter(path->{
-
-            boolean lFilter = false;
-            if(_language.equalsIgnoreCase("all")){
-                lFilter = true;
-            }
-            else{
-                if(path.endsWith(".xmi")){
-                    pCas.reset();
-                    try {
-                        CasIOUtils.load(new File(path).toURL(), pCas.getCas());
-                    } catch (FileNotFoundException e) {
-                        throw new RuntimeException(e);
-                    } catch (MalformedURLException e) {
-                        throw new RuntimeException(e);
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
-                    }
-
-                    lFilter = pCas.getDocumentLanguage().equalsIgnoreCase(_language);
-                }
-            }
-
-            return lFilter;
         }).collect(Collectors.toList()));
 
         return rQueue;
