@@ -232,7 +232,7 @@ public class ExperimentLecture {
         // Hinzfügen einer Componente in den Docker-Driver; Skalierung wie im Composer; Achtung: Image ist nur lokal verfügbar, Namensraum beachten!
 //        composer.add(new DUUIDockerDriver.Component("duui_simple_sentence:0.1").withScale(iWorkers).build());
 
-        composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
+        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
                 .withScale(iWorkers)
                 .build());
 

@@ -10,6 +10,7 @@ import org.apache.uima.cas.impl.XmiSerializationSharedData;
 import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.javaync.io.AsyncFiles;
+import org.texttechnologylab.annotation.SharedData;
 import org.texttechnologylab.utilities.helper.StringUtils;
 import org.xml.sax.SAXException;
 
@@ -19,7 +20,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -51,7 +51,6 @@ public class AsyncCollectionReader {
     private ConcurrentLinkedQueue<String> _filePathsBackup;
     private ConcurrentLinkedQueue<ByteReadFuture> _loadedFiles;
 
-    private HashMap<JCas, XmiSerializationSharedData> _sharedFiles;
     private int _initialSize;
     private AtomicInteger _docNumber;
     private long _maxMemory;
@@ -180,14 +179,6 @@ public class AsyncCollectionReader {
         return this;
     }
 
-    public XmiSerializationSharedData getSharedData(JCas pCas){
-        return _sharedFiles.get(pCas);
-    }
-
-    public void finishSharedData(JCas pCas){
-        _sharedFiles.remove(pCas);
-    }
-
     public long getMaxMemory() {
         return _maxMemory;
     }
@@ -217,6 +208,18 @@ public class AsyncCollectionReader {
                     return 0;
                 });
         return val;
+    }
+
+    public static XmiSerializationSharedData deserialize(JCas pCas){
+
+        XmiSerializationSharedData sharedData = null;
+        SharedData result = JCasUtil.selectSingle(pCas, SharedData.class);
+
+        if(result != null) {
+            sharedData = XmiSerializationSharedData.deserialize(result.getValue());
+        }
+        return sharedData;
+
     }
 
     public boolean getNextCAS(JCas empty) throws IOException, CompressorException, SAXException {
@@ -269,9 +272,8 @@ public class AsyncCollectionReader {
         }
 
         try {
-            XmiSerializationSharedData sharedData = new XmiSerializationSharedData();
+            XmiSerializationSharedData sharedData = deserialize(empty.getCas().getJCas());
             XmiCasDeserializer.deserialize(decodedFile, empty.getCas(), true, sharedData);
-            _sharedFiles.put(empty, sharedData);
         }
         catch (Exception e){
             empty.setDocumentText(StringUtils.getContent(new File(result)));
