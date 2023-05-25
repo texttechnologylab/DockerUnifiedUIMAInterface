@@ -17,8 +17,9 @@ public class DUUISegmentationStrategyNone extends DUUISegmentationStrategy {
 
     @Override
     public void merge(JCas jCasSegment) {
-        // nothing to merge as we did not segment cas in the first place, just replace with the segmented
-        jCas = jCasSegment;
+        // nothing to merge as we did not segment cas in the first place,
+        // just replace with the segmented
+        jCasOutput = jCasSegment;
     }
 
     // The iterator only returns the input JCas
@@ -36,8 +37,9 @@ public class DUUISegmentationStrategyNone extends DUUISegmentationStrategy {
                 throw new NoSuchElementException();
             }
 
+            // Return the input JCas only once
             hasMore = false;
-            return DUUISegmentationStrategyNone.this.jCas;
+            return DUUISegmentationStrategyNone.this.jCasInput;
         }
     }
 

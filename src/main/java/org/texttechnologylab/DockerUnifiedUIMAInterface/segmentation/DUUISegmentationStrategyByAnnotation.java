@@ -1,6 +1,7 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.segmentation;
 
 import org.apache.uima.UIMAException;
+import org.apache.uima.cas.Type;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
@@ -23,14 +24,16 @@ public class DUUISegmentationStrategyByAnnotation extends DUUISegmentationStrate
     static public final String DUUI_SEGMENTED_REF = "__textimager_duui_segmented_ref__";
     static public final String DUUI_SEGMENTED_POS = "__textimager_duui_segmented_pos__";
 
-    // Annotation typo to use for splitting cas contents
+    // Annotation type to use for splitting cas contents
     protected Class<? extends Annotation> SegmentationClass = null;
 
     // Max number of annotations (eg sentences) per segments
+    // TODO update amount
     public static final int MAX_ANNOTATIONS_PER_SEGMENT_DEFAULT = 2;
     protected int maxAnnotationsPerSegment = MAX_ANNOTATIONS_PER_SEGMENT_DEFAULT;
 
     // Max number of characters per segment
+    // TODO update amount
     public static final int MAX_CHARS_PER_SEGMENT_DEFAULT = 100;
     protected int maxCharsPerSegment = MAX_CHARS_PER_SEGMENT_DEFAULT;
 
@@ -40,6 +43,8 @@ public class DUUISegmentationStrategyByAnnotation extends DUUISegmentationStrate
 
     // Current list of annotations
     private List<? extends Annotation> annotations;
+
+    // Type system of the input cas
     private TypeSystemDescription typeSystemDescription;
 
     public DUUISegmentationStrategyByAnnotation withSegmentationClass(Class<? extends Annotation> clazz) {
@@ -63,14 +68,14 @@ public class DUUISegmentationStrategyByAnnotation extends DUUISegmentationStrate
     }
 
     @Override
-    protected void initialize() {
+    protected void initialize() throws UIMAException {
         // Type must have been set
         if (SegmentationClass == null) {
             throw new IllegalArgumentException("No annotation type for CAS segmentation provided, add using \"withSegmentationClass\".");
         }
 
         // Get the annotation type to segment the document, we expect it to be available in the cas
-        annotations = new ArrayList<>(JCasUtil.select(jCas, SegmentationClass));
+        annotations = new ArrayList<>(JCasUtil.select(jCasInput, SegmentationClass));
         if (annotations.isEmpty()) {
             if (!ignoreMissingAnnotations) {
                 throw new IllegalArgumentException("No annotations of type \"" + SegmentationClass.getCanonicalName() + "\" for CAS segmentation found!");
@@ -85,10 +90,16 @@ public class DUUISegmentationStrategyByAnnotation extends DUUISegmentationStrate
         }
 
         // Copy original cas's typesystem to use for new cas
-        typeSystemDescription = TypeSystemUtil.typeSystem2TypeSystemDescription(jCas.getTypeSystem());
+        typeSystemDescription = TypeSystemUtil.typeSystem2TypeSystemDescription(jCasInput.getTypeSystem());
+
+        // Prepare output cas by copying the full input cas as base
+        // Note that the output cas is created at initialization and not when starting the segmentation iterator
+        jCasOutput = JCasFactory.createJCas(typeSystemDescription);
+        CasCopier.copyCas(jCasInput.getCas(), jCasOutput.getCas(), true);
     }
 
     class DUUISegmentationStrategyByAnnotationIterator implements Iterator<JCas> {
+        // Current annotation to consider
         private final ListIterator<? extends Annotation> annotationIt;
         private long annotationCount = 0;
 
@@ -99,6 +110,7 @@ public class DUUISegmentationStrategyByAnnotation extends DUUISegmentationStrate
         private boolean hasMore = true;
 
         DUUISegmentationStrategyByAnnotationIterator()  {
+            // Start with first annotation
             annotationIt = DUUISegmentationStrategyByAnnotation.this.annotations.listIterator();
             annotationCount = 0;
 
@@ -110,6 +122,7 @@ public class DUUISegmentationStrategyByAnnotation extends DUUISegmentationStrate
                 throw new RuntimeException(e);
             }
 
+            // Check for first segment to allow iteration
             nextSegment();
         }
 
@@ -148,21 +161,25 @@ public class DUUISegmentationStrategyByAnnotation extends DUUISegmentationStrate
          * @return The new CAS segment
          */
         void createSegment(int segmentBegin, int segmentEnd) {
-            String documentText = jCas.getDocumentText().substring(segmentBegin, segmentEnd);
+            // Note we do not handle errors here as this should normally not fail as annotations should not exceed the
+            // document length, if it does, there might be something wrong and we fail early
+            String documentText = jCasInput.getDocumentText().substring(segmentBegin, segmentEnd);
 
-            // Reset next cas
+            // Reset next cas, faster than creating a new one
             jCasNextSegment.reset();
-            CasCopier copierNext = new CasCopier(jCas.getCas(), jCasNextSegment.getCas());
+            CasCopier copierNext = new CasCopier(jCasInput.getCas(), jCasNextSegment.getCas());
 
             // Save begin of this segment to allow merging later
+            // Note that we try to minimize the amount of data stored outside the cas to reduce complexity on merging
+            // and make multi-threading easier
             AnnotationComment commentPos = new AnnotationComment(jCasNextSegment);
             commentPos.setKey(DUUI_SEGMENTED_POS);
             commentPos.setValue(String.valueOf(segmentBegin));
             commentPos.addToIndexes();
 
-            // First, copy all annotations with position in the segment bounds,
-            // Second copy all without positions
-            for (TOP annotation : JCasUtil.select(jCas, TOP.class)) {
+            // Copy all annotations with position in the segment bounds and all without positions, as we do not know
+            // wheather they are needed by the tool or not
+            for (TOP annotation : JCasUtil.select(jCasInput, TOP.class)) {
                 boolean hasPosition = false;
                 if (annotation instanceof Annotation) {
                     hasPosition = true;
@@ -173,7 +190,7 @@ public class DUUISegmentationStrategyByAnnotation extends DUUISegmentationStrate
                     }
                 }
 
-                // Annotation either has no position or is in segment bounds
+                // Annotation either has no position, or is in segment bounds
                 TOP copy = (TOP) copierNext.copyFs(annotation);
                 if (hasPosition) {
                     // Shift begin and end to segment
@@ -183,7 +200,7 @@ public class DUUISegmentationStrategyByAnnotation extends DUUISegmentationStrate
                 }
                 copy.addToIndexes(jCasNextSegment);
 
-                // Mark this annotations as copied
+                // Mark this annotations as copied, this allows us to ignore it on merging
                 AnnotationComment commentId = new AnnotationComment(jCasNextSegment);
                 commentId.setKey(DUUI_SEGMENTED_REF);
                 commentId.setReference(copy);
@@ -191,19 +208,34 @@ public class DUUISegmentationStrategyByAnnotation extends DUUISegmentationStrate
                 commentId.addToIndexes();
             }
 
-            // Add relevant document text
-            jCasNextSegment.setDocumentLanguage(jCas.getDocumentLanguage());
+            // Add relevant document text and language
+            jCasNextSegment.setDocumentLanguage(jCasInput.getDocumentLanguage());
             jCasNextSegment.setDocumentText(documentText);
 
-            System.out.println("Created new CAS segment with " + JCasUtil.select(jCasNextSegment, TOP.class).size() + " annotations from " + segmentBegin + " to " + segmentEnd + ".");
+            // TODO allow to switch off statistics printing and use logging library!
+            Collection<TOP> allNewAnnotations = JCasUtil.select(jCasNextSegment, TOP.class);
+            Map<Type, Long> allNewAnnotationsCounts = allNewAnnotations
+                    .stream()
+                    .collect(Collectors
+                            .groupingByConcurrent(TOP::getType, Collectors.counting())
+                    );
+            System.out.println("Created new CAS segment with " + allNewAnnotations.size() + " annotations from " + segmentBegin + " to " + segmentEnd + ".");
+            for (Map.Entry<Type, Long> entry : allNewAnnotationsCounts.entrySet()) {
+                System.out.println("  " + entry.getKey().getShortName() + ": " + entry.getValue());
+            }
         }
 
         void nextSegment() {
+            // The max amount should not change as we rely on list created at initialization
+            // However, as we take also all annotations withut positions, the data can still grow much larger,
+            // thus we do not write directly in the provided input cas but rely on a separate output cas
             System.out.println("Processed " + annotationCount + "/" + annotations.size() + " annotations of type \"" + SegmentationClass.getCanonicalName() + "\" for CAS segmentation.");
 
-            // Assume we have no more segments
+            // Assume we have no more segments, as we "look into the future"
             hasMore = false;
 
+            // Check all annotations that were discovered at initialization by using an iterator
+            // which allows us to step back if we need to continue with the current annotation in the next segment
             List<Annotation> currentSegment = new ArrayList<>();
             while (annotationIt.hasNext()) {
                 Annotation annotation = annotationIt.next();
@@ -220,7 +252,7 @@ public class DUUISegmentationStrategyByAnnotation extends DUUISegmentationStrate
                 // Try adding as many annotations as possible to the current segment
                 boolean canAdd = tryAddToSegment(currentSegment.size(), segmentBegin, annotation.getEnd());
 
-                // Create CAS from segment if over limit
+                // Create CAS from segment if over limit and start new segment
                 if (!canAdd) {
                     createSegment(segmentBegin, segmentEnd);
                     currentSegment.clear();
@@ -234,12 +266,13 @@ public class DUUISegmentationStrategyByAnnotation extends DUUISegmentationStrate
                     return;
                 }
                 else {
-                    // Ok, add to current segment
+                    // Ok, just add to current segment
                     currentSegment.add(annotation);
                 }
             }
 
-            // If there are still annotations left, create a final segment without checking the limits again
+            // If there are annotations left in the current segment after finishing the iteration,
+            // create a final segment without checking the limits
             if (!currentSegment.isEmpty()) {
                 int segmentBegin = currentSegment.get(0).getBegin();
                 int segmentEnd = currentSegment.get(currentSegment.size()-1).getEnd();
@@ -261,14 +294,14 @@ public class DUUISegmentationStrategyByAnnotation extends DUUISegmentationStrate
                 throw new NoSuchElementException();
             }
 
-            // Copy as current segment
+            // Switch next to current segment using a full copy
             jCasCurrentSegment.reset();
             CasCopier.copyCas(jCasNextSegment.getCas(), jCasCurrentSegment.getCas(), true);
 
-            // Try to create the next segment
+            // Try to create the next segment to update the hasMore flag
             nextSegment();
 
-            // Return the current segment
+            // Return the current segment for processing
             return jCasCurrentSegment;
         }
     }
@@ -279,10 +312,15 @@ public class DUUISegmentationStrategyByAnnotation extends DUUISegmentationStrate
         return new DUUISegmentationStrategyByAnnotationIterator();
     }
 
+    /***
+     * Recombine the segments back into the output cas
+     * Note that this should rely only on the given segment cas to allow for parallelization later
+     * @param jCasSegment
+     */
     @Override
     public void merge(JCas jCasSegment) {
-        // Recombine the segments back into the main cas
-        CasCopier copier = new CasCopier(jCasSegment.getCas(), jCas.getCas());
+        // Copy to output cas
+        CasCopier copier = new CasCopier(jCasSegment.getCas(), jCasOutput.getCas());
 
         // Collect all annotations that were prevoiusly copied and thus are not new
         Map<TOP, List<AnnotationComment>> copiedIds = JCasUtil
@@ -291,7 +329,9 @@ public class DUUISegmentationStrategyByAnnotation extends DUUISegmentationStrate
                 .filter(c -> c.getKey().equals(DUUI_SEGMENTED_REF))
                 .collect(Collectors.groupingBy(AnnotationComment::getReference));
 
-        // Find segment begin position for reindexing, use 0 as default
+        // Find segment begin position for reindexing, use 0 as
+        // TODO we probably should fail here, as this might indicate a problem with the segmentation or the
+        //  processing tool, however this might be useful for some cases?
         int segmentBegin = JCasUtil
                 .select(jCasSegment, AnnotationComment.class)
                 .stream()
@@ -303,36 +343,43 @@ public class DUUISegmentationStrategyByAnnotation extends DUUISegmentationStrate
         // Copy newly generated annotations
         Collection<TOP> annotations = JCasUtil.select(jCasSegment, TOP.class);
         long annotationCount = annotations.size();
+        long oldCounter = 0;
         long copiedCounter = 0;
+        long deletedCounter = 0;
         for (TOP annotation : annotations) {
             // Only copy newly generated annotations
-            if (!copiedIds.containsKey(annotation)) {
-                TOP copy = (TOP) copier.copyFs(annotation);
-                boolean hasPosition = (annotation instanceof Annotation);
-                if (hasPosition) {
-                    // Shift begin and end back to original
-                    Annotation positionCopy = (Annotation) copy;
-                    positionCopy.setBegin(positionCopy.getBegin() + segmentBegin);
-                    positionCopy.setEnd(positionCopy.getEnd() + segmentBegin);
-                }
-                copy.addToIndexes(jCas);
-                copiedCounter++;
+            if (copiedIds.containsKey(annotation)) {
+                oldCounter++;
+                continue;
             }
-        }
-        System.out.println("Merged " + copiedCounter + "/" + annotationCount + " annotations.");
 
-        // Remove meta information used for segmentation
-        // TODO already filter on copy
-        long deletedCounter = 0;
-        List<AnnotationComment> metaComments = JCasUtil
-                .select(jCas, AnnotationComment.class)
-                .stream()
-                .filter(c -> c.getKey().equals(DUUI_SEGMENTED_REF) || c.getKey().equals(DUUI_SEGMENTED_POS))
-                .collect(Collectors.toList());
-        for (AnnotationComment comment : metaComments) {
-            comment.removeFromIndexes();
-            deletedCounter++;
+            // Also check if this is an internal "meta annotation"
+            if (annotation instanceof AnnotationComment) {
+                AnnotationComment comment = (AnnotationComment) annotation;
+                if (comment.getKey().equals(DUUI_SEGMENTED_POS) || comment.getKey().equals(DUUI_SEGMENTED_REF)) {
+                    deletedCounter++;
+                    continue;
+                }
+            }
+
+            // This is a new annotation, copy
+            TOP copy = (TOP) copier.copyFs(annotation);
+            boolean hasPosition = (annotation instanceof Annotation);
+            if (hasPosition) {
+                // Shift begin and end back to original
+                Annotation positionCopy = (Annotation) copy;
+                positionCopy.setBegin(positionCopy.getBegin() + segmentBegin);
+                positionCopy.setEnd(positionCopy.getEnd() + segmentBegin);
+            }
+            copy.addToIndexes(jCasOutput);
+            copiedCounter++;
         }
-        System.out.println("Deleted " + deletedCounter + " temp annotations.");
+
+        // TODO allow disabling of statistics
+        boolean seemsOk = annotationCount - copiedCounter - deletedCounter - oldCounter == 0;
+        System.out.println("Merging " + annotationCount + " annotations: " + (seemsOk ? "OK" : "ERROR"));
+        System.out.println(" New:\t" + copiedCounter + " (" + (copiedCounter * 100 / annotationCount) + "%)");
+        System.out.println(" Meta:\t" + deletedCounter + " (" + (deletedCounter * 100 / annotationCount) + "%)");
+        System.out.println(" Old:\t" + oldCounter + " (" + (oldCounter * 100 / annotationCount) + "%)");
     }
 }
