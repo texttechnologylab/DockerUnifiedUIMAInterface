@@ -41,6 +41,11 @@ public class DUUISegmentationStrategyByAnnotation extends DUUISegmentationStrate
     public static final boolean IGNORE_MISSING_ANNOTATIONS_DEFAULT = false;
     protected boolean ignoreMissingAnnotations = IGNORE_MISSING_ANNOTATIONS_DEFAULT;
 
+    // Print/collect statistics
+    // TODO switch to false on release
+    public static final boolean PRINT_STATISTICS_DEFAULT = true;
+    protected boolean printStatistics = PRINT_STATISTICS_DEFAULT;
+
     // Current list of annotations
     private List<? extends Annotation> annotations;
 
@@ -64,6 +69,11 @@ public class DUUISegmentationStrategyByAnnotation extends DUUISegmentationStrate
 
     public DUUISegmentationStrategyByAnnotation withIgnoreMissingAnnotations(boolean ignoreMissingAnnotations) {
         this.ignoreMissingAnnotations = ignoreMissingAnnotations;
+        return this;
+    }
+
+    public DUUISegmentationStrategyByAnnotation withPrintStatistics(boolean printStatistics) {
+        this.printStatistics = printStatistics;
         return this;
     }
 
@@ -212,16 +222,17 @@ public class DUUISegmentationStrategyByAnnotation extends DUUISegmentationStrate
             jCasNextSegment.setDocumentLanguage(jCasInput.getDocumentLanguage());
             jCasNextSegment.setDocumentText(documentText);
 
-            // TODO allow to switch off statistics printing and use logging library!
-            Collection<TOP> allNewAnnotations = JCasUtil.select(jCasNextSegment, TOP.class);
-            Map<Type, Long> allNewAnnotationsCounts = allNewAnnotations
-                    .stream()
-                    .collect(Collectors
-                            .groupingByConcurrent(TOP::getType, Collectors.counting())
-                    );
-            System.out.println("Created new CAS segment with " + allNewAnnotations.size() + " annotations from " + segmentBegin + " to " + segmentEnd + ".");
-            for (Map.Entry<Type, Long> entry : allNewAnnotationsCounts.entrySet()) {
-                System.out.println("  " + entry.getKey().getShortName() + ": " + entry.getValue());
+            if (printStatistics) {
+                Collection<TOP> allNewAnnotations = JCasUtil.select(jCasNextSegment, TOP.class);
+                Map<Type, Long> allNewAnnotationsCounts = allNewAnnotations
+                        .stream()
+                        .collect(Collectors
+                                .groupingByConcurrent(TOP::getType, Collectors.counting())
+                        );
+                System.out.println("Created new CAS segment with " + allNewAnnotations.size() + " annotations from " + segmentBegin + " to " + segmentEnd + ".");
+                for (Map.Entry<Type, Long> entry : allNewAnnotationsCounts.entrySet()) {
+                    System.out.println("  " + entry.getKey().getShortName() + ": " + entry.getValue());
+                }
             }
         }
 
@@ -229,7 +240,9 @@ public class DUUISegmentationStrategyByAnnotation extends DUUISegmentationStrate
             // The max amount should not change as we rely on list created at initialization
             // However, as we take also all annotations withut positions, the data can still grow much larger,
             // thus we do not write directly in the provided input cas but rely on a separate output cas
-            System.out.println("Processed " + annotationCount + "/" + annotations.size() + " annotations of type \"" + SegmentationClass.getCanonicalName() + "\" for CAS segmentation.");
+            if (printStatistics) {
+                System.out.println("Processed " + annotationCount + "/" + annotations.size() + " annotations of type \"" + SegmentationClass.getCanonicalName() + "\" for CAS segmentation.");
+            }
 
             // Assume we have no more segments, as we "look into the future"
             hasMore = false;
@@ -375,11 +388,12 @@ public class DUUISegmentationStrategyByAnnotation extends DUUISegmentationStrate
             copiedCounter++;
         }
 
-        // TODO allow disabling of statistics
-        boolean seemsOk = annotationCount - copiedCounter - deletedCounter - oldCounter == 0;
-        System.out.println("Merging " + annotationCount + " annotations: " + (seemsOk ? "OK" : "ERROR"));
-        System.out.println(" New:\t" + copiedCounter + " (" + (copiedCounter * 100 / annotationCount) + "%)");
-        System.out.println(" Meta:\t" + deletedCounter + " (" + (deletedCounter * 100 / annotationCount) + "%)");
-        System.out.println(" Old:\t" + oldCounter + " (" + (oldCounter * 100 / annotationCount) + "%)");
+        if (printStatistics) {
+            boolean seemsOk = annotationCount - copiedCounter - deletedCounter - oldCounter == 0;
+            System.out.println("Merging " + annotationCount + " annotations: " + (seemsOk ? "OK" : "ERROR"));
+            System.out.println(" New:\t" + copiedCounter + " (" + (copiedCounter * 100 / annotationCount) + "%)");
+            System.out.println(" Meta:\t" + deletedCounter + " (" + (deletedCounter * 100 / annotationCount) + "%)");
+            System.out.println(" Old:\t" + oldCounter + " (" + (oldCounter * 100 / annotationCount) + "%)");
+        }
     }
 }
