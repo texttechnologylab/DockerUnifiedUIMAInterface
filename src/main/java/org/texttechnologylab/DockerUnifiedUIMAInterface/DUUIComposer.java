@@ -719,18 +719,19 @@ public class DUUIComposer {
             if (segmentationStrategy == null) {
                 segmentationStrategy = new DUUISegmentationStrategyNone();
             }
-            segmentationStrategy.setJCas(jc);
+            segmentationStrategy.initialize(jc);
 
-            for (JCas jCasSegmeted : segmentationStrategy) {
+            JCas jCasSegmented = segmentationStrategy.getNextSegment();
+            while(jCasSegmented != null) {
                 // Process each cas sequentially
                 // TODO add parallel variant later
-                comp.getDriver().run(comp.getUUID(), jCasSegmeted, perf);
+                comp.getDriver().run(comp.getUUID(), jCasSegmented, perf);
 
-                segmentationStrategy.merge(jCasSegmeted);
-
+                segmentationStrategy.merge(jCasSegmented);
+                jCasSegmented = segmentationStrategy.getNextSegment();
             }
 
-            jc = segmentationStrategy.getJCas();
+            segmentationStrategy.loadResults(jc);
         }
 
         if(_storage!=null) {
