@@ -1,5 +1,6 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.segmentation;
 
+import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import org.apache.uima.UIMAException;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.util.CasCopier;
@@ -21,6 +22,13 @@ public abstract class DUUISegmentationStrategy {
     public void loadResults(JCas jCas) {
         jCas.reset();
         CasCopier.copyCas(jCasOutput.getCas(), jCas.getCas(), true);
+        // TODO ???
+        try {
+            DocumentMetaData.copy(jCasOutput, jCas);
+        }
+        catch (Exception e) {
+            // ignore
+        }
     }
 
     // Get next segment of the JCas

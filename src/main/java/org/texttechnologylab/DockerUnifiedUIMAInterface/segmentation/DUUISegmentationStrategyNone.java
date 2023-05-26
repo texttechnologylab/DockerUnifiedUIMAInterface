@@ -1,5 +1,6 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.segmentation;
 
+import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import org.apache.uima.UIMAException;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.jcas.JCas;
@@ -19,6 +20,13 @@ public class DUUISegmentationStrategyNone extends DUUISegmentationStrategy {
 
         TypeSystemDescription typeSystemDescription = TypeSystemUtil.typeSystem2TypeSystemDescription(jCasInput.getTypeSystem());
         jCasOutput = JCasFactory.createJCas(typeSystemDescription);
+        // TODO ???
+        try {
+            DocumentMetaData.copy(jCasInput, jCasOutput);
+        }
+        catch (Exception e) {
+            // ignore
+        }
     }
 
     @Override
@@ -36,6 +44,13 @@ public class DUUISegmentationStrategyNone extends DUUISegmentationStrategy {
         // nothing to merge as we did not segment cas in the first place,
         // just replace with the segmented
         jCasOutput.reset();
-        CasCopier.copyCas(jCasSegment.getCas(), jCasOutput.getCas(), true);
+        CasCopier.copyCas(jCasSegment.getCas(), jCasOutput.getCas(), true, true);
+        // TODO ???
+        try {
+            DocumentMetaData.copy(jCasSegment, jCasOutput);
+        }
+        catch (Exception e) {
+            // ignore
+        }
     }
 }

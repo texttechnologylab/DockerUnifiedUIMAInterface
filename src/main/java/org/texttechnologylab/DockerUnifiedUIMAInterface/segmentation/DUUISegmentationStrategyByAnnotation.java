@@ -1,5 +1,6 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.segmentation;
 
+import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import org.apache.uima.UIMAException;
 import org.apache.uima.cas.Type;
 import org.apache.uima.fit.factory.JCasFactory;
@@ -110,7 +111,14 @@ public class DUUISegmentationStrategyByAnnotation extends DUUISegmentationStrate
 
         // Prepare output cas by copying the full input cas as base
         jCasOutput = JCasFactory.createJCas(typeSystemDescription);
-        CasCopier.copyCas(jCasInput.getCas(), jCasOutput.getCas(), true);
+        CasCopier.copyCas(jCasInput.getCas(), jCasOutput.getCas(), true, true);
+        // TODO why is this needed? what other types need to be copied manually?
+        try {
+            DocumentMetaData.copy(jCasInput, jCasOutput);
+        }
+        catch (Exception e) {
+            // ignore
+        }
     }
 
     /***
@@ -153,7 +161,14 @@ public class DUUISegmentationStrategyByAnnotation extends DUUISegmentationStrate
 
         // Reset next cas, faster than creating a new one
         jCasCurrentSegment.reset();
-        CasCopier copierNext = new CasCopier(jCasInput.getCas(), jCasCurrentSegment.getCas());
+        // TODO ???
+        try {
+            DocumentMetaData.copy(jCasInput, jCasCurrentSegment);
+        }
+        catch (Exception e) {
+            // ignore
+        }
+        CasCopier copierNext = new CasCopier(jCasInput.getCas(), jCasCurrentSegment.getCas(), true);
 
         // Save begin of this segment to allow merging later
         // Note that we try to minimize the amount of data stored outside the cas to reduce complexity on merging
@@ -170,8 +185,12 @@ public class DUUISegmentationStrategyByAnnotation extends DUUISegmentationStrate
             if (annotation instanceof Annotation) {
                 hasPosition = true;
                 // Make sure annotation is in segment bounds
+                // TODO or spans the full document???
                 Annotation positionAnnotation = (Annotation) annotation;
-                if (!(positionAnnotation.getBegin() >= segmentBegin && positionAnnotation.getEnd() <= segmentEnd)) {
+                if (
+                        !(positionAnnotation.getBegin() == 0 && positionAnnotation.getEnd() == jCasInput.getDocumentText().length()) &&
+                        !(positionAnnotation.getBegin() >= segmentBegin && positionAnnotation.getEnd() <= segmentEnd)
+                ) {
                     continue;
                 }
             }
@@ -279,7 +298,7 @@ public class DUUISegmentationStrategyByAnnotation extends DUUISegmentationStrate
     @Override
     public void merge(JCas jCasSegment) {
         // Copy to output cas
-        CasCopier copier = new CasCopier(jCasSegment.getCas(), jCasOutput.getCas());
+        CasCopier copier = new CasCopier(jCasSegment.getCas(), jCasOutput.getCas(), true);
 
         // Collect all annotations that were prevoiusly copied and thus are not new
         Map<TOP, List<AnnotationComment>> copiedIds = JCasUtil
