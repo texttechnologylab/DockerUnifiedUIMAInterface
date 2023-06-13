@@ -27,8 +27,10 @@ public class DUUILuaCommunicationLayer implements IDUUICommunicationLayer {
 
     public void serialize(JCas jc, ByteArrayOutputStream out, Map<String,String> parameters) throws CompressorException, IOException, SAXException {
         LuaTable params = new LuaTable();
-        for(String key: parameters.keySet()) {
-            params.set(key,parameters.get(key));
+        if (parameters != null) {
+            for (String key : parameters.keySet()) {
+                params.set(key, parameters.get(key));
+            }
         }
         _file.call("serialize",CoerceJavaToLua.coerce(jc),CoerceJavaToLua.coerce(out), params);
     }
