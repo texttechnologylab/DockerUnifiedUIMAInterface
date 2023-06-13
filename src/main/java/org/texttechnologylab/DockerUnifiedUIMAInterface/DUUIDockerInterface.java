@@ -7,7 +7,9 @@ import com.github.dockerjava.api.command.*;
 import com.github.dockerjava.api.exception.DockerClientException;
 import com.github.dockerjava.api.exception.NotModifiedException;
 import com.github.dockerjava.api.model.*;
+import com.github.dockerjava.core.DefaultDockerClientConfig;
 import com.github.dockerjava.core.DockerClientBuilder;
+import com.github.dockerjava.core.DockerClientConfig;
 import com.github.dockerjava.core.command.LogContainerResultCallback;
 import com.google.common.collect.ImmutableList;
 
@@ -150,10 +152,12 @@ public class DUUIDockerInterface {
      * @throws IOException
      */
     public DUUIDockerInterface() throws IOException {
-        _docker = DockerClientBuilder.getInstance().build();
-
-//        DockerClientConfig config = DefaultDockerClientConfig.createDefaultConfigBuilder().withDockerHost("tcp://localhost:2375").build();
-//        _docker = DockerClientBuilder.getInstance(config).build();
+        if (!System.getProperty("os.name").contains("Windows")) {
+            _docker = DockerClientBuilder.getInstance().build();
+        } else {
+            DockerClientConfig config = DefaultDockerClientConfig.createDefaultConfigBuilder().withDockerHost("tcp://localhost:2375").build();
+            _docker = DockerClientBuilder.getInstance(config).build();
+        }
     }
 
     /**

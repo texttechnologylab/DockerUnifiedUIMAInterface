@@ -1,11 +1,9 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.driver;
 
-import kotlin.text.Regex;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.commons.compress.compressors.CompressorInputStream;
 import org.apache.commons.compress.compressors.CompressorOutputStream;
 import org.apache.commons.compress.compressors.CompressorStreamFactory;
-import org.apache.tools.ant.util.regexp.Regexp;
 import org.apache.uima.analysis_engine.AnalysisEngineDescription;
 import org.apache.uima.fit.factory.AnalysisEngineFactory;
 import org.apache.uima.util.InvalidXMLException;
@@ -133,7 +131,6 @@ public class DUUIPipelineComponent {
     public String getDescription() {
         return _options.get(descriptionName);
     }
-
 
     public DUUIPipelineComponent withName(String name) {
         if(_finalizedEncoded!=null) {
@@ -443,23 +440,18 @@ public class DUUIPipelineComponent {
         return js.toString();
     }
 
-    /**
-     * @edited Dawit Terefe
-     *
-     * Option to choose websocket as protocol.
-     * Default is false.
-     * Option to choose number of elements for
-     * partition size.
-     *
-     */
-    public boolean isWebsocket() { return _websocket; }
+    public boolean isWebsocket() {
+         return _websocket; 
+    }
 
     public DUUIPipelineComponent withWebsocket(boolean b) {
         _websocket = b;
         return withParameter(websocketOptionName, String.valueOf(b));
     }
 
-    public int getWebsocketElements () { return _ws_elements; }
+    public int getWebsocketElements () {
+        return _ws_elements; 
+    }
 
     public DUUIPipelineComponent withWebsocket(boolean b, int elements) {
         _websocket = b;

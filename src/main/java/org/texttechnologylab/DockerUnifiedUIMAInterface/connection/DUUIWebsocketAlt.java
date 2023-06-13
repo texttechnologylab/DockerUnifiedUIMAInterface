@@ -5,8 +5,6 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.net.URI;
-import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -20,7 +18,6 @@ import java.util.stream.Collectors;
  */
 public class DUUIWebsocketAlt implements IDUUIConnectionHandler{
 
-    private static List<DUUIWebsocketAlt> clients = new ArrayList<>();
     private WebsocketClient client;
     private static Map<String, WebsocketClient> _clients = new HashMap<>();
 

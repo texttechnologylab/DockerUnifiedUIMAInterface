@@ -47,12 +47,4 @@ public class DUUILuaCommunicationLayer implements IDUUICommunicationLayer {
         return (ByteArrayInputStream) CoerceLuaToJava.coerce(_file.call("merge", CoerceJavaToLua.coerce(results)), ByteArrayInputStream.class);
     }
 
-    @Override
-    public String myLuaTestMerging() {
-        // Die Funktion von Lua wird hier aufgerufen
-        _file.call("merging",null, null);
-        return "merging.................. ";
-    }
-
-
 }
