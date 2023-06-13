@@ -1,18 +1,15 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.driver;
 
-
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.cas.CASException;
-import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.fit.factory.TypeSystemDescriptionFactory;
-import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
-import org.apache.uima.jcas.cas.AnnotationBase_Type;
-import org.apache.uima.jcas.cas.TOP;
+import org.apache.uima.jcas.tcas.Annotation;
 import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.javatuples.Triplet;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer.AnnotatorSignature;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUICommunicationLayer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.DUUIWebsocketAlt;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.IDUUIConnectionHandler;
@@ -20,8 +17,14 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPip
 import org.texttechnologylab.duui.ReproducibleAnnotation;
 import org.xml.sax.SAXException;
 
-import java.io.*;
-import java.lang.annotation.Annotation;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.InvalidObjectException;
 import java.net.ProxySelector;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -30,22 +33,169 @@ import java.net.http.HttpResponse;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 public interface IDUUIInstantiatedPipelineComponent {
+
     public static HttpClient _client = HttpClient.newBuilder()
             .version(HttpClient.Version.HTTP_1_1)
             .followRedirects(HttpClient.Redirect.ALWAYS)
             .proxy(ProxySelector.getDefault())
             .connectTimeout(Duration.ofSeconds(1000)).build();
 
+    public static final Map<AnnotatorSignature, Object> currentSignatures = new ConcurrentHashMap<>(); 
+
+    public String getUniqueComponentKey();
+
+    public ConcurrentLinkedQueue<? extends IDUUIUrlAccessible> getInstances();
+
     public DUUIPipelineComponent getPipelineComponent();
-    public Triplet<IDUUIUrlAccessible,Long,Long> getComponent();
+    
     public void addComponent(IDUUIUrlAccessible item);
 
-    public Map<String,String> getParameters();
-    public String getUniqueComponentKey();
+
+    public default boolean isWebsocket() {
+        return getPipelineComponent().isWebsocket();
+    }
+
+    public default int getWebsocketElements() {
+        return getPipelineComponent().getWebsocketElements();
+    }
+
+    public default Map<String,String> getParameters() {
+        return getPipelineComponent().getParameters();
+    }
+    
+    public default int getScale() {
+        return getPipelineComponent().getScale(1);
+    }
+
+    public default Triplet<IDUUIUrlAccessible,Long,Long> getComponent() {
+    
+        long mutexStart = System.nanoTime();
+        IDUUIUrlAccessible inst = getInstances().poll();
+
+        while(inst == null) {
+            inst = getInstances().poll();
+        }
+
+        long mutexEnd = System.nanoTime();
+        
+        return Triplet.with(inst,mutexStart,mutexEnd);
+    }
+
+    public static AnnotatorSignature getInputOutputs(String uuid, IDUUIInstantiatedPipelineComponent comp) throws ResourceInitializationException {
+
+        Triplet<IDUUIUrlAccessible,Long,Long> queue = comp.getComponent();
+        int tries = 0;
+        while(tries < 100) {
+            tries++;
+            try {
+                HttpRequest request = HttpRequest.newBuilder()
+                        .uri(URI.create(queue.getValue0().generateURL() + DUUIComposer.V1_COMPONENT_ENDPOINT_INPUT_OUTPUTS))
+                        .version(HttpClient.Version.HTTP_1_1)
+                        .GET()
+                        .build();
+                        
+                comp.addComponent(queue.getValue0());
+
+                HttpResponse<byte[]> resp = _client.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray()).join();
+                if (resp.statusCode() == 200) {
+
+                    String jsonString = new String(resp.body(), StandardCharsets.UTF_8);
+                    ObjectMapper mapper = new ObjectMapper();
+                    Map<String, List<String>> json = null;
+                    try {
+                        json = mapper.readValue(jsonString, Map.class);
+                    } catch (IOException e) {
+                    }
+
+                    if (json == null) throw new Exception("JSON-String of input-outputs could not be parsed!");
+
+                    final Map<String, List<String>> jsonFinal = json;
+                    Function<String, List<Class<? extends Annotation>>> getAnnotationList = value -> jsonFinal.get(value).stream()
+                    .map(className -> 
+                    {
+                        try {
+                            
+                            return (Class<? extends Annotation>)Class.forName(className);
+                        } catch (ClassNotFoundException e) {
+                            if (!className.equals("")) { 
+                                System.out.println("[ERROR] The following class was not found: " + className);;
+                            }
+                            return null; 
+                        }
+                    }).filter(type -> type != null)
+                    .collect(Collectors.toList());
+                    
+                    List<Class<? extends Annotation>> inputs = getAnnotationList.apply("inputs");
+
+                    List<Class<? extends Annotation>> outputs = getAnnotationList.apply("outputs");
+
+                    return new AnnotatorSignature(inputs, outputs);
+                } else {
+                    return new AnnotatorSignature(new ArrayList<>(), new ArrayList<>());
+                }
+            } catch (Exception e) {
+                System.out.printf("Cannot reach endpoint trying again %d/%d...\n",tries+1,100);
+            }
+        }
+        throw new ResourceInitializationException(new Exception("Endpoint is unreachable!"));
+
+        // List<Class<? extends Annotation>> types = Arrays.asList(Token.class, POS.class, Stem.class, 
+        //     Lemma.class, Sentiment.class, Sentence.class);
+        //     // , Similarity.class, Morpheme.class, MorphologicalFeatures.class, VaderSentiment.class);
+
+        // Random rand = new Random();
+        // int r1 = rand.nextInt(types.size());
+        // int r2 = rand.nextInt(types.size());
+        // int r3 = rand.nextInt(types.size());  
+        // while (r2 == r1) {r2 = rand.nextInt(types.size());}
+        // while (r3 == r1 || r3 == r2) {r3 = rand.nextInt(types.size());}
+
+        // final AnnotatorSignature[] ann = new AnnotatorSignature[1];
+        // if (rand.nextInt(types.size()) < 5) {
+        //     ann[0] = new AnnotatorSignature(
+        //         Arrays.asList(types.get(r1)),
+        //         Arrays.asList(types.get(r2)));
+        // } else {
+        //     ann[0] = new AnnotatorSignature(
+        //         Arrays.asList(types.get(r1), types.get(r3)),
+        //         Arrays.asList(types.get(r2)));
+        // }
+
+        
+        // while( currentSignatures.keySet().stream()
+        //         .anyMatch(sig -> ann[0].compareSignatures(sig) == -2 || 
+        //             ann[0].equals(sig))) {
+        //     r1 = rand.nextInt(types.size());
+        //     r2 = rand.nextInt(types.size());   
+        //     r3 = rand.nextInt(types.size());   
+        //     while (r2 == r1) {r2 = rand.nextInt(types.size());}
+        //     while (r3 == r1 || r3 == r2) {r3 = rand.nextInt(types.size());}
+            
+        //     if (rand.nextInt(types.size()) < 5) {
+        //         ann[0] = new AnnotatorSignature(
+        //             Arrays.asList(types.get(r1)),
+        //             Arrays.asList(types.get(r2)));
+        //     } else {
+        //         ann[0] = new AnnotatorSignature(
+        //             Arrays.asList(types.get(r1), types.get(r3)),
+        //             Arrays.asList(types.get(r2)));
+        //     }
+                
+        // }
+
+        // currentSignatures.put(ann[0], "null");
+
+        // return ann[0];
+    }
 
     public static TypeSystemDescription getTypesystem(String uuid, IDUUIInstantiatedPipelineComponent comp) throws ResourceInitializationException {
         Triplet<IDUUIUrlAccessible,Long,Long> queue = comp.getComponent();
@@ -113,9 +263,8 @@ public interface IDUUIInstantiatedPipelineComponent {
                 }
             }
         }
-
-        layer.serialize(viewJc,out,comp.getParameters());
         // lua serialize call()
+        layer.serialize(viewJc,out,comp.getParameters());
 
         byte[] ok = out.toByteArray();
         long sizeArray = ok.length;
@@ -151,7 +300,9 @@ public interface IDUUIInstantiatedPipelineComponent {
             long deserializeStart = annotatorEnd;
 
             try {
-                layer.deserialize(viewJc, st);
+                synchronized(viewJc) {
+                    layer.deserialize(viewJc, st);
+                }
             }
             catch(Exception e) {
                 System.err.printf("Caught exception printing response %s\n",new String(resp.body(), StandardCharsets.UTF_8));
@@ -219,12 +370,6 @@ public interface IDUUIInstantiatedPipelineComponent {
 
         long annotatorStart = serializeEnd;
 
-        /**
-         * @edited Givara Ebo, Dawit Terefe
-         *
-         * Retrieve websocket-client from IDUUIUrlAccessible (ComponentInstance).
-         *
-         */
         IDUUIUrlAccessible accessible = queue.getValue0();
         IDUUIConnectionHandler handler = accessible.getHandler();
 
@@ -238,14 +383,11 @@ public interface IDUUIInstantiatedPipelineComponent {
 
             ByteArrayInputStream result = null;
             try {
-                /***
-                 * @edited
-                 * Givara Ebo, Dawit Terefe
-                 *
-                 * Merging results before deserializing.
-                 */
+                
                 result = layer.merge(results);
-                layer.deserialize(finalViewJc, result);
+                synchronized(finalViewJc) {
+                    layer.deserialize(finalViewJc, result);
+                }       
             }
             catch(Exception e) {
                 e.printStackTrace();

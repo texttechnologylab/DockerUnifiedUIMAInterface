@@ -16,7 +16,6 @@ import org.apache.uima.resource.metadata.ConfigurationParameter;
 import org.apache.uima.resource.metadata.NameValuePair;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.apache.uima.util.InvalidXMLException;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
 import org.texttechnologylab.duui.ReproducibleAnnotation;
 import org.xml.sax.SAXException;
@@ -39,124 +38,9 @@ public class DUUIUIMADriver implements IDUUIDriverInterface {
         _enable_debug = false;
     }
 
-    public void setLuaContext(DUUILuaContext luaContext) {
-        // Not needed for the uima driver
-    }
-
     public DUUIUIMADriver withDebug(boolean enableDebug) {
         _enable_debug = enableDebug;
         return this;
-    }
-
-    public static class InstantiatedComponent {
-        private ConcurrentLinkedQueue<AnalysisEngine> _engines;
-        private DUUIPipelineComponent _component;
-
-        public InstantiatedComponent(DUUIPipelineComponent component) {
-            _engines = new ConcurrentLinkedQueue<AnalysisEngine>();
-            _component = component;
-        }
-
-        static boolean isCompatible(DUUIPipelineComponent component) throws InvalidXMLException, IOException, SAXException {
-            return component.getEngine()!=null;
-        }
-
-        public DUUIPipelineComponent getPipelineComponent() {
-            return _component;
-        }
-
-        public InstantiatedComponent add(AnalysisEngine engine) {
-            _engines.add(engine);
-            return this;
-        }
-
-        public ConcurrentLinkedQueue<AnalysisEngine> getEngines() {
-            return _engines;
-        }
-    }
-
-
-    public static class Component {
-        private DUUIPipelineComponent component;
-        private AnalysisEngineDescription _engine;
-
-        public Component(AnalysisEngineDescription desc) throws IOException, SAXException, URISyntaxException {
-            component = new DUUIPipelineComponent();
-            component.withEngine(desc);
-            _engine = desc;
-        }
-
-        public Component(DUUIPipelineComponent pComponent) throws IOException, SAXException, URISyntaxException, InvalidXMLException {
-            component = pComponent;
-            _engine = pComponent.getEngine();
-        }
-
-        public Component withScale(int scale) {
-            component.withScale(scale);
-            return this;
-        }
-
-        public Component withParameter(String key, String value) {
-            component.withParameter(key,value);
-            return this;
-        }
-
-        public Component withDescription(String description) {
-            component.withDescription(description);
-            return this;
-        }
-
-        static private String[] extractNames(AnalysisEngineDescription engine, int recursionDepth) throws InvalidXMLException {
-            List<String> lst = new ArrayList<String>();
-            String offset = "";
-            for(int i = 0; i < recursionDepth; i++) {
-                offset+="  ";
-            }
-            if(engine.isPrimitive()) {
-                lst.add(offset+engine.getAnnotatorImplementationName());
-            }
-            else {
-                Map<String, ResourceSpecifier> spec = engine.getDelegateAnalysisEngineSpecifiers();
-                for(String x : spec.keySet()) {
-                    ResourceSpecifier res = spec.get(x);
-                    if (res instanceof AnalysisEngineDescription) {
-                        for(String inner : extractNames((AnalysisEngineDescription) res,recursionDepth+1)) {
-                            lst.add(inner);
-                        }
-                        lst.add("");
-                    }
-                }
-            }
-            String []arr = new String[lst.size()];
-            lst.toArray(arr);
-            return arr;
-        }
-
-        public void describeAnalysisEngine() throws InvalidXMLException {
-            String[] names = extractNames(_engine,0);
-            for(String i : names) {
-                System.out.println(i);
-            }
-        }
-
-        public Component setAnalysisEngineParameter(String key, Object value) throws IOException, SAXException {
-            _engine.getAnalysisEngineMetaData()
-                    .getConfigurationParameterSettings()
-                    .setParameterValue(key,value);
-            return this;
-        }
-
-        public String getAnnotatorName() {
-            if(_engine.isPrimitive()) {
-                return _engine.getAnnotatorImplementationName();
-            }
-            return null;
-        }
-
-        public DUUIPipelineComponent build() throws IOException, SAXException {
-            component.withDriver(DUUIUIMADriver.class);
-            return component;
-        }
     }
 
     public boolean canAccept(DUUIPipelineComponent component) throws InvalidXMLException, IOException, SAXException {
@@ -314,13 +198,10 @@ public class DUUIUIMADriver implements IDUUIDriverInterface {
         return uuid;
     }
 
-    public void shutdown() {
-    }
-
     public TypeSystemDescription get_typesystem(String uuid) throws InterruptedException, IOException, SAXException, CompressorException, ResourceInitializationException {
         return TypeSystemDescriptionFactory.createTypeSystemDescription();
     }
-
+    
     public void run(String uuid, JCas aCas, DUUIPipelineDocumentPerformance perf) throws InterruptedException, IOException, SAXException, AnalysisEngineProcessException, CompressorException, CASException {
         long mutexStart = System.nanoTime();
 
@@ -355,7 +236,7 @@ public class DUUIUIMADriver implements IDUUIDriverInterface {
                     }
                 }
             }
-            engine.process(jc);
+            synchronized (jc) {engine.process(jc);}
             long annotatorEnd = System.nanoTime();
             ReproducibleAnnotation ann = new ReproducibleAnnotation(jc);
             ann.setDescription(component.getPipelineComponent().getFinalizedRepresentation());
@@ -381,4 +262,108 @@ public class DUUIUIMADriver implements IDUUIDriverInterface {
             engine.destroy();
         }
     }
+
+    public static class InstantiatedComponent {
+        private ConcurrentLinkedQueue<AnalysisEngine> _engines;
+        private DUUIPipelineComponent _component;
+
+        public InstantiatedComponent(DUUIPipelineComponent component) {
+            _engines = new ConcurrentLinkedQueue<AnalysisEngine>();
+            _component = component;
+        }
+
+        static boolean isCompatible(DUUIPipelineComponent component) throws InvalidXMLException, IOException, SAXException {
+            return component.getEngine()!=null;
+        }
+
+        public DUUIPipelineComponent getPipelineComponent() {
+            return _component;
+        }
+
+        public InstantiatedComponent add(AnalysisEngine engine) {
+            _engines.add(engine);
+            return this;
+        }
+
+        public ConcurrentLinkedQueue<AnalysisEngine> getEngines() {
+            return _engines;
+        }
+    }
+
+    public static class Component implements IDUUIDriverComponent<Component> {
+        private DUUIPipelineComponent component;
+        private AnalysisEngineDescription _engine;
+
+        public Component(AnalysisEngineDescription desc) throws IOException, SAXException, URISyntaxException {
+            component = new DUUIPipelineComponent();
+            component.withEngine(desc);
+            _engine = desc;
+        }
+
+        public Component(DUUIPipelineComponent pComponent) throws IOException, SAXException, URISyntaxException, InvalidXMLException {
+            component = pComponent;
+            _engine = pComponent.getEngine();
+        }
+        
+        public Component getComponent() {
+            return this;
+        }
+
+        public DUUIPipelineComponent getPipelineComponent() {
+            return component;
+        }
+
+        static private String[] extractNames(AnalysisEngineDescription engine, int recursionDepth) throws InvalidXMLException {
+            List<String> lst = new ArrayList<String>();
+            String offset = "";
+            for(int i = 0; i < recursionDepth; i++) {
+                offset+="  ";
+            }
+            if(engine.isPrimitive()) {
+                lst.add(offset+engine.getAnnotatorImplementationName());
+            }
+            else {
+                Map<String, ResourceSpecifier> spec = engine.getDelegateAnalysisEngineSpecifiers();
+                for(String x : spec.keySet()) {
+                    ResourceSpecifier res = spec.get(x);
+                    if (res instanceof AnalysisEngineDescription) {
+                        for(String inner : extractNames((AnalysisEngineDescription) res,recursionDepth+1)) {
+                            lst.add(inner);
+                        }
+                        lst.add("");
+                    }
+                }
+            }
+            String []arr = new String[lst.size()];
+            lst.toArray(arr);
+            return arr;
+        }
+
+        public void describeAnalysisEngine() throws InvalidXMLException {
+            String[] names = extractNames(_engine,0);
+            for(String i : names) {
+                System.out.println(i);
+            }
+        }
+
+        public Component setAnalysisEngineParameter(String key, Object value) throws IOException, SAXException {
+            _engine.getAnalysisEngineMetaData()
+                    .getConfigurationParameterSettings()
+                    .setParameterValue(key,value);
+            return this;
+        }
+
+        public String getAnnotatorName() {
+            if(_engine.isPrimitive()) {
+                return _engine.getAnnotatorImplementationName();
+            }
+            return null;
+        }
+
+        public DUUIPipelineComponent build() throws IOException, SAXException {
+            component.withDriver(DUUIUIMADriver.class);
+            return component;
+        }
+    }
+
 }

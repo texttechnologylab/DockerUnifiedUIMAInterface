@@ -1,40 +1,33 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.driver;
 
 
-import com.github.dockerjava.api.model.Image;
-import okhttp3.OkHttpClient;
-import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.UIMAException;
-import org.apache.uima.cas.CASException;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.jcas.JCas;
-import org.apache.uima.resource.ResourceInitializationException;
-import org.apache.uima.resource.metadata.TypeSystemDescription;
-import org.javatuples.Triplet;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIDockerInterface;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUICommunicationLayer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.DUUIWebsocketAlt;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.IDUUIConnectionHandler;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
-import org.xml.sax.SAXException;
-
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.net.http.HttpClient;
 import java.security.InvalidParameterException;
 import java.time.Duration;
-import java.util.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 import static java.lang.String.format;
 
-public class DUUISwarmDriver implements IDUUIDriverInterface {
+public class DUUISwarmDriver implements IDUUIConnectedDriverInterface {
     private final DUUIDockerInterface _interface;
     private HttpClient _client;
     private IDUUIConnectionHandler _wsclient;
-    private final HashMap<String, DUUISwarmDriver.InstantiatedComponent> _active_components;
+    private final Map<String, IDUUIInstantiatedPipelineComponent> _active_components;
     private int _container_timeout;
     private DUUILuaContext _luaContext;
     private String _withSwarmVisualizer;
@@ -62,9 +55,14 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         _active_components = new HashMap<>();
     }
 
+    public Map<String, IDUUIInstantiatedPipelineComponent> getComponents() {
+        return _active_components;
+    }
+
     public DUUISwarmDriver withSwarmVisualizer() throws InterruptedException {
         return withSwarmVisualizer(null);
     }
+
     public DUUISwarmDriver withSwarmVisualizer(Integer port) throws InterruptedException {
         if(_withSwarmVisualizer==null) {
             _interface.pullImage("dockersamples/visualizer",null,null);
@@ -79,14 +77,6 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
             Thread.sleep(1500);
         }
         return this;
-    }
-
-    public void shutdown() {
-        if(_withSwarmVisualizer!=null) {
-            System.out.println("[DUUISwarmDriver] Shutting down swarm visualizer now!");
-            _interface.stop_container(_withSwarmVisualizer);
-            _withSwarmVisualizer = null;
-        }
     }
 
     public void setLuaContext(DUUILuaContext luaContext) {
@@ -108,6 +98,14 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         }
     }
 
+    public void printConcurrencyGraph(String uuid) {
+        IDUUIInstantiatedPipelineComponent component = _active_components.get(uuid);
+        if (component == null) {
+            throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
+        }
+        System.out.printf("[DockerSwarmDriver][%s]: Maximum concurrency %d\n",uuid,component.getScale());
+    }
+
     public String instantiate(DUUIPipelineComponent component, JCas jc, boolean skipVerification) throws Exception {
         String uuid = UUID.randomUUID().toString();
         while (_active_components.containsKey(uuid)) {
@@ -117,7 +115,7 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         if(!_interface.isSwarmManagerNode()) {
             throw new InvalidParameterException("This node is not a Docker Swarm Manager, thus cannot create and schedule new services!");
         }
-        DUUISwarmDriver.InstantiatedComponent comp = new DUUISwarmDriver.InstantiatedComponent(component);
+        InstantiatedComponent comp = new InstantiatedComponent(component);
 
         if(_interface.getLocalImage(comp.getImageName()) == null) {
             // If image is not available try to pull it
@@ -139,66 +137,36 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
 
         String serviceid = _interface.run_service(digest,comp.getScale(),comp.getConstraints());
 
-            int port = _interface.extract_service_port_mapping(serviceid);
+        int port = _interface.extract_service_port_mapping(serviceid);
 
-            System.out.printf("[DockerSwarmDriver][%s] Started service, waiting for it to become responsive...\n",uuid);
+        System.out.printf("[DockerSwarmDriver][%s] Started service, waiting for it to become responsive...\n",uuid);
 
-            if (port == 0) {
-                throw new UnknownError("Could not read the service port!");
-            }
-            final String uuidCopy = uuid;
-            IDUUICommunicationLayer layer = null;
-            try {
-                    layer = DUUIDockerDriver.responsiveAfterTime("http://localhost:" + port, jc, _container_timeout, _client, (msg) -> {
-                    System.out.printf("[DockerSwarmDriver][%s][%d Replicas] %s\n", uuidCopy, comp.getScale(), msg);
-                }, _luaContext, skipVerification);
-            }
-            catch (Exception e){
-                _interface.rm_service(serviceid);
-                throw e;
-            }
+        if (port == 0) {
+            throw new UnknownError("Could not read the service port!");
+        }
+        final String uuidCopy = uuid;
+        IDUUICommunicationLayer layer = null;
+        try {
+                layer = get_communication_layer("http://localhost:" + port, jc, _container_timeout, _client, (msg) -> {
+                System.out.printf("[DockerSwarmDriver][%s][%d Replicas] %s\n", uuidCopy, comp.getScale(), msg);
+            }, _luaContext, skipVerification);
+        }
+        catch (Exception e){
+            _interface.rm_service(serviceid);
+            throw e;
+        }
 
-            System.out.printf("[DockerSwarmDriver][%s][%d Replicas] Service for image %s is online (URL http://localhost:%d) and seems to understand DUUI V1 format!\n", uuid, comp.getScale(),comp.getImageName(), port);
+        System.out.printf("[DockerSwarmDriver][%s][%d Replicas] Service for image %s is online (URL http://localhost:%d) and seems to understand DUUI V1 format!\n", uuid, comp.getScale(),comp.getImageName(), port);
 
-            comp.initialise(serviceid,port, layer, this);
-            Thread.sleep(500);
+        comp.initialise(serviceid,port, layer, this);
+        Thread.sleep(500);
 
-            _active_components.put(uuid, comp);
+        _active_components.put(uuid, comp);
         return uuid;
     }
 
-    public void printConcurrencyGraph(String uuid) {
-        DUUISwarmDriver.InstantiatedComponent component = _active_components.get(uuid);
-        if (component == null) {
-            throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
-        }
-        System.out.printf("[DockerSwarmDriver][%s]: Maximum concurrency %d\n",uuid,component.getScale());
-    }
-
-    public TypeSystemDescription get_typesystem(String uuid) throws IOException, ResourceInitializationException {
-        DUUISwarmDriver.InstantiatedComponent comp = _active_components.get(uuid);
-        if (comp == null) {
-            throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
-        }
-        return IDUUIInstantiatedPipelineComponent.getTypesystem(uuid,comp);
-    }
-
-    public void run(String uuid, JCas aCas, DUUIPipelineDocumentPerformance perf) throws InterruptedException, IOException, SAXException, CompressorException, CASException {
-        DUUISwarmDriver.InstantiatedComponent comp = _active_components.get(uuid);
-        if (comp == null) {
-            throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
-        }
-
-        if (comp.isWebsocket()) {
-            IDUUIInstantiatedPipelineComponent.process_handler(aCas, comp, perf);
-        }
-        else {
-            IDUUIInstantiatedPipelineComponent.process(aCas, comp, perf);
-        }
-    }
-
     public void destroy(String uuid) {
-        DUUISwarmDriver.InstantiatedComponent comp = _active_components.remove(uuid);
+        InstantiatedComponent comp = (InstantiatedComponent) _active_components.remove(uuid);
         if (comp == null) {
             throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the Swarm Driver");
         }
@@ -208,6 +176,14 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         }
     }
 
+    public void shutdown() {
+        if(_withSwarmVisualizer!=null) {
+            System.out.println("[DUUISwarmDriver] Shutting down swarm visualizer now!");
+            _interface.stop_container(_withSwarmVisualizer);
+            _withSwarmVisualizer = null;
+        }
+    }
+    
     private static class ComponentInstance implements IDUUIUrlAccessible {
         String _url;
         IDUUIConnectionHandler _handler;
@@ -218,14 +194,14 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
             _communication_layer = layer;
         }
 
-        public IDUUICommunicationLayer getCommunicationLayer() {
-            return _communication_layer;
-        }
-
         public ComponentInstance(String url, IDUUICommunicationLayer layer, IDUUIConnectionHandler handler) {
             _url = url;
             _communication_layer = layer;
             _handler = handler;
+        }
+
+        public IDUUICommunicationLayer getCommunicationLayer() {
+            return _communication_layer;
         }
 
         public String generateURL() {
@@ -238,55 +214,56 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
     }
 
     private static class InstantiatedComponent implements IDUUIInstantiatedPipelineComponent {
-        private final String _image_name;
+        
         private String _service_id;
         private int _service_port;
-        private final Boolean _keep_runnging_after_exit;
-        private final int _scale;
         private final String _fromLocalImage;
         private final ConcurrentLinkedQueue<ComponentInstance> _components;
-        private final boolean _websocket;
-        private final int _ws_elements;
-
-        private final List<String> _constraints = new ArrayList<>(0);
-
-        private final String _reg_password;
-        private final String _reg_username;
-        private final Map<String,String> _parameters;
         private DUUIPipelineComponent _component;
-
 
         InstantiatedComponent(DUUIPipelineComponent comp) {
             _component = comp;
-            _image_name = comp.getDockerImageName();
-            if (_image_name == null) {
+            if (comp.getDockerImageName() == null) {
                 throw new InvalidParameterException("The image name was not set! This is mandatory for the DockerLocalDriver Class.");
             }
 
-            _parameters = comp.getParameters();
-            _scale = comp.getScale(1);
-            _constraints.addAll(comp.getConstraints());
             _components = new ConcurrentLinkedQueue<>();
-
-            _keep_runnging_after_exit = comp.getDockerRunAfterExit(false);
-
             _fromLocalImage = null;
-            _reg_password = comp.getDockerAuthPassword();
-            _reg_username = comp.getDockerAuthUsername();
-
-            _websocket = comp.isWebsocket();
-            _ws_elements = comp.getWebsocketElements();
         }
 
+        public InstantiatedComponent initialise(String service_id, int container_port, IDUUICommunicationLayer layer, DUUISwarmDriver swarmDriver) throws IOException, InterruptedException {
+
+            _service_id = service_id;
+            _service_port = container_port;
+
+            if (isWebsocket()) {
+                String ws_url = getServiceUrl().replaceFirst("http", "ws");
+                swarmDriver._wsclient = new DUUIWebsocketAlt(
+                        ws_url + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS_WEBSOCKET,
+                        getWebsocketElements());
+            }
+            else {
+                swarmDriver._wsclient = null;
+            }
+            for(int i = 0; i < getScale(); i++) {
+                _components.add(new ComponentInstance(getServiceUrl(), layer.copy(), swarmDriver._wsclient));
+
+            }
+            
+            return this;
+        }
 
         public DUUIPipelineComponent getPipelineComponent() {
             return _component;
         }
 
-        public String getUniqueComponentKey() {return "";}
-        public String getPassword() {return _reg_password;}
-
-        public String getUsername() {return _reg_username;}
+        public String getUniqueComponentKey() {
+            return "";
+        }
+                
+        public ConcurrentLinkedQueue<ComponentInstance> getInstances() {
+            return _components;
+        }
 
         public boolean isBackedByLocalImage() {
             return _fromLocalImage!=null;
@@ -296,39 +273,8 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
             return _fromLocalImage;
         }
 
-        public boolean isWebsocket() {
-            return _websocket;
-        }
-
-        public int getWebsocketElements() { return _ws_elements; }
-
-
-        public InstantiatedComponent initialise(String service_id, int container_port, IDUUICommunicationLayer layer, DUUISwarmDriver swarmDriver) throws IOException, InterruptedException {
-
-            _service_id = service_id;
-            _service_port = container_port;
-
-            if (_websocket) {
-                swarmDriver._wsclient = new DUUIWebsocketAlt(
-                        getServiceUrl().replaceFirst("http", "ws") + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS_WEBSOCKET, _ws_elements);
-            }
-            else {
-                swarmDriver._wsclient = null;
-            }
-            for(int i = 0; i < _scale; i++) {
-                _components.add(new ComponentInstance(getServiceUrl(), layer.copy(), swarmDriver._wsclient));
-
-            }
-            return this;
-        }
-
         public String getServiceUrl() {
             return format("http://localhost:%d",_service_port);
-        }
-
-
-        public String getImageName() {
-            return _image_name;
         }
 
         public String getServiceId() {
@@ -339,29 +285,24 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
             return _service_port;
         }
 
-        public int getScale() {
-            return _scale;
+        public String getPassword() {
+            return _component.getDockerAuthPassword();
+        }
+
+        public String getUsername() {
+            return _component.getDockerAuthUsername();
         }
 
         public List<String> getConstraints() {
-            return _constraints;
+            return _component.getConstraints();
+        }
+
+        public String getImageName() {
+            return _component.getDockerImageName();
         }
 
         public boolean getRunningAfterExit() {
-            return _keep_runnging_after_exit;
-        }
-
-        public Map<String,String> getParameters() {return _parameters;}
-
-
-        public Triplet<IDUUIUrlAccessible,Long,Long> getComponent() {
-            long mutexStart = System.nanoTime();
-            ComponentInstance inst = _components.poll();
-            while(inst == null) {
-                inst = _components.poll();
-            }
-            long mutexEnd = System.nanoTime();
-            return Triplet.with(inst,mutexStart,mutexEnd);
+            return _component.getDockerRunAfterExit(false);
         }
 
         public void addComponent(IDUUIUrlAccessible item) {
@@ -369,8 +310,9 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         }
     }
 
-    public static class Component {
+    public static class Component implements IDUUIDriverComponent<Component> {
         private DUUIPipelineComponent component;
+
         public Component(String globalRegistryImageName) throws URISyntaxException, IOException {
             component = new DUUIPipelineComponent();
             component.withDockerImageName(globalRegistryImageName);
@@ -380,25 +322,19 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
             component = pComponent;
         }
 
-        public Component withDescription(String description) {
-            component.withDescription(description);
+        public Component getComponent() {
             return this;
         }
 
-        public Component withParameter(String key, String value) {
-            component.withParameter(key,value);
-            return this;
-        }
-
-        public Component withScale(int scale) {
-            component.withScale(scale);
-            return this;
+        public DUUIPipelineComponent getPipelineComponent() {
+            return component;
         }
 
         public Component withConstraintHost(String sHost){
             component.withConstraint("node.hostname=="+sHost);
             return this;
         }
+        
         public Component withConstraintLabel(String sKey, String sValue){
             component.withConstraint("node.labels."+sKey+"=="+sValue);
             return this;
@@ -409,11 +345,10 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
             return this;
         }
 
-        public DUUISwarmDriver.Component withRegistryAuth(String username, String password) {
+        public Component withRegistryAuth(String username, String password) {
             component.withDockerAuth(username,password);
             return this;
         }
-
 
         public Component withRunningAfterDestroy(boolean run) {
             component.withDockerRunAfterExit(run);

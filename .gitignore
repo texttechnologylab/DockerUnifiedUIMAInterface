@@ -3,3 +3,6 @@ target/*
 *.png
 *.pgf
 *.db
+.vscode/settings.json
+.vscode/launch.json
+.gitignore
