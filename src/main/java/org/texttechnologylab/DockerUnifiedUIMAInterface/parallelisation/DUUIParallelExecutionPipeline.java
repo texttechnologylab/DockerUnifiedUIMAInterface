@@ -6,13 +6,20 @@ import static java.lang.String.format;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.Vector;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.stream.Collectors;
 import org.apache.uima.jcas.JCas;
+import org.apache.uima.jcas.tcas.Annotation;
+import org.javatuples.Pair;
+import org.javatuples.Tuple;
 import org.jgrapht.graph.DefaultEdge;
 import org.jgrapht.graph.DirectedAcyclicGraph;
 import org.jgrapht.graph.GraphCycleProhibitedException;
@@ -27,19 +34,40 @@ import guru.nidi.graphviz.model.Graph;
 
 public class DUUIParallelExecutionPipeline extends DirectedAcyclicGraph<String, CustomEdge>  {
     public final Map<String, PipelinePart> _pipeline;
-    public final int _workers;
+    private final Map<String, Pair<List<CountDownLatch>, List<CountDownLatch>>> _locks; 
 
-    public DUUIParallelExecutionPipeline(Vector<PipelinePart> flow, int workers) {
+    public DUUIParallelExecutionPipeline(Vector<PipelinePart> flow) {
         super(CustomEdge.class);
         _pipeline = flow.stream()
                         .collect(Collectors.toMap(
                             ppart -> ppart.getUUID(),
                             ppart -> ppart));
-        _workers = workers; 
+        _locks = new HashMap<>(_pipeline.size());
 
         initialiseDAG();
+        initialiseLocks();
     }
-    
+
+    public List<Callable<Void>> getWorkers(String name, JCas jc, DUUIPipelineDocumentPerformance perf) {
+
+        return _pipeline.entrySet().stream()
+                .map(entry -> 
+                {
+                    String uuid = entry.getKey();
+                    PipelinePart comp = entry.getValue();
+
+                    return new DUUIWorker(
+                            name,
+                            comp,
+                            jc, 
+                            perf, 
+                            _locks.get(uuid).getValue0(),
+                            _locks.get(uuid).getValue1()
+                        );
+                })
+                .collect(Collectors.toList());
+    }
+
     public Set<String> getChildren(String child) {
         return outgoingEdgesOf(child).stream()
             .map(CustomEdge::getTarget)
@@ -104,23 +132,57 @@ public class DUUIParallelExecutionPipeline extends DirectedAcyclicGraph<String, 
         }
     }  
 
-    public static class DUUIWorker implements Callable<Boolean> {
+    private void initialiseLocks() {
+        
+        Map<String, Map<Class<? extends Annotation>, CountDownLatch>> 
+            latches = new ConcurrentHashMap<>(_pipeline.size()); 
+
+        // initialize latches map
+        _pipeline.forEach((self, part) -> {
+            List<Class<? extends Annotation>> dependencies = part.getSignature().getInputs();
+            Map<Class<? extends Annotation>, CountDownLatch> 
+                selfLatches = new ConcurrentHashMap<>(dependencies.size());
+            dependencies.forEach(depen -> selfLatches.put(depen, new CountDownLatch(1)));
+            latches.put(self, selfLatches);
+        });
+
+        _pipeline
+        .forEach((self, pipelinePart) -> 
+        {
+            List<Class<? extends Annotation>> 
+                selfOutputs = pipelinePart.getSignature().getOutputs();
+
+            List<CountDownLatch> selfLatches = new ArrayList<>();
+            latches.get(self).values().forEach(selfLatches::add);
+
+            List<CountDownLatch> childLatches = new ArrayList<>();
+            getChildren(self).stream().map(latches::get).forEach(childLatchesMap -> {
+                childLatchesMap.forEach((annotation, lock) -> {
+                    if (selfOutputs.contains(annotation))
+                        childLatches.add(lock);
+                });
+            });
+
+            _locks.put(self, Pair.with(selfLatches, childLatches));
+        });
+    }
+
+    public static class DUUIWorker implements Callable<Void> {
         private final String name;
-        private final PipelinePart pipelinePart;
+        private final PipelinePart component;
         private final JCas jc;
         private final DUUIPipelineDocumentPerformance perf;
         private final Iterable<CountDownLatch> selfLatches;
-        private final Iterable<CountDownLatch> childLatches; 
-        private boolean success; 
+        private final Iterable<CountDownLatch> childLatches;
 
         public DUUIWorker(String name, 
-                    PipelinePart pipelinePart, 
+                    PipelinePart component, 
                     JCas jc, 
                     DUUIPipelineDocumentPerformance perf, 
                     Iterable<CountDownLatch> selfLatches, 
                     Iterable<CountDownLatch> childLatches) {
             this.name = name;
-            this.pipelinePart = pipelinePart; 
+            this.component = component; 
             this.jc = jc; 
             this.perf = perf; 
             this.selfLatches = selfLatches; 
@@ -128,30 +190,28 @@ public class DUUIParallelExecutionPipeline extends DirectedAcyclicGraph<String, 
         }
 
         @Override
-        public Boolean call() throws Exception {
+        public Void call() throws Exception {
             try {
-                success = true; 
-                
                 for (CountDownLatch latch : selfLatches) {
                     latch.await();
                 }; 
-                System.out.printf("[DUUIWorker-%s] Pipeline component %s starting analysis.\n", 
-                    Thread.currentThread().getName(), pipelinePart.getSignature());
+                System.out.printf(
+                    "[DUUIWorker-%s] Pipeline component %s starting analysis.%n", 
+                    Thread.currentThread().getName(), component.getSignature());
 
-                pipelinePart.run(name, jc, perf); 
+                component.run(name, jc, perf); 
 
-                System.out.printf("[DUUIWorker-%s] Pipeline component %s finished analysis. Exiting Thread...\n", 
-                    Thread.currentThread().getName(), pipelinePart.getSignature());
+                System.out.printf(
+                    "[DUUIWorker-%s] Pipeline component %s finished analysis.%n", 
+                    Thread.currentThread().getName(), component.getSignature());
             
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-            } catch (Exception e) {
-                success = false; 
-                throw e;  
             } finally {  
                 childLatches.forEach(CountDownLatch::countDown);
             }
-            return success; 
+
+            return null; 
         }
     }
 }

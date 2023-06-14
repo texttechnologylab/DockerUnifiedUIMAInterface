@@ -27,7 +27,9 @@ public class DUUIPipelinePerformancePoint {
         _durationSerialize = durationSerialize;
         _durationDeserialize = durationDeserialize;
         _durationMutexWait = durationMutexWait;
-        _numberAnnotations = JCasUtil.select(jc, TOP.class).stream().count();
+        synchronized(jc) {
+            _numberAnnotations = JCasUtil.select(jc, TOP.class).stream().count();
+        }
         try {
             _documentSize = Long.valueOf(jc.getDocumentText().length());
         }

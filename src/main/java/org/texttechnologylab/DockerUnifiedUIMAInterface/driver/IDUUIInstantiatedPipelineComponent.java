@@ -300,7 +300,7 @@ public interface IDUUIInstantiatedPipelineComponent {
             long deserializeStart = annotatorEnd;
 
             try {
-                synchronized(viewJc) {
+                synchronized(jc) {
                     layer.deserialize(viewJc, st);
                 }
             }
@@ -317,7 +317,7 @@ public interface IDUUIInstantiatedPipelineComponent {
             ann.setPipelineName(perf.getRunKey());
             ann.addToIndexes();
             perf.addData(serializeEnd-serializeStart,deserializeEnd-deserializeStart,annotatorEnd-annotatorStart,queue.getValue2()-queue.getValue1(),deserializeEnd-queue.getValue1(), String.valueOf(comp.getPipelineComponent().getFinalizedRepresentationHash()), sizeArray, jc);
-
+        
             comp.addComponent(queue.getValue0());
         } else {
             comp.addComponent(queue.getValue0());
@@ -385,7 +385,7 @@ public interface IDUUIInstantiatedPipelineComponent {
             try {
                 
                 result = layer.merge(results);
-                synchronized(finalViewJc) {
+                synchronized(jc) {
                     layer.deserialize(finalViewJc, result);
                 }       
             }
@@ -397,7 +397,6 @@ public interface IDUUIInstantiatedPipelineComponent {
             long deserializeEnd = System.nanoTime();
 
             comp.addComponent(accessible);
-
             ReproducibleAnnotation ann = new ReproducibleAnnotation(jc);
             ann.setDescription(comp.getPipelineComponent().getFinalizedRepresentation());
             ann.setCompression(DUUIPipelineComponent.compressionMethod);
@@ -405,7 +404,6 @@ public interface IDUUIInstantiatedPipelineComponent {
             ann.setPipelineName(perf.getRunKey());
             ann.addToIndexes();
             perf.addData(serializeEnd-serializeStart,deserializeEnd-deserializeStart,annotatorEnd-annotatorStart,queue.getValue2()-queue.getValue1(),deserializeEnd-queue.getValue1(), String.valueOf(comp.getPipelineComponent().getFinalizedRepresentationHash()), sizeArray, jc);
-            comp.addComponent(accessible);
         }
     }
 }

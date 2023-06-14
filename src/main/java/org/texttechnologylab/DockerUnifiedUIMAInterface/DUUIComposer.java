@@ -9,7 +9,9 @@ import org.apache.uima.collection.CollectionReaderDescription;
 import org.apache.uima.fit.factory.CollectionReaderFactory;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.fit.factory.TypeSystemDescriptionFactory;
+import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
+import org.apache.uima.jcas.cas.TOP;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.apache.uima.util.CasCreationUtils;
 import org.apache.uima.util.InvalidXMLException;
@@ -55,6 +57,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 import static java.lang.String.format;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class DUUIWorkerAsyncReader extends Thread {
     Vector<DUUIComposer.PipelinePart> _flow;
@@ -372,11 +375,9 @@ public class DUUIComposer {
 
     public List<JCas> run(CollectionReaderDescription reader, String name) throws Exception {
 
-        Exception catched = null;
         if(_storage!= null && name == null) {
             throw new RuntimeException("[Composer] When a storage backend is specified a run name is required, since it is the primary key");
         }
-        System.out.println("[Composer] Instantiating the collection reader...");
         CollectionReader collectionReader = CollectionReaderFactory.createReader(reader);
         System.out.println("[Composer] Instantiated the collection reader.");
 
@@ -400,13 +401,17 @@ public class DUUIComposer {
 
     }
 
+    public void run(JCas jc) throws Exception {
+        run(jc,null);
+    }
+
     public void run(JCas jc, String name) throws Exception {
         
         if(_storage!= null && name == null) {
             throw new RuntimeException("[Composer] When a storage backend is specified a run name is required, since it is the primary key");
         }
 
-        TypeSystemDescription desc = instantiate_pipeline();
+        instantiate_pipeline();
 
         System.out.println("[Composer] Generating pipeline-dependency graph.");
         _executionPipeline.printPipeline(name != null ? name : "");
@@ -419,11 +424,6 @@ public class DUUIComposer {
         }
 
         run(name, runPipeline);
-
-    }
-
-    public void run(JCas jc) throws Exception {
-        run(jc,null);
     }
 
     private <T> T run(String name, Callable<T> runPipeline) throws Exception {
@@ -519,37 +519,30 @@ public class DUUIComposer {
         }
         if (_workers > 1)
             _executorService = Executors.newFixedThreadPool(_workers);
+        else _executorService = Executors.newSingleThreadExecutor();
         List<Callable<Integer>> tasks = new ArrayList<>();
         List<TypeSystemDescription> descriptions = new LinkedList<>();
         descriptions.add(_minimalTypesystem);
         descriptions.add(TypeSystemDescriptionFactory.createTypeSystemDescription());
+
         try { 
             _pipeline.forEach(comp ->
                 tasks.add(
                 () -> {
                     IDUUIDriverInterface driver = _drivers.get(comp.getDriver());
                     String uuid;
-                    try {
                         uuid = driver.instantiate(comp, jc, _skipVerification);
                         
                         TypeSystemDescription desc = driver.get_typesystem(uuid);
-                        if (desc != null) {
-                            synchronized (descriptions) {
-                                descriptions.add(desc);
-                            }
-                        }
+
+                        if (desc != null)
+                            synchronized (descriptions) {descriptions.add(desc);}
                         
                         AnnotatorSignature signature = driver.get_signature(uuid);
                         
                         synchronized (_instantiatedPipeline) {
                             _instantiatedPipeline.add(new PipelinePart(driver, uuid, signature));
                         }
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
-
                     return 1;  
                 }   
             ));
@@ -557,8 +550,9 @@ public class DUUIComposer {
             for (Future<?> f: _executorService.invokeAll(tasks))
                 f.get();
 
-            _executionPipeline = new DUUIParallelExecutionPipeline(_instantiatedPipeline, _workers);
-            
+            if (_workers > 1)
+                _executionPipeline = new DUUIParallelExecutionPipeline(_instantiatedPipeline);
+            else _executorService.shutdown(); 
             
         }
         catch (Exception e){
@@ -579,7 +573,6 @@ public class DUUIComposer {
     private JCas run_pipeline(String name, JCas jc, Vector<PipelinePart> pipeline) throws Exception {
         DUUIPipelineDocumentPerformance perf = new DUUIPipelineDocumentPerformance(name, 0, jc);
         for (PipelinePart comp : pipeline) {
-
             comp.run(name, jc, perf);;
         }
 
@@ -593,7 +586,8 @@ public class DUUIComposer {
     private JCas run_pipeline(String name, JCas jc, DUUIParallelExecutionPipeline pipeline) 
     throws Exception {
 
-        DUUIPipelineDocumentPerformance perf = new DUUIPipelineDocumentPerformance(name, 0, jc);
+        DUUIPipelineDocumentPerformance perf = 
+            new DUUIPipelineDocumentPerformance(name, 0, jc);
         run_pipeline(jc, name, perf);
         _executorService.shutdown();
         _executorService.shutdownNow();
@@ -607,95 +601,49 @@ public class DUUIComposer {
 
     private List<JCas> run_pipeline(String name, CollectionReader reader, TypeSystemDescription desc) 
         throws Exception {
-        ExecutorService[] finalExecutorService = {_executorService};
+
         List<Future<Boolean>> workers = new ArrayList<>();
         Map<Integer, JCas> results = new ConcurrentHashMap<>();
-        DUUIPipelineDocumentPerformance[] perf = {null};
 
         int[] c = {1};
         while(reader.hasNext()) {
-
-            while (Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory() > Runtime.getRuntime().maxMemory()*0.5f) {}
-
+            // TODO: OutOfMemoryException 
             JCas jc = JCasFactory.createJCas(desc);
             long waitTimeStart = System.nanoTime();
-            try {
-
-                synchronized (reader) { reader.getNext(jc.getCas()); }
-            } catch (OutOfMemoryError e) {
-                // TODO: Add mechanism to wait before OutOfMemoryError occurs.
-                System.out.println("OutOfMemoryError"); 
-                System.out.printf("Free Memory: %d%n", Runtime.getRuntime().freeMemory()); 
-                System.out.printf("Used Memory: %d%n", Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory()); 
-                System.out.printf("Total Memory: %d%n",Runtime.getRuntime().totalMemory()); 
-                this.shutdown();
-                System.exit(1);
-            }
+            synchronized (reader) { reader.getNext(jc.getCas()); }
             long waitTimeEnd = System.nanoTime();
-            workers.add(finalExecutorService[0].submit(() -> {
-                perf[0] = new DUUIPipelineDocumentPerformance(name + c[0], waitTimeEnd-waitTimeStart, jc);
-                run_pipeline(jc, name, perf[0]);
 
-                if(_storage!=null) {
-                    _storage.addMetricsForDocument(perf[0]);
-                }
-                results.put(c[0], jc);
-                return true; 
-            }));
+            workers.add(
+                _executorService.submit(() -> {
+                    DUUIPipelineDocumentPerformance perf = 
+                        new DUUIPipelineDocumentPerformance(name + c[0], 
+                                                            waitTimeEnd-waitTimeStart,
+                                                            jc);
+                    run_pipeline(jc, name, perf);
+
+                    if(_storage!=null) {
+                        _storage.addMetricsForDocument(perf);
+                    }
+                    if (c[0] == 1) results.put(c[0], jc);
+                    return true; 
+                })
+            );
             c[0] += 1;
         }
 
         for (Future<?> f: workers)
             f.get();
 
-        finalExecutorService[0].shutdown();
-        while (!finalExecutorService[0].awaitTermination(1, TimeUnit.SECONDS)) {}
+        _executorService.shutdown();
+        while (!_executorService.awaitTermination(1, TimeUnit.SECONDS)) {}
 
         return results.values().stream().collect(Collectors.toList());
     }
 
     private void run_pipeline(JCas jc, String name, DUUIPipelineDocumentPerformance perf) throws Exception {
 
-        // create latches
-        Map<String, Map<Class<? extends Annotation>, CountDownLatch>> latches = new ConcurrentHashMap<>(_pipeline.size()); 
-        
-        // initialize latches map
-        _executionPipeline._pipeline.forEach((self, part) -> {
-            List<Class<? extends Annotation>> dependencies = part.getSignature().getInputs();
-            Map<Class<? extends Annotation>, CountDownLatch> selfLatches = new ConcurrentHashMap<>(dependencies.size());
-            dependencies.forEach(depen -> selfLatches.put(depen, new CountDownLatch(1)));
-            latches.put(self, selfLatches);
-        });
-
-        List<Future<Boolean>> workers = _executorService.invokeAll(_executionPipeline._pipeline.values().stream()
-            .map(pipelinePart -> {
-
-                Map<String, Map<Class<? extends Annotation>, CountDownLatch>> latchesFinal = latches; 
-                String self = pipelinePart.getUUID(); 
-                List<Class<? extends Annotation>> selfOutputs = pipelinePart.getSignature().getOutputs();
-                // Create latches
-                List<CountDownLatch> selfLatches = new ArrayList<>();
-                latches.get(self).values().forEach(selfLatches::add);
-
-                List<CountDownLatch> childLatches = new ArrayList<>();
-                _executionPipeline.getChildren(self).stream().map(latchesFinal::get).forEach(childLatchesMap -> {
-                    childLatchesMap.entrySet().forEach(dependency -> {
-                        if (selfOutputs.contains(dependency.getKey())) {
-                            childLatches.add(dependency.getValue());
-                        }
-                    });
-                });
-
-                return new DUUIParallelExecutionPipeline.DUUIWorker(
-                        name,
-                        pipelinePart,
-                        jc, 
-                        perf, 
-                        selfLatches,
-                        childLatches
-                    );
-            })
-            .collect(Collectors.toList()));
+        List<Future<Void>> workers = _executorService.invokeAll(
+            _executionPipeline.getWorkers(name, jc, perf));
 
         for (Future<?> f: workers)
                 f.get();
@@ -703,10 +651,7 @@ public class DUUIComposer {
 
     private void shutdown_pipeline() throws Exception {
         if(!_instantiatedPipeline.isEmpty()) {
-            for (PipelinePart comp : _instantiatedPipeline) {
-                System.out.printf("[Composer] Shutting down %s...\n", comp.getUUID());
-                comp.getDriver().destroy(comp.getUUID());
-            }
+            _instantiatedPipeline.forEach(PipelinePart::shutdown);
             _instantiatedPipeline.clear();
             System.out.println("[Composer] Shut down complete.");
         }
@@ -744,6 +689,11 @@ public class DUUIComposer {
 
         public void run(String name, JCas jc, DUUIPipelineDocumentPerformance perf) throws AnalysisEngineProcessException, CASException, InterruptedException, IOException, SAXException, CompressorException {
             _driver.run(_uuid, jc, perf);
+        }
+
+        public void shutdown() {
+            System.out.printf("[Composer] Shutting down %s...\n", _uuid);
+            _driver.destroy(_uuid);
         }
 
         public AnnotatorSignature getSignature() {
@@ -877,22 +827,22 @@ public class DUUIComposer {
         composer.addDriver(new DUUIDockerDriver(), new DUUIRemoteDriver());
         composer.add( // 
         new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-ner:latest")
-        );
+            .withImageFetching());
         composer.add( // 
         new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-lemmatizer:latest")
-        );
+            .withImageFetching());
         composer.add( // 
         new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-morphologizer:latest")
-        );
+            .withImageFetching());
         composer.add( // 
         new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-parser:latest")
-        );
+            .withImageFetching());
         composer.add( // 
         new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-sentencizer:latest")
-        );
+            .withImageFetching());
         composer.add( // 
         new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-tokenizer:latest")
-        );
+            .withImageFetching());
         // composer.add( // 
         // new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-tokenizer:latest")
         // );
@@ -910,37 +860,49 @@ public class DUUIComposer {
         // new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-tokenizer:latest")
         // );
 
-        // String val = "Dies ist ein kleiner Test Text für Abies!";
-        // JCas jc = JCasFactory.createJCas();
-        // jc.setDocumentLanguage("de");
-        // jc.setDocumentText(val);
+        String val = "Dies ist ein kleiner Test Text für Abies!";
+        JCas jc = JCasFactory.createJCas();
+        jc.setDocumentLanguage("de");
+        jc.setDocumentText(val);
 
-        // // Run single document
-        // composer.run(jc,"fuchs");
+        JCas jc2 = JCasFactory.createJCas();
+        jc2.setDocumentLanguage("de");
+        jc2.setDocumentText(val);
+
+        // Run single document
+        composer.run(jc,"fuchs");
         
-        CollectionReaderDescription reader = null;
-        reader = org.apache.uima.fit.factory.CollectionReaderFactory.createReaderDescription(XmiReader.class,
-                XmiReader.PARAM_SOURCE_LOCATION,  "C:\\Users\\davet\\projects\\DockerUnifiedUIMAInterface\\src\\main\\resources\\sample\\**.gz.xmi.gz",
-                XmiReader.PARAM_SORT_BY_SIZE, true
+        composer.withWorkers(1);
+        composer.run(jc2,"fuchs");
+        composer.shutdown();
+
+        System.out.println(
+            Objects.equals(JCasUtil.select(jc, TOP.class).stream().count(), JCasUtil.select(jc2, TOP.class).stream().count())
         );
-
-        JCas jc = composer.run(reader, "Fuchs").get(0);
-
-
-        /*String val = Files.readString(Path.of(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/uima_xmi_communication_token_only.lua").toURI()));
-        DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(val,"remote");
-        OutputStream out = new ByteArrayOutputStream();
-        lua.serialize(jc,out);
-        System.out.println(out.toString());*/
+        // OutputStream out = new ByteArrayOutputStream();
 
         // OutputStream out2 = new ByteArrayOutputStream();
-        // XmiCasSerializer.serialize(jc.getCas(),out2);
-        // System.out.println(out2.toString());
+        // XmiCasSerializer.serialize(jc.getCas(),out);
+        // XmiCasSerializer.serialize(jc2.getCas(),out2);
+        // // System.out.println(out2.toString());
+        
+        // String wsText = out.toString()
+        //     .replaceAll("<duui:ReproducibleAnnotation.*/>", "")
+        //     .replaceAll("timestamp=\"[0-9]*\"", "0");
+        // String restText = out2.toString()
+        //     .replaceAll("<duui:ReproducibleAnnotation.*/>", "")
+        //     .replaceAll("timestamp=\"[0-9]*\"", "0");
+        
+        // assertEquals(restText, wsText);
+        
+        
+        // CollectionReaderDescription reader = null;
+        // reader = org.apache.uima.fit.factory.CollectionReaderFactory.createReaderDescription(XmiReader.class,
+        //         XmiReader.PARAM_SOURCE_LOCATION,  "C:\\Users\\davet\\projects\\DockerUnifiedUIMAInterface\\src\\main\\resources\\sample\\**.gz.xmi.gz",
+        //         XmiReader.PARAM_SORT_BY_SIZE, true
+        // );
 
-        // Run Collection Reader
-
-        /** @see **/
-        composer.shutdown();
+        // JCas jc = composer.run(reader, "Fuchs").get(0);
   }
 
 } 
