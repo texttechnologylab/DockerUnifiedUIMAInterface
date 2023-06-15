@@ -4,11 +4,14 @@ import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.analysis_engine.AnalysisEngineProcessException;
 import org.apache.uima.cas.CASException;
 import org.apache.uima.cas.impl.XmiCasSerializer;
+import org.apache.uima.cas.impl.BinaryCasSerDes4;
+import org.apache.uima.cas.impl.BinaryCasSerDes4.CasCompare;
 import org.apache.uima.collection.CollectionReader;
 import org.apache.uima.collection.CollectionReaderDescription;
 import org.apache.uima.fit.factory.CollectionReaderFactory;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.fit.factory.TypeSystemDescriptionFactory;
+import org.apache.uima.fit.util.CasUtil;
 import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.jcas.cas.TOP;
@@ -872,13 +875,15 @@ public class DUUIComposer {
         // Run single document
         composer.run(jc,"fuchs");
         
-        composer.withWorkers(1);
-        composer.run(jc2,"fuchs");
+        // composer.withWorkers(1);
+        // composer.run(jc2,"fuchs");
         composer.shutdown();
+        
 
-        System.out.println(
-            Objects.equals(JCasUtil.select(jc, TOP.class).stream().count(), JCasUtil.select(jc2, TOP.class).stream().count())
-        );
+
+        // System.out.println(
+        //     Objects.equals(JCasUtil.select(jc, TOP.class).stream().count(), JCasUtil.select(jc2, TOP.class).stream().count())
+        // );
         // OutputStream out = new ByteArrayOutputStream();
 
         // OutputStream out2 = new ByteArrayOutputStream();
@@ -896,7 +901,7 @@ public class DUUIComposer {
         // assertEquals(restText, wsText);
         
         
-        // CollectionReaderDescription reader = null;
+        CollectionReaderDescription reader = null;
         // reader = org.apache.uima.fit.factory.CollectionReaderFactory.createReaderDescription(XmiReader.class,
         //         XmiReader.PARAM_SOURCE_LOCATION,  "C:\\Users\\davet\\projects\\DockerUnifiedUIMAInterface\\src\\main\\resources\\sample\\**.gz.xmi.gz",
         //         XmiReader.PARAM_SORT_BY_SIZE, true
