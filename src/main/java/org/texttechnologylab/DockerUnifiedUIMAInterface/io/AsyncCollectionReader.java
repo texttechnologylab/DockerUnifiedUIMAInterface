@@ -207,6 +207,7 @@ public class AsyncCollectionReader {
         return val;
     }
 
+    @SuppressWarnings("")
     public boolean getNextCAS(JCas empty) throws IOException, CompressorException, SAXException {
         ByteReadFuture future = _loadedFiles.poll();
 

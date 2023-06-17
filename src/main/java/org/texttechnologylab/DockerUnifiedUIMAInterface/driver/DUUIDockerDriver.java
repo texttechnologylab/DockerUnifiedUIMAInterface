@@ -23,6 +23,7 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Logger;
 
@@ -52,7 +53,7 @@ public class DUUIDockerDriver implements IDUUIConnectedDriverInterface {
         TypeSystemDescription desc = TypeSystemUtil.typeSystem2TypeSystemDescription(_basic.getTypeSystem());
         StringWriter wr = new StringWriter();
         desc.toXML(wr);
-        _active_components = new HashMap<>();
+        _active_components = new ConcurrentHashMap<>();
         _luaContext = null;
     }
 

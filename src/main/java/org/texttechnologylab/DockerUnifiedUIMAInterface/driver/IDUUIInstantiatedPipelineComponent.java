@@ -1,5 +1,9 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.driver;
 
+import static java.lang.String.format;
+import static org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.DUUIPipelineProfiler.measureStart;
+import static org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.DUUIPipelineProfiler.measureEnd;
+
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.cas.CASException;
 import org.apache.uima.fit.factory.TypeSystemDescriptionFactory;
@@ -147,54 +151,6 @@ public interface IDUUIInstantiatedPipelineComponent {
             }
         }
         throw new ResourceInitializationException(new Exception("Endpoint is unreachable!"));
-
-        // List<Class<? extends Annotation>> types = Arrays.asList(Token.class, POS.class, Stem.class, 
-        //     Lemma.class, Sentiment.class, Sentence.class);
-        //     // , Similarity.class, Morpheme.class, MorphologicalFeatures.class, VaderSentiment.class);
-
-        // Random rand = new Random();
-        // int r1 = rand.nextInt(types.size());
-        // int r2 = rand.nextInt(types.size());
-        // int r3 = rand.nextInt(types.size());  
-        // while (r2 == r1) {r2 = rand.nextInt(types.size());}
-        // while (r3 == r1 || r3 == r2) {r3 = rand.nextInt(types.size());}
-
-        // final AnnotatorSignature[] ann = new AnnotatorSignature[1];
-        // if (rand.nextInt(types.size()) < 5) {
-        //     ann[0] = new AnnotatorSignature(
-        //         Arrays.asList(types.get(r1)),
-        //         Arrays.asList(types.get(r2)));
-        // } else {
-        //     ann[0] = new AnnotatorSignature(
-        //         Arrays.asList(types.get(r1), types.get(r3)),
-        //         Arrays.asList(types.get(r2)));
-        // }
-
-        
-        // while( currentSignatures.keySet().stream()
-        //         .anyMatch(sig -> ann[0].compareSignatures(sig) == -2 || 
-        //             ann[0].equals(sig))) {
-        //     r1 = rand.nextInt(types.size());
-        //     r2 = rand.nextInt(types.size());   
-        //     r3 = rand.nextInt(types.size());   
-        //     while (r2 == r1) {r2 = rand.nextInt(types.size());}
-        //     while (r3 == r1 || r3 == r2) {r3 = rand.nextInt(types.size());}
-            
-        //     if (rand.nextInt(types.size()) < 5) {
-        //         ann[0] = new AnnotatorSignature(
-        //             Arrays.asList(types.get(r1)),
-        //             Arrays.asList(types.get(r2)));
-        //     } else {
-        //         ann[0] = new AnnotatorSignature(
-        //             Arrays.asList(types.get(r1), types.get(r3)),
-        //             Arrays.asList(types.get(r2)));
-        //     }
-                
-        // }
-
-        // currentSignatures.put(ann[0], "null");
-
-        // return ann[0];
     }
 
     public static TypeSystemDescription getTypesystem(String uuid, IDUUIInstantiatedPipelineComponent comp) throws ResourceInitializationException {
@@ -235,7 +191,10 @@ public interface IDUUIInstantiatedPipelineComponent {
     }
 
     public static void process(JCas jc, IDUUIInstantiatedPipelineComponent comp, DUUIPipelineDocumentPerformance perf) throws CompressorException, IOException, SAXException, CASException {
+        
+        measureStart(perf.getRunKey(), "UrlAccessible retrieval");
         Triplet<IDUUIUrlAccessible,Long,Long> queue = comp.getComponent();
+        measureEnd(perf.getRunKey(), "UrlAccessible retrieval");
 
         IDUUICommunicationLayer layer = queue.getValue0().getCommunicationLayer();
         long serializeStart = System.nanoTime();
@@ -263,9 +222,10 @@ public interface IDUUIInstantiatedPipelineComponent {
                 }
             }
         }
-        // lua serialize call()
+        measureStart(perf.getRunKey(), "JCas serialization");
         layer.serialize(viewJc,out,comp.getParameters());
-
+        measureEnd(perf.getRunKey(), "JCas serialization");
+        
         byte[] ok = out.toByteArray();
         long sizeArray = ok.length;
         long serializeEnd = System.nanoTime();
@@ -273,7 +233,8 @@ public interface IDUUIInstantiatedPipelineComponent {
         long annotatorStart = serializeEnd;
         int tries = 0;
         HttpResponse<byte[]> resp = null;
-        while(tries < 10) {
+        measureStart(perf.getRunKey(), "Annotation");
+        while(tries < 2) {
             tries++;
             try {
                 HttpRequest request = HttpRequest.newBuilder()
@@ -290,15 +251,16 @@ public interface IDUUIInstantiatedPipelineComponent {
             }
         }
         if(resp==null) {
-            throw new IOException("Could not reach endpoint after 10 tries!");
+            throw new IOException(format("[%s] Could not reach endpoint after 2 tries!", perf.getRunKey()));
         }
-
-
+        measureEnd(perf.getRunKey(), "Annotation");
+        
         if (resp.statusCode() == 200) {
             ByteArrayInputStream st = new ByteArrayInputStream(resp.body());
             long annotatorEnd = System.nanoTime();
             long deserializeStart = annotatorEnd;
-
+            
+            measureStart(perf.getRunKey(), "JCas deserialization");
             try {
                 synchronized(jc) {
                     layer.deserialize(viewJc, st);
@@ -308,8 +270,9 @@ public interface IDUUIInstantiatedPipelineComponent {
                 System.err.printf("Caught exception printing response %s\n",new String(resp.body(), StandardCharsets.UTF_8));
                 throw e;
             }
+            measureEnd(perf.getRunKey(), "JCas deserialization");
             long deserializeEnd = System.nanoTime();
-
+            
             ReproducibleAnnotation ann = new ReproducibleAnnotation(jc);
             ann.setDescription(comp.getPipelineComponent().getFinalizedRepresentation());
             ann.setCompression(DUUIPipelineComponent.compressionMethod);

@@ -17,6 +17,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class DUUIRemoteDriver implements IDUUIConnectedDriverInterface {
@@ -29,7 +30,7 @@ public class DUUIRemoteDriver implements IDUUIConnectedDriverInterface {
 
     public DUUIRemoteDriver(int timeout) {
         _client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(timeout)).build();
-        _components = new HashMap<>();
+        _components = new ConcurrentHashMap<>();
         _helper = new DUUICompressionHelper(CompressorStreamFactory.ZSTANDARD);
     }
 

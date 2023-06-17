@@ -19,6 +19,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 import static java.lang.String.format;
@@ -52,7 +53,7 @@ public class DUUISwarmDriver implements IDUUIConnectedDriverInterface {
         _container_timeout = timeout;
         _client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(timeout)).build();
 
-        _active_components = new HashMap<>();
+        _active_components = new ConcurrentHashMap<>();
     }
 
     public Map<String, IDUUIInstantiatedPipelineComponent> getComponents() {

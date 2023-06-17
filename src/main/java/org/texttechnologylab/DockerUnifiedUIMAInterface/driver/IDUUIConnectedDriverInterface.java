@@ -36,7 +36,7 @@ interface ResponsiveMessageCallback {
     public void operation(String message);
 }
 
-public interface IDUUIConnectedDriverInterface extends IDUUIDriverInterface{
+public interface IDUUIConnectedDriverInterface extends IDUUIDriverInterface {
     
     public Map<String, ? extends IDUUIInstantiatedPipelineComponent> getComponents(); 
 
