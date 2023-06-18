@@ -46,15 +46,10 @@ import java.io.OutputStream;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
 import java.security.InvalidParameterException;
-import java.security.PrivilegedAction;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.Callable;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -64,7 +59,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 import static java.lang.String.format;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class DUUIWorkerAsyncReader extends Thread {
     Vector<DUUIComposer.PipelinePart> _flow;
@@ -188,14 +182,16 @@ public class DUUIComposer {
         System.out.println("[Composer] Initialised LUA scripting layer with version "+ globals.get("_VERSION"));
 
         DUUIComposer that = this;
-
+        Thread main = Thread.currentThread(); 
         _shutdownHook = new Thread(() -> {
                 try {
+                    
                     System.out.println("[Composer] ShutdownHook... ");
+                    main.interrupt();
                     /** @see */
                     that.shutdown();
                     System.out.println("[Composer] ShutdownHook finished.");
-                } catch (UnknownHostException e) {
+                } catch (UnknownHostException | InterruptedException e) {
                     e.printStackTrace();
                 }
             });
@@ -442,7 +438,6 @@ public class DUUIComposer {
         instantiate_pipeline();
 
         System.out.println("[Composer] Generating pipeline-dependency graph.");
-        _executionPipeline.printPipeline(name != null ? name : "");
         
         Callable<JCas> runPipeline;
         if (_workers > 1) {
@@ -485,7 +480,7 @@ public class DUUIComposer {
         return result;
     }
 
-    public void shutdown() throws UnknownHostException {
+    public void shutdown() throws UnknownHostException, InterruptedException {
         if(!_hasShutdown) {
             _shutdownAtomic.set(true);
             if (_monitor != null) {
@@ -506,6 +501,7 @@ public class DUUIComposer {
             }
             
             _executorService.shutdownNow(); 
+             while (!_executorService.awaitTermination(100, TimeUnit.MILLISECONDS)) {}
             if (_executorService.isTerminated()) System.out.println("[DUUIComposer] Executor terminated!");
             if (!_executorService.isTerminated()) System.out.println("[DUUIComposer] Executor did not terminate!");
             _hasShutdown = true;
@@ -630,38 +626,49 @@ public class DUUIComposer {
     private List<JCas> run_pipeline(String name, AsyncCollectionReader reader, TypeSystemDescription desc) 
         throws Exception {
 
-        List<Future<Boolean>> workers = new ArrayList<>();
+        List<Future<Void>> runningComponents = new ArrayList<>();
         Map<Integer, JCas> results = new ConcurrentHashMap<>();
 
         AtomicInteger d = new AtomicInteger(1);
-        while(!reader.isEmpty()) {
+        Callable<Void> component = null; 
+        for (String compId : _executionPipeline._executionplan) {
+            boolean firstComponent = !reader.isEmpty();
+            while(!reader.isEmpty()) {
+                // Instantiate JCas.
+                JCas jc = JCasFactory.createJCas(desc);
+                long waitTimeStart = System.nanoTime();
+                reader.getNextCAS(jc);
+                long waitTimeEnd = System.nanoTime();
 
-            JCas jc = JCasFactory.createJCas(desc);
-            long waitTimeStart = System.nanoTime();
-            reader.getNextCAS(jc); 
-            long waitTimeEnd = System.nanoTime();
-            DUUIPipelineDocumentPerformance perf = 
-                new DUUIPipelineDocumentPerformance(
-                    name + d.get(), 
-                    waitTimeEnd-waitTimeStart,
-                    jc);
+                DUUIPipelineDocumentPerformance perf = 
+                    new DUUIPipelineDocumentPerformance(
+                        name + d.get(), 
+                        waitTimeEnd-waitTimeStart,
+                        jc);
+                // Get component and immediatiately submit to executorService
+                component = 
+                    _executionPipeline.getComponentRunner(name + d.getAndIncrement(), compId, jc, perf);
 
-            for (Callable<Void> component : 
-                _executionPipeline.getWorkers(name + d.getAndIncrement(), jc, perf)) {
-                workers.add(
-                    _executorService.submit(() -> {
-                        component.call();
-                        if(_storage!=null) _storage.addMetricsForDocument(perf);
-                        return true; 
-                    })
-                );
-            } 
+                runningComponents.add(_executorService.submit(component));
+                
+            }
+            
+            if (firstComponent) continue;
+           
+            for (int i = 1; i < d.get(); i++) {
+                component = 
+                    _executionPipeline.getRunner(name + i, compId);
+
+                if (component == null) 
+                    throw new RuntimeException(format("[%s][%s] doesn't exist.",name+i, compId));
+                runningComponents.add(_executorService.submit(component));
+            }
         }
 
         _executorService.shutdown();
         try {
-            while (!_executorService.awaitTermination(100*workers.size(), TimeUnit.MILLISECONDS)) {}
-            for (Future<Boolean> task : workers) 
+            while (!_executorService.awaitTermination(100*runningComponents.size(), TimeUnit.MILLISECONDS)) {}
+            for (Future<Void> task : runningComponents) 
                 task.get();
         } catch (Exception e) {
             _executorService.shutdownNow();
@@ -674,38 +681,51 @@ public class DUUIComposer {
     private List<JCas> run_pipeline(String name, CollectionReader reader, TypeSystemDescription desc) 
         throws Exception {
 
-        List<Future<Boolean>> workers = new ArrayList<>();
+        
+        List<Future<Void>> runningComponents = new ArrayList<>();
         Map<Integer, JCas> results = new ConcurrentHashMap<>();
 
         AtomicInteger d = new AtomicInteger(1);
-        while(!reader.hasNext()) {
+        Callable<Void> component = null; 
+        for (String compId : _executionPipeline._executionplan) {
+            // TODO: Make executionPlan graph height based.
+            boolean firstComponent = !reader.hasNext();
+            while(!reader.hasNext()) {
+                // Instantiate JCas.
+                JCas jc = JCasFactory.createJCas(desc);
+                long waitTimeStart = System.nanoTime();
+                reader.getNext(jc.getCas());
+                long waitTimeEnd = System.nanoTime();
 
-            JCas jc = JCasFactory.createJCas(desc);
-            long waitTimeStart = System.nanoTime();
-            reader.getNext(jc.getCas());
-            long waitTimeEnd = System.nanoTime();
-            DUUIPipelineDocumentPerformance perf = 
-                new DUUIPipelineDocumentPerformance(
-                    name + d.get(), 
-                    waitTimeEnd-waitTimeStart,
-                    jc);
-            // TODO Is it possible to order tasks for executorservice
-            for (Callable<Void> component : 
-                _executionPipeline.getWorkers(name + d.getAndIncrement(), jc, perf)) {
-                workers.add(
-                    _executorService.submit(() -> {
-                        component.call();
-                        if(_storage!=null) _storage.addMetricsForDocument(perf);
-                        return true; 
-                    })
-                );
-            } 
+                DUUIPipelineDocumentPerformance perf = 
+                    new DUUIPipelineDocumentPerformance(
+                        name + d.get(), 
+                        waitTimeEnd-waitTimeStart,
+                        jc);
+                // Get component and immediatiately submit to executorService
+                component = 
+                    _executionPipeline.getComponentRunner(name + d.getAndIncrement(), compId, jc, perf);
+
+                runningComponents.add(_executorService.submit(component));
+                
+            }
+            
+            if (firstComponent) continue;
+           
+            for (int i = 1; i < d.get(); i++) {
+                component = 
+                    _executionPipeline.getRunner(name + i, compId);
+
+                if (component == null) 
+                    throw new RuntimeException(format("[%s][%s] doesn't exist.", name + i, compId));
+                runningComponents.add(_executorService.submit(component));
+            }
         }
 
         _executorService.shutdown();
         try {
-            while (!_executorService.awaitTermination(100*workers.size(), TimeUnit.MILLISECONDS)) {}
-            for (Future<Boolean> task : workers) 
+            while (!_executorService.awaitTermination(100*runningComponents.size(), TimeUnit.MILLISECONDS)) {}
+            for (Future<Void> task : runningComponents) 
                 task.get();
         } catch (Exception e) {
             _executorService.shutdownNow();
@@ -719,8 +739,7 @@ public class DUUIComposer {
         // new DUUIPipelineProfiler(name, jc);
 
         List<Future<Void>> workers = _executorService.invokeAll(
-            _executionPipeline.getWorkers(name, jc, perf));
-
+            _executionPipeline.getAllComponentRunners(name, jc, perf));
 
         for (Future<?> f: workers)
             f.get();
