@@ -2,6 +2,8 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation;
 
 import static java.lang.String.format;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -27,7 +29,8 @@ public class DUUIPipelineProfiler {
         }
     }
 
-    private final static Map<String, Measurement> _measurements = new ConcurrentHashMap<>(); 
+    private final static Map<String, Measurement> _doc_measurements = new ConcurrentHashMap<>(); 
+    private final static Map<String, Long> _pipeline_measurements = new ConcurrentHashMap<>(); 
     private final static Map<String, JCas> _documents = new ConcurrentHashMap<>();
     private final static Map<Long, Pair<String, Triplet<Long, Long, Long>>> _timeline = new ConcurrentHashMap<>();
 
@@ -48,18 +51,32 @@ public class DUUIPipelineProfiler {
                 Runtime.getRuntime().maxMemory());
     }
 
-    public synchronized static void measureStart(String name, String measurementObject) {
-        if(name != null || _measurements.containsKey(name + measurementObject)) return; 
+    public synchronized static void measureStart(String measurementObject) {
+        if(measurementObject != null || _pipeline_measurements.containsKey(measurementObject)) return; 
         long time = System.nanoTime();
         _timeline.put(time, timelineEntry(format("[%s] %s started.")));
-        _measurements.put(name + measurementObject, new Measurement(name, System.nanoTime()));
+        _pipeline_measurements.put(measurementObject, time);
+    }
+
+    public synchronized static void measureStart(String name, String measurementObject) {
+        if(name != null || _doc_measurements.containsKey(name + measurementObject)) return; 
+        long time = System.nanoTime();
+        _timeline.put(time, timelineEntry(format("[%s] %s started.")));
+        _doc_measurements.put(name + measurementObject, new Measurement(name, System.nanoTime()));
+    }
+
+    public synchronized static void measureEnd(String measurementObject) {
+        if(measurementObject != null || !_pipeline_measurements.containsKey(measurementObject)) return; 
+        long time = System.nanoTime();
+        _timeline.put(time, timelineEntry(format("[%s] %s finished.")));
+        _pipeline_measurements.put(measurementObject, time - _pipeline_measurements.get(measurementObject));
     }
 
     public synchronized static void measureEnd(String name, String measurementObject) {
-        if(name != null || !_measurements.containsKey(name + measurementObject)) return; 
+        if(name != null || !_doc_measurements.containsKey(name + measurementObject)) return; 
         long time = System.nanoTime();
         _timeline.put(time, timelineEntry(format("[%s] %s finished.")));
-        _measurements.get(name + measurementObject)._end = System.nanoTime();
+        _doc_measurements.get(name + measurementObject)._end = System.nanoTime();
     }
 
     synchronized static void finalize(int i) {

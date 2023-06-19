@@ -90,17 +90,17 @@ public class DUUIParallelExecutionPipeline extends DirectedAcyclicGraph<String, 
 
     public synchronized void initialiseComponentRunners(String name, JCas jc, DUUIPipelineDocumentPerformance perf) throws Exception {
 
-        _pipelineGraph.put(name, mutGraph("example1").setDirected(true).use( (gr, ctx) -> {
-            graphAttrs().add(Rank.dir(RankDir.TOP_TO_BOTTOM));
-            linkAttrs().add("class", "link-class");
-        }));
-        for(String vertex : vertexSet()) {
-            Node parent = node(_pipeline.get(vertex).getSignature().toString()).with(Color.RED3, Style.lineWidth(2), Style.RADIAL);  
-            _pipelineGraph.get(name).add(parent);
-            for (String child : getChildren(vertex)) {
-                _pipelineGraph.get(name).add(parent.link(node(_pipeline.get(child).getSignature().toString())));
-            }
-        }
+        // _pipelineGraph.put(name, mutGraph("example1").setDirected(true).use( (gr, ctx) -> {
+        //     graphAttrs().add(Rank.dir(RankDir.TOP_TO_BOTTOM));
+        //     linkAttrs().add("class", "link-class");
+        // }));
+        // for(String vertex : vertexSet()) {
+        //     Node parent = node(_pipeline.get(vertex).getSignature().toString());  
+        //     _pipelineGraph.get(name).add(parent);
+        //     for (String child : getChildren(vertex)) {
+        //         _pipelineGraph.get(name).add(parent.link(node(_pipeline.get(child).getSignature().toString())));
+        //     }
+        // }
 
         // printPipeline(name);
 
@@ -243,8 +243,8 @@ public class DUUIParallelExecutionPipeline extends DirectedAcyclicGraph<String, 
         private final PipelinePart component;
         private final JCas jc;
         private final DUUIPipelineDocumentPerformance perf;
-        private final Iterable<ComponentLock> selfLatches;
-        private final Iterable<ComponentLock> childLatches;
+        private final Iterable<ComponentLock> selfLocks;
+        private final Iterable<ComponentLock> childrenLocks;
 
         public DUUIWorker(String name, 
                     PipelinePart component, 
@@ -256,42 +256,41 @@ public class DUUIParallelExecutionPipeline extends DirectedAcyclicGraph<String, 
             this.component = component; 
             this.jc = jc; 
             this.perf = perf; 
-            this.selfLatches = selfLatches; 
-            this.childLatches = childLatches; 
+            this.selfLocks = selfLatches; 
+            this.childrenLocks = childLatches; 
         }
 
         @Override
         public Void call() throws Exception {
             try {
-                for (ComponentLock latch : selfLatches) {
-                    latch.await(1, TimeUnit.SECONDS);
-                    if (latch.failed()) {
-                        for (ComponentLock childLatch : childLatches)
-                            childLatch.failed();
+                for (ComponentLock parent : selfLocks) {
+                    parent.await(1, TimeUnit.SECONDS);
+                    if (parent.failed()) {
                         throw new Exception(format("[DUUIWorker-%s][%s][Component: %s] Parent failed.%n", 
-                    Thread.currentThread().getName(), name, component.getSignature()));
+                            Thread.currentThread().getName(), name, component.getSignature()));
                     }
-                }; 
+                }
                 
-                updatePipelineGraphStatus(name, component.getSignature().toString(), Color.YELLOW2);
+                // updatePipelineGraphStatus(name, component.getSignature().toString(), Color.YELLOW2);
                 System.out.printf(
                     "[DUUIWorker-%s][%s] Pipeline component %s starting analysis.%n", 
                     Thread.currentThread().getName(), name, component.getSignature());
 
                 component.run(name, jc, perf); 
 
-                updatePipelineGraphStatus(name, component.getSignature().toString(), Color.GREEN3);
+                // updatePipelineGraphStatus(name, component.getSignature().toString(), Color.GREEN3);
                 System.out.printf(
                     "[DUUIWorker-%s][%s] Pipeline component %s finished analysis.%n", 
                     Thread.currentThread().getName(), name, component.getSignature());
                 
-                for (ComponentLock childLatch : childLatches)
-                    childLatch.countDown();
+                for (ComponentLock childLock : childrenLocks)
+                    childLock.countDown(); // release
             } catch (Exception e) {
+                // updatePipelineGraphStatus(name, component.getSignature().toString(), Color.RED3);
                 System.out.printf("[DUUIWorker-%s][%s] Pipeline component %s failed.%n",
                     Thread.currentThread().getName(), name, component.getSignature());
-                for (ComponentLock childLatch : childLatches)
-                    childLatch.fail();
+                for (ComponentLock childLock : childrenLocks)
+                    childLock.fail();
                 throw e;
             }
 

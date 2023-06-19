@@ -66,7 +66,7 @@ public class DUUIMonitor {
             return null;
         }
         InetAddress IP = InetAddress.getLocalHost();
-        return format("http://%s:%d",IP.getHostAddress().toString(),_port);
+        return format("http://%s:%d", IP.getHostAddress().toString(), _port);
     }
 
     public DUUIMonitor setup() throws InterruptedException, UnknownHostException {
@@ -94,7 +94,7 @@ public class DUUIMonitor {
                 }
             }
             catch(Exception e) {
-                _docker.pullImage("influxdb:alpine",null,null);
+                _docker.pullImage("influxdb",null,null);
                 System.out.println("[DUUIMonitor] Could not find existing container creating one...");
                 ExposedPort tcp8086 = ExposedPort.tcp(8086);
 
@@ -102,7 +102,7 @@ public class DUUIMonitor {
                 portBindings.bind(tcp8086, Ports.Binding.bindPort(_port));
 
 
-                CreateContainerResponse container = _docker.getDockerClient().createContainerCmd("influxdb:alpine")
+                CreateContainerResponse container = _docker.getDockerClient().createContainerCmd("influxdb")
                         .withExposedPorts(tcp8086)
                         .withEnv("DOCKER_INFLUXDB_INIT_MODE=setup",
                                 "DOCKER_INFLUXDB_INIT_USERNAME="+_username,
