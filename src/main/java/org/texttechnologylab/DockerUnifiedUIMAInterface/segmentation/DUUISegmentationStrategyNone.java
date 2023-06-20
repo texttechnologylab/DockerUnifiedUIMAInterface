@@ -20,13 +20,6 @@ public class DUUISegmentationStrategyNone extends DUUISegmentationStrategy {
 
         TypeSystemDescription typeSystemDescription = TypeSystemUtil.typeSystem2TypeSystemDescription(jCasInput.getTypeSystem());
         jCasOutput = JCasFactory.createJCas(typeSystemDescription);
-        // TODO ???
-        try {
-            DocumentMetaData.copy(jCasInput, jCasOutput);
-        }
-        catch (Exception e) {
-            // ignore
-        }
     }
 
     @Override
@@ -45,7 +38,8 @@ public class DUUISegmentationStrategyNone extends DUUISegmentationStrategy {
         // just replace with the segmented
         jCasOutput.reset();
         CasCopier.copyCas(jCasSegment.getCas(), jCasOutput.getCas(), true, true);
-        // TODO ???
+
+        // copy metadata separately
         try {
             DocumentMetaData.copy(jCasSegment, jCasOutput);
         }

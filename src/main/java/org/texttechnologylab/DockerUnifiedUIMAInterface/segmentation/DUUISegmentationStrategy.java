@@ -5,7 +5,7 @@ import org.apache.uima.UIMAException;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.util.CasCopier;
 
-public abstract class DUUISegmentationStrategy {
+public abstract class DUUISegmentationStrategy implements IDUUISegmentationStrategy {
     // The current JCas to be processed, this should not be modified
     protected JCas jCasInput;
 
@@ -19,10 +19,12 @@ public abstract class DUUISegmentationStrategy {
     }
 
     // Get final JCas with the generated annotations
-    public void loadResults(JCas jCas) {
+    public void finalize(JCas jCas) {
         jCas.reset();
+
         CasCopier.copyCas(jCasOutput.getCas(), jCas.getCas(), true);
-        // TODO ???
+
+        // Metadata needs to be copied separately
         try {
             DocumentMetaData.copy(jCasOutput, jCas);
         }

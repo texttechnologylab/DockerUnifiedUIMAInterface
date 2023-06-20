@@ -112,6 +112,8 @@ public class DUUISegmentationStrategyByAnnotation extends DUUISegmentationStrate
         // Prepare output cas by copying the full input cas as base
         jCasOutput = JCasFactory.createJCas(typeSystemDescription);
         CasCopier.copyCas(jCasInput.getCas(), jCasOutput.getCas(), true, true);
+
+        // copy metadata explicitly
         // TODO why is this needed? what other types need to be copied manually?
         try {
             DocumentMetaData.copy(jCasInput, jCasOutput);
@@ -161,7 +163,8 @@ public class DUUISegmentationStrategyByAnnotation extends DUUISegmentationStrate
 
         // Reset next cas, faster than creating a new one
         jCasCurrentSegment.reset();
-        // TODO ???
+
+        // copy metadata explicitly
         try {
             DocumentMetaData.copy(jCasInput, jCasCurrentSegment);
         }

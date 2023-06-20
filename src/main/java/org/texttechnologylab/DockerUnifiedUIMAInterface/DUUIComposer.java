@@ -1,6 +1,7 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface;
 
 import org.apache.commons.compress.compressors.CompressorException;
+import org.apache.commons.lang3.SerializationUtils;
 import org.apache.uima.analysis_engine.AnalysisEngineProcessException;
 import org.apache.uima.cas.CASException;
 import org.apache.uima.cas.impl.XmiCasSerializer;
@@ -244,7 +245,24 @@ class DUUIWorkerAsyncReader extends Thread {
                     _jc);
             for (DUUIComposer.PipelinePart i : _flow) {
                 try {
-                    i.getDriver().run(i.getUUID(), _jc, perf);
+                    // Segment document for each item in the pipeline separately
+                    // TODO support "complete pipeline" segmentation to only segment once
+                    // TODO thread safety needed for here?
+                    DUUISegmentationStrategy segmentationStrategy = i.getSegmentationStrategy();
+                    segmentationStrategy.initialize(_jc);
+
+                    JCas jCasSegmented = segmentationStrategy.getNextSegment();
+                    while(jCasSegmented != null) {
+                        // Process each cas sequentially
+                        // TODO add parallel variant later
+                        i.getDriver().run(i.getUUID(), jCasSegmented, perf);
+
+                        segmentationStrategy.merge(jCasSegmented);
+                        jCasSegmented = segmentationStrategy.getNextSegment();
+                    }
+
+                    segmentationStrategy.finalize(_jc);
+
                 } catch (Exception e) {
                     //Ignore errors at the moment
                     //e.printStackTrace();
@@ -444,7 +462,14 @@ public class DUUIComposer {
         }
 
         public DUUISegmentationStrategy getSegmentationStrategy() {
-            return segmentationStrategy;
+            if (segmentationStrategy == null) {
+                // Use default strategy with no segmentation
+                return new DUUISegmentationStrategyNone();
+            }
+
+            // Always return a copy to allow for multiple processes/threads
+            System.out.println("Cloning segmentation strategy: " + segmentationStrategy.getClass().getName());
+            return SerializationUtils.clone(segmentationStrategy);
         }
     }
 
@@ -716,9 +741,6 @@ public class DUUIComposer {
             // Segment document for each item in the pipeline separately
             // TODO support "complete pipeline" segmentation to only segment once
             DUUISegmentationStrategy segmentationStrategy = comp.getSegmentationStrategy();
-            if (segmentationStrategy == null) {
-                segmentationStrategy = new DUUISegmentationStrategyNone();
-            }
             segmentationStrategy.initialize(jc);
 
             JCas jCasSegmented = segmentationStrategy.getNextSegment();
@@ -731,7 +753,7 @@ public class DUUIComposer {
                 jCasSegmented = segmentationStrategy.getNextSegment();
             }
 
-            segmentationStrategy.loadResults(jc);
+            segmentationStrategy.finalize(jc);
         }
 
         if(_storage!=null) {
