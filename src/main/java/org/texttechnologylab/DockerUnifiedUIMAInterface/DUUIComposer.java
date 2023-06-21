@@ -116,7 +116,6 @@ public class DUUIComposer {
                 try {
                     
                     System.out.println("[Composer] ShutdownHook... ");
-                    main.interrupt();
                     /** @see */
                     that.shutdown();
                     System.out.println("[Composer] ShutdownHook finished.");
@@ -394,7 +393,7 @@ public class DUUIComposer {
         if (_workers > 1)
             _executorService = Executors.newFixedThreadPool(_workers);
         else _executorService = Executors.newSingleThreadExecutor();
-        List<Callable<Integer>> tasks = new ArrayList<>();
+        List<Future<?>> tasks = new ArrayList<>();
         List<TypeSystemDescription> descriptions = new LinkedList<>();
         descriptions.add(_minimalTypesystem);
         descriptions.add(TypeSystemDescriptionFactory.createTypeSystemDescription());
@@ -402,27 +401,30 @@ public class DUUIComposer {
         try { 
             for (DUUIPipelineComponent comp : _pipeline) {
                 tasks.add(
-                () -> {
+                _executorService.submit(() -> {
                     IDUUIDriverInterface driver = _drivers.get(comp.getDriver());
                     String uuid;
+                    try {
                         uuid = driver.instantiate(comp, jc, _skipVerification);
                         
                         TypeSystemDescription desc = driver.get_typesystem(uuid);
-
+                        
                         if (desc != null)
-                            synchronized (descriptions) {descriptions.add(desc);}
+                        synchronized (descriptions) {descriptions.add(desc);}
                         
                         Signature signature = driver.get_signature(uuid);
                         
                         synchronized (_instantiatedPipeline) {
                             _instantiatedPipeline.add(new PipelinePart(driver, uuid, signature));
-                        }
-                    return 1;  
-                });
+                        }  
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }));
             }
 
-            for (Future<?> f: _executorService.invokeAll(tasks))
-                f.get();
+            for (Future<?> task : tasks) 
+                task.get();
 
             if (_workers > 1)
                 _executionPipeline = new DUUIParallelExecutionPipeline(_instantiatedPipeline);
@@ -708,22 +710,22 @@ public class DUUIComposer {
         
         composer.add(  
             new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-ner:latest")
-                .withImageFetching().withScale(3).withGPU(true),
+                .withImageFetching().withScale(6).withGPU(true),
             
             new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-lemmatizer:latest")
-                .withImageFetching().withScale(3).withGPU(true),
+                .withImageFetching().withScale(6).withGPU(true),
             
             new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-morphologizer:latest")
-                .withImageFetching().withScale(3).withGPU(true),
+                .withImageFetching().withScale(6).withGPU(true),
             
             new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-parser:latest")
-                .withImageFetching().withScale(3).withGPU(true),
+                .withImageFetching().withScale(6).withGPU(true),
             
             new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-sentencizer:latest")
-                .withImageFetching().withScale(3).withGPU(true),
+                .withImageFetching().withScale(6).withGPU(true),
             
             new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-tokenizer:latest")
-                .withImageFetching().withScale(3).withGPU(true)
+                .withImageFetching().withScale(6).withGPU(true)
         );
         // composer.add( // 
         // new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-tokenizer:latest")

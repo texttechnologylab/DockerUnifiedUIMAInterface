@@ -26,6 +26,7 @@ import java.util.stream.Collectors;
 import org.apache.uima.jcas.JCas;
 import org.javatuples.Pair;
 import org.javatuples.Triplet;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.Signature;
 
 import guru.nidi.graphviz.attribute.Color;
 import guru.nidi.graphviz.attribute.Rank;
@@ -106,7 +107,7 @@ public class DUUIPipelineProfiler {
         
         _timeline.put(Instant.now(), timelineEntry(format("[Profiler][%s] Updating graph status", name)));
 
-        measureStart(name, format("[%s] Updating graph status", signature));
+        measureStart(name, signature, "Updating graph status");
 
         _pipelineGraphs.get(name).nodes().forEach(comp -> {
             if (comp.name().contentEquals(signature)) {
@@ -115,7 +116,7 @@ public class DUUIPipelineProfiler {
         });
 
         writeToFile(name);
-        measureEnd(name, format("[%s] Updating graph status", signature));
+        measureEnd(name, signature, "Updating graph status");
     }
     
     public static void writeToFile(String name) {
@@ -161,6 +162,7 @@ public class DUUIPipelineProfiler {
                 Runtime.getRuntime().maxMemory());
     }
 
+
     public synchronized static void measureStart(String measurementObject) {
         if (!withProfiler.get()) return; 
         if (measurementObject == null) return; 
@@ -169,6 +171,23 @@ public class DUUIPipelineProfiler {
         Instant time = Instant.now();
         _timeline.put(time, timelineEntry(format("[%s] %s started.", _name, measurementObject)));
         _pipeline_measurements.put(measurementObject, time);
+    }
+
+    public synchronized static void measureStart(String name, String signature, String measurementObject) {
+        if (!withProfiler.get()) return; 
+        if (measurementObject == null || name == null) return; 
+
+        String key = format("[%s][%s] %s", name, signature, measurementObject);
+
+        if (_doc_measurements.containsKey(key)) return;
+
+        Instant time = Instant.now();
+        _timeline.put(time, timelineEntry(format("%s started.", key)));
+        _doc_measurements.put(key, new Measurement(name, time));
+    }
+
+    public synchronized static void measureStart(String name, Signature signature, String measurementObject) {
+        measureStart(name, signature.toString(), measurementObject);
     }
 
     public synchronized static void measureStart(String name, String measurementObject) {
@@ -192,6 +211,23 @@ public class DUUIPipelineProfiler {
         Instant time = Instant.now();
         _timeline.put(time, timelineEntry(format("[%s] %s finished.", _name, measurementObject)));
         _pipeline_measurements.put(measurementObject, time.minusSeconds(_pipeline_measurements.get(measurementObject).getEpochSecond()));
+    }
+
+    public synchronized static void measureEnd(String name, String signature, String measurementObject) {
+        if (!withProfiler.get()) return; 
+        if (measurementObject == null || name == null) return; 
+
+        String key = format("[%s][%s] %s", name, signature, measurementObject);
+
+        if (!_doc_measurements.containsKey(key)) return; 
+
+        Instant time = Instant.now();
+        _timeline.put(time, timelineEntry(format("%s started.", key)));
+        _doc_measurements.get(key)._end = time;
+    }
+
+    public synchronized static void measureEnd(String name, Signature signature, String measurementObject) {
+        measureEnd(name, signature.toString(), measurementObject);
     }
 
     public synchronized static void measureEnd(String name, String measurementObject) {

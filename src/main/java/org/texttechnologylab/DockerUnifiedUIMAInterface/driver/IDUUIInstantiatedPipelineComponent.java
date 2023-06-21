@@ -189,9 +189,9 @@ public interface IDUUIInstantiatedPipelineComponent {
 
     public static void process(JCas jc, IDUUIInstantiatedPipelineComponent comp, DUUIPipelineDocumentPerformance perf) throws CompressorException, IOException, SAXException, CASException {
         
-        measureStart(perf.getRunKey(), format("%s-UrlAccessible retrieval", comp.getSignature()));
+        measureStart(perf.getRunKey(),  comp.getSignature(), "UrlAccessible retrieval");
         Triplet<IDUUIUrlAccessible,Long,Long> queue = comp.getComponent();
-        measureEnd(perf.getRunKey(), format("%s-UrlAccessible retrieval", comp.getSignature()));
+        measureEnd(perf.getRunKey(),  comp.getSignature(), "UrlAccessible retrieval");
 
         IDUUICommunicationLayer layer = queue.getValue0().getCommunicationLayer();
         long serializeStart = System.nanoTime();
@@ -220,9 +220,9 @@ public interface IDUUIInstantiatedPipelineComponent {
             }
         }
         
-        measureStart(perf.getRunKey(), format("%s-JCas serialization", comp.getSignature()));
+        measureStart(perf.getRunKey(), comp.getSignature(), "JCas serialization");
         layer.serialize(viewJc,out,comp.getParameters());
-        measureEnd(perf.getRunKey(), format("%s-JCas serialization", comp.getSignature()));
+        measureEnd(perf.getRunKey(), comp.getSignature(), "JCas serialization");
         
         byte[] ok = out.toByteArray();
         long sizeArray = ok.length;
@@ -231,7 +231,7 @@ public interface IDUUIInstantiatedPipelineComponent {
         long annotatorStart = serializeEnd;
         int tries = 0;
         HttpResponse<byte[]> resp = null;
-        measureStart(perf.getRunKey(), format("%s-Annotator", comp.getSignature()));
+        measureStart(perf.getRunKey(), comp.getSignature(), "Annotator");
         while(tries < 2) {
             tries++;
             try {
@@ -251,14 +251,14 @@ public interface IDUUIInstantiatedPipelineComponent {
         if(resp==null) {
             throw new IOException(format("%s-Could not reach endpoint after 2 tries!", perf.getRunKey()));
         }
-        measureEnd(perf.getRunKey(), format("%s-Annotator", comp.getSignature()));
+        measureEnd(perf.getRunKey(), comp.getSignature(), "Annotator");
         
         if (resp.statusCode() == 200) {
             ByteArrayInputStream st = new ByteArrayInputStream(resp.body());
             long annotatorEnd = System.nanoTime();
             long deserializeStart = annotatorEnd;
             
-            measureStart(perf.getRunKey(), format("%s-JCas deserialization", comp.getSignature()));
+            measureStart(perf.getRunKey(), comp.getSignature(), "JCas deserialization");
             try {
                 synchronized(jc) {
                     layer.deserialize(viewJc, st);
@@ -268,7 +268,7 @@ public interface IDUUIInstantiatedPipelineComponent {
                 System.err.printf("Caught exception printing response %s\n",new String(resp.body(), StandardCharsets.UTF_8));
                 throw e;
             }
-            measureEnd(perf.getRunKey(), format("%s-JCas deserialization", comp.getSignature()));
+            measureEnd(perf.getRunKey(), comp.getSignature(), "JCas deserialization");
             long deserializeEnd = System.nanoTime();
             
             ReproducibleAnnotation ann = new ReproducibleAnnotation(jc);
