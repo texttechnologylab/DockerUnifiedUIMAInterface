@@ -221,6 +221,7 @@ public class DUUISwarmDriver implements IDUUIConnectedDriverInterface {
         private final String _fromLocalImage;
         private final ConcurrentLinkedQueue<ComponentInstance> _components;
         private DUUIPipelineComponent _component;
+        private Signature _signature; 
 
         InstantiatedComponent(DUUIPipelineComponent comp) {
             _component = comp;
@@ -304,6 +305,16 @@ public class DUUISwarmDriver implements IDUUIConnectedDriverInterface {
 
         public boolean getRunningAfterExit() {
             return _component.getDockerRunAfterExit(false);
+        }
+
+        @Override
+        public void setSignature(Signature sig) {
+            _signature = sig;  
+        }
+
+        @Override
+        public Signature getSignature() {
+            return _signature; 
         }
 
         public void addComponent(IDUUIUrlAccessible item) {

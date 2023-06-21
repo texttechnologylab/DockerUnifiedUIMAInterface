@@ -106,16 +106,16 @@ public class DUUIPipelineProfiler {
         
         _timeline.put(Instant.now(), timelineEntry(format("[Profiler][%s] Updating graph status", name)));
 
-        measureStart(name, "Updating graph status");
+        measureStart(name, format("[%s] Updating graph status", signature));
 
         _pipelineGraphs.get(name).nodes().forEach(comp -> {
             if (comp.name().contentEquals(signature)) {
                 comp.add(progress, Style.lineWidth(2), Style.RADIAL);
-            }
+            } 
         });
 
         writeToFile(name);
-        measureEnd(name, "Updating graph status");
+        measureEnd(name, format("[%s] Updating graph status", signature));
     }
     
     public static void writeToFile(String name) {

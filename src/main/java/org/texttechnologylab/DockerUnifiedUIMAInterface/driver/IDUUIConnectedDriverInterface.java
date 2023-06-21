@@ -44,7 +44,13 @@ public interface IDUUIConnectedDriverInterface extends IDUUIDriverInterface {
         if (comp == null) {
             throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver.");
         }
-        return IDUUIInstantiatedPipelineComponent.getInputOutputs(uuid,comp);
+
+        if (comp.getSignature() != null)
+            return comp.getSignature();
+
+        Signature sig = IDUUIInstantiatedPipelineComponent.getInputOutputs(uuid,comp);
+        comp.setSignature(sig);
+        return sig;
     }
 
     public default TypeSystemDescription get_typesystem(String uuid) throws InterruptedException, IOException, SAXException, CompressorException, ResourceInitializationException {

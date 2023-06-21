@@ -39,7 +39,6 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -52,16 +51,15 @@ public interface IDUUIInstantiatedPipelineComponent {
             .proxy(ProxySelector.getDefault())
             .connectTimeout(Duration.ofSeconds(1000)).build();
 
-    public static final Map<Signature, Object> currentSignatures = new ConcurrentHashMap<>(); 
-
-    public String getUniqueComponentKey();
-
     public ConcurrentLinkedQueue<? extends IDUUIUrlAccessible> getInstances();
 
     public DUUIPipelineComponent getPipelineComponent();
     
     public void addComponent(IDUUIUrlAccessible item);
 
+    public void setSignature(Signature sig);
+
+    public Signature getSignature();
 
     public default boolean isWebsocket() {
         return getPipelineComponent().isWebsocket();
@@ -191,9 +189,9 @@ public interface IDUUIInstantiatedPipelineComponent {
 
     public static void process(JCas jc, IDUUIInstantiatedPipelineComponent comp, DUUIPipelineDocumentPerformance perf) throws CompressorException, IOException, SAXException, CASException {
         
-        measureStart(perf.getRunKey(), "UrlAccessible retrieval");
+        measureStart(perf.getRunKey(), format("%s-UrlAccessible retrieval", comp.getSignature()));
         Triplet<IDUUIUrlAccessible,Long,Long> queue = comp.getComponent();
-        measureEnd(perf.getRunKey(), "UrlAccessible retrieval");
+        measureEnd(perf.getRunKey(), format("%s-UrlAccessible retrieval", comp.getSignature()));
 
         IDUUICommunicationLayer layer = queue.getValue0().getCommunicationLayer();
         long serializeStart = System.nanoTime();
@@ -221,9 +219,10 @@ public interface IDUUIInstantiatedPipelineComponent {
                 }
             }
         }
-        measureStart(perf.getRunKey(), "JCas serialization");
+        
+        measureStart(perf.getRunKey(), format("%s-JCas serialization", comp.getSignature()));
         layer.serialize(viewJc,out,comp.getParameters());
-        measureEnd(perf.getRunKey(), "JCas serialization");
+        measureEnd(perf.getRunKey(), format("%s-JCas serialization", comp.getSignature()));
         
         byte[] ok = out.toByteArray();
         long sizeArray = ok.length;
@@ -232,7 +231,7 @@ public interface IDUUIInstantiatedPipelineComponent {
         long annotatorStart = serializeEnd;
         int tries = 0;
         HttpResponse<byte[]> resp = null;
-        measureStart(perf.getRunKey(), "Annotation");
+        measureStart(perf.getRunKey(), format("%s-Annotator", comp.getSignature()));
         while(tries < 2) {
             tries++;
             try {
@@ -250,16 +249,16 @@ public interface IDUUIInstantiatedPipelineComponent {
             }
         }
         if(resp==null) {
-            throw new IOException(format("[%s] Could not reach endpoint after 2 tries!", perf.getRunKey()));
+            throw new IOException(format("%s-Could not reach endpoint after 2 tries!", perf.getRunKey()));
         }
-        measureEnd(perf.getRunKey(), "Annotation");
+        measureEnd(perf.getRunKey(), format("%s-Annotator", comp.getSignature()));
         
         if (resp.statusCode() == 200) {
             ByteArrayInputStream st = new ByteArrayInputStream(resp.body());
             long annotatorEnd = System.nanoTime();
             long deserializeStart = annotatorEnd;
             
-            measureStart(perf.getRunKey(), "JCas deserialization");
+            measureStart(perf.getRunKey(), format("%s-JCas deserialization", comp.getSignature()));
             try {
                 synchronized(jc) {
                     layer.deserialize(viewJc, st);
@@ -269,7 +268,7 @@ public interface IDUUIInstantiatedPipelineComponent {
                 System.err.printf("Caught exception printing response %s\n",new String(resp.body(), StandardCharsets.UTF_8));
                 throw e;
             }
-            measureEnd(perf.getRunKey(), "JCas deserialization");
+            measureEnd(perf.getRunKey(), format("%s-JCas deserialization", comp.getSignature()));
             long deserializeEnd = System.nanoTime();
             
             ReproducibleAnnotation ann = new ReproducibleAnnotation(jc);

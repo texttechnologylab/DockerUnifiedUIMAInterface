@@ -177,6 +177,7 @@ public class DUUIRemoteDriver implements IDUUIConnectedDriverInterface {
         private ConcurrentLinkedQueue<ComponentInstance> _components;
         private String _uniqueComponentKey;
         private DUUIPipelineComponent _component;
+        private Signature _signature; 
 
         public InstantiatedComponent(DUUIPipelineComponent comp) {
             _component = comp;
@@ -208,6 +209,16 @@ public class DUUIRemoteDriver implements IDUUIConnectedDriverInterface {
 
         public List<String> getUrls() {
             return _component.getUrl();
+        }
+
+        @Override
+        public void setSignature(Signature sig) {
+            _signature = sig;  
+        }
+
+        @Override
+        public Signature getSignature() {
+            return _signature; 
         }
     }
 

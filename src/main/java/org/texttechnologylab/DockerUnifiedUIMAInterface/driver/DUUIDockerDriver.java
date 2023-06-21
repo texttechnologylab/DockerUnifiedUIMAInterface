@@ -97,6 +97,7 @@ public class DUUIDockerDriver implements IDUUIConnectedDriverInterface {
             uuid = UUID.randomUUID().toString();
         }
 
+        
         InstantiatedComponent comp = new InstantiatedComponent(component);
 
         if (!comp.getImageFetching()) {
@@ -214,6 +215,8 @@ public class DUUIDockerDriver implements IDUUIConnectedDriverInterface {
         private ConcurrentLinkedQueue<ComponentInstance> _instances;
         private DUUIPipelineComponent _component;
         private String _uniqueComponentKey; 
+        private Signature _signature; 
+        
 
         InstantiatedComponent(DUUIPipelineComponent comp) {
             _component = comp;
@@ -268,6 +271,16 @@ public class DUUIDockerDriver implements IDUUIConnectedDriverInterface {
 
         public boolean usesGPU() {
             return getPipelineComponent().getDockerGPU(false);
+        }
+
+        @Override
+        public void setSignature(Signature sig) {
+            _signature = sig;  
+        }
+
+        @Override
+        public Signature getSignature() {
+            return _signature; 
         }
     }
 
