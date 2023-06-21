@@ -13,7 +13,6 @@ import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.javatuples.Triplet;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer.AnnotatorSignature;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUICommunicationLayer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.DUUIWebsocketAlt;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.IDUUIConnectionHandler;
@@ -53,7 +52,7 @@ public interface IDUUIInstantiatedPipelineComponent {
             .proxy(ProxySelector.getDefault())
             .connectTimeout(Duration.ofSeconds(1000)).build();
 
-    public static final Map<AnnotatorSignature, Object> currentSignatures = new ConcurrentHashMap<>(); 
+    public static final Map<Signature, Object> currentSignatures = new ConcurrentHashMap<>(); 
 
     public String getUniqueComponentKey();
 
@@ -94,7 +93,7 @@ public interface IDUUIInstantiatedPipelineComponent {
         return Triplet.with(inst,mutexStart,mutexEnd);
     }
 
-    public static AnnotatorSignature getInputOutputs(String uuid, IDUUIInstantiatedPipelineComponent comp) throws ResourceInitializationException {
+    public static Signature getInputOutputs(String uuid, IDUUIInstantiatedPipelineComponent comp) throws ResourceInitializationException {
 
         Triplet<IDUUIUrlAccessible,Long,Long> queue = comp.getComponent();
         int tries = 0;
@@ -142,9 +141,9 @@ public interface IDUUIInstantiatedPipelineComponent {
 
                     List<Class<? extends Annotation>> outputs = getAnnotationList.apply("outputs");
 
-                    return new AnnotatorSignature(inputs, outputs);
+                    return new Signature(inputs, outputs);
                 } else {
-                    return new AnnotatorSignature(new ArrayList<>(), new ArrayList<>());
+                    return new Signature(new ArrayList<>(), new ArrayList<>());
                 }
             } catch (Exception e) {
                 System.out.printf("Cannot reach endpoint trying again %d/%d...\n",tries+1,100);

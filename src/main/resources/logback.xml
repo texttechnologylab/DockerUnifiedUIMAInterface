@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
 	<root level="off"/>
+	<logger  level="OFF" />
+	<logger name = "org.apache.uima.jcas.impl.JCasImpl" level="OFF" />
 </configuration>

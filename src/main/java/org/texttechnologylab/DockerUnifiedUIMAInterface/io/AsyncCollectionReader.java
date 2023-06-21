@@ -6,6 +6,7 @@ import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.commons.compress.compressors.CompressorStreamFactory;
 import org.apache.commons.io.FileUtils;
 import org.apache.uima.cas.impl.XmiCasDeserializer;
+import org.apache.uima.fit.testing.util.DisableLogging;
 import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.javaync.io.AsyncFiles;
@@ -91,6 +92,8 @@ public class AsyncCollectionReader {
 
     public AsyncCollectionReader(String folder, String ending, int debugCount, int iRandom, boolean bSort, String savePath, boolean bAddMetadata, String language) {
 
+        DisableLogging.disableLogging();
+        
         _addMetadata = bAddMetadata;
         _language = language;
         _filePaths = new ConcurrentLinkedQueue<>();
@@ -207,8 +210,9 @@ public class AsyncCollectionReader {
         return val;
     }
 
-    @SuppressWarnings("")
     public boolean getNextCAS(JCas empty) throws IOException, CompressorException, SAXException {
+        DisableLogging.disableLogging();
+        
         ByteReadFuture future = _loadedFiles.poll();
 
         byte []file = null;

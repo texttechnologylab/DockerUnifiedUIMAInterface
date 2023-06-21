@@ -22,7 +22,6 @@ import org.apache.uima.jcas.JCas;
 import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer.AnnotatorSignature;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIFallbackCommunicationLayer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUICommunicationLayer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaCommunicationLayer;
@@ -40,7 +39,7 @@ public interface IDUUIConnectedDriverInterface extends IDUUIDriverInterface {
     
     public Map<String, ? extends IDUUIInstantiatedPipelineComponent> getComponents(); 
 
-    public default AnnotatorSignature get_signature(String uuid) throws ResourceInitializationException {
+    public default Signature get_signature(String uuid) throws ResourceInitializationException {
         IDUUIInstantiatedPipelineComponent comp = getComponents().get(uuid);
         if (comp == null) {
             throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver.");
@@ -56,20 +55,6 @@ public interface IDUUIConnectedDriverInterface extends IDUUIDriverInterface {
         return IDUUIInstantiatedPipelineComponent.getTypesystem(uuid, comp);
     }
     
-    public default void run(String uuid, JCas aCas, DUUIPipelineDocumentPerformance perf) throws InterruptedException, IOException, SAXException, AnalysisEngineProcessException, CompressorException, CASException {
-        long mutexStart = System.nanoTime();
-        IDUUIInstantiatedPipelineComponent comp = getComponents().get(uuid);
-        if (comp == null) {
-            throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local driver.");
-        }
-        if (comp.isWebsocket()) {
-            IDUUIInstantiatedPipelineComponent.process_handler(aCas, comp, perf);
-        }
-        else {
-            IDUUIInstantiatedPipelineComponent.process(aCas, comp, perf);
-        }
-    }
-
     public default IDUUICommunicationLayer get_communication_layer(String url, JCas jc, int timeout_ms, HttpClient client, ResponsiveMessageCallback printfunc, DUUILuaContext context, boolean skipVerification) throws Exception {
         long start = System.currentTimeMillis();
         IDUUICommunicationLayer layer = new DUUIFallbackCommunicationLayer();
@@ -182,4 +167,19 @@ public interface IDUUIConnectedDriverInterface extends IDUUIDriverInterface {
                     throw new Exception(format("The container returned response with code != 200\nResponse %s",resp.body().toString()));
                 }
     }
+
+    public default void run(String uuid, JCas aCas, DUUIPipelineDocumentPerformance perf) throws InterruptedException, IOException, SAXException, AnalysisEngineProcessException, CompressorException, CASException {
+        long mutexStart = System.nanoTime();
+        IDUUIInstantiatedPipelineComponent comp = getComponents().get(uuid);
+        if (comp == null) {
+            throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local driver.");
+        }
+        if (comp.isWebsocket()) {
+            IDUUIInstantiatedPipelineComponent.process_handler(aCas, comp, perf);
+        }
+        else {
+            IDUUIInstantiatedPipelineComponent.process(aCas, comp, perf);
+        }
+    }
+
 }

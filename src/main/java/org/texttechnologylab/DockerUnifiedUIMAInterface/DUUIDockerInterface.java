@@ -264,11 +264,11 @@ public class DUUIDockerInterface {
         try{
             _docker.stopContainerCmd(id).withTimeout(10).exec();
         } catch (NotModifiedException e) {
-            System.out.println(e.getMessage());
             System.out.printf("Could not stop container: %s%n", id);
+            System.out.println(e.getMessage());
         } catch (Exception e) {
-            System.out.println(e.getMessage());
             System.out.printf("Could not stop container: %s%n", id);
+            System.out.println(e.getMessage());
         }
     }
 

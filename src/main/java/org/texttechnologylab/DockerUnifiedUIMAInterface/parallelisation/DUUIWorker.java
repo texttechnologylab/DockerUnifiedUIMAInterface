@@ -1,0 +1,102 @@
+package org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation;
+
+import static java.lang.String.format;
+import static org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.DUUIPipelineProfiler.measureEnd;
+import static org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.DUUIPipelineProfiler.measureStart;
+import static org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.DUUIPipelineProfiler.updatePipelineGraphStatus;
+
+import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+import org.apache.uima.jcas.JCas;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer.PipelinePart;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
+
+import guru.nidi.graphviz.attribute.Color;
+
+public class DUUIWorker implements Callable<Boolean> {
+    private final String name;
+    private final PipelinePart component;
+    private final JCas jc;
+    private final DUUIPipelineDocumentPerformance perf;
+    private final Iterable<DUUIWorker.ComponentLock> selfLocks;
+    private final Iterable<DUUIWorker.ComponentLock> childrenLocks;
+
+    public DUUIWorker(String name, 
+                PipelinePart component, 
+                JCas jc, 
+                DUUIPipelineDocumentPerformance perf, 
+                Iterable<DUUIWorker.ComponentLock> selfLatches, 
+                Iterable<DUUIWorker.ComponentLock> childLatches) {
+        this.name = name;
+        this.component = component; 
+        this.jc = jc; 
+        this.perf = perf; 
+        this.selfLocks = selfLatches; 
+        this.childrenLocks = childLatches; 
+    }
+
+    @Override
+    public Boolean call() throws Exception {
+        try {
+            for (DUUIWorker.ComponentLock parent : selfLocks) {
+                parent.await(1, TimeUnit.SECONDS);
+                if (parent.failed()) {
+                    throw new Exception(format("[DUUIWorker-%s][%s][Component: %s] Parent failed.%n", 
+                        Thread.currentThread().getName(), name, component.getSignature()));
+                }
+            }
+            
+            updatePipelineGraphStatus(name, component.getSignature().toString(), Color.YELLOW2);
+            System.out.printf(
+                "[DUUIWorker-%s][%s] Pipeline component %s starting analysis.%n", 
+                Thread.currentThread().getName(), name, component.getSignature()
+            );
+
+            measureStart(name, format("Run of component %s", component.getSignature().toString()));
+            component.run(name, jc, perf); 
+            measureEnd(name, format("Run of component %s", component.getSignature().toString()));
+                
+            updatePipelineGraphStatus(name, component.getSignature().toString(), Color.GREEN3);
+            System.out.printf(
+                "[DUUIWorker-%s][%s] Pipeline component %s finished analysis.%n", 
+                Thread.currentThread().getName(), name, component.getSignature()
+            );
+                
+            for (DUUIWorker.ComponentLock childLock : childrenLocks)
+                childLock.countDown(); // release
+                    
+            } catch (Exception e) {
+                updatePipelineGraphStatus(name, component.getSignature().toString(), Color.RED3);
+                System.out.printf("[DUUIWorker-%s][%s] Pipeline component %s failed.%n",
+                    Thread.currentThread().getName(), name, component.getSignature()
+                );
+
+                for (DUUIWorker.ComponentLock childLock : childrenLocks)
+                    childLock.fail();
+                throw e;
+            }
+
+        return Boolean.valueOf(true); 
+    }
+
+    public static class ComponentLock extends CountDownLatch {
+
+        AtomicBoolean failed = new AtomicBoolean(false);
+
+        public ComponentLock(int count) {
+            super(count);
+        }
+
+        public boolean failed() {
+            return failed.get();
+        }
+
+        public void fail() {
+            failed.set(true);
+        }
+    
+    }
+}
