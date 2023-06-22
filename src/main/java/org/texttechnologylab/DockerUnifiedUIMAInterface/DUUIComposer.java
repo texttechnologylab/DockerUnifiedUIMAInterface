@@ -332,10 +332,8 @@ public class DUUIComposer {
         if(!_hasShutdown) {
             _shutdownAtomic.set(true);
             
-            _executorService.shutdown(); 
-            while (!_executorService.awaitTermination(100, TimeUnit.MILLISECONDS)) {
-                System.out.println("[Composer] Waiting for executor to terminate!");
-            }
+            _executorService.shutdownNow(); 
+            while (!_executorService.awaitTermination(100, TimeUnit.MILLISECONDS)) {}
             if (_executorService.isTerminated()) 
                 System.out.println("[DUUIComposer] Executor terminated!");
 
