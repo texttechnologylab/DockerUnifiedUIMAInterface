@@ -3,6 +3,7 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -84,17 +85,17 @@ public class DUUIParallelExecutionPipeline extends DirectedAcyclicGraph<String, 
     }
 
     public synchronized void initialiseComponentRunners(String name, JCas jc, DUUIPipelineDocumentPerformance perf) throws Exception {
-        Map<String, Pair<Iterable<ComponentLock>, Iterable<ComponentLock>>> _locks = initialiseLocks(jc);
+        Map<String, Pair<Collection<ComponentLock>, Collection<ComponentLock>>> _locks = initialiseLocks(jc);
         _pipeline.forEach((uuid, comp) -> 
             {
-                Iterable<ComponentLock> selfLocks = _locks.get(uuid).getValue0();
-                Iterable<ComponentLock> childLocks = _locks.get(uuid).getValue1();
+                Collection<ComponentLock> selfLocks = _locks.get(uuid).getValue0();
+                Collection<ComponentLock> childLocks = _locks.get(uuid).getValue1();
 
                 _componentRunners.put(name+uuid, new DUUIWorker(name, comp, jc, perf, selfLocks, childLocks));
             });
     }
 
-    private Map<String, Pair<Iterable<ComponentLock>, Iterable<ComponentLock>>> initialiseLocks(JCas jc) {
+    private Map<String, Pair<Collection<ComponentLock>, Collection<ComponentLock>>> initialiseLocks(JCas jc) {
         
         Map<String, Map<Class<? extends Annotation>, ComponentLock>> 
             latches = new ConcurrentHashMap<>(_pipeline.size()); 
@@ -149,8 +150,8 @@ public class DUUIParallelExecutionPipeline extends DirectedAcyclicGraph<String, 
             .map(entry -> 
             {
                 String self = entry.getKey();
-                Iterable<ComponentLock> selfLocks = entry.getValue().values(); 
-                Iterable<ComponentLock> childLocks = childLatches.get(self);
+                Collection<ComponentLock> selfLocks = entry.getValue().values(); 
+                Collection<ComponentLock> childLocks = childLatches.get(self);
                 return Pair.with(self, Pair.with(selfLocks, childLocks));
             }).collect(Collectors.toMap(Pair::getValue0, Pair::getValue1));
         

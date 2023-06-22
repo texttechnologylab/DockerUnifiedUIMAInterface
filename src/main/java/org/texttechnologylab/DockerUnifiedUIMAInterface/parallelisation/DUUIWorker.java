@@ -5,6 +5,9 @@ import static org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.D
 import static org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.DUUIPipelineProfiler.measureStart;
 import static org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.DUUIPipelineProfiler.updatePipelineGraphStatus;
 
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -21,34 +24,42 @@ public class DUUIWorker implements Callable<Boolean> {
     private final PipelinePart component;
     private final JCas jc;
     private final DUUIPipelineDocumentPerformance perf;
-    private final Iterable<DUUIWorker.ComponentLock> selfLocks;
-    private final Iterable<DUUIWorker.ComponentLock> childrenLocks;
+    private final Collection<DUUIWorker.ComponentLock> parentLocks;
+    private final Collection<DUUIWorker.ComponentLock> childrenLocks;
+    private Set<ComponentLock> finishedParents = new HashSet<>();
 
     public DUUIWorker(String name, 
                 PipelinePart component, 
                 JCas jc, 
                 DUUIPipelineDocumentPerformance perf, 
-                Iterable<DUUIWorker.ComponentLock> selfLatches, 
-                Iterable<DUUIWorker.ComponentLock> childLatches) {
+                Collection<DUUIWorker.ComponentLock> selfLatches, 
+                Collection<DUUIWorker.ComponentLock> childLatches) {
         this.name = name;
         this.component = component; 
         this.jc = jc; 
         this.perf = perf; 
-        this.selfLocks = selfLatches; 
+        this.parentLocks = selfLatches; 
         this.childrenLocks = childLatches; 
     }
 
     @Override
     public Boolean call() throws Exception {
         try {
-            for (DUUIWorker.ComponentLock parent : selfLocks) {
-                parent.await(1, TimeUnit.SECONDS);
-                if (parent.failed()) {
-                    throw new Exception(format("[DUUIWorker-%s][%s][Component: %s] Parent failed.%n", 
-                        Thread.currentThread().getName(), name, component.getSignature()));
+            while (finishedParents.size() != parentLocks.size()) {
+                for (DUUIWorker.ComponentLock parent : parentLocks) {
+                    boolean finished = parent.await(1, TimeUnit.SECONDS);
+                    if (parent.failed()) {
+                        throw new Exception(format("[DUUIWorker-%s][%s][Component: %s] Parent failed.%n", 
+                            Thread.currentThread().getName(), name, component.getSignature()));
+                    }
+
+                    if (finished) finishedParents.add(parent);
+                    
                 }
+                if (Thread.interrupted()) 
+                    throw new Exception(format("[DUUIWorker-%s][%s][Component: %s] interrupted.%n", 
+                            Thread.currentThread().getName(), name, component.getSignature()));
             }
-            
             updatePipelineGraphStatus(name, component.getSignature().toString(), Color.YELLOW2);
             System.out.printf(
                 "[DUUIWorker-%s][%s] Pipeline component %s starting analysis.%n", 

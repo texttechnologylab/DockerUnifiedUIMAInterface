@@ -331,6 +331,14 @@ public class DUUIComposer {
     public void shutdown() throws UnknownHostException, InterruptedException {
         if(!_hasShutdown) {
             _shutdownAtomic.set(true);
+            
+            _executorService.shutdown(); 
+            while (!_executorService.awaitTermination(100, TimeUnit.MILLISECONDS)) {
+                System.out.println("[Composer] Waiting for executor to terminate!");
+            }
+            if (_executorService.isTerminated()) 
+                System.out.println("[DUUIComposer] Executor terminated!");
+
             if (_monitor != null) {
                 _monitor.shutdown();
             } else if (_storage != null) {
@@ -347,11 +355,6 @@ public class DUUIComposer {
             for (IDUUIDriverInterface driver : _drivers.values()) {
                 driver.shutdown();
             }
-            
-            _executorService.shutdownNow(); 
-            while (!_executorService.awaitTermination(100, TimeUnit.MILLISECONDS)) {}
-            if (_executorService.isTerminated()) 
-                System.out.println("[DUUIComposer] Executor terminated!");
 
             _hasShutdown = true;
         }
