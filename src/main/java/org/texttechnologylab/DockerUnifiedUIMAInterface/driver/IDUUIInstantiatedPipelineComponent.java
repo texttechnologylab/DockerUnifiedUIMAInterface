@@ -1,8 +1,7 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.driver;
 
 import static java.lang.String.format;
-import static org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.DUUIPipelineProfiler.measureStart;
-import static org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.DUUIPipelineProfiler.measureEnd;
+import static org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.DUUIPipelineProfiler.documentUpdate;
 
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.cas.CASException;
@@ -36,6 +35,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -45,6 +45,7 @@ import java.util.stream.Collectors;
 
 public interface IDUUIInstantiatedPipelineComponent {
 
+    
     public static HttpClient _client = HttpClient.newBuilder()
             .version(HttpClient.Version.HTTP_1_1)
             .followRedirects(HttpClient.Redirect.ALWAYS)
@@ -189,9 +190,10 @@ public interface IDUUIInstantiatedPipelineComponent {
 
     public static void process(JCas jc, IDUUIInstantiatedPipelineComponent comp, DUUIPipelineDocumentPerformance perf) throws CompressorException, IOException, SAXException, CASException {
         
-        measureStart(perf.getRunKey(),  comp.getSignature(), "UrlAccessible retrieval");
+        long start = Instant.now().getEpochSecond();
         Triplet<IDUUIUrlAccessible,Long,Long> queue = comp.getComponent();
-        measureEnd(perf.getRunKey(),  comp.getSignature(), "UrlAccessible retrieval");
+        Instant end = Instant.now().minusSeconds(start);
+        documentUpdate(perf.getRunKey(), comp.getSignature(), "urlwait", end);
 
         IDUUICommunicationLayer layer = queue.getValue0().getCommunicationLayer();
         long serializeStart = System.nanoTime();
@@ -220,10 +222,11 @@ public interface IDUUIInstantiatedPipelineComponent {
             }
         }
         
-        measureStart(perf.getRunKey(), comp.getSignature(), "JCas serialization");
+        start = Instant.now().getEpochSecond();
         layer.serialize(viewJc,out,comp.getParameters());
-        measureEnd(perf.getRunKey(), comp.getSignature(), "JCas serialization");
-        
+        end = Instant.now().minusSeconds(start);
+        documentUpdate(perf.getRunKey(), comp.getSignature(), "serialization", end);
+
         byte[] ok = out.toByteArray();
         long sizeArray = ok.length;
         long serializeEnd = System.nanoTime();
@@ -231,7 +234,7 @@ public interface IDUUIInstantiatedPipelineComponent {
         long annotatorStart = serializeEnd;
         int tries = 0;
         HttpResponse<byte[]> resp = null;
-        measureStart(perf.getRunKey(), comp.getSignature(), "Annotator");
+        start = Instant.now().getEpochSecond();
         while(tries < 2) {
             tries++;
             try {
@@ -248,17 +251,18 @@ public interface IDUUIInstantiatedPipelineComponent {
                 //System.out.printf("Cannot reach endpoint trying again %d/%d...\n",tries+1,10);
             }
         }
+        end = Instant.now().minusSeconds(start);
+        documentUpdate(perf.getRunKey(), comp.getSignature(), "annotator", end);
+
         if(resp==null) {
             throw new IOException(format("%s-Could not reach endpoint after 2 tries!", perf.getRunKey()));
         }
-        measureEnd(perf.getRunKey(), comp.getSignature(), "Annotator");
         
         if (resp.statusCode() == 200) {
             ByteArrayInputStream st = new ByteArrayInputStream(resp.body());
             long annotatorEnd = System.nanoTime();
             long deserializeStart = annotatorEnd;
-            
-            measureStart(perf.getRunKey(), comp.getSignature(), "JCas deserialization");
+            start = Instant.now().getEpochSecond();
             try {
                 synchronized(jc) {
                     layer.deserialize(viewJc, st);
@@ -268,9 +272,10 @@ public interface IDUUIInstantiatedPipelineComponent {
                 System.err.printf("Caught exception printing response %s\n",new String(resp.body(), StandardCharsets.UTF_8));
                 throw e;
             }
-            measureEnd(perf.getRunKey(), comp.getSignature(), "JCas deserialization");
             long deserializeEnd = System.nanoTime();
-            
+            end = Instant.now().minusSeconds(start);
+            documentUpdate(perf.getRunKey(), comp.getSignature(), "deserialization", end);
+
             ReproducibleAnnotation ann = new ReproducibleAnnotation(jc);
             ann.setDescription(comp.getPipelineComponent().getFinalizedRepresentation());
             ann.setCompression(DUUIPipelineComponent.compressionMethod);

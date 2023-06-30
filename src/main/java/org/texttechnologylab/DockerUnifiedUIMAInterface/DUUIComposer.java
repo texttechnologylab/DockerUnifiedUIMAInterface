@@ -27,6 +27,8 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.*;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.AsyncCollectionReader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.DUUIMonitor;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.DUUISimpleMonitor;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.IDUUIMonitor;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.DUUIParallelExecutionPipeline;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.DUUIPipelineProfiler;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
@@ -56,9 +58,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 import static java.lang.String.format;
-import static org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.DUUIPipelineProfiler.measureStart;
-import static org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.DUUIPipelineProfiler.measureEnd;
-import static org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.DUUIPipelineProfiler.printMeasurements;
+import static org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.DUUIPipelineProfiler.documentUpdate;
+import static org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.DUUIPipelineProfiler.pipelineUpdate;
 
 public class DUUIComposer {
     private final Map<String, IDUUIDriverInterface> _drivers;
@@ -68,7 +69,7 @@ public class DUUIComposer {
     private int _workers;
     public Integer _cas_poolsize;
     private DUUILuaContext _context;
-    private DUUIMonitor _monitor;
+    private IDUUIMonitor _monitor;
     private IDUUIStorageBackend _storage;
     private boolean _skipVerification;
 
@@ -132,7 +133,7 @@ public class DUUIComposer {
         return _workers;
     }
 
-    public DUUIComposer withMonitor(DUUIMonitor monitor) throws UnknownHostException, InterruptedException {
+    public DUUIComposer withMonitor(IDUUIMonitor monitor) throws Exception {
         _monitor = monitor;
         _monitor.setup();
         return this;
@@ -305,11 +306,16 @@ public class DUUIComposer {
             if(_storage!=null) {
                 _storage.addNewRun(name,this);
             }
-            new DUUIPipelineProfiler(name, _executionPipeline.getGraph()); 
+            if (_monitor != null)
+                new DUUIPipelineProfiler(name, _executionPipeline.getGraph(), (DUUISimpleMonitor) _monitor); 
+            
+            pipelineUpdate("name", name);
+            pipelineUpdate("workers", _workers);
             Instant starttime = Instant.now();
-            measureStart("Complete pipeline run");
             result = runPipeline.call();
-            measureEnd("Complete pipeline run");
+            Instant end = Instant.now().minusSeconds(starttime.getEpochSecond());
+            pipelineUpdate("duration", end);
+
             if(_storage!=null) {
                 _storage.finalizeRun(name,starttime,Instant.now());
             }
@@ -319,7 +325,7 @@ public class DUUIComposer {
             catched = e;
         }
         /** shutdown **/
-        shutdown_pipeline();
+        // shutdown_pipeline();
         if (catched != null) {
             shutdown();
             throw catched;
@@ -416,7 +422,7 @@ public class DUUIComposer {
                         Signature signature = driver.get_signature(uuid);
                         
                         synchronized (_instantiatedPipeline) {
-                            _instantiatedPipeline.add(new PipelinePart(driver, uuid, signature));
+                            _instantiatedPipeline.add(new PipelinePart(driver, uuid, signature, comp.getScale()));
                         }  
                     } catch (Exception e) {
                         e.printStackTrace();
@@ -490,23 +496,16 @@ public class DUUIComposer {
                 String currName = format("%s-%d", name, d.get()); 
                 
                 JCas jc = JCasFactory.createJCas(desc);
-                DUUIPipelineProfiler.add(currName, jc);
-
-                measureStart(currName, "Document retrieval");
+                
                 long waitTimeStart = System.nanoTime();
                 reader.getNextCAS(jc);
                 long waitTimeEnd = System.nanoTime();
-                measureEnd(currName, "Document retrieval");
 
                 DUUIPipelineDocumentPerformance perf = new DUUIPipelineDocumentPerformance(currName, waitTimeEnd-waitTimeStart,jc);
                 // Get component and immediatiately submit to executorService
-                // for (String compId : _executionPipeline._executionplan) {
                 component = _executionPipeline.getComponentRunner(currName, compId, jc, perf);
                 d.incrementAndGet();
                 runningComponents.add(_executorService.submit(component));
-                // }
-
-                
             }
             
             if (firstComponent) continue;
@@ -520,6 +519,8 @@ public class DUUIComposer {
                 runningComponents.add(_executorService.submit(component));
             }
         }
+
+        pipelineUpdate("document_count", d.get());
 
         _executorService.shutdown();
         try {
@@ -540,52 +541,6 @@ public class DUUIComposer {
         
         List<Future<Boolean>> runningComponents = new ArrayList<>();
         Map<Integer, JCas> results = new ConcurrentHashMap<>();
-
-        AtomicInteger d = new AtomicInteger(1);
-        Callable<Boolean> component = null; 
-        for (String compId : _executionPipeline._executionplan) {
-            // TODO: Make executionPlan graph height based.
-            boolean firstComponent = !reader.hasNext();
-            while(!reader.hasNext()) {
-                // Instantiate JCas.
-                JCas jc = JCasFactory.createJCas(desc);
-                long waitTimeStart = System.nanoTime();
-                reader.getNext(jc.getCas());
-                long waitTimeEnd = System.nanoTime();
-
-                DUUIPipelineDocumentPerformance perf = 
-                    new DUUIPipelineDocumentPerformance(
-                        name + d.get(), 
-                        waitTimeEnd-waitTimeStart,
-                        jc);
-                // Get component and immediatiately submit to executorService
-                component = 
-                    _executionPipeline.getComponentRunner(name + d.getAndIncrement(), compId, jc, perf);
-
-                runningComponents.add(_executorService.submit(component));
-                
-            }
-            
-            if (firstComponent) continue;
-           
-            for (int i = 1; i < d.get(); i++) {
-                component = _executionPipeline.getRunner(name + i, compId);
-
-                if (component == null) 
-                    throw new RuntimeException(format("[%s][%s] doesn't exist.", name + i, compId));
-                runningComponents.add(_executorService.submit(component));
-            }
-        }
-
-        _executorService.shutdown();
-        try {
-            while (!_executorService.awaitTermination(100*runningComponents.size(), TimeUnit.MILLISECONDS)) {}
-            for (Future<Boolean> task : runningComponents) 
-                task.get();
-        } catch (Exception e) {
-            _executorService.shutdownNow();
-            throw e; 
-        }
 
         return results.values().stream().collect(Collectors.toList());
     }
@@ -622,17 +577,20 @@ public class DUUIComposer {
         private final IDUUIDriverInterface _driver;
         private final String _uuid;
         private final Signature _signature; 
+        private final int _scale; 
 
-        PipelinePart(IDUUIDriverInterface driver, String uuid) {
+        PipelinePart(IDUUIDriverInterface driver, String uuid, int scale) {
             _driver = driver;
             _uuid = uuid;
             _signature = null;
+            _scale = scale; 
         }
 
-        public PipelinePart(IDUUIDriverInterface driver, String uuid, Signature signature) {
+        public PipelinePart(IDUUIDriverInterface driver, String uuid, Signature signature, int scale) {
             _driver = driver;
             _uuid = uuid;
             _signature = signature;
+            _scale = scale; 
         }
 
         public void run(String name, JCas jc, DUUIPipelineDocumentPerformance perf) throws AnalysisEngineProcessException, CASException, InterruptedException, IOException, SAXException, CompressorException {
@@ -650,6 +608,10 @@ public class DUUIComposer {
 
         public IDUUIDriverInterface getDriver() {
             return _driver;
+        }
+
+        public int getScale() {
+            return _scale; 
         }
 
         public String getUUID() {
@@ -703,6 +665,7 @@ public class DUUIComposer {
 
         DUUIComposer composer = new DUUIComposer()
             // .withMonitor(new DUUIMonitor("admin", "admin", 8087))
+            .withMonitor(new DUUISimpleMonitor())
             .withWorkers(10)
             .withSkipVerification(true)
             .withLuaContext(new DUUILuaContext().withJsonLibrary());
@@ -711,22 +674,22 @@ public class DUUIComposer {
         
         composer.add(  
             new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-ner:latest")
-                .withImageFetching().withScale(6).withGPU(true),
+                .withImageFetching().withScale(3).withGPU(true),
             
             new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-lemmatizer:latest")
-                .withImageFetching().withScale(6).withGPU(true),
+                .withImageFetching().withScale(3).withGPU(true),
             
             new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-morphologizer:latest")
-                .withImageFetching().withScale(6).withGPU(true),
+                .withImageFetching().withScale(3).withGPU(true),
             
             new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-parser:latest")
-                .withImageFetching().withScale(6).withGPU(true),
+                .withImageFetching().withScale(3).withGPU(true),
             
             new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-sentencizer:latest")
-                .withImageFetching().withScale(6).withGPU(true),
+                .withImageFetching().withScale(3).withGPU(true),
             
             new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-tokenizer:latest")
-                .withImageFetching().withScale(6).withGPU(true)
+                .withImageFetching().withScale(3).withGPU(true)
         );
         // composer.add( // 
         // new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-tokenizer:latest")
@@ -792,9 +755,9 @@ public class DUUIComposer {
         AsyncCollectionReader rd = new AsyncCollectionReader("src\\main\\resources\\sample_splitted\\", ".txt", 1, -1, true, "", true);
 
         composer.run(rd, "ComponentFirst");
-        DUUIPipelineProfiler.printMeasurements();
         composer.shutdown();
 
+        
 
   }
 

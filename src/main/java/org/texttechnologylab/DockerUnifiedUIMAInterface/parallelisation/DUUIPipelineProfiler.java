@@ -2,7 +2,10 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation;
 
 import static java.lang.String.format;
 
-import java.io.File;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
+import java.io.ByteArrayOutputStream;
 
 import static guru.nidi.graphviz.model.Factory.mutGraph;
 import static guru.nidi.graphviz.model.Factory.graphAttrs;
@@ -10,23 +13,18 @@ import static guru.nidi.graphviz.model.Factory.linkAttrs;
 import static guru.nidi.graphviz.model.Factory.node;
 
 import java.time.Instant;
-import java.util.ArrayList;
+import java.time.LocalTime;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.stream.Collector;
-import java.util.stream.Collectors;
 
-import org.apache.uima.jcas.JCas;
-import org.javatuples.Pair;
-import org.javatuples.Triplet;
+import org.json.JSONObject;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.Signature;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.DUUISimpleMonitor;
 
 import guru.nidi.graphviz.attribute.Color;
 import guru.nidi.graphviz.attribute.Rank;
@@ -38,216 +36,171 @@ import guru.nidi.graphviz.model.MutableGraph;
 import guru.nidi.graphviz.model.Node;
 
 public class DUUIPipelineProfiler {
-    
-    private static class Measurement {
-        final String _measurementObject;
-        final Instant _start;
-        Instant _end = null; 
-        
-        Measurement(String measurementObject, Instant start) {
-            _measurementObject = measurementObject; 
-            _start = start;
-        }
-
-        long total() {
-            return _end != null ? _end.minusSeconds(_start.getEpochSecond()).getEpochSecond() : 0; 
-        }
-    }
-
-    private final static Map<String, Measurement> _doc_measurements = new ConcurrentHashMap<>(); 
-    private final static Map<String, Instant> _pipeline_measurements = new ConcurrentHashMap<>(); 
-    private final static Map<String, JCas> _documents = new ConcurrentHashMap<>();
-    private final static Map<Instant, Pair<String, Triplet<Long, Long, Long>>> _timeline = new ConcurrentHashMap<>();
-    private static Map<String, MutableGraph> _pipelineGraphs = new HashMap<>(); 
-    private static String _name; 
+    // {name: {component: {urlwait:00:00:01, ...}}}
+    private final static Map<String, Object> _pipeline_measurements = new ConcurrentHashMap<>();
+    private static Map<String, MutableGraph> _pipelineGraphs = new HashMap<>();
+    private static String _name;
     private static Map<String, Set<String>> _pipeline;
-    private static AtomicBoolean withProfiler = new AtomicBoolean(false); 
+    private static Set<String> _components = null;
+    private static DUUISimpleMonitor _monitor;
+    private static AtomicBoolean withProfiler = new AtomicBoolean(false);
     private static ExecutorService profileRunner = Executors.newSingleThreadExecutor();
 
-    public DUUIPipelineProfiler(String name, Map<String, Set<String>> pipeline) {
-        if(name == null) return;
+    public DUUIPipelineProfiler(String name, Map<String, Set<String>> pipeline, DUUISimpleMonitor monitor) {
+        if (name == null)
+            return;
         if (withProfiler.get()) {
-            _doc_measurements.clear();
             _pipeline_measurements.clear();
-            _documents.clear();
-            _timeline.clear();
             _pipelineGraphs.clear();
         }
 
         withProfiler.set(true);
         _name = name;
-        _pipeline = pipeline;         
+        _pipeline = pipeline;
+        _components = _pipeline.keySet();
+        _monitor = monitor;
+
+        Map<String, Object> pipe_update = new HashMap<>();
+        pipe_update.put("name", name);
+        send(pipe_update, DUUISimpleMonitor.V1_MONITOR_PIPELINE_UPDATE);
     }
 
-    public static synchronized void add(String name, JCas jc) {
-        if (!withProfiler.get() || _pipeline == null) return; 
+    public static synchronized void add(String name, String title, Signature signature, int scale) {
+        if (!withProfiler.get() || _pipelineGraphs.containsKey(name))
+            return;
 
-        _pipelineGraphs.put(name, mutGraph("example1").setDirected(true).use( (gr, ctx) -> {
+        _pipelineGraphs.put(name, mutGraph().setDirected(true).use((gr, ctx) -> {
             graphAttrs().add(Rank.dir(RankDir.TOP_TO_BOTTOM));
             linkAttrs().add("class", "link-class");
         }));
 
-        for(String vertex : _pipeline.keySet()) {
-            Node parent = node(vertex);  
+        for (String vertex : _components) {
+            Node parent = node(vertex);
             _pipelineGraphs.get(name).add(parent);
-
             for (String child : _pipeline.get(vertex)) {
                 _pipelineGraphs.get(name).add(parent.link(node(child)));
             }
         }
+        
+        _pipeline_measurements.put(key(name, signature.toString()) + "scale", scale+"");
 
-        _documents.put(name, jc);
-        _timeline.put(Instant.now(), timelineEntry(format("[Profiler] Analysis for %s has started", name)));
+        Map<String, Object> doc_update = new HashMap<>();
+        doc_update.put("name", name);
+        doc_update.put("title", title);
+        doc_update.put("component", signature.toString());
+
+        send(doc_update, DUUISimpleMonitor.V1_MONITOR_DOCUMENT_UPDATE);
+        // graphUpdate(name);
+    }
+
+    private static void graphUpdate(String name) {
+        if (_monitor == null)
+            return;
+
+        Instant start = Instant.now();
+        String svg = writeToFile(name);
+        Instant end = Instant.now().minusSeconds(start.getEpochSecond());
+        Map<String, Object> graphUpdate = new HashMap<>();
+        graphUpdate.put("name", name);
+        graphUpdate.put("engine_duration", formatTime(end));
+        graphUpdate.put("svg", svg);
+        send(graphUpdate, DUUISimpleMonitor.V1_MONITOR_GRAPH_UPDATE);
+    }
+
+    public static void pipelineUpdate(String updateValue, Object value) {
+        if (_monitor == null)
+            return;
+
+        send(updateValue, value, DUUISimpleMonitor.V1_MONITOR_PIPELINE_UPDATE);
+    }
+
+    public static void documentUpdate(String name, Signature signature, String updateValue, Object value) {
+        if (_monitor == null)
+            return;
+
+        if (value instanceof Instant) {
+            value = formatTime((Instant) value);
+        }
+        _pipeline_measurements.put(key(name, signature.toString()) + updateValue, value);
     }
 
     public static synchronized void updatePipelineGraphStatus(String name, String signature, Color progress) {
-        // TODO: Execute with executorservice
-        if (!withProfiler.get() || _pipeline == null) return; 
-        if (!_pipelineGraphs.containsKey(name)) return;
-        
-        _timeline.put(Instant.now(), timelineEntry(format("[Profiler][%s] Updating graph status", name)));
-
-        measureStart(name, signature, "Updating graph status");
+        if (!withProfiler.get() || _pipeline == null)
+            return;
+        if (!_pipelineGraphs.containsKey(name))
+            return;
 
         _pipelineGraphs.get(name).nodes().forEach(comp -> {
             if (comp.name().contentEquals(signature)) {
                 comp.add(progress, Style.lineWidth(2), Style.RADIAL);
-            } 
+            }
         });
 
-        writeToFile(name);
-        measureEnd(name, signature, "Updating graph status");
+        graphUpdate(name);
     }
-    
-    public static void writeToFile(String name) {
+
+    public static String writeToFile(String name) {
+        OutputStream out = new ByteArrayOutputStream();
         try {
-            Graphviz.fromGraph(_pipelineGraphs.get(name)).width(1920).height(1080).render(Format.PNG).toFile(
-                new File(format("./Execution-Pipeline/%s.png", name)));
-            // System.out.printf("[DUUIExecutionPipeline] Generated execution graph: ./Execution-Pipeline/%s.png%n", name);
+            Graphviz.fromGraph(_pipelineGraphs.get(name))
+                    .width(1000)
+                    .height(1500)
+                    .render(Format.SVG)
+                    .toOutputStream(out);
+            // System.out.printf("[DUUIExecutionPipeline] Generated execution graph:
+            // ./Execution-Pipeline/%s.png%n", name);
+            return new String(((ByteArrayOutputStream) out).toByteArray(), StandardCharsets.UTF_8);
         } catch (Exception e) {
             System.out.println(format("[%s] Writing pipeline to file failed: %n", name) + e.getMessage());
+            return "";
         }
     }
 
-    public static void printMeasurements() {
-        if (!withProfiler.get()) return; 
+    public synchronized static void finalizeDocument(String name, String signature) {
 
-        System.out.println("[PipelineProfiler] Measurements: ");
-        _pipeline_measurements.forEach((measurement, time) -> 
-        {
-            System.out.printf("%s: %d seconds. %n", measurement, time.getEpochSecond());
-        });
-        _doc_measurements.entrySet().stream()
-        .sorted(Map.Entry.comparingByKey())
-        .forEach(entry -> 
-        {
-            System.out.printf("%s: %d seconds. %n", entry.getKey(), entry.getValue().total());
-        });
-
-        // _timeline.forEach((measurement, memory) -> 
-        // {
-        //     System.out.printf("At %s: %s%n", measurement, memory.getValue0());
-        // });
-
-    }
-
-    private static Pair<String, Triplet<Long, Long, Long>> timelineEntry(String description) {
-        return Pair.with(description, getMemorySnapshot()); 
-    }
-
-    private static Triplet<Long, Long, Long> getMemorySnapshot() {
-        return Triplet.with(
-                Runtime.getRuntime().freeMemory(),
-                Runtime.getRuntime().totalMemory(), 
-                Runtime.getRuntime().maxMemory());
-    }
-
-
-    public synchronized static void measureStart(String measurementObject) {
-        if (!withProfiler.get()) return; 
-        if (measurementObject == null) return; 
-        if (_pipeline_measurements.containsKey(measurementObject)) return;
+        Map<String, Object> update = new HashMap<>();
+        update.put("name", name);
+        update.put("component", signature);
+        update.put("scale", _pipeline_measurements.get(key(name, signature) + "scale"));
         
-        Instant time = Instant.now();
-        _timeline.put(time, timelineEntry(format("[%s] %s started.", _name, measurementObject)));
-        _pipeline_measurements.put(measurementObject, time);
+        System.out.println("FINALIZED DOCUMENT");
+
+        _pipeline_measurements.keySet()
+            .stream().filter(key -> key.contains(key(name, signature)))
+            .forEach(compKey -> 
+                {
+                // System.out.printf("Key: %s => Value: %s%n", compKey, _pipeline_measurements.get(compKey));
+                update.put(
+                    compKey.replace(key(name, signature), ""), 
+                    _pipeline_measurements.get(compKey)
+            );
+        });
+    
+        
+        send(update, DUUISimpleMonitor.V1_MONITOR_DOCUMENT_MEASUREMENT_UPDATE);
     }
 
-    public synchronized static void measureStart(String name, String signature, String measurementObject) {
-        if (!withProfiler.get()) return; 
-        if (measurementObject == null || name == null) return; 
-
-        String key = format("[%s][%s] %s", name, signature, measurementObject);
-
-        if (_doc_measurements.containsKey(key)) return;
-
-        Instant time = Instant.now();
-        _timeline.put(time, timelineEntry(format("%s started.", key)));
-        _doc_measurements.put(key, new Measurement(name, time));
+    private static void send(String updateValue, Object value, String type) {
+        Map<String, Object> update = new HashMap<>();
+        update.put(updateValue, value);
+        send(update, type);
     }
 
-    public synchronized static void measureStart(String name, Signature signature, String measurementObject) {
-        measureStart(name, signature.toString(), measurementObject);
+    private static void send(Map<String, Object> update, String type) {
+        try {
+            _monitor.sendUpdate(update, type);
+        } catch (IOException e) {
+            System.out.println(e.getMessage());
+        } catch (InterruptedException e) {
+            System.out.println(e.getMessage());
+        }
     }
 
-    public synchronized static void measureStart(String name, String measurementObject) {
-        if (!withProfiler.get()) return; 
-        if (measurementObject == null || name == null) return; 
-
-        String key = format("[%s][%s]", name, measurementObject);
-
-        if (_doc_measurements.containsKey(key)) return;
-
-        Instant time = Instant.now();
-        _timeline.put(time, timelineEntry(format("[%s] %s started.", name, measurementObject)));
-        _doc_measurements.put(key, new Measurement(name, time));
+    public static String formatTime(Instant seconds) {
+        return LocalTime.ofSecondOfDay(seconds.getEpochSecond()).toString();
     }
 
-    public synchronized static void measureEnd(String measurementObject) {
-        if (!withProfiler.get()) return; 
-        if (measurementObject == null) return; 
-        if (!_pipeline_measurements.containsKey(measurementObject)) return; 
-
-        Instant time = Instant.now();
-        _timeline.put(time, timelineEntry(format("[%s] %s finished.", _name, measurementObject)));
-        _pipeline_measurements.put(measurementObject, time.minusSeconds(_pipeline_measurements.get(measurementObject).getEpochSecond()));
-    }
-
-    public synchronized static void measureEnd(String name, String signature, String measurementObject) {
-        if (!withProfiler.get()) return; 
-        if (measurementObject == null || name == null) return; 
-
-        String key = format("[%s][%s] %s", name, signature, measurementObject);
-
-        if (!_doc_measurements.containsKey(key)) return; 
-
-        Instant time = Instant.now();
-        _timeline.put(time, timelineEntry(format("%s started.", key)));
-        _doc_measurements.get(key)._end = time;
-    }
-
-    public synchronized static void measureEnd(String name, Signature signature, String measurementObject) {
-        measureEnd(name, signature.toString(), measurementObject);
-    }
-
-    public synchronized static void measureEnd(String name, String measurementObject) {
-        if (!withProfiler.get()) return; 
-        if (measurementObject == null || name == null) return; 
-
-        String key = format("[%s][%s]", name, measurementObject);
-
-        if (!_doc_measurements.containsKey(key)) return; 
-
-        Instant time = Instant.now();
-        _timeline.put(time, timelineEntry(format("[%s] %s finished.", name, measurementObject)));
-        _doc_measurements.get(key)._end = time;
-    }
-
-    synchronized static void finalize(int i) {
-        if (!withProfiler.get()) return; 
-        // TODO: finalization
-        // Get document metadata
-        // map document to measurments 
-        // map measurements to timeline
+    private static String key(String name, String signature) {
+        return format("%s%s-",name, signature);
     }
 }

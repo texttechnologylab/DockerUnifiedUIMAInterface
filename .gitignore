@@ -6,3 +6,4 @@ target/*
 .vscode/settings.json
 .vscode/launch.json
 .gitignore
+Evaluation.txt

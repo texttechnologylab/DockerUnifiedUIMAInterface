@@ -19,7 +19,7 @@ import java.time.Duration;
 
 import static java.lang.String.format;
 
-public class DUUIMonitor {
+public class DUUIMonitor  implements IDUUIMonitor{
     private InfluxDBClient _client;
     private String _username;
     private String _password;

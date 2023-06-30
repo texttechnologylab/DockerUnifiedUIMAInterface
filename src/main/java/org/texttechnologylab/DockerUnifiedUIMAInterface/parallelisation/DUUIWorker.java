@@ -1,10 +1,11 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation;
 
 import static java.lang.String.format;
-import static org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.DUUIPipelineProfiler.measureEnd;
-import static org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.DUUIPipelineProfiler.measureStart;
+import static org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.DUUIPipelineProfiler.documentUpdate;
 import static org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.DUUIPipelineProfiler.updatePipelineGraphStatus;
+import static org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.DUUIPipelineProfiler.finalizeDocument;
 
+import java.time.Instant;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
@@ -13,10 +14,12 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer.PipelinePart;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
 
+import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import guru.nidi.graphviz.attribute.Color;
 
 public class DUUIWorker implements Callable<Boolean> {
@@ -44,7 +47,12 @@ public class DUUIWorker implements Callable<Boolean> {
 
     @Override
     public Boolean call() throws Exception {
+        long start = 0;
         try {
+            String title = JCasUtil.select(jc, DocumentMetaData.class)
+                .stream().map(meta -> meta.getDocumentTitle()).findFirst().orElseGet(() -> "");
+            DUUIPipelineProfiler.add(name, title, component.getSignature(), component.getScale());
+
             while (finishedParents.size() != parentLocks.size()) {
                 for (DUUIWorker.ComponentLock parent : parentLocks) {
                     boolean finished = parent.await(1, TimeUnit.SECONDS);
@@ -52,42 +60,40 @@ public class DUUIWorker implements Callable<Boolean> {
                         throw new Exception(format("[DUUIWorker-%s][%s][Component: %s] Parent failed.%n", 
                             Thread.currentThread().getName(), name, component.getSignature()));
                     }
-
                     if (finished) finishedParents.add(parent);
-                    
                 }
                 if (Thread.interrupted()) 
                     throw new Exception(format("[DUUIWorker-%s][%s][Component: %s] interrupted.%n", 
                             Thread.currentThread().getName(), name, component.getSignature()));
             }
+            
             updatePipelineGraphStatus(name, component.getSignature().toString(), Color.YELLOW2);
-            System.out.printf(
-                "[DUUIWorker-%s][%s] Pipeline component %s starting analysis.%n", 
-                Thread.currentThread().getName(), name, component.getSignature()
-            );
-
-            measureStart(name, format("Run of component %s", component.getSignature().toString()));
+            // System.out.printf(
+            //     "[DUUIWorker-%s][%s] Pipeline component %s starting analysis.%n", 
+            //     Thread.currentThread().getName(), name, component.getSignature()
+            // );
+            start = Instant.now().getEpochSecond();
             component.run(name, jc, perf); 
-            measureEnd(name, format("Run of component %s", component.getSignature().toString()));
-                
             updatePipelineGraphStatus(name, component.getSignature().toString(), Color.GREEN3);
-            System.out.printf(
-                "[DUUIWorker-%s][%s] Pipeline component %s finished analysis.%n", 
-                Thread.currentThread().getName(), name, component.getSignature()
-            );
+            // System.out.printf(
+            //     "[DUUIWorker-%s][%s] Pipeline component %s finished analysis.%n", 
+            //     Thread.currentThread().getName(), name, component.getSignature()
+            // );
                 
             for (DUUIWorker.ComponentLock childLock : childrenLocks)
-                childLock.countDown(); // release
+                childLock.countDown(); // children can continue
                     
             } catch (Exception e) {
                 updatePipelineGraphStatus(name, component.getSignature().toString(), Color.RED3);
-                System.out.printf("[DUUIWorker-%s][%s] Pipeline component %s failed.%n",
-                    Thread.currentThread().getName(), name, component.getSignature()
-                );
-
                 for (DUUIWorker.ComponentLock childLock : childrenLocks)
                     childLock.fail();
-                throw e;
+                throw new Exception(format("[DUUIWorker-%s][%s] Pipeline component %s failed.%n",
+                    Thread.currentThread().getName(), name, component.getSignature()
+                ));
+            } finally {
+                Instant end = Instant.now().minusSeconds(start);
+                documentUpdate(name, component.getSignature(), "total", end);
+                finalizeDocument(name, component.getSignature().toString());
             }
 
         return Boolean.valueOf(true); 
