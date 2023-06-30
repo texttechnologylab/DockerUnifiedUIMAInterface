@@ -393,10 +393,12 @@ public class DUUIComposer {
         if(_skipVerification) {
             System.out.println("[Composer] Running without verification, no process calls will be made during initialization!");
         }
+        
+        List<Future<?>> tasks = new ArrayList<>();
         if (_workers > 1)
             _executorService = Executors.newFixedThreadPool(_workers);
         else _executorService = Executors.newSingleThreadExecutor();
-        List<Future<?>> tasks = new ArrayList<>();
+
         List<TypeSystemDescription> descriptions = new LinkedList<>();
         descriptions.add(_minimalTypesystem);
         descriptions.add(TypeSystemDescriptionFactory.createTypeSystemDescription());
@@ -425,9 +427,20 @@ public class DUUIComposer {
             for (Future<?> task : tasks) 
                 task.get();
 
-            if (_workers > 1)
-                _executionPipeline = new DUUIParallelExecutionPipeline(_instantiatedPipeline);
-            else _executorService.shutdownNow(); 
+            _executionPipeline = new DUUIParallelExecutionPipeline(_instantiatedPipeline);
+            if (_workers == 1) {
+                // Sort sequential pipeline according to dependencies.
+                _executorService.shutdownNow(); 
+                Vector<PipelinePart> temp = new Vector<>(_instantiatedPipeline.size());
+                
+                _executionPipeline._executionplan.forEach(uuid -> 
+                {
+                    PipelinePart comp = _instantiatedPipeline.stream()
+                        .filter(c -> uuid == c.getUUID()).findFirst().orElseGet(() -> null);
+                    if (comp != null) temp.add(comp);
+                });
+                _instantiatedPipeline = temp; 
+            }
             
         }
         catch (Exception e){
@@ -489,7 +502,8 @@ public class DUUIComposer {
         Callable<Boolean> component = null; 
         for (String compId : _executionPipeline._executionplan) {
             boolean firstComponent = !reader.isEmpty();
-            while(!reader.isEmpty()) {
+            // TODO: Loop through components according hight in execution graph
+            while(!reader.isEmpty()) { // TODO: Add second condition limiting the number of documents
                 // Instantiate JCas.
                 String currName = format("%s-%d", name, d.get()); 
                 
