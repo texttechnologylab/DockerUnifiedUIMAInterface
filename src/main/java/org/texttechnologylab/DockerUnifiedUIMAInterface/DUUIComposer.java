@@ -410,6 +410,7 @@ public class DUUIComposer {
                 throw new InvalidParameterException(format("[DUUIComposer] The driver %s cannot accept %s as input!", object.getDriver(), object.getClass().getCanonicalName()));
             }
         }
+
         System.out.println("[DUUIComposer] Compressing and finalizing pipeline component...");
         object.finalizeComponent();
         _pipeline.add(object);

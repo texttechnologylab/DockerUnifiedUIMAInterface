@@ -137,8 +137,10 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         comp.getPipelineComponent().__internalPinDockerImage(comp.getImageName(),digest);
         System.out.printf("[DockerSwarmDriver] Transformed image %s to pinnable image name %s\n", comp.getImageName(),digest);
 
+        // TODO: Fragen was das hier macht
         String serviceid = _interface.run_service(digest,comp.getScale(),comp.getConstraints());
 
+            // TODO: Fragen was das hier macht
             int port = _interface.extract_service_port_mapping(serviceid);
 
             System.out.printf("[DockerSwarmDriver][%s] Started service, waiting for it to become responsive...\n",uuid);
@@ -149,6 +151,7 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
             final String uuidCopy = uuid;
             IDUUICommunicationLayer layer = null;
             try {
+                    // TODO: Hier brauche ich irgendeine Analoge Funktion für den KubernetesDriver
                     layer = DUUIDockerDriver.responsiveAfterTime("http://localhost:" + port, jc, _container_timeout, _client, (msg) -> {
                     System.out.printf("[DockerSwarmDriver][%s][%d Replicas] %s\n", uuidCopy, comp.getScale(), msg);
                 }, _luaContext, skipVerification);

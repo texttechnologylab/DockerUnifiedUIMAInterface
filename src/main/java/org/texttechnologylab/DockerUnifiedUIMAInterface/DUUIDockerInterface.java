@@ -200,6 +200,16 @@ public class DUUIDockerInterface {
         return innerport;
     }
 
+    public int extract_service_port_mapping(String service) throws InterruptedException {
+        Thread.sleep(1000);
+        Service cmd = _docker.inspectServiceCmd(service).exec();
+        Endpoint end = cmd.getEndpoint();
+        for (PortConfig p : end.getPorts()) {
+            return p.getPublishedPort();
+        }
+        return -1;
+    }
+
     /**
      * Returns true if the code is run inside the container and false otherwise.
      *
@@ -357,16 +367,6 @@ public class DUUIDockerInterface {
 
         CreateServiceResponse cmd = _docker.createServiceCmd(spec).exec();
         return cmd.getId();
-    }
-
-    public int extract_service_port_mapping(String service) throws InterruptedException {
-        Thread.sleep(1000);
-        Service cmd = _docker.inspectServiceCmd(service).exec();
-        Endpoint end = cmd.getEndpoint();
-        for (PortConfig p : end.getPorts()) {
-            return p.getPublishedPort();
-        }
-        return -1;
     }
 
     public boolean hasLocalImage(String imageName) {

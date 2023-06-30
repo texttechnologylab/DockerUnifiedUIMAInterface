@@ -237,6 +237,7 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
         System.out.printf("[DockerLocalDriver] Transformed image %s to pinnable image name %s\n", comp.getImageName(),comp.getPipelineComponent().getDockerImageName());
 
         _active_components.put(uuid, comp);
+        // TODO: Fragen, was hier genau gemacht wird.
         for (int i = 0; i < comp.getScale(); i++) {
             String containerid = _interface.run(comp.getPipelineComponent().getDockerImageName(), comp.usesGPU(), true, 9714,false);
             int port = _interface.extract_port_mapping(containerid);
@@ -314,6 +315,7 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
             IDUUIInstantiatedPipelineComponent.process(aCas, comp, perf);
         }
     }
+
     public void shutdown() {
     }
 
