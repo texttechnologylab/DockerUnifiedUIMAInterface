@@ -1,9 +1,9 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation;
 
 import static java.lang.String.format;
-import static org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.DUUIPipelineProfiler.documentUpdate;
-import static org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.DUUIPipelineProfiler.updatePipelineGraphStatus;
-import static org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.DUUIPipelineProfiler.finalizeDocument;
+import static org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineProfiler.documentUpdate;
+import static org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineProfiler.finalizeDocument;
+import static org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineProfiler.updatePipelineGraphStatus;
 
 import java.time.Instant;
 import java.util.Collection;
@@ -16,8 +16,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer.PipelinePart;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.PipelinePart;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineProfiler;
 
 import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import guru.nidi.graphviz.attribute.Color;
@@ -67,11 +68,11 @@ public class DUUIWorker implements Callable<Boolean> {
                             Thread.currentThread().getName(), name, component.getSignature()));
             }
             
-            updatePipelineGraphStatus(name, component.getSignature().toString(), Color.YELLOW2);
             // System.out.printf(
             //     "[DUUIWorker-%s][%s] Pipeline component %s starting analysis.%n", 
             //     Thread.currentThread().getName(), name, component.getSignature()
             // );
+            updatePipelineGraphStatus(name, component.getSignature().toString(), Color.YELLOW2);
             start = Instant.now().getEpochSecond();
             component.run(name, jc, perf); 
             updatePipelineGraphStatus(name, component.getSignature().toString(), Color.GREEN3);

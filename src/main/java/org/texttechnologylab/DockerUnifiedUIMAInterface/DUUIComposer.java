@@ -1,8 +1,6 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface;
 
 import org.apache.commons.compress.compressors.CompressorException;
-import org.apache.uima.analysis_engine.AnalysisEngineProcessException;
-import org.apache.uima.cas.CASException;
 import org.apache.uima.cas.impl.XmiCasSerializer;
 import org.apache.uima.cas.impl.BinaryCasSerDes4;
 import org.apache.uima.cas.impl.BinaryCasSerDes4.CasCompare;
@@ -30,8 +28,8 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.DUUIMonitor;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.DUUISimpleMonitor;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.IDUUIMonitor;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.DUUIParallelExecutionPipeline;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.DUUIPipelineProfiler;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineProfiler;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.IDUUIStorageBackend;
 import org.xml.sax.SAXException;
 
@@ -40,7 +38,6 @@ import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import java.io.IOException;
 
 import java.io.ByteArrayOutputStream;
-import java.io.OutputStream;
 
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
@@ -58,8 +55,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 import static java.lang.String.format;
-import static org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.DUUIPipelineProfiler.documentUpdate;
-import static org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.DUUIPipelineProfiler.pipelineUpdate;
+import static org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineProfiler.pipelineUpdate;
 
 public class DUUIComposer {
     private final Map<String, IDUUIDriverInterface> _drivers;
@@ -413,14 +409,10 @@ public class DUUIComposer {
                     String uuid;
                     try {
                         uuid = driver.instantiate(comp, jc, _skipVerification);
-                        
                         TypeSystemDescription desc = driver.get_typesystem(uuid);
-                        
                         if (desc != null)
-                        synchronized (descriptions) {descriptions.add(desc);}
-                        
+                            synchronized (descriptions) {descriptions.add(desc);}
                         Signature signature = driver.get_signature(uuid);
-                        
                         synchronized (_instantiatedPipeline) {
                             _instantiatedPipeline.add(new PipelinePart(driver, uuid, signature, comp.getScale()));
                         }  
@@ -455,7 +447,7 @@ public class DUUIComposer {
     private JCas run_pipeline(String name, JCas jc, Vector<PipelinePart> pipeline) throws Exception {
         DUUIPipelineDocumentPerformance perf = new DUUIPipelineDocumentPerformance(name, 0, jc);
         for (PipelinePart comp : pipeline) {
-            comp.run(name, jc, perf);;
+            comp.run(name, jc, perf);
         }
 
         if(_storage!=null) {
@@ -470,7 +462,13 @@ public class DUUIComposer {
 
         DUUIPipelineDocumentPerformance perf = 
             new DUUIPipelineDocumentPerformance(name, 0, jc);
-        run_pipeline(jc, name, perf);
+
+        List<Future<Boolean>> workers = 
+            _executorService.invokeAll(pipeline.getAllComponentRunners(name, jc, perf));
+
+        for (Future<?> f: workers)
+            f.get();
+
         _executorService.shutdown();
         _executorService.shutdownNow();
         _executorService.awaitTermination(100, TimeUnit.NANOSECONDS);
@@ -537,19 +535,10 @@ public class DUUIComposer {
 
     private List<JCas> run_pipeline(String name, CollectionReader reader, TypeSystemDescription desc) 
         throws Exception {
-
-        
-        List<Future<Boolean>> runningComponents = new ArrayList<>();
+        // TODO: If needed, this can also be implemented similarly to the version with AsyncCollectionReader
         Map<Integer, JCas> results = new ConcurrentHashMap<>();
 
         return results.values().stream().collect(Collectors.toList());
-    }
-
-    private void run_pipeline(JCas jc, String name, DUUIPipelineDocumentPerformance perf) throws Exception {
-        List<Future<Boolean>> workers = _executorService.invokeAll(_executionPipeline.getAllComponentRunners(name, jc, perf));
-
-        for (Future<?> f: workers)
-            f.get();
     }
 
     private void shutdown_pipeline() throws Exception {
@@ -571,52 +560,6 @@ public class DUUIComposer {
     public DUUIComposer resetPipeline() {
         _pipeline.clear();
         return this;
-    }
-
-    public class PipelinePart {
-        private final IDUUIDriverInterface _driver;
-        private final String _uuid;
-        private final Signature _signature; 
-        private final int _scale; 
-
-        PipelinePart(IDUUIDriverInterface driver, String uuid, int scale) {
-            _driver = driver;
-            _uuid = uuid;
-            _signature = null;
-            _scale = scale; 
-        }
-
-        public PipelinePart(IDUUIDriverInterface driver, String uuid, Signature signature, int scale) {
-            _driver = driver;
-            _uuid = uuid;
-            _signature = signature;
-            _scale = scale; 
-        }
-
-        public void run(String name, JCas jc, DUUIPipelineDocumentPerformance perf) throws AnalysisEngineProcessException, CASException, InterruptedException, IOException, SAXException, CompressorException {
-            _driver.run(_uuid, jc, perf);
-        }
-
-        public void shutdown() {
-            System.out.printf("[Composer] Shutting down %s...\n", _uuid);
-            _driver.destroy(_uuid);
-        }
-
-        public Signature getSignature() {
-            return _signature; 
-        }
-
-        public IDUUIDriverInterface getDriver() {
-            return _driver;
-        }
-
-        public int getScale() {
-            return _scale; 
-        }
-
-        public String getUUID() {
-            return _uuid;
-        }
     }
 
     public static void main(String[] args) throws Exception {

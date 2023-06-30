@@ -1,4 +1,4 @@
-package org.texttechnologylab.DockerUnifiedUIMAInterface;
+package org.texttechnologylab.DockerUnifiedUIMAInterface.lua;
 
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.jcas.JCas;

@@ -1,4 +1,4 @@
-package org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation;
+package org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage;
 
 import static java.lang.String.format;
 
@@ -36,7 +36,7 @@ import guru.nidi.graphviz.model.MutableGraph;
 import guru.nidi.graphviz.model.Node;
 
 public class DUUIPipelineProfiler {
-    // {name: {component: {urlwait:00:00:01, ...}}}
+    // e.g.: {"ParallelTest1": {"Token => POS": {"urlwait":"00:00:01", ...}}}
     private final static Map<String, Object> _pipeline_measurements = new ConcurrentHashMap<>();
     private static Map<String, MutableGraph> _pipelineGraphs = new HashMap<>();
     private static String _name;
@@ -44,6 +44,7 @@ public class DUUIPipelineProfiler {
     private static Set<String> _components = null;
     private static DUUISimpleMonitor _monitor;
     private static AtomicBoolean withProfiler = new AtomicBoolean(false);
+    // TODO: Add implementation with executor
     private static ExecutorService profileRunner = Executors.newSingleThreadExecutor();
 
     public DUUIPipelineProfiler(String name, Map<String, Set<String>> pipeline, DUUISimpleMonitor monitor) {

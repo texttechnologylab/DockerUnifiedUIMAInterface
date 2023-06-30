@@ -23,7 +23,7 @@ import org.javatuples.Pair;
 import org.jgrapht.graph.DefaultEdge;
 import org.jgrapht.graph.DirectedAcyclicGraph;
 import org.jgrapht.graph.GraphCycleProhibitedException;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer.PipelinePart;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.PipelinePart;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.DUUIWorker.ComponentLock;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
 
