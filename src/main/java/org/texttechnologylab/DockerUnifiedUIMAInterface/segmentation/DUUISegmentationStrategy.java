@@ -5,12 +5,23 @@ import org.apache.uima.UIMAException;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.util.CasCopier;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public abstract class DUUISegmentationStrategy implements IDUUISegmentationStrategy {
+    public DUUISegmentationStrategy withSegmentationRule(IDUUISegmentationRule rule) {
+        this.addSegmentationRule(rule);
+        return this;
+    }
+
     // The current JCas to be processed, this should not be modified
     protected JCas jCasInput;
 
     // The final JCas where the generated annotations are merged into
     protected JCas jCasOutput;
+
+    // List of segmentation rules that will be applied in order
+    protected List<IDUUISegmentationRule> segmentationRules = new ArrayList<>();
 
     // Set the JCas to be processed, this should reset all state
     public void initialize(JCas jCas) throws UIMAException {
@@ -42,4 +53,9 @@ public abstract class DUUISegmentationStrategy implements IDUUISegmentationStrat
 
     // Merge the segmented JCas back into the output JCas
     public abstract void merge(JCas jCasSegment);
+
+    @Override
+    public void addSegmentationRule(IDUUISegmentationRule rule) {
+        segmentationRules.add(rule);
+    }
 }

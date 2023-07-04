@@ -17,4 +17,7 @@ public interface IDUUISegmentationStrategy extends Serializable {
 
     // Merge the segmented JCas back into the output JCas
     void merge(JCas jCasSegment);
+
+    // Add a segmentation user rule
+    void addSegmentationRule(IDUUISegmentationRule rule);
 }

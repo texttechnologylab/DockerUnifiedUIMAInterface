@@ -152,6 +152,22 @@ public class DUUISegmentationStrategyByAnnotation extends DUUISegmentationStrate
     }
 
     /***
+     * Apply user roles to the proposed segment.
+     * @return true if break allowed (the default), else false
+     */
+    boolean checkUserRules(int segmentBegin, int annotationEnd) {
+        // Apply user rules now
+        // Notes: "Later" rules can overwrite "earlier" rules
+        boolean rulesCanAdd = true;
+        if (segmentationRules != null) {
+            for (IDUUISegmentationRule rule : segmentationRules) {
+                rulesCanAdd = rule.canSegment(rulesCanAdd, segmentBegin, annotationEnd, jCasInput, this);
+            }
+        }
+        return rulesCanAdd;
+    }
+
+    /***
      * Create a new CAS for this segment of the document.
      * @param segmentBegin The begin position of the segment
      * @param segmentEnd The end position of the segment
@@ -261,8 +277,12 @@ public class DUUISegmentationStrategyByAnnotation extends DUUISegmentationStrate
             // Try adding as many annotations as possible to the current segment
             boolean canAdd = tryAddToSegment(currentSegment.size(), segmentBegin, annotation.getEnd());
 
+            // Check for user rules
+            boolean rulesOk = checkUserRules(segmentBegin, annotation.getEnd());
+
             // Create CAS from segment if over limit and start new segment
-            if (!canAdd) {
+            // and the rules are ok with a break here
+            if (!canAdd && rulesOk) {
                 createSegment(segmentBegin, segmentEnd);
                 currentSegment.clear();
 
@@ -273,7 +293,9 @@ public class DUUISegmentationStrategyByAnnotation extends DUUISegmentationStrate
                 // We have more segments later, stop here
                 return jCasCurrentSegment;
             } else {
-                // Ok, just add to current segment
+                // If we can add to this segment we just do
+                // If the rules do not allow a break here, we continue with this segment
+                // Note that the segment might become too large
                 currentSegment.add(annotation);
             }
         }
