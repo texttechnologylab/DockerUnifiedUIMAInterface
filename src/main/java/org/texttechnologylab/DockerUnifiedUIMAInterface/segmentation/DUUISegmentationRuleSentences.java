@@ -35,37 +35,47 @@ public class DUUISegmentationRuleSentences implements IDUUISegmentationRule {
 
         Map<Character, Integer> leftBracketCount = new HashMap<>();
         for (int i = end-1; i > end-windowSize; i--) {
-            Character c = docText.charAt(i);
-            if (closingBrackets.contains(c)) {
-                leftBracketCount.put(c, leftBracketCount.getOrDefault(c, 0) - 1);
-            }
-            if (openingBrackets.contains(c)) {
-                // found opening bracket, check if in this window there was a closing bracket already
-                // if not, we cant split here
-                if (leftBracketCount.getOrDefault(c, 0) >= 0) {
-                    return false;
+            try {
+                Character c = docText.charAt(i);
+                if (closingBrackets.contains(c)) {
+                    leftBracketCount.put(c, leftBracketCount.getOrDefault(c, 0) - 1);
                 }
-                // else adjust bracket count
-                leftBracketCount.put(c, leftBracketCount.getOrDefault(c, 0) + 1);
-                // we dont break here as other brackets might be in the window as well
+                if (openingBrackets.contains(c)) {
+                    // found opening bracket, check if in this window there was a closing bracket already
+                    // if not, we cant split here
+                    if (leftBracketCount.getOrDefault(c, 0) >= 0) {
+                        return false;
+                    }
+                    // else adjust bracket count
+                    leftBracketCount.put(c, leftBracketCount.getOrDefault(c, 0) + 1);
+                    // we dont break here as other brackets might be in the window as well
+                }
+            }
+            catch (Exception e) {
+                //
             }
         }
 
         Map<Character, Integer> rightBracketCount = new HashMap<>();
         for (int i = end; i <= end+windowSize; i++) {
-            Character c = docText.charAt(i);
-            if (openingBrackets.contains(c)) {
-                rightBracketCount.put(c, rightBracketCount.getOrDefault(c, 0) + 1);
-            }
-            if (closingBrackets.contains(c)) {
-                // found closing bracket, check if in this window there was a opening bracket already
-                // if not, we cant split here
-                if (rightBracketCount.getOrDefault(c, 0) <= 0) {
-                    return false;
+            try {
+                Character c = docText.charAt(i);
+                if (openingBrackets.contains(c)) {
+                    rightBracketCount.put(c, rightBracketCount.getOrDefault(c, 0) + 1);
                 }
-                // else adjust bracket count
-                rightBracketCount.put(c, rightBracketCount.getOrDefault(c, 0) - 1);
-                // we dont break here as other brackets might be in the window as well
+                if (closingBrackets.contains(c)) {
+                    // found closing bracket, check if in this window there was a opening bracket already
+                    // if not, we cant split here
+                    if (rightBracketCount.getOrDefault(c, 0) <= 0) {
+                        return false;
+                    }
+                    // else adjust bracket count
+                    rightBracketCount.put(c, rightBracketCount.getOrDefault(c, 0) - 1);
+                    // we dont break here as other brackets might be in the window as well
+                }
+            }
+            catch (Exception e) {
+                //
             }
         }
 
