@@ -57,7 +57,7 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
 
         _active_components = new HashMap<>();
 
-        _kube_client = new DefaultKubernetesClient();
+        //_kube_client = new DefaultKubernetesClient();
     }
 
     // Hier muss anscheinend nichts mehr gemacht werden
@@ -68,7 +68,7 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
 
     @Override
     public boolean canAccept(DUUIPipelineComponent component) throws InvalidXMLException, IOException, SAXException {
-        return false;
+        return component.getDockerImageName()!=null;
     }
 
     // Wird in der instantiate_pipeline-Methode, die sich in der run-Methode des DUUIComposers befindet, aufgerufen.
