@@ -78,6 +78,121 @@ import io.kubernetes.client.util.Config;
 public class TestDUUI {
 
     @Test
+    public void kubernetesTest() throws Exception {
+        String sInputPath = "/home/filip/Downloads/";
+        String sOutputPath = "/home/filip/duui_out/";
+        String sSuffix = "xmi.gz";
+
+        // Asynchroner reader für die Input-Dateien
+        AsyncCollectionReader pCorpusReader = new AsyncCollectionReader(sInputPath, sSuffix, 10, false);
+        new File(sOutputPath).mkdir();
+
+        // Definition der Anzahl der Prozesse
+        int iWorkers = Integer.valueOf(3);
+
+        // Lua-Kontext für die Nutzung von Lua
+        DUUILuaContext ctx = new DUUILuaContext().withJsonLibrary();
+
+        // Instanziierung des Composers, mit einigen Parametern
+        DUUIComposer composer = new DUUIComposer()
+                .withSkipVerification(true)     // wir überspringen die Verifikation aller Componenten =)
+                .withLuaContext(ctx)            // wir setzen den definierten Kontext
+                .withWorkers(iWorkers);         // wir geben dem Composer eine Anzahl an Threads mit.
+
+
+        /**
+         * Definition verschiedener Driver
+         */
+        DUUIKubernetesDriver kubernetes_driver = new DUUIKubernetesDriver();
+        DUUIUIMADriver uima_driver = new DUUIUIMADriver()
+                .withDebug(true);
+
+        // Hinzufügen der einzelnen Driver zum Composer
+        composer.addDriver(kubernetes_driver, uima_driver);  // remote_driver und swarm_driver scheint nicht benötigt zu werden.
+
+        // Hinzfügen einer Componente in den Docker-Driver; Skalierung wie im Composer; Achtung: Image ist nur lokal verfügbar, Namensraum beachten!
+        //        composer.add(new DUUIDockerDriver.Component("duui_simple_sentence:0.1").withScale(iWorkers).build());
+
+        // Hierfür wurde anscheinend der Docker Driver hinzugefügt.
+        // Wird zum Attribut _Pipeline des Composers hinzugefügt.
+        composer.add(new DUUIKubernetesDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
+                .withScale(iWorkers)
+                .build());
+
+        // Hinzufügen einer UIMA-Componente zum schreiben der Ergebnisse
+        // (Hierfür wurde anscheinend der UIMA Driver hinzugefügt)
+        // Wird zum Attribut _Pipeline des Composers hinzugefügt.
+        composer.add(new DUUIUIMADriver.Component(createEngineDescription(XmiWriter.class,
+                XmiWriter.PARAM_TARGET_LOCATION, sOutputPath,
+                XmiWriter.PARAM_PRETTY_PRINT, true,
+                XmiWriter.PARAM_OVERWRITE, true,
+                XmiWriter.PARAM_VERSION, "1.1",
+                XmiWriter.PARAM_COMPRESSION, "GZIP"
+        )).build());
+
+        // Starten des Composers mit dem Reader und dem Namen des Jobs
+        composer.run(pCorpusReader, "sentence");
+    }
+
+    @Test
+    public void PraktikumExampleSatz() throws Exception {
+
+        // Input- und Output-Pfade
+        String sInputPath = "/home/filip/Downloads/";
+        String sOutputPath = "/home/filip/duui_out/";
+        String sSuffix = "xmi.gz";
+
+        // Asynchroner reader für die Input-Dateien
+        AsyncCollectionReader pCorpusReader = new AsyncCollectionReader(sInputPath, sSuffix, 10, false);
+        new File(sOutputPath).mkdir();
+
+        // Definition der Anzahl der Prozesse
+        int iWorkers = Integer.valueOf(1);
+
+        // Lua-Kontext für die Nutzung von Lua
+        DUUILuaContext ctx = new DUUILuaContext().withJsonLibrary();
+
+        // Instanziierung des Composers, mit einigen Parametern
+        DUUIComposer composer = new DUUIComposer()
+                .withSkipVerification(true)     // wir überspringen die Verifikation aller Componenten =)
+                .withLuaContext(ctx)            // wir setzen den definierten Kontext
+                .withWorkers(iWorkers);         // wir geben dem Composer eine Anzahl an Threads mit.
+
+
+        /**
+         * Definition verschiedener Driver
+         */
+        DUUIRemoteDriver remote_driver = new DUUIRemoteDriver();
+        DUUIDockerDriver docker_driver = new DUUIDockerDriver();
+        DUUISwarmDriver swarm_driver = new DUUISwarmDriver();
+        DUUIUIMADriver uima_driver = new DUUIUIMADriver()
+                .withDebug(true);
+
+        // Hinzufügen der einzelnen Driver zum Composer
+        composer.addDriver(swarm_driver, uima_driver, docker_driver, remote_driver);
+
+        // Hinzfügen einer Componente in den Docker-Driver; Skalierung wie im Composer; Achtung: Image ist nur lokal verfügbar, Namensraum beachten!
+        //        composer.add(new DUUIDockerDriver.Component("duui_simple_sentence:0.1").withScale(iWorkers).build());
+
+        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
+                .withImageFetching()
+                .withScale(iWorkers)
+                .build());
+
+        // Hinzufügen einer UIMA-Componente zum Schreiben der Ergebnisse
+        composer.add(new DUUIUIMADriver.Component(createEngineDescription(XmiWriter.class,
+                XmiWriter.PARAM_TARGET_LOCATION, sOutputPath,
+                XmiWriter.PARAM_PRETTY_PRINT, true,
+                XmiWriter.PARAM_OVERWRITE, true,
+                XmiWriter.PARAM_VERSION, "1.1",
+                XmiWriter.PARAM_COMPRESSION, "GZIP"
+        )).build());
+
+        // Starten des Composers mit dem Reader und dem Namen des Jobs
+        composer.run(pCorpusReader, "sentence");
+    }
+
+    @Test
     public void creatingSample() throws IOException, UIMAException {
 
         String sInputPath = TestDUUI.class.getClassLoader().getResource("Bundestag.txt").getPath();
