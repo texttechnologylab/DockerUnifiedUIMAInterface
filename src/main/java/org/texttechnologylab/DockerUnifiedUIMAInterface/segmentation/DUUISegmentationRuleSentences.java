@@ -18,8 +18,18 @@ public class DUUISegmentationRuleSentences implements IDUUISegmentationRule {
             ')', ']', '}', '>'
     );
 
+    protected static Set<Character> simpleCharacters = Set.of(
+            '\n', '\r', '\t'
+    );
+
     // Only consider the previous/following N characters
-    protected int windowSize = 10;
+    public static final int WINDOW_SIZE_DEFAULT = 10;
+    protected int windowSize = WINDOW_SIZE_DEFAULT;
+
+    public DUUISegmentationRuleSentences withWindowSize(int windowSize) {
+        this.windowSize = windowSize;
+        return this;
+    }
 
     @Override
     public boolean canSegment(boolean resultRuleBefore, int begin, int end, JCas jCas, IDUUISegmentationStrategy segmentationStrategy) {
@@ -30,13 +40,19 @@ public class DUUISegmentationRuleSentences implements IDUUISegmentationRule {
         // check right window for opening brackets
         // in either case we do not want to split as we are inside a bracket
         // Note that we have to check for closing brackets on the left as well to prevent "skipping" these, and vice versa on the right
-
-        // TODO min/max left/right window size
+        // Also check simple characters like line breaks, tabs, etc.
 
         Map<Character, Integer> leftBracketCount = new HashMap<>();
-        for (int i = end-1; i > end-windowSize; i--) {
+        int leftStart = Math.max(0, end-1);
+        int leftEnd = Math.max(0, end-windowSize);
+        for (int i = leftStart; i > leftEnd; i--) {
             try {
                 Character c = docText.charAt(i);
+
+                if (simpleCharacters.contains(c)) {
+                    return false;
+                }
+
                 if (closingBrackets.contains(c)) {
                     leftBracketCount.put(c, leftBracketCount.getOrDefault(c, 0) - 1);
                 }
@@ -57,9 +73,16 @@ public class DUUISegmentationRuleSentences implements IDUUISegmentationRule {
         }
 
         Map<Character, Integer> rightBracketCount = new HashMap<>();
-        for (int i = end; i <= end+windowSize; i++) {
+        int rightStart = Math.min(docText.length()-1, end);
+        int rightEnd = Math.min(docText.length()-1, end+windowSize);
+        for (int i = rightStart; i <= rightEnd; i++) {
             try {
                 Character c = docText.charAt(i);
+
+                if (simpleCharacters.contains(c)) {
+                    return false;
+                }
+
                 if (openingBrackets.contains(c)) {
                     rightBracketCount.put(c, rightBracketCount.getOrDefault(c, 0) + 1);
                 }
