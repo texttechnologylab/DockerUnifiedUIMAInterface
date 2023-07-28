@@ -1,16 +1,15 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.driver;
 
-import kotlin.text.Regex;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.commons.compress.compressors.CompressorInputStream;
 import org.apache.commons.compress.compressors.CompressorOutputStream;
 import org.apache.commons.compress.compressors.CompressorStreamFactory;
-import org.apache.tools.ant.util.regexp.Regexp;
 import org.apache.uima.analysis_engine.AnalysisEngineDescription;
 import org.apache.uima.fit.factory.AnalysisEngineFactory;
 import org.apache.uima.util.InvalidXMLException;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.segmentation.DUUISegmentationStrategy;
 import org.xml.sax.SAXException;
 
 import java.io.ByteArrayInputStream;
@@ -37,6 +36,9 @@ public class DUUIPipelineComponent {
     private List<String> _constraints = new ArrayList<>(0);
 
     public static String compressionMethod = CompressorStreamFactory.XZ;
+
+    // Segmentation strategy to split and merge large documents
+    private DUUISegmentationStrategy segmentationStrategy;
 
     private static String engineOptionName = "engine";
     private static String scaleOptionName = "scale";
@@ -593,5 +595,14 @@ public class DUUIPipelineComponent {
         else {
             return "Unkown annotator driver!";
         }
+    }
+
+    public DUUIPipelineComponent withSegmentationStrategy(DUUISegmentationStrategy strategy) {
+        this.segmentationStrategy = strategy;
+        return this;
+    }
+
+    public DUUISegmentationStrategy getSegmentationStrategy() {
+        return this.segmentationStrategy;
     }
 }
