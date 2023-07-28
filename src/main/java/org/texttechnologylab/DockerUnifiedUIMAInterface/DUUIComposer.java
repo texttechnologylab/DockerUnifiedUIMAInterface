@@ -697,6 +697,11 @@ public class DUUIComposer {
             System.out.println("[Composer] Running without verification, no process calls will be made during initialization!");
         }
 
+        // Reset "instantiated pipeline" as the components will duplicate otherwise
+        // See https://github.com/texttechnologylab/DockerUnifiedUIMAInterface/issues/34
+        // TODO should this only be done in "resetPipeline"?
+        //_instantiatedPipeline.clear();
+
         List<TypeSystemDescription> descriptions = new LinkedList<>();
         descriptions.add(_minimalTypesystem);
         descriptions.add(TypeSystemDescriptionFactory.createTypeSystemDescription());
@@ -742,19 +747,24 @@ public class DUUIComposer {
             // Segment document for each item in the pipeline separately
             // TODO support "complete pipeline" segmentation to only segment once
             DUUISegmentationStrategy segmentationStrategy = comp.getSegmentationStrategy();
-            segmentationStrategy.initialize(jc);
-
-            JCas jCasSegmented = segmentationStrategy.getNextSegment();
-            while(jCasSegmented != null) {
-                // Process each cas sequentially
-                // TODO add parallel variant later
-                comp.getDriver().run(comp.getUUID(), jCasSegmented, perf);
-
-                segmentationStrategy.merge(jCasSegmented);
-                jCasSegmented = segmentationStrategy.getNextSegment();
+            if (segmentationStrategy instanceof DUUISegmentationStrategyNone) {
+                comp.getDriver().run(comp.getUUID(), jc, perf);
             }
+            else {
+                segmentationStrategy.initialize(jc);
 
-            segmentationStrategy.finalize(jc);
+                JCas jCasSegmented = segmentationStrategy.getNextSegment();
+                while (jCasSegmented != null) {
+                    // Process each cas sequentially
+                    // TODO add parallel variant later
+                    comp.getDriver().run(comp.getUUID(), jCasSegmented, perf);
+
+                    segmentationStrategy.merge(jCasSegmented);
+                    jCasSegmented = segmentationStrategy.getNextSegment();
+                }
+
+                segmentationStrategy.finalize(jc);
+            }
         }
 
         if(_storage!=null) {
@@ -822,6 +832,12 @@ public class DUUIComposer {
             }
             Instant starttime = Instant.now();
 
+            // dont instantiate pipeline for every run
+            // See https://github.com/texttechnologylab/DockerUnifiedUIMAInterface/issues/34
+            // TODO check for side effects
+            if (_instantiatedPipeline == null || _instantiatedPipeline.isEmpty()) {
+                instantiate_pipeline();
+            }
             instantiate_pipeline();
             JCas start = run_pipeline(name,jc,0,_instantiatedPipeline);
 
