@@ -136,7 +136,7 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
                     try {
                         printfunc.operation("Component lua communication layer, loading...");
 
-                        System.out.printf("Got script %s\n",body2);
+//                        System.out.printf("Got script %s\n", body2);
                         IDUUICommunicationLayer lua_com = new DUUILuaCommunicationLayer(body2,"requester",context);
                         layer = lua_com;
                         printfunc.operation("Component lua communication layer, loaded.");
@@ -315,6 +315,7 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
         }
     }
     public void shutdown() {
+
     }
 
     public void destroy(String uuid) {
