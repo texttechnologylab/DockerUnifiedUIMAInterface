@@ -6,9 +6,11 @@ import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.commons.compress.compressors.CompressorStreamFactory;
 import org.apache.commons.io.FileUtils;
 import org.apache.uima.cas.impl.XmiCasDeserializer;
+import org.apache.uima.cas.impl.XmiSerializationSharedData;
 import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.javaync.io.AsyncFiles;
+import org.texttechnologylab.annotation.SharedData;
 import org.texttechnologylab.utilities.helper.StringUtils;
 import org.xml.sax.SAXException;
 
@@ -48,6 +50,7 @@ public class AsyncCollectionReader {
     private ConcurrentLinkedQueue<String> _filePaths;
     private ConcurrentLinkedQueue<String> _filePathsBackup;
     private ConcurrentLinkedQueue<ByteReadFuture> _loadedFiles;
+
     private int _initialSize;
     private AtomicInteger _docNumber;
     private long _maxMemory;
@@ -207,6 +210,18 @@ public class AsyncCollectionReader {
         return val;
     }
 
+    public static XmiSerializationSharedData deserialize(JCas pCas){
+
+        XmiSerializationSharedData sharedData = null;
+        SharedData result = JCasUtil.selectSingle(pCas, SharedData.class);
+
+        if(result != null) {
+            sharedData = XmiSerializationSharedData.deserialize(result.getValue());
+        }
+        return sharedData;
+
+    }
+
     public boolean getNextCAS(JCas empty) throws IOException, CompressorException, SAXException {
         ByteReadFuture future = _loadedFiles.poll();
 
@@ -247,23 +262,24 @@ public class AsyncCollectionReader {
         if(result.endsWith(".xz")) {
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.XZ,new ByteArrayInputStream(file));
-        }
-        else if(result.endsWith(".gz")) {
+        } else if (result.endsWith(".gz")) {
             ByteArrayOutputStream out = new ByteArrayOutputStream();
-            decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.GZIP,new ByteArrayInputStream(file));
-        }
-        else {
+            decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.GZIP, new ByteArrayInputStream(file));
+        } else {
             decodedFile = new ByteArrayInputStream(file);
         }
 
-        try {
-            XmiCasDeserializer.deserialize(decodedFile, empty.getCas(), true);
-        }
-        catch (Exception e){
-            empty.setDocumentText(StringUtils.getContent(new File(result)));
-        }
+        XmiCasDeserializer.deserialize(decodedFile, empty.getCas());
 
-        if(_addMetadata) {
+//        try {
+//            XmiSerializationSharedData sharedData = deserialize(empty.getCas().getJCas());
+//            XmiCasDeserializer.deserialize(decodedFile, empty.getCas(), true, sharedData);
+//        }
+//        catch (Exception e){
+//            empty.setDocumentText(StringUtils.getContent(new File(result)));
+//        }
+
+        if (_addMetadata) {
             if (JCasUtil.select(empty, DocumentMetaData.class).size() == 0) {
                 DocumentMetaData dmd = DocumentMetaData.create(empty);
                 File pFile = new File(result);

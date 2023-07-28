@@ -58,13 +58,18 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
             return this;
         }
 
+        public Component withIgnoring200Error(boolean bValue) {
+            component.withIgnoringHTTP200Error(bValue);
+            return this;
+        }
+
         public Component withDescription(String description) {
             component.withDescription(description);
             return this;
         }
 
         public Component withParameter(String key, String value) {
-            component.withParameter(key,value);
+            component.withParameter(key, value);
             return this;
         }
 
