@@ -42,6 +42,8 @@ public class DUUIPipelineComponent {
 
     private static String engineOptionName = "engine";
     private static String scaleOptionName = "scale";
+
+    private static String ignoring200 = "ignoring200";
     private static String urlOptionName = "url";
     private static String websocketOptionName = "websocket";
     private String websocketElementsOptionName = "websocketElements";
@@ -188,12 +190,22 @@ public class DUUIPipelineComponent {
             throw new RuntimeException("DUUIPipelineComponent has already been finalized, it is immutable now!");
         }
 
-        if(iScale == null) {
+        if (iScale == null) {
             _options.remove(scaleOptionName);
             return this;
         }
-        _options.put(scaleOptionName,String.valueOf(iScale));
+        _options.put(scaleOptionName, String.valueOf(iScale));
         return this;
+    }
+
+    public DUUIPipelineComponent withIgnoringHTTP200Error(boolean bValue) {
+
+        _options.put(ignoring200, String.valueOf(bValue));
+        return this;
+    }
+
+    public boolean getIgnoringHTTP200Error() {
+        return Boolean.parseBoolean(_options.getOrDefault(ignoring200, "false"));
     }
 
     public DUUIPipelineComponent withConstraints(List<String> constraints) {

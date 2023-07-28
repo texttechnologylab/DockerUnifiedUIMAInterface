@@ -14,7 +14,6 @@ import org.apache.uima.jcas.JCas;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.apache.uima.util.CasCreationUtils;
 import org.apache.uima.util.InvalidXMLException;
-
 import org.luaj.vm2.Globals;
 import org.luaj.vm2.lib.jse.JsePlatform;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.IDUUIConnectionHandler;
@@ -24,15 +23,13 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.DUUIMonitor;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.IDUUIStorageBackend;
-
 import org.texttechnologylab.DockerUnifiedUIMAInterface.segmentation.DUUISegmentationStrategy;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.segmentation.DUUISegmentationStrategyNone;
 import org.xml.sax.SAXException;
 
-import java.io.IOException;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.OutputStream;
-
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
 import java.security.InvalidParameterException;
@@ -249,19 +246,23 @@ class DUUIWorkerAsyncReader extends Thread {
                     // TODO support "complete pipeline" segmentation to only segment once
                     // TODO thread safety needed for here?
                     DUUISegmentationStrategy segmentationStrategy = i.getSegmentationStrategy();
-                    segmentationStrategy.initialize(_jc);
+                    if (segmentationStrategy instanceof DUUISegmentationStrategyNone) {
+                        i.getDriver().run(i.getUUID(), _jc, perf);
+                    } else {
+                        segmentationStrategy.initialize(_jc);
 
-                    JCas jCasSegmented = segmentationStrategy.getNextSegment();
-                    while(jCasSegmented != null) {
-                        // Process each cas sequentially
-                        // TODO add parallel variant later
-                        i.getDriver().run(i.getUUID(), jCasSegmented, perf);
+                        JCas jCasSegmented = segmentationStrategy.getNextSegment();
+                        while (jCasSegmented != null) {
+                            // Process each cas sequentially
+                            // TODO add parallel variant later
+                            i.getDriver().run(i.getUUID(), jCasSegmented, perf);
 
-                        segmentationStrategy.merge(jCasSegmented);
-                        jCasSegmented = segmentationStrategy.getNextSegment();
+                            segmentationStrategy.merge(jCasSegmented);
+                            jCasSegmented = segmentationStrategy.getNextSegment();
+                        }
+
+                        segmentationStrategy.finalize(_jc);
                     }
-
-                    segmentationStrategy.finalize(_jc);
 
                 } catch (Exception e) {
                     //Ignore errors at the moment

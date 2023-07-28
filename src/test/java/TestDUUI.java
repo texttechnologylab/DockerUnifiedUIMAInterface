@@ -4,7 +4,6 @@ import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
 import de.tudarmstadt.ukp.dkpro.core.io.text.TextReader;
 import de.tudarmstadt.ukp.dkpro.core.opennlp.OpenNlpPosTagger;
 import de.tudarmstadt.ukp.dkpro.core.tokit.BreakIteratorSegmenter;
-import eu.clarin.weblicht.wlfxb.md.xb.Services;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.UIMAException;
 import org.apache.uima.analysis_engine.AnalysisEngineDescription;
@@ -30,6 +29,7 @@ import org.junit.jupiter.api.Test;
 import org.msgpack.core.MessageBufferPacker;
 import org.msgpack.core.MessagePack;
 import org.msgpack.core.MessageUnpacker;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.AnnotationRemover;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIPipelineAnnotationComponent;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIPipelineDescription;
@@ -38,6 +38,7 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUISwarmDriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIUIMADriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.AsyncCollectionReader;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.io.TTLabXmiWriter;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaCommunicationLayer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaSandbox;
@@ -51,7 +52,6 @@ import org.texttechnologylab.utilities.helper.FileUtils;
 import org.xml.sax.SAXException;
 
 import javax.script.*;
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
@@ -291,7 +291,7 @@ CollectionReader();
 
         int iWorkers = 5;
 
-        AsyncCollectionReader testReader = new AsyncCollectionReader("/mnt/corpora2/xmi/ParliamentOutNew/Bremen/xmi/07", "xmi.gz", 1, -1, true, "", false);
+        AsyncCollectionReader testReader = new AsyncCollectionReader("/mnt/corpora2/xmi/ParliamentOutNew/Bremen/xmi/07", "xmi.gz", 1, -1, true, "", false, "all");
 
 
         jc.setDocumentText(sText);
@@ -329,7 +329,6 @@ CollectionReader();
                         .withScale(1)
                         .build());
 
-
         composer.add(new DUUIUIMADriver.Component(
                 createEngineDescription(XmiWriter.class,
                         XmiWriter.PARAM_TARGET_LOCATION, "/tmp/cuda/",
@@ -338,6 +337,7 @@ CollectionReader();
                         XmiWriter.PARAM_VERSION, "1.1",
                         XmiWriter.PARAM_COMPRESSION, "GZIP"
                 )).withScale(1).build());
+
 
 
         composer.run(testReader, "test");
@@ -350,9 +350,114 @@ CollectionReader();
 
 
     }
+
+    @Test
+    public void testTokenizer() throws Exception {
+        String sValue = "Um die Regierung der Ukraine zu stürzen, versuchten die russischen Streitkräfte am 24. Februar 2022 eine Luftlandeoperation auf dem Flughafen Kiew-Hostomel. Aus den abgehörten Telefonaten russischer Offiziere ging hervor, dass diese vor dem Angriff von ihren Kommandeuren dazu aufgefordert wurden, ihre Paradeuniformen für die Siegesparade in Kiew einzupacken. Die Truppen konnten aber zunächst keine Kontrolle über den Platz erringen. Bodentruppen rückten derweil aus mehreren Stoßrichtungen rasch von Belarus aus nach, dennoch und trotz einer anfänglichen Überzahl von geschätzt 12:1 geriet der Vormarsch schon nach wenigen Tagen ca. 30 km vor Kiew ins Stocken. Nach wochenlanger Umklammerung der Stadt von Norden, Westen und Osten musste Russland den Versuch der Eroberung Kiews Ende März aufgeben. Beim Abzug der russischen Truppen aus allen zuvor eroberten Gebieten nördlich von Kiew und Charkiw offenbarten sich Kriegsverbrechen an Zivilisten wie jene in Butscha. Im Osten der Ukraine, wo bei Kriegsbeginn entlang der seit 2015 bestehenden Kontaktlinie etwa die Hälfte der ukrainischen Armee lag, konnten die ukrainischen Truppen ihre Stellungen vor Donezk den ganzen März und April durchgehend halten, zudem die nahe der russischen Grenze liegende Großstadt Charkiw, die in der um sie geführten Schlacht erheblich zerstört wurde. Zwischen Donezk/Luhansk und Charkiw liegende Gebiete wurden von Russland besetzt. Beim Brückenkopf von Isjum wollte Russland eine Großoffensive starten, um die ukrainischen Truppen einzukesseln, doch kam der Vormarsch nicht voran. Noch stärker als Charkiw wurde die am Asowschen Meer liegende Hafenstadt Mariupol zerstört. Bis auf das lange belagerte Mariupol und den Südwesten der Ukraine (Oblast Odessa und Mykolajiw) wurden alle Gebiete im Süden der Ukraine, wo seit 2014 die Einnahme einer Landbrücke von Russland zur Krim (Föderativer Staat Neurussland) befürchtet worden war, besetzt. Dazu gehörte auch die Stadt Cherson, die bereits Anfang März eingenommen worden war. In diesem Gebiet im Süden hatten keine großen ukrainischen Einheiten zum Schutz vor einer Invasion von der Krim bereit gestanden, obwohl sie im nationalen Verteidigungsplan vorgesehen waren. In der Ukraine soll untersucht werden, wie das passieren konnte. Der weitere russische Vorstoß von Cherson in Richtung Odessa war Anfang März bei Mykolajiw gescheitert. Eine amphibische Landung wurde nach der Versenkung des Flaggschiffs Moskwa Mitte April nochmals unwahrscheinlicher. Gleichwohl wurde noch Mitte April von Landverbindungen nach Transnistrien gesprochen; insbesondere das russische Militär war mit den politischen Beschränkungen der Ziele auf den Donbass unzufrieden und forderte im Gegenteil ehrgeizigere Ziele und eine Generalmobilmachung in Russland.";
+
+        int iScale = 1;
+
+        JCas pCas = JCasFactory.createText(sValue, "de");
+
+        DUUILuaContext ctx = LuaConsts.getJSON();
+
+        DUUIComposer composer = new DUUIComposer()
+                //       .withStorageBackend(new DUUIArangoDBStorageBackend("password",8888))
+                .withWorkers(iScale)
+                .withLuaContext(ctx)
+                .withSkipVerification(true);
+
+        // Instantiate drivers with options
+        DUUIRemoteDriver remote_driver = new DUUIRemoteDriver(10000);
+        DUUIDockerDriver docker_driver = new DUUIDockerDriver(10000);
+        DUUISwarmDriver swarm_driver = new DUUISwarmDriver(10000);
+
+        // A driver must be added before components can be added for it in the composer.
+        composer.addDriver(remote_driver);
+        composer.addDriver(docker_driver);
+        composer.addDriver(swarm_driver);
+
+        // only on host huaxal
+//        List<String> constraints = new ArrayList<>(0);
+//        constraints.add("node.hostname!=huaxal");
+
+//        composer.add(new DUUIDockerDriver.Component("abstractgenerator:0.1")
+//                .withScale(iScale).withImageFetching().build());
+//        composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/gazetteer-rs/biofid:latest")
+//                .withScale(iScale).withLabels(labels).build());
+//        composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/gazetteer-rs/biofid-habitat:latest")
+//                .withScale(iScale).build());
+//        composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/gazetteer-rs/geonames:latest")
+//                .withScale(iScale).build());
+//        composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/gazetteer-rs/gnd:latest")
+//                .withScale(iScale).build());
+
+        composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9716")
+                .withScale(1)
+                .build());
+
+        composer.run(pCas, "test");
+        JCasUtil.select(pCas, Annotation.class).forEach(pAnno->{
+            System.out.println(pAnno.getType().getShortName());
+        });
+
+    }
+
+    @Test
+    public void testAbstract() throws Exception {
+        String sValue = "Um die Regierung der Ukraine zu stürzen, versuchten die russischen Streitkräfte am 24. Februar 2022 eine Luftlandeoperation auf dem Flughafen Kiew-Hostomel. Aus den abgehörten Telefonaten russischer Offiziere ging hervor, dass diese vor dem Angriff von ihren Kommandeuren dazu aufgefordert wurden, ihre Paradeuniformen für die Siegesparade in Kiew einzupacken. Die Truppen konnten aber zunächst keine Kontrolle über den Platz erringen. Bodentruppen rückten derweil aus mehreren Stoßrichtungen rasch von Belarus aus nach, dennoch und trotz einer anfänglichen Überzahl von geschätzt 12:1 geriet der Vormarsch schon nach wenigen Tagen ca. 30 km vor Kiew ins Stocken. Nach wochenlanger Umklammerung der Stadt von Norden, Westen und Osten musste Russland den Versuch der Eroberung Kiews Ende März aufgeben. Beim Abzug der russischen Truppen aus allen zuvor eroberten Gebieten nördlich von Kiew und Charkiw offenbarten sich Kriegsverbrechen an Zivilisten wie jene in Butscha. Im Osten der Ukraine, wo bei Kriegsbeginn entlang der seit 2015 bestehenden Kontaktlinie etwa die Hälfte der ukrainischen Armee lag, konnten die ukrainischen Truppen ihre Stellungen vor Donezk den ganzen März und April durchgehend halten, zudem die nahe der russischen Grenze liegende Großstadt Charkiw, die in der um sie geführten Schlacht erheblich zerstört wurde. Zwischen Donezk/Luhansk und Charkiw liegende Gebiete wurden von Russland besetzt. Beim Brückenkopf von Isjum wollte Russland eine Großoffensive starten, um die ukrainischen Truppen einzukesseln, doch kam der Vormarsch nicht voran. Noch stärker als Charkiw wurde die am Asowschen Meer liegende Hafenstadt Mariupol zerstört. Bis auf das lange belagerte Mariupol und den Südwesten der Ukraine (Oblast Odessa und Mykolajiw) wurden alle Gebiete im Süden der Ukraine, wo seit 2014 die Einnahme einer Landbrücke von Russland zur Krim (Föderativer Staat Neurussland) befürchtet worden war, besetzt. Dazu gehörte auch die Stadt Cherson, die bereits Anfang März eingenommen worden war. In diesem Gebiet im Süden hatten keine großen ukrainischen Einheiten zum Schutz vor einer Invasion von der Krim bereit gestanden, obwohl sie im nationalen Verteidigungsplan vorgesehen waren. In der Ukraine soll untersucht werden, wie das passieren konnte. Der weitere russische Vorstoß von Cherson in Richtung Odessa war Anfang März bei Mykolajiw gescheitert. Eine amphibische Landung wurde nach der Versenkung des Flaggschiffs Moskwa Mitte April nochmals unwahrscheinlicher. Gleichwohl wurde noch Mitte April von Landverbindungen nach Transnistrien gesprochen; insbesondere das russische Militär war mit den politischen Beschränkungen der Ziele auf den Donbass unzufrieden und forderte im Gegenteil ehrgeizigere Ziele und eine Generalmobilmachung in Russland.";
+
+        int iScale = 1;
+
+        JCas pCas = JCasFactory.createText(sValue, "de");
+
+        DUUILuaContext ctx = LuaConsts.getJSON();
+
+        DUUIComposer composer = new DUUIComposer()
+                //       .withStorageBackend(new DUUIArangoDBStorageBackend("password",8888))
+                .withWorkers(iScale)
+                .withLuaContext(ctx)
+                .withSkipVerification(true);
+
+        // Instantiate drivers with options
+        DUUIRemoteDriver remote_driver = new DUUIRemoteDriver(10000);
+        DUUIDockerDriver docker_driver = new DUUIDockerDriver(10000);
+        DUUISwarmDriver swarm_driver = new DUUISwarmDriver(10000);
+
+        // A driver must be added before components can be added for it in the composer.
+        composer.addDriver(remote_driver);
+        composer.addDriver(docker_driver);
+        composer.addDriver(swarm_driver);
+
+        // only on host huaxal
+//        List<String> constraints = new ArrayList<>(0);
+//        constraints.add("node.hostname!=huaxal");
+
+//        composer.add(new DUUIDockerDriver.Component("abstractgenerator:0.1")
+//                .withScale(iScale).withImageFetching().build());
+//        composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/gazetteer-rs/biofid:latest")
+//                .withScale(iScale).withLabels(labels).build());
+//        composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/gazetteer-rs/biofid-habitat:latest")
+//                .withScale(iScale).build());
+//        composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/gazetteer-rs/geonames:latest")
+//                .withScale(iScale).build());
+//        composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/gazetteer-rs/gnd:latest")
+//                .withScale(iScale).build());
+
+        composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9715")
+                        .withScale(1)
+                        .build());
+
+        composer.run(pCas, "test");
+        JCasUtil.select(pCas, Annotation.class).forEach(pAnno->{
+            System.out.println(pAnno.getType().getShortName());
+        });
+
+    }
+
     @Test
     public void TestBioFID() throws Exception {
-        AsyncCollectionReader testReader = new AsyncCollectionReader("/mnt/corpora2/xmi/ParliamentOutNew/Bremen/xmi/07", "xmi.gz", 1, -1, true, "", false);
+        AsyncCollectionReader testReader = new AsyncCollectionReader("/mnt/corpora2/xmi/ParliamentOutNew/Bremen/xmi/07", "xmi.gz", 1, -1, true, "", false, "all");
         int iScale = 12;
 
         DUUILuaContext ctx = LuaConsts.getJSON();
@@ -395,6 +500,64 @@ CollectionReader();
         composer.run(testReader, "test");
 
     }
+
+    @Test
+    public void runningGerParCor() throws Exception {
+        AsyncCollectionReader testReader = new AsyncCollectionReader("/resources/corpora/parlamentary_germany/Bundestag/19/", "xmi.gz", 1, 3, true, "/tmp/test/ttt", false, "all");
+        int iScale = 1;
+
+        DUUILuaContext ctx = LuaConsts.getJSON();
+
+        DUUIComposer composer = new DUUIComposer()
+                //       .withStorageBackend(new DUUIArangoDBStorageBackend("password",8888))
+                .withWorkers(iScale)
+                .withLuaContext(ctx)
+                .withSkipVerification(true);
+
+        // Instantiate drivers with options
+        DUUIRemoteDriver remote_driver = new DUUIRemoteDriver(10000);
+        DUUIDockerDriver docker_driver = new DUUIDockerDriver(10000);
+        DUUISwarmDriver swarm_driver = new DUUISwarmDriver(10000);
+        DUUIUIMADriver uima_driver = new DUUIUIMADriver();
+
+        // A driver must be added before components can be added for it in the composer.
+        composer.addDriver(remote_driver);
+        composer.addDriver(docker_driver);
+        composer.addDriver(swarm_driver);
+        composer.addDriver(uima_driver);
+
+        // only on host huaxal
+//        List<String> constraints = new ArrayList<>(0);
+//        constraints.add("node.hostname!=huaxal");
+
+        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.5")
+                .withScale(iScale).withImageFetching().build());
+
+        composer.add(new DUUIUIMADriver.Component(
+                createEngineDescription(AnnotationRemover.class)).withScale(iScale).build());
+
+        AnalysisEngineDescription writerEngine = createEngineDescription(TTLabXmiWriter.class,
+                TTLabXmiWriter.PARAM_TARGET_LOCATION, "/tmp/bundestag/",
+                TTLabXmiWriter.PARAM_PRETTY_PRINT, true,
+                TTLabXmiWriter.PARAM_OVERWRITE, true,
+                TTLabXmiWriter.PARAM_VERSION, "1.1",
+                TTLabXmiWriter.PARAM_COMPRESSION, "GZIP"
+        );
+
+        //((TTLabXmiWriter)writerEngine).setAsyncCollectionCeader(testReader);
+
+
+
+
+        composer.add(new DUUIUIMADriver.Component(
+                writerEngine)
+                .withScale(1).build());
+
+        composer.run(testReader, "test");
+
+    }
+
+
     @Test
     public void TestGerVader() throws Exception {
         JCas jc = JCasFactory.createJCas();
@@ -419,7 +582,7 @@ CollectionReader();
         composer.addDriver(docker_driver);
         composer.addDriver(swarm_driver);
 
-        composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
+        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
                 .withScale(1).build());
         composer.add(new DUUIDockerDriver.Component("gervader_duui:1.0")
                 .withScale(1));
