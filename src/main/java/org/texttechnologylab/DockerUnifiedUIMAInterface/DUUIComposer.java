@@ -700,7 +700,7 @@ public class DUUIComposer {
         // Reset "instantiated pipeline" as the components will duplicate otherwise
         // See https://github.com/texttechnologylab/DockerUnifiedUIMAInterface/issues/34
         // TODO should this only be done in "resetPipeline"?
-        _instantiatedPipeline.clear();
+        //_instantiatedPipeline.clear();
 
         List<TypeSystemDescription> descriptions = new LinkedList<>();
         descriptions.add(_minimalTypesystem);
@@ -832,6 +832,12 @@ public class DUUIComposer {
             }
             Instant starttime = Instant.now();
 
+            // dont instantiate pipeline for every run
+            // See https://github.com/texttechnologylab/DockerUnifiedUIMAInterface/issues/34
+            // TODO check for side effects
+            if (_instantiatedPipeline == null || _instantiatedPipeline.isEmpty()) {
+                instantiate_pipeline();
+            }
             instantiate_pipeline();
             JCas start = run_pipeline(name,jc,0,_instantiatedPipeline);
 
