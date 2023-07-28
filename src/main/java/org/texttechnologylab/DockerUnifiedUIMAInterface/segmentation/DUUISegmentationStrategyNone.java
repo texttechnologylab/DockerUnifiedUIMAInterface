@@ -1,50 +1,25 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.segmentation;
 
-import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import org.apache.uima.UIMAException;
-import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.jcas.JCas;
-import org.apache.uima.resource.metadata.TypeSystemDescription;
-import org.apache.uima.util.CasCopier;
-import org.apache.uima.util.TypeSystemUtil;
 
 /***
- * No document segmentation, this just uses the full input JCas.
+ * No document segmentation
  */
 public class DUUISegmentationStrategyNone extends DUUISegmentationStrategy {
-    private boolean hasMore;
-
     @Override
     protected void initialize() throws UIMAException {
-        hasMore = true;
-
-        TypeSystemDescription typeSystemDescription = TypeSystemUtil.typeSystem2TypeSystemDescription(jCasInput.getTypeSystem());
-        jCasOutput = JCasFactory.createJCas(typeSystemDescription);
+        // this class should not actually be used
     }
 
     @Override
     public JCas getNextSegment() {
-        // Return the input JCas only once
-        if (!hasMore) {
-            return null;
-        }
-        hasMore = false;
-        return DUUISegmentationStrategyNone.this.jCasInput;
+        // this class should not actually be used
+        return null;
     }
 
     @Override
     public void merge(JCas jCasSegment) {
-        // nothing to merge as we did not segment cas in the first place,
-        // just replace with the segmented
-        jCasOutput.reset();
-        CasCopier.copyCas(jCasSegment.getCas(), jCasOutput.getCas(), true, true);
-
-        // copy metadata separately
-        try {
-            DocumentMetaData.copy(jCasSegment, jCasOutput);
-        }
-        catch (Exception e) {
-            // ignore
-        }
+        // this class should not actually be used
     }
 }

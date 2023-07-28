@@ -747,19 +747,24 @@ public class DUUIComposer {
             // Segment document for each item in the pipeline separately
             // TODO support "complete pipeline" segmentation to only segment once
             DUUISegmentationStrategy segmentationStrategy = comp.getSegmentationStrategy();
-            segmentationStrategy.initialize(jc);
-
-            JCas jCasSegmented = segmentationStrategy.getNextSegment();
-            while(jCasSegmented != null) {
-                // Process each cas sequentially
-                // TODO add parallel variant later
-                comp.getDriver().run(comp.getUUID(), jCasSegmented, perf);
-
-                segmentationStrategy.merge(jCasSegmented);
-                jCasSegmented = segmentationStrategy.getNextSegment();
+            if (segmentationStrategy instanceof DUUISegmentationStrategyNone) {
+                comp.getDriver().run(comp.getUUID(), jc, perf);
             }
+            else {
+                segmentationStrategy.initialize(jc);
 
-            segmentationStrategy.finalize(jc);
+                JCas jCasSegmented = segmentationStrategy.getNextSegment();
+                while (jCasSegmented != null) {
+                    // Process each cas sequentially
+                    // TODO add parallel variant later
+                    comp.getDriver().run(comp.getUUID(), jCasSegmented, perf);
+
+                    segmentationStrategy.merge(jCasSegmented);
+                    jCasSegmented = segmentationStrategy.getNextSegment();
+                }
+
+                segmentationStrategy.finalize(jc);
+            }
         }
 
         if(_storage!=null) {
