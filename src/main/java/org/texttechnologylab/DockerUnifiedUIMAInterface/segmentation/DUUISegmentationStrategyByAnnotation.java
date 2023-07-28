@@ -16,20 +16,25 @@ import org.texttechnologylab.annotation.AnnotationComment;
 import java.util.*;
 import java.util.stream.Collectors;
 
-/***
+/**
  * Automatic simple document segmentation by annotation type.
+ *
+ * @author Daniel Baumartz
  */
 public class DUUISegmentationStrategyByAnnotation extends DUUISegmentationStrategy {
     // Name to store needed meta infos in cas
     static public final String DUUI_SEGMENTED_REF = "__textimager_duui_segmented_ref__";
     static public final String DUUI_SEGMENTED_POS = "__textimager_duui_segmented_pos__";
 
-    // Annotation type to use for splitting cas contents
-    protected Class<? extends Annotation> SegmentationClass = null;
-
-    // Max number of annotations (eg sentences) per segments
+    /**
+     * Max number of annotations (eg sentences) per segments
+     */
     // TODO update amount
     public static final int MAX_ANNOTATIONS_PER_SEGMENT_DEFAULT = 2;
+    /**
+     * Annotation type to use for splitting cas contents
+     */
+    protected Class<? extends Annotation> SegmentationClass = null;
     protected int maxAnnotationsPerSegment = MAX_ANNOTATIONS_PER_SEGMENT_DEFAULT;
 
     // Max number of characters per segment
@@ -52,31 +57,54 @@ public class DUUISegmentationStrategyByAnnotation extends DUUISegmentationStrate
     private long annotationCount = 0;
     private JCas jCasCurrentSegment;
 
+    /**
+     * @param clazz
+     * @return
+     */
     public DUUISegmentationStrategyByAnnotation withSegmentationClass(Class<? extends Annotation> clazz) {
         this.SegmentationClass = clazz;
         return this;
     }
 
+    /**
+     * @param maxAnnotationsPerSegment
+     * @return
+     */
     public DUUISegmentationStrategyByAnnotation withMaxAnnotationsPerSegment(int maxAnnotationsPerSegment) {
         this.maxAnnotationsPerSegment = maxAnnotationsPerSegment;
         return this;
     }
 
+    /**
+     * @param maxCharsPerSegment
+     * @return
+     */
     public DUUISegmentationStrategyByAnnotation withMaxCharsPerSegment(int maxCharsPerSegment) {
         this.maxCharsPerSegment = maxCharsPerSegment;
         return this;
     }
 
+    /**
+     * @param ignoreMissingAnnotations
+     * @return
+     */
     public DUUISegmentationStrategyByAnnotation withIgnoreMissingAnnotations(boolean ignoreMissingAnnotations) {
         this.ignoreMissingAnnotations = ignoreMissingAnnotations;
         return this;
     }
 
+    /**
+     * @param printStatistics
+     * @return
+     */
     public DUUISegmentationStrategyByAnnotation withPrintStatistics(boolean printStatistics) {
         this.printStatistics = printStatistics;
         return this;
     }
 
+    /**
+     * @throws UIMAException
+     */
     @Override
     protected void initialize() throws UIMAException {
         // Type must have been set
@@ -151,7 +179,7 @@ public class DUUISegmentationStrategyByAnnotation extends DUUISegmentationStrate
         return true;
     }
 
-    /***
+    /**
      * Apply user roles to the proposed segment.
      * @return true if break allowed (the default), else false
      */
@@ -167,7 +195,7 @@ public class DUUISegmentationStrategyByAnnotation extends DUUISegmentationStrate
         return rulesCanAdd;
     }
 
-    /***
+    /**
      * Create a new CAS for this segment of the document.
      * @param segmentBegin The begin position of the segment
      * @param segmentEnd The end position of the segment
@@ -315,7 +343,7 @@ public class DUUISegmentationStrategyByAnnotation extends DUUISegmentationStrate
         return null;
     }
 
-    /***
+    /**
      * Recombine the segments back into the output cas
      * Note that this should rely only on the given segment cas to allow for parallelization later
      * @param jCasSegment The segment cas to merge into the output cas
