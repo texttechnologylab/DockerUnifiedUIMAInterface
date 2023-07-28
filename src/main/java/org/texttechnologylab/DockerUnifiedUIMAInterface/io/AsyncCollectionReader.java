@@ -92,6 +92,41 @@ public class AsyncCollectionReader {
         this(folder, ending, debugCount, iRandom, bSort, savePath, bAddMetadata, null);
     }
 
+    public enum DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE {
+        RANDOM,
+        SMALLEST,
+        LARGEST
+    }
+
+    private static int getRandomFromMode(DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE sampleMode, int sampleSize) {
+        if (sampleMode == DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE.SMALLEST) {
+            return sampleSize * -1;
+        }
+        return sampleSize;
+    }
+
+    private static boolean getSortFromMode(DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE mode) {
+        if (mode == DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE.RANDOM) {
+            return false;
+        }
+        return true;
+    }
+
+    public AsyncCollectionReader(String folder, String ending, int debugCount, int sampleSize, DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE sampleMode, String savePath, boolean bAddMetadata, String language) {
+        this(folder, ending, debugCount, getRandomFromMode(sampleMode, sampleSize), getSortFromMode(sampleMode), savePath, bAddMetadata, language);
+    }
+
+    /***
+     * Constructor for the AsyncCollectionReader
+     * @param folder Input folder
+     * @param ending File ending
+     * @param debugCount Number of documents to print out
+     * @param iRandom Number of documents to select either randomly of from beginning or end depending on whether bSort is true or false
+     * @param bSort Sort the documents by size from largest to smallest, if true and iRandom is not 0, the first (= largest) iRandom documents are selected, if iRandom is negative, the last (= smallest) iRandom documents are selected
+     * @param savePath Path to a file where the paths of the selected documents are saved and loaded from, if the file exists
+     * @param bAddMetadata Add metadata to the documents
+     * @param language Add language to the documents
+     */
     public AsyncCollectionReader(String folder, String ending, int debugCount, int iRandom, boolean bSort, String savePath, boolean bAddMetadata, String language) {
 
         _addMetadata = bAddMetadata;
@@ -130,7 +165,11 @@ public class AsyncCollectionReader {
             _filePaths = sortBySize(_filePaths);
         }
 
-        if(iRandom>0){
+        if (bSort && iRandom != 0) {
+            System.out.println("Sorting and Random Selection is active, using the " + (iRandom > 0 ? "largest " : "smallest ") + Math.abs(iRandom) + " documents.");
+            _filePaths = takeFirstOrLast(_filePaths, iRandom);
+        }
+        else if(iRandom>0){
             _filePaths = random(_filePaths, iRandom);
         }
 
@@ -348,6 +387,30 @@ public class AsyncCollectionReader {
 
         return rQueue;
 
+    }
+
+    /***
+     * Takes the first n or last n elements of the queue
+     * @param paths List of paths
+     * @param n Number of elements to take, if n is positive, the first n elements are taken, if n is negative, the last n elements are taken, if n is 0, an IllegalArgumentException is thrown
+     * @return A new queue with the first or last n elements
+     */
+    public static ConcurrentLinkedQueue<String> takeFirstOrLast(ConcurrentLinkedQueue<String> paths, int n){
+        ConcurrentLinkedQueue<String> rQueue = new ConcurrentLinkedQueue<>();
+        ArrayList<String> sList = new ArrayList<>(paths);
+
+        if(n > 0){
+            rQueue.addAll(sList.subList(0, n));
+        }
+        else if (n < 0){
+            // NOTE using "+n" because the value is already negative
+            rQueue.addAll(sList.subList(sList.size()+n, sList.size()));
+        }
+        else {
+            throw new IllegalArgumentException("n must not be 0");
+        }
+
+        return rQueue;
     }
 
     public static String getSize(String sPath){
