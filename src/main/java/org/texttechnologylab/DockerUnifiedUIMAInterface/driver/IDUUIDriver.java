@@ -14,11 +14,11 @@ import org.xml.sax.SAXException;
 import java.io.IOException;
 import java.util.ArrayList;
 
-public interface IDUUIDriverInterface {
+public interface IDUUIDriver {
     public default void setLuaContext(DUUILuaContext luaContext) {};
     public boolean canAccept(DUUIPipelineComponent component) throws InvalidXMLException, IOException, SAXException;
     public String instantiate(DUUIPipelineComponent component, JCas jc, boolean skipVerification) throws Exception;
-    public TypeSystemDescription get_typesystem(String uuid) throws InterruptedException, IOException, SAXException, CompressorException, ResourceInitializationException;
+    public TypeSystemDescription get_typesystem(String uuid) throws ResourceInitializationException, InterruptedException;
 
     public default void destroy(String uuid) {};
     public default void shutdown() {}
@@ -26,7 +26,7 @@ public interface IDUUIDriverInterface {
     public void run(String uuid, JCas _jc, DUUIPipelineDocumentPerformance perf) throws InterruptedException, IOException, SAXException, AnalysisEngineProcessException, CompressorException, CASException;
     public void printConcurrencyGraph(String uuid);
 
-    public default Signature get_signature(String uuid) throws ResourceInitializationException {
+    public default Signature get_signature(String uuid) throws ResourceInitializationException, InterruptedException {
         return new Signature(new ArrayList<>(), new ArrayList<>()); 
     };
 }

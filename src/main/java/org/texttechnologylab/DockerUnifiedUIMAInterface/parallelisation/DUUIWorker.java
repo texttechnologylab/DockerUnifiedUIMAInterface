@@ -17,6 +17,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.PipelinePart;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.Signature;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineProfiler;
 
@@ -24,13 +25,17 @@ import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import guru.nidi.graphviz.attribute.Color;
 
 public class DUUIWorker implements Callable<Boolean> {
-    private final String name;
-    private final PipelinePart component;
-    private final JCas jc;
-    private final DUUIPipelineDocumentPerformance perf;
-    private final Collection<DUUIWorker.ComponentLock> parentLocks;
-    private final Collection<DUUIWorker.ComponentLock> childrenLocks;
-    private Set<ComponentLock> finishedParents = new HashSet<>();
+    final String _name;
+    final PipelinePart _component;
+    final JCas _jc;
+    final DUUIPipelineDocumentPerformance _perf;
+    final Collection<DUUIWorker.ComponentLock> _parentLocks;
+    final Collection<DUUIWorker.ComponentLock> _childrenLocks;
+    final Signature _signature; 
+    final String _title; 
+    final String _threadName; 
+
+    Set<ComponentLock> finishedParents = new HashSet<>();
 
     public DUUIWorker(String name, 
                 PipelinePart component, 
@@ -38,63 +43,59 @@ public class DUUIWorker implements Callable<Boolean> {
                 DUUIPipelineDocumentPerformance perf, 
                 Collection<DUUIWorker.ComponentLock> selfLatches, 
                 Collection<DUUIWorker.ComponentLock> childLatches) {
-        this.name = name;
-        this.component = component; 
-        this.jc = jc; 
-        this.perf = perf; 
-        this.parentLocks = selfLatches; 
-        this.childrenLocks = childLatches; 
+        _name = name;
+        _component = component; 
+        _jc = jc; 
+        _perf = perf; 
+        _parentLocks = selfLatches; 
+        _childrenLocks = childLatches; 
+        _signature = _component.getSignature(); 
+        _title = JCasUtil.select(_jc, DocumentMetaData.class)
+                .stream().map(meta -> meta.getDocumentTitle()).findFirst().orElseGet(() -> "");
+
+        _threadName = format("Worker-%s-%s", _name, _signature);
     }
 
     @Override
     public Boolean call() throws Exception {
+        Thread.currentThread().setName(_threadName);
         long start = 0;
         try {
-            String title = JCasUtil.select(jc, DocumentMetaData.class)
-                .stream().map(meta -> meta.getDocumentTitle()).findFirst().orElseGet(() -> "");
-            DUUIPipelineProfiler.add(name, title, component.getSignature(), component.getScale());
+            
+            DUUIPipelineProfiler.add(_name, _title, _signature, _component.getScale());
 
-            while (finishedParents.size() != parentLocks.size()) {
-                for (DUUIWorker.ComponentLock parent : parentLocks) {
+            while (finishedParents.size() != _parentLocks.size()) {
+                for (DUUIWorker.ComponentLock parent : _parentLocks) {
                     boolean finished = parent.await(1, TimeUnit.SECONDS);
-                    if (parent.failed()) {
-                        throw new Exception(format("[DUUIWorker-%s][%s][Component: %s] Parent failed.%n", 
-                            Thread.currentThread().getName(), name, component.getSignature()));
-                    }
-                    if (finished) finishedParents.add(parent);
+                    if (parent.failed())
+                        throw new Exception(format("[%s] Parent failed.%n", _threadName));
+
+                    if (finished) 
+                        finishedParents.add(parent);
                 }
                 if (Thread.interrupted()) 
-                    throw new Exception(format("[DUUIWorker-%s][%s][Component: %s] interrupted.%n", 
-                            Thread.currentThread().getName(), name, component.getSignature()));
+                    throw new Exception(format("[%s] interrupted.%n", _threadName));
             }
             
-            // System.out.printf(
-            //     "[DUUIWorker-%s][%s] Pipeline component %s starting analysis.%n", 
-            //     Thread.currentThread().getName(), name, component.getSignature()
-            // );
-            updatePipelineGraphStatus(name, component.getSignature().toString(), Color.YELLOW2);
+            System.out.printf("[%s] starting analysis.%n", _threadName);
+            updatePipelineGraphStatus(_name, _signature.toString(), Color.YELLOW2);
             start = Instant.now().getEpochSecond();
-            component.run(name, jc, perf); 
-            updatePipelineGraphStatus(name, component.getSignature().toString(), Color.GREEN3);
-            // System.out.printf(
-            //     "[DUUIWorker-%s][%s] Pipeline component %s finished analysis.%n", 
-            //     Thread.currentThread().getName(), name, component.getSignature()
-            // );
+            _component.run(_name, _jc, _perf); 
+            updatePipelineGraphStatus(_name, _signature.toString(), Color.GREEN3);
+            System.out.printf("[%s] finished analysis.%n", _threadName);
                 
-            for (DUUIWorker.ComponentLock childLock : childrenLocks)
+            for (DUUIWorker.ComponentLock childLock : _childrenLocks)
                 childLock.countDown(); // children can continue
                     
             } catch (Exception e) {
-                updatePipelineGraphStatus(name, component.getSignature().toString(), Color.RED3);
-                for (DUUIWorker.ComponentLock childLock : childrenLocks)
+                updatePipelineGraphStatus(_name, _signature.toString(), Color.RED3);
+                for (DUUIWorker.ComponentLock childLock : _childrenLocks)
                     childLock.fail();
-                throw new Exception(format("[DUUIWorker-%s][%s] Pipeline component %s failed.%n",
-                    Thread.currentThread().getName(), name, component.getSignature()
-                ));
+                throw new Exception(format("[%s] Pipeline component failed.%n", _threadName), e);
             } finally {
                 Instant end = Instant.now().minusSeconds(start);
-                documentUpdate(name, component.getSignature(), "total", end);
-                finalizeDocument(name, component.getSignature().toString());
+                documentUpdate(_name, _signature, "total", end);
+                finalizeDocument(_name, _signature.toString());
             }
 
         return Boolean.valueOf(true); 

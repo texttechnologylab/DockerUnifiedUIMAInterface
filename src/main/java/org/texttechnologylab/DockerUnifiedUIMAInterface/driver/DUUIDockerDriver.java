@@ -6,8 +6,11 @@ import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.apache.uima.util.TypeSystemUtil;
+import org.texttechnologylab.ResourceManager;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIDockerInterface;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUIResource;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.DUUIRestClient;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.DUUIWebsocketAlt;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.IDUUIConnectionHandler;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
@@ -23,13 +26,15 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.logging.Logger;
 
 import static java.lang.String.format;
 
-public class DUUIDockerDriver implements IDUUIConnectedDriverInterface {
+public class DUUIDockerDriver implements IDUUIConnectedDriver, IDUUIResource {
     private DUUIDockerInterface _interface;
     private HttpClient _client;
     private IDUUIConnectionHandler _wsclient;
@@ -37,12 +42,14 @@ public class DUUIDockerDriver implements IDUUIConnectedDriverInterface {
     private Map<String, IDUUIInstantiatedPipelineComponent> _active_components;
     private int _container_timeout;
     private DUUILuaContext _luaContext;
+    private ResourceManager _rm = ResourceManager.getInstance();  
 
     private final static Logger LOGGER = Logger.getLogger(DUUIComposer.class.getName());
 
     public DUUIDockerDriver() throws IOException, UIMAException, SAXException {
         _interface = new DUUIDockerInterface();
-        _client = HttpClient.newHttpClient();
+        _client = DUUIRestClient._client;
+        // _client = HttpClient.newBuilder().executor(Runnable::run).build();
 
         JCas _basic = JCasFactory.createJCas();
         _basic.setDocumentLanguage("en");
@@ -59,7 +66,9 @@ public class DUUIDockerDriver implements IDUUIConnectedDriverInterface {
 
     public DUUIDockerDriver(int timeout) throws IOException, UIMAException, SAXException {
         _interface = new DUUIDockerInterface();
-        _client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(timeout)).build();
+        _client = HttpClient.newBuilder()
+            .executor(Runnable::run)    
+            .connectTimeout(Duration.ofSeconds(timeout)).build();
 
         _container_timeout = timeout;
 
@@ -68,6 +77,14 @@ public class DUUIDockerDriver implements IDUUIConnectedDriverInterface {
 
     public Map<String, IDUUIInstantiatedPipelineComponent> getComponents() {
         return _active_components;
+    }
+
+    public ResourceManager getResourceManager() {
+        return _rm;
+    }
+
+    public void setResourceManager(ResourceManager rm) {
+        _rm = rm; 
     }
 
     public void setLuaContext(DUUILuaContext luaContext) {
@@ -99,6 +116,8 @@ public class DUUIDockerDriver implements IDUUIConnectedDriverInterface {
 
         
         InstantiatedComponent comp = new InstantiatedComponent(component);
+
+        comp.setResourceManager(_rm);
 
         if (!comp.getImageFetching()) {
             if(comp.getUsername() != null) {
@@ -133,20 +152,17 @@ public class DUUIDockerDriver implements IDUUIConnectedDriverInterface {
                 },_luaContext, skipVerification);
                 System.out.printf("[DockerLocalDriver][%s][Docker Replication %d/%d] Container for image %s is online (URL http://127.0.0.1:%d) and seems to understand DUUI V1 format!\n", uuid, i + 1, comp.getScale(), comp.getImageName(), port);
 
+                _wsclient = null;
                 if (comp.isWebsocket()) {
                     String url = "ws://127.0.0.1:" + String.valueOf(port);
                     _wsclient = new DUUIWebsocketAlt(
                             url + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS_WEBSOCKET, comp.getWebsocketElements());
                 }
-                else {
-                    _wsclient = null;
-                }
-
                 comp.addInstance(new ComponentInstance(containerid, port, layer, _wsclient));
             }
             catch(Exception e) {
-                //_interface.stop_container(containerid);
-                //throw e;
+                _interface.stop_container(containerid);
+                throw e;
             }
         }
         return uuid;
@@ -212,8 +228,9 @@ public class DUUIDockerDriver implements IDUUIConnectedDriverInterface {
     }
 
     static class InstantiatedComponent implements IDUUIInstantiatedPipelineComponent {
-        private ConcurrentLinkedQueue<ComponentInstance> _instances;
+        private BlockingQueue<ComponentInstance> _instances;
         private DUUIPipelineComponent _component;
+        private ResourceManager _manager;
         private String _uniqueComponentKey; 
         private Signature _signature; 
         
@@ -226,7 +243,7 @@ public class DUUIDockerDriver implements IDUUIConnectedDriverInterface {
 
             _uniqueComponentKey = "";
 
-            _instances = new ConcurrentLinkedQueue<ComponentInstance>();
+            _instances = new LinkedBlockingQueue<ComponentInstance>(getScale());
         }
 
         public void addComponent(IDUUIUrlAccessible access) {
@@ -237,7 +254,15 @@ public class DUUIDockerDriver implements IDUUIConnectedDriverInterface {
             _instances.add(inst);
         }
         
-        public ConcurrentLinkedQueue<ComponentInstance> getInstances() {
+        public void setResourceManager(ResourceManager manager) {
+            _manager = manager;
+        }
+
+        public ResourceManager getResourceManager() {
+            return _manager; 
+        }
+        
+        public BlockingQueue<ComponentInstance> getInstances() {
             return _instances;
         }
 

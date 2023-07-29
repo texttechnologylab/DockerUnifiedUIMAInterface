@@ -30,7 +30,7 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPip
 public class DUUIParallelExecutionPipeline extends DirectedAcyclicGraph<String, CustomEdge>  {
     public final Map<String, PipelinePart> _pipeline;
     public final Iterable<String> _executionplan;  
-    private final Map<String, Callable<Boolean>> _componentRunners = new ConcurrentHashMap<>(); 
+    private final Map<String, Callable<Boolean>> _componentRunners = new ConcurrentHashMap<>(100); 
 
     public DUUIParallelExecutionPipeline(Vector<PipelinePart> flow) {
         super(CustomEdge.class);
@@ -69,7 +69,7 @@ public class DUUIParallelExecutionPipeline extends DirectedAcyclicGraph<String, 
         return compRunners; 
     }
 
-    public Callable<Boolean> getRunner(String name, String uuid) {
+    public Callable<Boolean> getComponentRunner(String name, String uuid) {
         if (!_componentRunners.containsKey(name+uuid)) return null;
 
         return _componentRunners.get(name+uuid);
@@ -111,7 +111,8 @@ public class DUUIParallelExecutionPipeline extends DirectedAcyclicGraph<String, 
             Map<Class<? extends Annotation>, AtomicInteger> selfLatchesCovered = new HashMap<>(dependencies.size());
 
             for (Class<? extends Annotation> dependency : dependencies) {
-                if (JCasUtil.select(jc, dependency).isEmpty()) {
+                // TODO: Add customizable type-checking e.g. Feature language of DocumentMetaData Annotation
+                if (JCasUtil.select(jc, dependency).isEmpty()) { 
                     selfLatches.put(dependency, new ComponentLock(1));
                     selfLatchesCovered.put(dependency, new AtomicInteger(1));
                 }

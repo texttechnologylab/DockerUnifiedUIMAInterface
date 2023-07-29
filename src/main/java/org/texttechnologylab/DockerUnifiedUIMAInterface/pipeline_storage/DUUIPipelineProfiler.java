@@ -163,8 +163,6 @@ public class DUUIPipelineProfiler {
         update.put("name", name);
         update.put("component", signature);
         update.put("scale", _pipeline_measurements.get(key(name, signature) + "scale"));
-        
-        System.out.println("FINALIZED DOCUMENT");
 
         _pipeline_measurements.keySet()
             .stream().filter(key -> key.contains(key(name, signature)))
@@ -190,8 +188,7 @@ public class DUUIPipelineProfiler {
     private static void send(Map<String, Object> update, String type) {
         try {
             _monitor.sendUpdate(update, type);
-        } catch (IOException e) {
-            System.out.println(e.getMessage());
+        } catch (IOException | NullPointerException e) {
         } catch (InterruptedException e) {
             System.out.println(e.getMessage());
         }

@@ -206,7 +206,7 @@ public class DUUIPipelineComponent {
     }
 
     public Integer getScale() {
-        return getScale(null);
+        return getScale(1);
     }
 
     public Integer getScale(Integer defaultValue) {
@@ -543,7 +543,7 @@ public class DUUIPipelineComponent {
         return this;
     }
 
-    public boolean isCompatible(IDUUIDriverInterface driver) throws InvalidXMLException, IOException, SAXException {
+    public boolean isCompatible(IDUUIDriver driver) throws InvalidXMLException, IOException, SAXException {
         return driver.canAccept(this);
     }
 

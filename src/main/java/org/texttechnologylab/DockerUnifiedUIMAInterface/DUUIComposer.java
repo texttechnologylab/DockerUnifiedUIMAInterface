@@ -2,24 +2,30 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface;
 
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.cas.impl.XmiCasSerializer;
+import org.apache.uima.cas.TypeSystem;
 import org.apache.uima.cas.impl.BinaryCasSerDes4;
 import org.apache.uima.cas.impl.BinaryCasSerDes4.CasCompare;
 import org.apache.uima.collection.CollectionReader;
 import org.apache.uima.collection.CollectionReaderDescription;
+import org.apache.uima.fit.factory.CasFactory;
 import org.apache.uima.fit.factory.CollectionReaderFactory;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.fit.factory.TypeSystemDescriptionFactory;
-import org.apache.uima.fit.util.CasUtil;
 import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.jcas.cas.TOP;
+import org.apache.uima.jcas.impl.JCasHashMap;
+import org.apache.uima.jcas.impl.JCasImpl;
+import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
+import org.apache.uima.util.CasCopier;
 import org.apache.uima.util.CasCreationUtils;
 import org.apache.uima.util.InvalidXMLException;
+import org.apache.uima.util.TypeSystemUtil;
 import org.dkpro.core.io.xmi.XmiReader;
 import org.luaj.vm2.Globals;
 import org.luaj.vm2.lib.jse.JsePlatform;
-
+import org.texttechnologylab.ResourceManager;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.IDUUIConnectionHandler;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.*;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.AsyncCollectionReader;
@@ -33,12 +39,15 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPip
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.IDUUIStorageBackend;
 import org.xml.sax.SAXException;
 
+import de.tudarmstadt.ukp.dkpro.core.api.lexmorph.type.pos.POS;
 import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
+import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Sentence;
 
 import java.io.IOException;
 
 import java.io.ByteArrayOutputStream;
-
+import java.io.File;
+import java.io.FileOutputStream;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
 import java.security.InvalidParameterException;
@@ -46,6 +55,7 @@ import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -58,7 +68,7 @@ import static java.lang.String.format;
 import static org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineProfiler.pipelineUpdate;
 
 public class DUUIComposer {
-    private final Map<String, IDUUIDriverInterface> _drivers;
+    private final Map<String, IDUUIDriver> _drivers;
     private final Vector<DUUIPipelineComponent> _pipeline;
 
     private ExecutorService _executorService;
@@ -157,6 +167,7 @@ public class DUUIComposer {
 
     public DUUIComposer withWorkers(int workers) {
         _workers = workers;
+        ResourceManager.getInstance().setWorkers(workers);
         return this;
     }
 
@@ -165,14 +176,14 @@ public class DUUIComposer {
         return this;
     }
 
-    public DUUIComposer addDriver(IDUUIDriverInterface driver) {
+    public DUUIComposer addDriver(IDUUIDriver driver) {
         driver.setLuaContext(_context);
         _drivers.put(driver.getClass().getCanonicalName(), driver);
         return this;
     }
 
-    public DUUIComposer addDriver(IDUUIDriverInterface... drivers) {
-        for (IDUUIDriverInterface driver : drivers) {
+    public DUUIComposer addDriver(IDUUIDriver... drivers) {
+        for (IDUUIDriver driver : drivers) {
             driver.setLuaContext(_context);
             _drivers.put(driver.getClass().getCanonicalName(), driver);
         }
@@ -184,7 +195,7 @@ public class DUUIComposer {
             throw new RuntimeException("[DUUIComposer] No storage backend specified but trying to load component from it!");
         }
         _pipeline.add(_storage.loadComponent(id));
-        IDUUIDriverInterface driver = _drivers.get(_pipeline.lastElement().getOption(DUUIComposer.DRIVER_OPTION_NAME));
+        IDUUIDriver driver = _drivers.get(_pipeline.lastElement().getOption(DUUIComposer.DRIVER_OPTION_NAME));
         if (driver == null) {
             throw new InvalidParameterException(format("[DUUIComposer] No driver %s in the composer installed!", _pipeline.lastElement().getOption(DUUIComposer.DRIVER_OPTION_NAME)));
         }
@@ -202,7 +213,7 @@ public class DUUIComposer {
     }
 
     public DUUIComposer add(DUUIPipelineComponent object) throws InvalidXMLException, IOException, SAXException, CompressorException {
-        IDUUIDriverInterface driver = _drivers.get(object.getDriver());
+        IDUUIDriver driver = _drivers.get(object.getDriver());
         if (driver == null) {
             throw new InvalidParameterException(format("[DUUIComposer] No driver %s in the composer installed!", object.getDriver()));
         } else {
@@ -352,7 +363,7 @@ public class DUUIComposer {
             } catch (Exception e) {
                 e.printStackTrace();
             }
-            for (IDUUIDriverInterface driver : _drivers.values()) {
+            for (IDUUIDriver driver : _drivers.values()) {
                 driver.shutdown();
             }
 
@@ -393,64 +404,67 @@ public class DUUIComposer {
         if(_skipVerification) {
             System.out.println("[Composer] Running without verification, no process calls will be made during initialization!");
         }
-        
+
         List<Future<?>> tasks = new ArrayList<>();
         if (_workers > 1)
             _executorService = Executors.newFixedThreadPool(_workers);
         else _executorService = Executors.newSingleThreadExecutor();
-
-        List<TypeSystemDescription> descriptions = new LinkedList<>();
+        Collection<TypeSystemDescription> descriptions = new ConcurrentLinkedQueue<>();
         descriptions.add(_minimalTypesystem);
         descriptions.add(TypeSystemDescriptionFactory.createTypeSystemDescription());
 
-        try { 
-            for (DUUIPipelineComponent comp : _pipeline) {
-                tasks.add(
-                _executorService.submit(() -> {
-                    IDUUIDriverInterface driver = _drivers.get(comp.getDriver());
-                    String uuid;
-                    try {
-                        uuid = driver.instantiate(comp, jc, _skipVerification);
-                        TypeSystemDescription desc = driver.get_typesystem(uuid);
-                        if (desc != null)
-                            synchronized (descriptions) {descriptions.add(desc);}
-                        Signature signature = driver.get_signature(uuid);
-                        synchronized (_instantiatedPipeline) {
-                            _instantiatedPipeline.add(new PipelinePart(driver, uuid, signature, comp.getScale()));
-                        }  
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
-                }));
-            }
+        // Initialization
+        for (DUUIPipelineComponent comp : _pipeline) {
+            tasks.add(
+            _executorService.submit(() -> {
+                IDUUIDriver driver = _drivers.get(comp.getDriver());
+                String uuid = null;
+                Signature signature = null;
+                try {
+                    uuid = driver.instantiate(comp, jc, _skipVerification);
+                    TypeSystemDescription desc = driver.get_typesystem(uuid);
+                    if (desc != null) 
+                        descriptions.add(desc);
+                    signature = driver.get_signature(uuid);
+                } catch (ResourceInitializationException e) {
+                    System.out.println("[Composer] Error retrieving resources: ");
+                    e.printStackTrace();
+                } catch (Exception e) {
+                    System.out.println("[Composer] Error during component initialization: ");
+                    e.printStackTrace();
+                }
 
-            for (Future<?> task : tasks) 
-                task.get();
+                synchronized (_instantiatedPipeline) {
+                    _instantiatedPipeline.add(new PipelinePart(driver, uuid, signature, comp.getScale()));
+                }  
+            }));
+        }
 
-            _executionPipeline = new DUUIParallelExecutionPipeline(_instantiatedPipeline);
-            if (_workers == 1) {
-                // Sort sequential pipeline according to dependencies.
-                _executorService.shutdownNow(); 
-                Vector<PipelinePart> temp = new Vector<>(_instantiatedPipeline.size());
-                
-                _executionPipeline._executionplan.forEach(uuid -> 
-                {
-                    PipelinePart comp = _instantiatedPipeline.stream()
-                        .filter(c -> uuid == c.getUUID()).findFirst().orElseGet(() -> null);
-                    if (comp != null) temp.add(comp);
-                });
-                _instantiatedPipeline = temp; 
-            }
+        // Initialization finished. Can throw!
+        for (Future<?> task : tasks) 
+            task.get();
+
+        // Pipeline ordering. 
+        _executionPipeline = new DUUIParallelExecutionPipeline(_instantiatedPipeline);
+        if (_workers == 1) {
+            // Sort sequential pipeline according to dependencies.
+            _executorService.shutdownNow(); 
+            Vector<PipelinePart> temp = new Vector<>(_instantiatedPipeline.size());
             
+            _executionPipeline._executionplan.forEach(uuid -> 
+            {
+                PipelinePart comp = _instantiatedPipeline.stream()
+                    .filter(c -> uuid == c.getUUID()).findFirst().orElseGet(() -> null);
+                if (comp != null) temp.add(comp);
+            });
+            _instantiatedPipeline = temp; 
         }
-        catch (Exception e){
-            throw e;
-        }
+        
         if(descriptions.size() > 1) {
             return CasCreationUtils.mergeTypeSystems(descriptions);
         }
         else if(descriptions.size() == 1) {
-            return descriptions.get(0);
+            return descriptions.stream().findFirst().get();
         }
         else {
             return TypeSystemDescriptionFactory.createTypeSystemDescription();
@@ -497,7 +511,8 @@ public class DUUIComposer {
 
         List<Future<Boolean>> runningComponents = new ArrayList<>();
         Map<Integer, JCas> results = new ConcurrentHashMap<>();
-
+        TypeSystem ts = JCasFactory.createJCas(desc).getTypeSystem();
+        JCas first = null; 
         AtomicInteger d = new AtomicInteger(1);
         Callable<Boolean> component = null; 
         for (String compId : _executionPipeline._executionplan) {
@@ -507,8 +522,12 @@ public class DUUIComposer {
                 // Instantiate JCas.
                 String currName = format("%s-%d", name, d.get()); 
                 
-                JCas jc = JCasFactory.createJCas(desc);
-                
+                // JCas jc = JCasFactory.createJCas(desc);
+                JCas jc =  CasCreationUtils
+                    .createCas(ts, null, null, null)
+                    .getJCas();
+                if (d.get() == 1)
+                    first = jc; 
                 long waitTimeStart = System.nanoTime();
                 reader.getNextCAS(jc);
                 long waitTimeEnd = System.nanoTime();
@@ -524,7 +543,7 @@ public class DUUIComposer {
            
             for (int i = 1; i < d.get(); i++) {
                 String currName = format("%s-%d", name, i); 
-                component = _executionPipeline.getRunner(currName, compId);
+                component = _executionPipeline.getComponentRunner(currName, compId);
 
                 if (component == null) 
                     throw new RuntimeException(format("[%s][%s] doesn't exist.", currName, compId));
@@ -544,6 +563,8 @@ public class DUUIComposer {
             throw e; 
         }
 
+        if (first != null)
+            XmiCasSerializer.serialize(first.getCas(), new FileOutputStream(new File(name+".xmi")));
         return results.values().stream().collect(Collectors.toList());
     }
 
@@ -620,34 +641,64 @@ public class DUUIComposer {
        // ByteArrayInputStream stream;
        // stream.read
 
+        
+
         DUUIComposer composer = new DUUIComposer()
             // .withMonitor(new DUUIMonitor("admin", "admin", 8087))
-            .withMonitor(new DUUISimpleMonitor())
+            // .withMonitor(new DUUISimpleMonitor())
             .withWorkers(10)
             .withSkipVerification(true)
             .withLuaContext(new DUUILuaContext().withJsonLibrary());
 
-        composer.addDriver(new DUUIDockerDriver(), new DUUIRemoteDriver());
+        composer.addDriver(new DUUIDockerDriver());
         
         composer.add(  
-            new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-ner:latest")
-                .withImageFetching().withScale(3).withGPU(true),
+            // new DUUIDockerDriver.Component("docker.texttechnologylab.org/languagedetection:0.5"),
+            new DUUIDockerDriver.Component("tokenizer:latest")
+                .withImageFetching(),
+            new DUUIDockerDriver.Component("sentencizer:latest")
+                .withImageFetching(),
+            new DUUIDockerDriver.Component("parser:latest")
+                .withImageFetching(),
+            new DUUIDockerDriver.Component("ner:latest")
+                .withImageFetching(),
+            new DUUIDockerDriver.Component("lemmatizer:latest")
+                .withImageFetching()
             
-            new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-lemmatizer:latest")
-                .withImageFetching().withScale(3).withGPU(true),
+            // new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-lemmatizer:latest")
+            //     .withImageFetching().withScale(3).withGPU(true),
             
-            new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-morphologizer:latest")
-                .withImageFetching().withScale(3).withGPU(true),
+            // new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-morphologizer:latest")
+            //     .withImageFetching().withScale(3).withGPU(true),
             
-            new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-parser:latest")
-                .withImageFetching().withScale(3).withGPU(true),
+            // new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-parser:latest")
+            //     .withImageFetching().withScale(3).withGPU(true),
             
-            new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-sentencizer:latest")
-                .withImageFetching().withScale(3).withGPU(true),
+            // new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-sentencizer:latest")
+            //     .withImageFetching().withScale(3).withGPU(true),
             
-            new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-tokenizer:latest")
-                .withImageFetching().withScale(3).withGPU(true)
+            // new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-tokenizer:latest")
+            //     .withImageFetching().withScale(3).withGPU(true)
         );
+        // composer.add(  
+        //     new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-ner:latest")
+        //         .withImageFetching().withScale(3).withGPU(true),
+            
+        //     new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-lemmatizer:latest")
+        //         .withImageFetching().withScale(3).withGPU(true),
+            
+        //     new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-morphologizer:latest")
+        //         .withImageFetching().withScale(3).withGPU(true),
+            
+        //     new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-parser:latest")
+        //         .withImageFetching().withScale(3).withGPU(true),
+            
+        //     new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-sentencizer:latest")
+        //         .withImageFetching().withScale(3).withGPU(true),
+            
+        //     new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-tokenizer:latest")
+        //         .withImageFetching().withScale(3).withGPU(true)
+        // );
         // composer.add( // 
         // new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-tokenizer:latest")
         // );
@@ -670,6 +721,12 @@ public class DUUIComposer {
         // jc.setDocumentLanguage("de");
         // jc.setDocumentText(val);
 
+        // Iterable<Sentence> it = () -> JCasUtil.select(jc, Sentence.class).iterator();
+
+        // for (Sentence sentence : it) {
+        //     sentence.
+        // }
+
         // JCas jc2 = JCasFactory.createJCas();
         // jc2.setDocumentLanguage("de");
         // jc2.setDocumentText(val);
@@ -681,7 +738,6 @@ public class DUUIComposer {
         // // composer.run(jc2,"fuchs");
         // composer.shutdown();
         
-
 
         // System.out.println(
         //     Objects.equals(JCasUtil.select(jc, TOP.class).stream().count(), JCasUtil.select(jc2, TOP.class).stream().count())
@@ -709,9 +765,10 @@ public class DUUIComposer {
                 XmiReader.PARAM_SORT_BY_SIZE, true
         );
 
-        AsyncCollectionReader rd = new AsyncCollectionReader("src\\main\\resources\\sample_splitted\\", ".txt", 1, -1, true, "", true);
+        AsyncCollectionReader rd = new AsyncCollectionReader("src\\main\\resources\\sample_splitted\\", ".txt", 1, -1, true, "", true, "de");
 
         composer.run(rd, "ComponentFirst");
+        
         composer.shutdown();
 
         

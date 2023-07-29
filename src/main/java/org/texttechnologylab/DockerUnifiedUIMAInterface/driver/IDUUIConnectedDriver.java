@@ -35,11 +35,11 @@ interface ResponsiveMessageCallback {
     public void operation(String message);
 }
 
-public interface IDUUIConnectedDriverInterface extends IDUUIDriverInterface {
+public interface IDUUIConnectedDriver extends IDUUIDriver {
     
     public Map<String, ? extends IDUUIInstantiatedPipelineComponent> getComponents(); 
 
-    public default Signature get_signature(String uuid) throws ResourceInitializationException {
+    public default Signature get_signature(String uuid) throws ResourceInitializationException, InterruptedException {
         IDUUIInstantiatedPipelineComponent comp = getComponents().get(uuid);
         if (comp == null) {
             throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver.");
@@ -50,10 +50,12 @@ public interface IDUUIConnectedDriverInterface extends IDUUIDriverInterface {
 
         Signature sig = IDUUIInstantiatedPipelineComponent.getInputOutputs(uuid,comp);
         comp.setSignature(sig);
+        sig.getInputs()
+            .forEach(in -> comp.getParameters().put(in.getSimpleName(), "true")); 
         return sig;
     }
 
-    public default TypeSystemDescription get_typesystem(String uuid) throws InterruptedException, IOException, SAXException, CompressorException, ResourceInitializationException {
+    public default TypeSystemDescription get_typesystem(String uuid) throws ResourceInitializationException, InterruptedException {
         IDUUIInstantiatedPipelineComponent comp = getComponents().get(uuid);
         if (comp == null) {
             throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
@@ -62,6 +64,7 @@ public interface IDUUIConnectedDriverInterface extends IDUUIDriverInterface {
     }
     
     public default IDUUICommunicationLayer get_communication_layer(String url, JCas jc, int timeout_ms, HttpClient client, ResponsiveMessageCallback printfunc, DUUILuaContext context, boolean skipVerification) throws Exception {
+        // TODO: Requires clean up dynamic scaling 
         long start = System.currentTimeMillis();
         IDUUICommunicationLayer layer = new DUUIFallbackCommunicationLayer();
         boolean fatal_error = false;
@@ -175,7 +178,6 @@ public interface IDUUIConnectedDriverInterface extends IDUUIDriverInterface {
     }
 
     public default void run(String uuid, JCas aCas, DUUIPipelineDocumentPerformance perf) throws InterruptedException, IOException, SAXException, AnalysisEngineProcessException, CompressorException, CASException {
-        long mutexStart = System.nanoTime();
         IDUUIInstantiatedPipelineComponent comp = getComponents().get(uuid);
         if (comp == null) {
             throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local driver.");

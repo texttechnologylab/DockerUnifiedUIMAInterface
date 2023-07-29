@@ -29,7 +29,7 @@ import java.util.concurrent.TimeoutException;
 
 import static java.lang.String.format;
 
-public class DUUIUIMADriver implements IDUUIDriverInterface {
+public class DUUIUIMADriver implements IDUUIDriver {
     private HashMap<String, InstantiatedComponent> _engines;
     private boolean _enable_debug;
 
@@ -198,7 +198,7 @@ public class DUUIUIMADriver implements IDUUIDriverInterface {
         return uuid;
     }
 
-    public TypeSystemDescription get_typesystem(String uuid) throws InterruptedException, IOException, SAXException, CompressorException, ResourceInitializationException {
+    public TypeSystemDescription get_typesystem(String uuid) throws ResourceInitializationException {
         return TypeSystemDescriptionFactory.createTypeSystemDescription();
     }
     

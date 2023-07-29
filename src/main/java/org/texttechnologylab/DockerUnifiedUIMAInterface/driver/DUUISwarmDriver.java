@@ -4,12 +4,16 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface.driver;
 import org.apache.uima.UIMAException;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.jcas.JCas;
+import org.texttechnologylab.ResourceManager;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIDockerInterface;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUIResource;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.DUUIWebsocketAlt;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.IDUUIConnectionHandler;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.IDUUICommunicationLayer;
+
+import com.influxdb.client.domain.Block;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
@@ -20,12 +24,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 import static java.lang.String.format;
 
-public class DUUISwarmDriver implements IDUUIConnectedDriverInterface {
+public class DUUISwarmDriver implements IDUUIConnectedDriver, IDUUIResource {
     private final DUUIDockerInterface _interface;
     private HttpClient _client;
     private IDUUIConnectionHandler _wsclient;
@@ -33,6 +39,8 @@ public class DUUISwarmDriver implements IDUUIConnectedDriverInterface {
     private int _container_timeout;
     private DUUILuaContext _luaContext;
     private String _withSwarmVisualizer;
+    private ResourceManager _rm = ResourceManager.getInstance();  
+
 
 
     public DUUISwarmDriver() throws IOException {
@@ -59,6 +67,14 @@ public class DUUISwarmDriver implements IDUUIConnectedDriverInterface {
 
     public Map<String, IDUUIInstantiatedPipelineComponent> getComponents() {
         return _active_components;
+    }
+
+    public ResourceManager getResourceManager() {
+        return _rm;
+    }
+
+    public void setResourceManager(ResourceManager rm) {
+        _rm = rm; 
     }
 
     public DUUISwarmDriver withSwarmVisualizer() throws InterruptedException {
@@ -92,7 +108,7 @@ public class DUUISwarmDriver implements IDUUIConnectedDriverInterface {
 
     public boolean canAccept(DUUIPipelineComponent comp) {
         try {
-            InstantiatedComponent s = new InstantiatedComponent(comp);
+            new InstantiatedComponent(comp);
             return true;
         }
         catch (Exception e) {
@@ -117,6 +133,7 @@ public class DUUISwarmDriver implements IDUUIConnectedDriverInterface {
         if(!_interface.isSwarmManagerNode()) {
             throw new InvalidParameterException("This node is not a Docker Swarm Manager, thus cannot create and schedule new services!");
         }
+        
         InstantiatedComponent comp = new InstantiatedComponent(component);
 
         if(_interface.getLocalImage(comp.getImageName()) == null) {
@@ -220,8 +237,9 @@ public class DUUISwarmDriver implements IDUUIConnectedDriverInterface {
         private String _service_id;
         private int _service_port;
         private final String _fromLocalImage;
-        private final ConcurrentLinkedQueue<ComponentInstance> _components;
+        private final BlockingQueue<ComponentInstance> _components;
         private DUUIPipelineComponent _component;
+        private ResourceManager _manager;
         private Signature _signature; 
 
         InstantiatedComponent(DUUIPipelineComponent comp) {
@@ -230,7 +248,7 @@ public class DUUISwarmDriver implements IDUUIConnectedDriverInterface {
                 throw new InvalidParameterException("The image name was not set! This is mandatory for the DockerLocalDriver Class.");
             }
 
-            _components = new ConcurrentLinkedQueue<>();
+            _components = new LinkedBlockingQueue<ComponentInstance>();
             _fromLocalImage = null;
         }
 
@@ -260,11 +278,19 @@ public class DUUISwarmDriver implements IDUUIConnectedDriverInterface {
             return _component;
         }
 
+        public void setResourceManager(ResourceManager manager) {
+            _manager = manager;
+        }
+
+        public ResourceManager getResourceManager() {
+            return _manager; 
+        }
+
         public String getUniqueComponentKey() {
             return "";
         }
                 
-        public ConcurrentLinkedQueue<ComponentInstance> getInstances() {
+        public BlockingQueue<ComponentInstance> getInstances() {
             return _components;
         }
 

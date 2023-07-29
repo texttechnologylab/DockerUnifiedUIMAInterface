@@ -2,8 +2,10 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface.driver;
 
 import org.apache.commons.compress.compressors.CompressorStreamFactory;
 import org.apache.uima.jcas.JCas;
+import org.texttechnologylab.ResourceManager;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUICompressionHelper;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUIResource;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.DUUIWebsocketAlt;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.IDUUIConnectionHandler;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
@@ -18,15 +20,19 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
-public class DUUIRemoteDriver implements IDUUIConnectedDriverInterface {
+public class DUUIRemoteDriver implements IDUUIConnectedDriver, IDUUIResource {
     private Map<String, IDUUIInstantiatedPipelineComponent> _components;
     private HttpClient _client;
     private IDUUIConnectionHandler _wsclient = null;
     private DUUICompressionHelper _helper;
     private DUUILuaContext _luaContext;
+    private ResourceManager _rm = ResourceManager.getInstance();  
+
 
 
     public DUUIRemoteDriver(int timeout) {
@@ -47,6 +53,14 @@ public class DUUIRemoteDriver implements IDUUIConnectedDriverInterface {
 
     public void setLuaContext(DUUILuaContext luaContext) {
         _luaContext = luaContext;
+    }
+    
+    public ResourceManager getResourceManager() {
+        return _rm;
+    }
+
+    public void setResourceManager(ResourceManager rm) {
+        _rm = rm; 
     }
 
     public boolean canAccept(DUUIPipelineComponent component) {
@@ -103,7 +117,7 @@ public class DUUIRemoteDriver implements IDUUIConnectedDriverInterface {
     }
 
     public static class Component implements IDUUIDriverComponent<Component> {
-        private DUUIPipelineComponent component;
+        DUUIPipelineComponent component;
 
         public Component(String url) throws URISyntaxException, IOException {
             component = new DUUIPipelineComponent();
@@ -143,7 +157,7 @@ public class DUUIRemoteDriver implements IDUUIConnectedDriverInterface {
         }
     }
 
-    private static class ComponentInstance implements IDUUIUrlAccessible {
+    static class ComponentInstance implements IDUUIUrlAccessible {
         String _url;
         IDUUIConnectionHandler _handler;
         IDUUICommunicationLayer _communication_layer;
@@ -173,12 +187,13 @@ public class DUUIRemoteDriver implements IDUUIConnectedDriverInterface {
         }
     }
     
-    private static class InstantiatedComponent implements IDUUIInstantiatedPipelineComponent {
-        private List<String> _urls;
-        private ConcurrentLinkedQueue<ComponentInstance> _components;
-        private String _uniqueComponentKey;
-        private DUUIPipelineComponent _component;
-        private Signature _signature; 
+    static class InstantiatedComponent implements IDUUIInstantiatedPipelineComponent {
+        List<String> _urls;
+        BlockingQueue<ComponentInstance> _components;
+        ResourceManager _manager;
+        String _uniqueComponentKey;
+        DUUIPipelineComponent _component;
+        Signature _signature; 
 
         public InstantiatedComponent(DUUIPipelineComponent comp) {
             _component = comp;
@@ -189,22 +204,30 @@ public class DUUIRemoteDriver implements IDUUIConnectedDriverInterface {
 
             _uniqueComponentKey = "";
 
-            _components = new ConcurrentLinkedQueue<>();
+            _components = new LinkedBlockingQueue<ComponentInstance>(getScale());
         }
 
-        public void addComponent(IDUUIUrlAccessible item) {
-            _components.add((ComponentInstance) item);
+        public void addComponent(IDUUIUrlAccessible access) {
+            _components.add((ComponentInstance) access);
         }
 
         public DUUIPipelineComponent getPipelineComponent() {
             return _component;
         }
 
+        public void setResourceManager(ResourceManager manager) {
+            _manager = manager;
+        }
+
+        public ResourceManager getResourceManager() {
+            return _manager; 
+        }
+
         public String getUniqueComponentKey() {
             return _uniqueComponentKey;
         }
                         
-        public ConcurrentLinkedQueue<ComponentInstance> getInstances() {
+        public BlockingQueue<ComponentInstance> getInstances() {
             return _components;
         }
 
