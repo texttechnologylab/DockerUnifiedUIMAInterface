@@ -247,10 +247,13 @@ public interface IDUUIInstantiatedPipelineComponent extends IDUUIResource {
             .version(HttpClient.Version.HTTP_1_1)
             .build();
 
-        comp.addComponent(accessible);
-
         HttpResponse<byte[]> resp = _handler.send(request, 2)
-            .orElseThrow(() -> new IOException(format("%s-Could not reach endpoint after 2 tries!", perf.getRunKey())));
+            .orElseThrow(() -> {
+                comp.addComponent(accessible);
+                return new IOException(format("%s-Could not reach endpoint after 2 tries!", perf.getRunKey()));
+            });
+
+        comp.addComponent(accessible);
 
         if (resp.statusCode() != 200) {
             throw new InvalidObjectException(
