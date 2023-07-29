@@ -68,6 +68,27 @@ import static java.lang.String.format;
 import static org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineProfiler.pipelineUpdate;
 
 public class DUUIComposer {
+
+    public static class Config {
+        static DUUIComposer _composer; 
+        
+        public int workers() {
+            return _composer._workers;
+        }
+
+        public boolean skipVerification() {
+            return _composer._skipVerification;
+        }
+
+        public IDUUIStorageBackend storage() {
+            return _composer._storage; 
+        }
+
+        public IDUUIMonitor monitor() {
+            return _composer._monitor;
+        }
+    }
+
     private final Map<String, IDUUIDriver> _drivers;
     private final Vector<DUUIPipelineComponent> _pipeline;
 
@@ -101,6 +122,7 @@ public class DUUIComposer {
 
 
     public DUUIComposer() throws URISyntaxException {
+        Config._composer = this; 
         _drivers = new HashMap<>();
         _pipeline = new Vector<>();
         _workers = 1;
