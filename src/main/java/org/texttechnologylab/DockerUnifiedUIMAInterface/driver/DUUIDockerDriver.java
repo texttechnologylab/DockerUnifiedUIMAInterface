@@ -94,9 +94,10 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
         return this;
     }
 
+    // TODO: Fragen, ob ich eine analoge Funktion auch für den KubernetesDriver schreiben sollte.
     public static IDUUICommunicationLayer responsiveAfterTime(String url, JCas jc, int timeout_ms, HttpClient client, ResponsiveMessageCallback printfunc, DUUILuaContext context, boolean skipVerification) throws Exception {
         long start = System.currentTimeMillis();
-        IDUUICommunicationLayer layer = new DUUIFallbackCommunicationLayer();
+        IDUUICommunicationLayer layer = new DUUIFallbackCommunicationLayer();  // Hier wird layer zum ersten mal erstellt.
         boolean fatal_error = false;
 
         int iError = 0;
@@ -116,6 +117,7 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
                 while(connectionError && iCount<10) {
 
                     try {
+                        // Das hier geht beim KubernetesDriver nicht
                         resp = client.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray()).join();
                         connectionError = false;
                     }
@@ -240,7 +242,7 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
         // TODO: Fragen, was hier genau gemacht wird.
         for (int i = 0; i < comp.getScale(); i++) {
             String containerid = _interface.run(comp.getPipelineComponent().getDockerImageName(), comp.usesGPU(), true, 9714,false);
-            int port = _interface.extract_port_mapping(containerid);
+            int port = _interface.extract_port_mapping(containerid);  // Dieser port hier ist im allgemeinen nicht (bzw nie) der Port 9714 aus dem Input.
 
             try {
                 if (port == 0) {

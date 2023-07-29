@@ -1,10 +1,21 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.driver;
 
-import io.kubernetes.client.openapi.ApiClient;
-import io.kubernetes.client.openapi.Configuration;
-import io.kubernetes.client.openapi.apis.CoreV1Api;
-import io.kubernetes.client.openapi.models.*;
-import io.kubernetes.client.util.Config;
+
+import io.fabric8.kubernetes.api.model.apps.Deployment;
+import io.fabric8.kubernetes.api.model.apps.DeploymentBuilder;
+import io.fabric8.kubernetes.client.DefaultKubernetesClient;
+import io.fabric8.kubernetes.client.KubernetesClient;
+import io.fabric8.kubernetes.client.KubernetesClientBuilder;
+
+import io.fabric8.kubernetes.api.model.IntOrString;
+import io.fabric8.kubernetes.api.model.Service;
+import io.fabric8.kubernetes.api.model.ServiceBuilder;
+import java.util.Collections;
+import java.util.Optional;
+
+
+import static io.fabric8.kubernetes.client.impl.KubernetesClientImpl.logger;
+
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.analysis_engine.AnalysisEngineProcessException;
 import org.apache.uima.cas.CASException;
@@ -13,10 +24,8 @@ import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.apache.uima.util.InvalidXMLException;
 import org.javatuples.Triplet;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIDockerInterface;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUICommunicationLayer;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.DUUIWebsocketAlt;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.IDUUIConnectionHandler;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
@@ -26,16 +35,10 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.net.http.HttpClient;
 import java.security.InvalidParameterException;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
-import io.fabric8.kubernetes.client.*;
-
-import static java.lang.String.format;
-import static org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIDockerDriver.responsiveAfterTime;
+import java.util.Map;
 
 public class DUUIKubernetesDriver implements IDUUIDriverInterface {
 
@@ -71,74 +74,138 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
         return component.getDockerImageName()!=null;
     }
 
-    // Wird in der instantiate_pipeline-Methode, die sich in der run-Methode des DUUIComposers befindet, aufgerufen.
-    // Gibt die ID der Instanz zurück und fügt die Instanz zum Attribut _active_components hinzu.
     @Override
     public String instantiate(DUUIPipelineComponent component, JCas jc, boolean skipVerification) throws Exception {
         String uuid = UUID.randomUUID().toString();  // Erstelle ID für die neue Komponente.
         while (_active_components.containsKey(uuid.toString())) {  // Stelle sicher, dass ID nicht bereits existiert (?)
             uuid = UUID.randomUUID().toString();
         }
-
-        // TODO if-Bedingung, die nachschaut, ob der aktuell verwendete Knoten der Master-Node ist (analog zu dem,
-        // TODO was im SwarmDriver gemacht wurde)
-
         DUUIKubernetesDriver.InstantiatedComponent comp = new DUUIKubernetesDriver.InstantiatedComponent(component);  // Initialisiere Komponente
         String dockerImage = comp.getImageName();  // Image der Komponente als String
         int scale = comp.getScale(); // Anzahl der Replicas in dieser Kubernetes-Komponente
 
-        ApiClient client = Config.fromUrl("https://192.168.122.198:6443");  // Kubernetes Client
-        Configuration.setDefaultApiClient(client);  // Keine Ahnung
-        CoreV1Api api = new CoreV1Api(client);  // Keine Ahnung
+        KubernetesClient k8s = new KubernetesClientBuilder().build();
+        createDeployment(dockerImage, scale);  // Erstelle Deployment
+        Service service = createService();  // Erstelle service und gebe diesen zurück
 
-        // Erstellt scale-viele Pods mit spezifiziertem Image.
-        for (int i = 0; i < scale; i++) {
-            V1Pod pod = new V1Pod()
-                    .metadata(new V1ObjectMeta().name("pod-" + i))
-                    .spec(new V1PodSpec()
-                            .containers(List.of(new V1Container()
-                                    .name("my-container")
-                                    .image(dockerImage))));
+        // TODO: Fragen was das hier macht
+        int port = service.getSpec().getPorts().get(0).getNodePort();  // NodePort (stand jetzt immer 30500)
 
-            api.createNamespacedPod("default", pod, null, null, null, null);
+        final String uuidCopy = uuid;
+        IDUUICommunicationLayer layer = null;
+        try {
+            // TODO: Hier brauche ich irgendeine Analoge Funktion für den KubernetesDriver
+            layer = DUUIDockerDriver.responsiveAfterTime("http://192.168.178.78:" + port, jc, _container_timeout, _client, (msg) -> {
+                System.out.printf("[KubernetesDriver][%s][%d Replicas] %s\n", uuidCopy, comp.getScale(), msg);
+            }, _luaContext, skipVerification);
+        }
+        catch (Exception e){
+            deleteDeployment();
+            deleteService();
+            throw e;
         }
 
-        // Liste der Pods
-        V1PodList podList = api.listNamespacedPod("default", null, null, null, null, null, null, null, null, null, null);
+        System.out.printf("[DockerSwarmDriver][%s][%d Replicas] Service for image %s is online (URL http://localhost:%d) and seems to understand DUUI V1 format!\n", uuid, comp.getScale(),comp.getImageName(), port);
 
-        // Laufvariable, die letztendlich die für die Unterscheidung der Namen der Pods zuständig ist.
-        int i = 0;
-        // Für jeden Pod im Cluster
-        // Hier wird der CommunicationLayer für jeden Pod erstellt (der Kommunziert dann wahrscheinlich mit der IP-Adresse dieses Ports)
-        // und anschließend wird dann der entsprechende Pod als ComponentInstance in die instantiatedComponent-Klasse hinzugefügt.
-        for (V1Pod pod : podList.getItems()) {
-            String podIP = pod.getStatus().getPodIP();
-            final int iCopy = i;
-            final String uuidCopy = uuid;
-            // Keine Ahnung ob hier das Attribut "_container_timeout" in irgendeiner Form Sinn ergibt.
-            IDUUICommunicationLayer layer = responsiveAfterTime("http://127.0.0.1:" + podIP, jc, _container_timeout, _client,(msg) -> {
-                System.out.printf("[DockerLocalDriver][%s][Docker Replication %d/%d] %s\n", uuidCopy, iCopy + 1, comp.getScale(), msg);
-            },_luaContext, skipVerification);
-            System.out.printf("[DockerLocalDriver][%s][Docker Replication %d/%d] Container for image %s is online (URL http://127.0.0.1:%d) and seems to understand DUUI V1 format!\n", uuid, i + 1, comp.getScale(), comp.getImageName(), podIP);
-            String url = "ws://127.0.0.1:" + podIP;
-            // Wahrscheinlich wird hier dem client gesagt, in welchen Port oder in welche Adresse er hinschauen soll, um sich die Daten oder sonst
-            // was zu holen.
-            _wsclient = new DUUIWebsocketAlt(
-                    url + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS_WEBSOCKET, comp.getWebsocketElements());
-            comp.addComponent(new ComponentInstance(podIP, layer, _wsclient));  // Füge Teil-Komponente (Pod) zur Gesamtkomponente (InstantiatedComponent) hinzu.
-            i++;
-        }
+        //comp.initialise(serviceid,port, layer, this);
+        Thread.sleep(500);
 
-        // TODO: Überprüfe, ob image vorhanden ist (wie bei den anderen Drivern) (Bis jetzt gehe davon aus, dass es vorhanden ist)
-
-        // Das hier wird irgendwie auch in allen Drivern gemacht. Ist aus irgendeinem Grund notwendig.
-        // Womöglich muss man beim Kubernetes-Driver aber was anderes machen, da dieser kein Docker-Interface benötigt (glaube ich)
-        String digest = _interface.getDigestFromImage(comp.getImageName());  // Digest ist im Gegensatz zu Image-Name anscheinend eindeutig.
-        comp.getPipelineComponent().__internalPinDockerImage(comp.getImageName(),digest);  // Modifiziere Komponente entsprechend.
-
-        _active_components.put(uuid, comp);  // Füge Komponente hinzu.
-
+        _active_components.put(uuid, comp);
         return uuid;
+    }
+
+    /**
+     * Erstellt Deployment für Kubernetes Cluster.
+     * @param image
+     * @param replicas
+     */
+    public static void createDeployment(String image, int replicas) {
+        try (KubernetesClient k8s = new KubernetesClientBuilder().build()) {
+            // Load Deployment YAML Manifest into Java object
+            Deployment deployment = new DeploymentBuilder()
+                    .withNewMetadata()
+                    .withName("nginx")
+                    .endMetadata()
+                    .withNewSpec()
+                    .withReplicas(replicas)
+                    .withNewTemplate()
+                    .withNewMetadata()
+                    .addToLabels("app", "nginx")  // selector label
+                    .endMetadata()
+                    .withNewSpec()
+                    .addNewContainer()
+                    .withName("nginx")
+                    .withImage(image)
+                    .addNewPort()
+                    .withContainerPort(80)
+                    .endPort()
+                    .endContainer()
+                    .endSpec()
+                    .endTemplate()
+                    .withNewSelector()
+                    .addToMatchLabels("app", "nginx")
+                    .endSelector()
+                    .endSpec()
+                    .build();
+
+            deployment = k8s.apps().deployments().inNamespace("default").resource(deployment).create();
+        }
+    }
+
+    /**
+     * Erstellt Service für Kubernetes-Cluster
+     */
+    public static Service createService() {
+        try (KubernetesClient client = new KubernetesClientBuilder().build()) {
+            String namespace = Optional.ofNullable(client.getNamespace()).orElse("default");
+            Service service = new ServiceBuilder()
+                    .withNewMetadata()
+                    .withName("my-service")
+                    .endMetadata()
+                    .withNewSpec()
+                    .withSelector(Collections.singletonMap("app", "nginx"))
+                    .addNewPort()
+                    .withName("test-port")
+                    .withProtocol("TCP")
+                    .withPort(80)
+                    .withTargetPort(new IntOrString(9376))
+                    .withNodePort(30500)
+                    .endPort()
+                    .withType("LoadBalancer")
+                    .endSpec()
+                    .build();
+
+            service = client.services().inNamespace(namespace).resource(service).create();
+            logger.info("Created service with name {}", service.getMetadata().getName());
+
+            String serviceURL = client.services().inNamespace(namespace).withName(service.getMetadata().getName())
+                    .getURL("test-port");
+            logger.info("Service URL {}", serviceURL);
+
+            return service;
+        }
+    }
+
+    /**
+     * Löscht Deployment
+     */
+    public static void deleteDeployment() {
+        try (KubernetesClient k8s = new KubernetesClientBuilder().build()) {
+            // argumente namespace und name könnten noch verallgemeinert werden
+            k8s.apps().deployments().inNamespace("default")
+                    .withName("nginx")
+                    .delete();
+        }
+    }
+
+    /**
+     * Löscht Service.
+     */
+    public static void deleteService() {
+        try (KubernetesClient client = new DefaultKubernetesClient()) {
+            // Argumente namespace und name könnten noch verallgemeinert werden.
+            client.services().inNamespace("default").withName("my-service").delete();
+        }
     }
 
     @Override
