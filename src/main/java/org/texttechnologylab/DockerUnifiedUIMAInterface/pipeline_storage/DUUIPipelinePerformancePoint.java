@@ -18,8 +18,10 @@ public class DUUIPipelinePerformancePoint {
     private Long _documentSize;
     private Long _serializedSize;
 
+    private String error;
+
     public DUUIPipelinePerformancePoint(long durationSerialize, long durationDeserialize, long durationAnnotator, long durationMutexWait, long durationComponentTotal,
-                                        String componentKey, long serializedSize, JCas jc) {
+                                        String componentKey, long serializedSize, JCas jc, String error) {
         _componentKey = componentKey;
 
         _durationAnnotator = durationAnnotator;
@@ -27,7 +29,12 @@ public class DUUIPipelinePerformancePoint {
         _durationSerialize = durationSerialize;
         _durationDeserialize = durationDeserialize;
         _durationMutexWait = durationMutexWait;
-        _numberAnnotations = JCasUtil.select(jc, TOP.class).stream().count();
+        try {
+            _numberAnnotations = JCasUtil.select(jc, TOP.class).stream().count();
+        }
+        catch (Exception e){
+            _numberAnnotations=0l;
+        }
         try {
             _documentSize = Long.valueOf(jc.getDocumentText().length());
         }
@@ -35,6 +42,12 @@ public class DUUIPipelinePerformancePoint {
             _documentSize=-1l;
         }
         _serializedSize = serializedSize;
+
+        this.error = error;
+    }
+
+    public String getError() {
+        return error;
     }
 
     public String getKey() {

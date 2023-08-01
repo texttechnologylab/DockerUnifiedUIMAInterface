@@ -18,7 +18,14 @@ public class DUUIPipelineDocumentPerformance {
     private Integer _documentSize;
     private Long _documentWaitTime;
 
-    public DUUIPipelineDocumentPerformance(String runKey, long waitDocumentTime, JCas jc) {
+    /**
+     * Whether to track error documents in the database or not
+     */
+    private final boolean trackErrorDocs;
+
+    public DUUIPipelineDocumentPerformance(String runKey, long waitDocumentTime, JCas jc, boolean trackErrorDocs) {
+        this.trackErrorDocs = trackErrorDocs;
+
         _points = new Vector<>();
         _runKey = runKey;
 
@@ -37,6 +44,14 @@ public class DUUIPipelineDocumentPerformance {
 
     }
 
+    /**
+     * Whether to track error documents in the database or not
+     * @return true if error documents should be tracked, false otherwise
+     */
+    public boolean shouldTrackErrorDocs() {
+        return trackErrorDocs;
+    }
+
     public String getRunKey() {
         return _runKey;
     }
@@ -45,13 +60,13 @@ public class DUUIPipelineDocumentPerformance {
         return _points;
     }
 
-    public void addData(long durationSerialize, long durationDeserialize, long durationAnnotator, long durationMutexWait, long durationComponentTotal, String componentKey, long serializeSize, JCas jc) {
+    public void addData(long durationSerialize, long durationDeserialize, long durationAnnotator, long durationMutexWait, long durationComponentTotal, String componentKey, long serializeSize, JCas jc, String error) {
         _durationTotalDeserialize += durationDeserialize;
         _durationTotalSerialize += durationSerialize;
         _durationTotalAnnotator += durationAnnotator;
         _durationTotalMutexWait += durationMutexWait;
         _durationTotal += durationComponentTotal;
-        _points.add(new DUUIPipelinePerformancePoint(durationSerialize,durationDeserialize,durationAnnotator,durationMutexWait,durationComponentTotal,componentKey,serializeSize, jc));
+        _points.add(new DUUIPipelinePerformancePoint(durationSerialize,durationDeserialize,durationAnnotator,durationMutexWait,durationComponentTotal,componentKey,serializeSize, jc, error));
     }
 
     public long getDocumentWaitTime() {

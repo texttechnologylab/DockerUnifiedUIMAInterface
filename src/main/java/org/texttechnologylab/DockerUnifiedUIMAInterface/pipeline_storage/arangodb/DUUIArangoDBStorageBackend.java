@@ -161,6 +161,12 @@ public class DUUIArangoDBStorageBackend implements IDUUIStorageBackend {
         _client.shutdown();
     }
 
+    @Override
+    public boolean shouldTrackErrorDocs() {
+        System.err.println("WARNING: Arango storage backend does not support error document tracking!");
+        return false;
+    }
+
     public void addNewRun(String name, DUUIComposer composer) throws SQLException {
         Vector<String> stringvec = new Vector<>();
         stringvec.add(_pipelineCollection.insertDocument(new DUUIArangoComposerConfiguration(name, composer.getWorkerCount())).getId());
