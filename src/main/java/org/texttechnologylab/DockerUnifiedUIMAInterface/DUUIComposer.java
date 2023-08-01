@@ -115,9 +115,15 @@ class DUUIWorker extends Thread {
 
             //System.out.printf("[Composer] Thread %d still alive and doing work\n",num);
 
+            boolean trackErrorDocs = false;
+            if(_backend!=null) {
+                trackErrorDocs = _backend.shouldTrackErrorDocs();
+            }
+
             DUUIPipelineDocumentPerformance perf = new DUUIPipelineDocumentPerformance(_runKey,
                     waitTimeEnd-waitTimeStart,
-                    object);
+                    object,
+                    trackErrorDocs);
             // f32, 64d, e57
             // DAG, Directed Acyclic Graph
                 boolean done = false;
@@ -237,9 +243,15 @@ class DUUIWorkerAsyncReader extends Thread {
 
             //System.out.printf("[Composer] Thread %d still alive and doing work\n",num);
 
+            boolean trackErrorDocs = false;
+            if(_backend!=null) {
+                trackErrorDocs = _backend.shouldTrackErrorDocs();
+            }
+
             DUUIPipelineDocumentPerformance perf = new DUUIPipelineDocumentPerformance(_runKey,
                     waitTimeEnd - waitTimeStart,
-                    _jc);
+                    _jc,
+                    trackErrorDocs);
             for (DUUIComposer.PipelinePart i : _flow) {
                 try {
                     // Segment document for each item in the pipeline separately
@@ -669,7 +681,23 @@ public class DUUIComposer {
                 long waitTimeStart = System.nanoTime();
                 collectionReader.getNext(jc.getCas());
                 long waitTimeEnd = System.nanoTime();
-                run_pipeline(name,jc,waitTimeEnd-waitTimeStart,_instantiatedPipeline);
+                try {
+                    run_pipeline(name, jc, waitTimeEnd - waitTimeStart, _instantiatedPipeline);
+                }
+                catch (Exception e) {
+                    e.printStackTrace();
+
+                    // If we want to track errors we just continue with the next document
+                    // TODO this should be configurable separately
+                    if (_storage == null) {
+                        throw e;
+                    }
+                    if (!_storage.shouldTrackErrorDocs()) {
+                        throw e;
+                    }
+
+                    System.out.println("[Composer] Something went wrong, contuing with next document...");
+                }
                 jc.reset();
             }
             if(_storage!=null) {
@@ -741,29 +769,47 @@ public class DUUIComposer {
     }
 
     private JCas run_pipeline(String name, JCas jc, long documentWaitTime, Vector<PipelinePart> pipeline) throws Exception {
-        DUUIPipelineDocumentPerformance perf = new DUUIPipelineDocumentPerformance(name,documentWaitTime,jc);
-        for (PipelinePart comp : pipeline) {
+        boolean trackErrorDocs = false;
+        if(_storage!=null) {
+            trackErrorDocs = _storage.shouldTrackErrorDocs();
+        }
 
-            // Segment document for each item in the pipeline separately
-            // TODO support "complete pipeline" segmentation to only segment once
-            DUUISegmentationStrategy segmentationStrategy = comp.getSegmentationStrategy();
-            if (segmentationStrategy instanceof DUUISegmentationStrategyNone) {
-                comp.getDriver().run(comp.getUUID(), jc, perf);
-            }
-            else {
-                segmentationStrategy.initialize(jc);
+        DUUIPipelineDocumentPerformance perf = new DUUIPipelineDocumentPerformance(name,documentWaitTime,jc, trackErrorDocs);
+        try {
+            for (PipelinePart comp : pipeline) {
 
-                JCas jCasSegmented = segmentationStrategy.getNextSegment();
-                while (jCasSegmented != null) {
-                    // Process each cas sequentially
-                    // TODO add parallel variant later
-                    comp.getDriver().run(comp.getUUID(), jCasSegmented, perf);
+                // Segment document for each item in the pipeline separately
+                // TODO support "complete pipeline" segmentation to only segment once
+                DUUISegmentationStrategy segmentationStrategy = comp.getSegmentationStrategy();
+                if (segmentationStrategy instanceof DUUISegmentationStrategyNone) {
+                    comp.getDriver().run(comp.getUUID(), jc, perf);
+                } else {
+                    segmentationStrategy.initialize(jc);
 
-                    segmentationStrategy.merge(jCasSegmented);
-                    jCasSegmented = segmentationStrategy.getNextSegment();
+                    JCas jCasSegmented = segmentationStrategy.getNextSegment();
+                    while (jCasSegmented != null) {
+                        // Process each cas sequentially
+                        // TODO add parallel variant later
+                        comp.getDriver().run(comp.getUUID(), jCasSegmented, perf);
+
+                        segmentationStrategy.merge(jCasSegmented);
+                        jCasSegmented = segmentationStrategy.getNextSegment();
+                    }
+
+                    segmentationStrategy.finalize(jc);
                 }
+            }
+        }
+        catch (Exception e) {
+            e.printStackTrace();
 
-                segmentationStrategy.finalize(jc);
+            // If we want to track errors we have to add the metrics for the document
+            // TODO this should be configurable separately
+            if (_storage == null) {
+                throw e;
+            }
+            if (!_storage.shouldTrackErrorDocs()) {
+                throw e;
             }
         }
 

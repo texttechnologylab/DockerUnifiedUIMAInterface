@@ -15,4 +15,10 @@ public interface IDUUIStorageBackend {
     public void addMetricsForDocument(DUUIPipelineDocumentPerformance perf);
     public void finalizeRun(String name, Instant start, Instant end) throws SQLException;
     public void shutdown() throws UnknownHostException;
+
+    /**
+     * Whether the storage backend should track error documents.
+     * @return true if error documents should be tracked, false otherwise
+     */
+    boolean shouldTrackErrorDocs();
 }
