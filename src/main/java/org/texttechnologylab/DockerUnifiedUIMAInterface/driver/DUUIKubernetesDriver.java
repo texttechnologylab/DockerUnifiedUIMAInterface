@@ -112,7 +112,7 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
         }
 
 
-        System.out.printf("[DockerSwarmDriver][%s][%d Replicas] Service for image %s is online (URL http://localhost:%d) and seems to understand DUUI V1 format!\n", uuid, comp.getScale(),comp.getImageName(), port);
+        System.out.printf("[KubernetesDriver][%s][%d Replicas] Service for image %s is online (URL http://localhost:%d) and seems to understand DUUI V1 format!\n", uuid, comp.getScale(),comp.getImageName(), port);
 
         comp.initialise(port, layer, this);
         Thread.sleep(500);
