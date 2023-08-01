@@ -262,25 +262,24 @@ public class AsyncCollectionReader {
         if(result.endsWith(".xz")) {
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.XZ,new ByteArrayInputStream(file));
-        }
-        else if(result.endsWith(".gz")) {
+        } else if (result.endsWith(".gz")) {
             ByteArrayOutputStream out = new ByteArrayOutputStream();
-            decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.GZIP,new ByteArrayInputStream(file));
-        }
-        else {
+            decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.GZIP, new ByteArrayInputStream(file));
+        } else {
             decodedFile = new ByteArrayInputStream(file);
         }
 
-        try {
-            XmiSerializationSharedData sharedData = deserialize(empty.getCas().getJCas());
-            XmiCasDeserializer.deserialize(decodedFile, empty.getCas(), true, sharedData);
-        }
-        catch (Exception e){
-            empty.setDocumentText(StringUtils.getContent(new File(result)));
-        }
+        XmiCasDeserializer.deserialize(decodedFile, empty.getCas());
 
+//        try {
+//            XmiSerializationSharedData sharedData = deserialize(empty.getCas().getJCas());
+//            XmiCasDeserializer.deserialize(decodedFile, empty.getCas(), true, sharedData);
+//        }
+//        catch (Exception e){
+//            empty.setDocumentText(StringUtils.getContent(new File(result)));
+//        }
 
-        if(_addMetadata) {
+        if (_addMetadata) {
             if (JCasUtil.select(empty, DocumentMetaData.class).size() == 0) {
                 DocumentMetaData dmd = DocumentMetaData.create(empty);
                 File pFile = new File(result);

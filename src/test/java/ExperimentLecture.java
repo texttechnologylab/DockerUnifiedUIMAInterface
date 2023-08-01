@@ -189,20 +189,16 @@ public class ExperimentLecture {
     public void PraktikumExampleSatz() throws Exception {
 
         // Input- und Output-Pfade
-        String sInputPath = "/home/staff_homes/abrami/Lecture_2/1_token";
-        String sOutputPath = "/home/staff_homes/abrami/Praktikum/sentence";
+        String sInputPath = "/storage/xmi/GerParCorDownload";
+        String sOutputPath = "/tmp/output";
         String sSuffix = "xmi.gz";
 
         // Asynchroner reader für die Input-Dateien
-        AsyncCollectionReader pCorpusReader = new AsyncCollectionReader(sInputPath, sSuffix, 10, false);
+        AsyncCollectionReader pCorpusReader = new AsyncCollectionReader(sInputPath, sSuffix, 1, 10, true, "/tmp/example");
         new File(sOutputPath).mkdir();
 
         // Definition der Anzahl der Prozesse
-        int iWorkers = Integer.valueOf(5);
-
-        // Definition eines optionalen Datenbank-backends für das Logging.
-        DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend("benchmark_praktikum.db")
-                .withConnectionPoolSize(iWorkers);
+        int iWorkers = Integer.valueOf(1);
 
         // Lua-Kontext für die Nutzung von Lua
         DUUILuaContext ctx = new DUUILuaContext().withJsonLibrary();
@@ -210,11 +206,8 @@ public class ExperimentLecture {
         // Instanziierung des Composers, mit einigen Parametern
         DUUIComposer composer = new DUUIComposer()
                 .withSkipVerification(true)     // wir überspringen die Verifikation aller Componenten =)
-                .withStorageBackend(sqlite)     // setzen des Datenbank-backends.
                 .withLuaContext(ctx)            // wir setzen den definierten Kontext
                 .withWorkers(iWorkers);         // wir geben dem Composer eine Anzahl an Threads mit.
-
-        sqlite.addNewRun("sentence", composer);     // optional
 
 
         /**
@@ -233,6 +226,7 @@ public class ExperimentLecture {
 //        composer.add(new DUUIDockerDriver.Component("duui_simple_sentence:0.1").withScale(iWorkers).build());
 
         composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
+                .withImageFetching()
                 .withScale(iWorkers)
                 .build());
 
@@ -247,6 +241,112 @@ public class ExperimentLecture {
 
         // Starten des Composers mit dem Reader und dem Namen des Jobs
         composer.run(pCorpusReader, "sentence");
+
+    }
+
+    @Test
+    public void GerParCorComplete() throws Exception {
+
+        String sInputPath = "/home/staff_homes/abrami/Lecture_2/2_sentence";
+        String sOutputPath = "/home/staff_homes/abrami/Lecture_2/3_pos";
+        String sSuffix = "xmi.gz";
+        new File(sOutputPath).mkdir();
+
+        String sRun = "complete";
+
+        AsyncCollectionReader pCorpusReader = new AsyncCollectionReader(sInputPath, sSuffix, 10, true);
+
+        int iWorkers = Integer.valueOf(1);
+
+        DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend("benchmark_segmentation.db")
+                .withConnectionPoolSize(iWorkers);
+
+        DUUILuaContext ctx = new DUUILuaContext().withJsonLibrary();
+        DUUIComposer composer = new DUUIComposer()
+                .withSkipVerification(true)
+                .withStorageBackend(sqlite)
+                .withLuaContext(ctx)
+                .withWorkers(iWorkers);
+
+        sqlite.addNewRun(sRun, composer);
+
+        DUUIDockerDriver docker_driver = new DUUIDockerDriver();
+        DUUIRemoteDriver remote_driver = new DUUIRemoteDriver();
+        DUUISwarmDriver swarm_driver = new DUUISwarmDriver();
+        DUUIUIMADriver uima_driver = new DUUIUIMADriver()
+                .withDebug(true);
+
+        composer.addDriver(swarm_driver, uima_driver, docker_driver, remote_driver);
+
+        // Token
+        composer.add(new DUUIDockerDriver.Component("duui-spacy-tokenizer:0.1").withScale(iWorkers).build());
+
+        // Sentence
+        composer.add(new DUUIDockerDriver.Component("duui_simple_sentence:0.1").withScale(iWorkers).build());
+
+        // POS
+        List<String> sPosList = new ArrayList<>();
+        sPosList.add("http://geltlin.hucompute.org:8101");
+        composer.add(new DUUIRemoteDriver.Component(sPosList)).withWorkers(iWorkers);
+
+        // LEMMA
+        composer.add(new DUUIDockerDriver.
+                Component("docker.texttechnologylab.org/textimager_duui_hanta:latest")
+                .withScale(iWorkers));
+
+        // NER
+        List<String> sNERList = new ArrayList<>();
+        sNERList.add("http://geltlin.hucompute.org:8102");
+        composer.add(new DUUIRemoteDriver.Component(sNERList)).withWorkers(iWorkers);
+
+        // DEP
+        List<String> sDEPList = new ArrayList<>();
+        sDEPList.add("http://geltlin.hucompute.org:8103");
+        composer.add(new DUUIRemoteDriver.Component(sDEPList)).withWorkers(iWorkers);
+
+        // SRL
+        List<String> sSRLList = new ArrayList<>();
+        sSRLList.add("http://geltlin.hucompute.org:8104");
+        composer.add(new DUUIRemoteDriver.Component(sSRLList)).withWorkers(iWorkers);
+
+        // TOPIC
+        List<String> sTopicList = new ArrayList<>();
+        sTopicList.add("http://geltlin.hucompute.org:8105");
+
+        composer.add(new DUUIRemoteDriver.Component(sTopicList)
+                        .withParameter("model_name", "chkla/parlbert-topic-german")
+                        .withParameter("selection", "de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Sentence"))
+                .withWorkers(iWorkers);
+
+        // Sentiment
+        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-transformers-sentiment:0.1.1")
+                .withParameter("model_name", "cardiffnlp/twitter-xlm-roberta-base-sentiment")
+                .withParameter("selection", "de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Sentence")
+                .withScale(iWorkers));
+
+        // CoRef
+        List<String> sCoRefList = new ArrayList<>();
+        sCoRefList.add("http://geltlin.hucompute.org:8106");
+        composer.add(new DUUIRemoteDriver.Component(sCoRefList)).withWorkers(iWorkers);
+
+        // Abstract
+        List<String> sAbstractList = new ArrayList<>();
+        sAbstractList.add("http://geltlin.hucompute.org:8107");
+
+        composer.add(new DUUIRemoteDriver.Component(sAbstractList)
+                .withParameter("model_name", "Google T5-base")
+                .withParameter("summary_length", "75"))
+                .withWorkers(iWorkers);
+
+        composer.add(new DUUIUIMADriver.Component(createEngineDescription(XmiWriter.class,
+                XmiWriter.PARAM_TARGET_LOCATION, sOutputPath,
+                XmiWriter.PARAM_PRETTY_PRINT, true,
+                XmiWriter.PARAM_OVERWRITE, true,
+                XmiWriter.PARAM_VERSION, "1.1",
+                XmiWriter.PARAM_COMPRESSION, "GZIP"
+        )).build());
+
+        composer.run(pCorpusReader, sRun);
 
 
     }

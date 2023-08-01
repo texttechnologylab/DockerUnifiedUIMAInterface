@@ -1,6 +1,7 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface;
 
 import org.apache.commons.compress.compressors.CompressorException;
+import org.apache.commons.lang3.SerializationUtils;
 import org.apache.uima.analysis_engine.AnalysisEngineProcessException;
 import org.apache.uima.cas.CASException;
 import org.apache.uima.cas.impl.XmiCasSerializer;
@@ -10,11 +11,9 @@ import org.apache.uima.fit.factory.CollectionReaderFactory;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.fit.factory.TypeSystemDescriptionFactory;
 import org.apache.uima.jcas.JCas;
-import org.apache.uima.jcas.cas.TOP;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.apache.uima.util.CasCreationUtils;
 import org.apache.uima.util.InvalidXMLException;
-
 import org.luaj.vm2.Globals;
 import org.luaj.vm2.lib.jse.JsePlatform;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.IDUUIConnectionHandler;
@@ -24,13 +23,13 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.DUUIMonitor;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.IDUUIStorageBackend;
-
+import org.texttechnologylab.DockerUnifiedUIMAInterface.segmentation.DUUISegmentationStrategy;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.segmentation.DUUISegmentationStrategyNone;
 import org.xml.sax.SAXException;
 
-import java.io.IOException;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.OutputStream;
-
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
 import java.security.InvalidParameterException;
@@ -243,7 +242,28 @@ class DUUIWorkerAsyncReader extends Thread {
                     _jc);
             for (DUUIComposer.PipelinePart i : _flow) {
                 try {
-                    i.getDriver().run(i.getUUID(), _jc, perf);
+                    // Segment document for each item in the pipeline separately
+                    // TODO support "complete pipeline" segmentation to only segment once
+                    // TODO thread safety needed for here?
+                    DUUISegmentationStrategy segmentationStrategy = i.getSegmentationStrategy();
+                    if (segmentationStrategy instanceof DUUISegmentationStrategyNone) {
+                        i.getDriver().run(i.getUUID(), _jc, perf);
+                    } else {
+                        segmentationStrategy.initialize(_jc);
+
+                        JCas jCasSegmented = segmentationStrategy.getNextSegment();
+                        while (jCasSegmented != null) {
+                            // Process each cas sequentially
+                            // TODO add parallel variant later
+                            i.getDriver().run(i.getUUID(), jCasSegmented, perf);
+
+                            segmentationStrategy.merge(jCasSegmented);
+                            jCasSegmented = segmentationStrategy.getNextSegment();
+                        }
+
+                        segmentationStrategy.finalize(_jc);
+                    }
+
                 } catch (Exception e) {
                     //Ignore errors at the moment
                     //e.printStackTrace();
@@ -426,10 +446,12 @@ public class DUUIComposer {
     public static class PipelinePart {
         private final IDUUIDriverInterface _driver;
         private final String _uuid;
+        private final DUUISegmentationStrategy segmentationStrategy;
 
-        PipelinePart(IDUUIDriverInterface driver, String uuid) {
+        PipelinePart(IDUUIDriverInterface driver, String uuid, DUUISegmentationStrategy segmentationStrategy) {
             _driver = driver;
             _uuid = uuid;
+            this.segmentationStrategy = segmentationStrategy;
         }
 
         public IDUUIDriverInterface getDriver() {
@@ -438,6 +460,17 @@ public class DUUIComposer {
 
         public String getUUID() {
             return _uuid;
+        }
+
+        public DUUISegmentationStrategy getSegmentationStrategy() {
+            if (segmentationStrategy == null) {
+                // Use default strategy with no segmentation
+                return new DUUISegmentationStrategyNone();
+            }
+
+            // Always return a copy to allow for multiple processes/threads
+            System.out.println("Cloning segmentation strategy: " + segmentationStrategy.getClass().getName());
+            return SerializationUtils.clone(segmentationStrategy);
         }
     }
 
@@ -671,13 +704,14 @@ public class DUUIComposer {
             for (DUUIPipelineComponent comp : _pipeline) {
                 IDUUIDriverInterface driver = _drivers.get(comp.getDriver());
                 String uuid = driver.instantiate(comp, jc, _skipVerification);
+                DUUISegmentationStrategy segmentationStrategy = comp.getSegmentationStrategy();
 
                 TypeSystemDescription desc = driver.get_typesystem(uuid);
                 if (desc != null) {
                     descriptions.add(desc);
                 }
                 //TODO: get input output of every annotator
-                _instantiatedPipeline.add(new PipelinePart(driver, uuid));
+                _instantiatedPipeline.add(new PipelinePart(driver, uuid, segmentationStrategy));
             }
 
             // UUID und die input outputs
@@ -705,7 +739,22 @@ public class DUUIComposer {
         DUUIPipelineDocumentPerformance perf = new DUUIPipelineDocumentPerformance(name,documentWaitTime,jc);
         for (PipelinePart comp : pipeline) {
 
-            comp.getDriver().run(comp.getUUID(), jc, perf);
+            // Segment document for each item in the pipeline separately
+            // TODO support "complete pipeline" segmentation to only segment once
+            DUUISegmentationStrategy segmentationStrategy = comp.getSegmentationStrategy();
+            segmentationStrategy.initialize(jc);
+
+            JCas jCasSegmented = segmentationStrategy.getNextSegment();
+            while(jCasSegmented != null) {
+                // Process each cas sequentially
+                // TODO add parallel variant later
+                comp.getDriver().run(comp.getUUID(), jCasSegmented, perf);
+
+                segmentationStrategy.merge(jCasSegmented);
+                jCasSegmented = segmentationStrategy.getNextSegment();
+            }
+
+            segmentationStrategy.finalize(jc);
         }
 
         if(_storage!=null) {

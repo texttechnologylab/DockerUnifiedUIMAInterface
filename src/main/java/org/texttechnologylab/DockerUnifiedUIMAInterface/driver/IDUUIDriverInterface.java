@@ -1,7 +1,6 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.driver;
 
 import org.apache.commons.compress.compressors.CompressorException;
-
 import org.apache.uima.analysis_engine.AnalysisEngineProcessException;
 import org.apache.uima.cas.CASException;
 import org.apache.uima.jcas.JCas;
@@ -27,4 +26,5 @@ public interface IDUUIDriverInterface {
 
     public void destroy(String uuid);
     public void shutdown();
+
 }

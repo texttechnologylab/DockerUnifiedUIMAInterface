@@ -426,6 +426,10 @@ public class DUUIDockerInterface {
         return sw.getSwarm().getControlAvailable();
     }
 
+    public String pullImage(String tag) throws InterruptedException {
+        return pullImage(tag, null, null);
+    }
+
     public String pullImage(String tag,String username, String password) throws InterruptedException {
         try {
             if (username != null && password != null) {
@@ -445,6 +449,7 @@ public class DUUIDockerInterface {
             }
         }
         catch(Exception e) {
+            e.printStackTrace();
             System.out.printf("Could not fetch image %s, continuing without.\n",tag);
         }
         return tag;
