@@ -324,6 +324,13 @@
             <version>6.8.0</version> <!-- Use the appropriate version here -->
         </dependency>
 
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>2.15.2</version>
+        </dependency>
+
+
 
 
     </dependencies>

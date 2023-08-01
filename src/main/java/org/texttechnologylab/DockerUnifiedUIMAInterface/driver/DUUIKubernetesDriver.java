@@ -15,6 +15,7 @@ import java.util.Optional;
 
 
 import static io.fabric8.kubernetes.client.impl.KubernetesClientImpl.logger;
+import static java.lang.String.format;
 
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.analysis_engine.AnalysisEngineProcessException;
@@ -24,8 +25,10 @@ import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.apache.uima.util.InvalidXMLException;
 import org.javatuples.Triplet;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIDockerInterface;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUICommunicationLayer;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.DUUIWebsocketAlt;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.IDUUIConnectionHandler;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
@@ -81,6 +84,8 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
             uuid = UUID.randomUUID().toString();
         }
         DUUIKubernetesDriver.InstantiatedComponent comp = new DUUIKubernetesDriver.InstantiatedComponent(component);  // Initialisiere Komponente
+
+
         String dockerImage = comp.getImageName();  // Image der Komponente als String
         int scale = comp.getScale(); // Anzahl der Replicas in dieser Kubernetes-Komponente
 
@@ -89,13 +94,14 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
         Service service = createService();  // Erstelle service und gebe diesen zurück
 
         // TODO: Fragen was das hier macht
-        int port = service.getSpec().getPorts().get(0).getNodePort();  // NodePort (stand jetzt immer 30500)
+        int port = service.getSpec().getPorts().get(0).getNodePort();  // NodePort (stand jetzt: immer 30500)
 
         final String uuidCopy = uuid;
         IDUUICommunicationLayer layer = null;
+
         try {
             // TODO: Hier brauche ich irgendeine Analoge Funktion für den KubernetesDriver
-            layer = DUUIDockerDriver.responsiveAfterTime("http://192.168.178.78:" + port, jc, _container_timeout, _client, (msg) -> {
+            layer = DUUIDockerDriver.responsiveAfterTime("http://localhost:" + port, jc, _container_timeout, _client, (msg) -> {
                 System.out.printf("[KubernetesDriver][%s][%d Replicas] %s\n", uuidCopy, comp.getScale(), msg);
             }, _luaContext, skipVerification);
         }
@@ -105,10 +111,12 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
             throw e;
         }
 
+
         System.out.printf("[DockerSwarmDriver][%s][%d Replicas] Service for image %s is online (URL http://localhost:%d) and seems to understand DUUI V1 format!\n", uuid, comp.getScale(),comp.getImageName(), port);
 
-        //comp.initialise(serviceid,port, layer, this);
+        comp.initialise(port, layer, this);
         Thread.sleep(500);
+
 
         _active_components.put(uuid, comp);
         return uuid;
@@ -168,7 +176,7 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
                     .withName("test-port")
                     .withProtocol("TCP")
                     .withPort(80)
-                    .withTargetPort(new IntOrString(9376))
+                    .withTargetPort(new IntOrString(9714))  // TargetPort muss anscheinend auf 9714 gesetzt werden.
                     .withNodePort(30500)
                     .endPort()
                     .withType("LoadBalancer")
@@ -208,6 +216,7 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
         }
     }
 
+    // Kann man sich schenken
     @Override
     public void printConcurrencyGraph(String uuid) {
 
@@ -215,12 +224,26 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
 
     @Override
     public TypeSystemDescription get_typesystem(String uuid) throws InterruptedException, IOException, SAXException, CompressorException, ResourceInitializationException {
-        return null;
+        DUUIKubernetesDriver.InstantiatedComponent comp = _active_components.get(uuid);
+        if (comp == null) {
+            throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
+        }
+        return IDUUIInstantiatedPipelineComponent.getTypesystem(uuid,comp);
     }
 
     @Override
     public void run(String uuid, JCas aCas, DUUIPipelineDocumentPerformance perf) throws InterruptedException, IOException, SAXException, AnalysisEngineProcessException, CompressorException, CASException {
+        DUUIKubernetesDriver.InstantiatedComponent comp = _active_components.get(uuid);
+        if (comp == null) {
+            throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
+        }
 
+        if (comp.isWebsocket()) {
+            IDUUIInstantiatedPipelineComponent.process_handler(aCas, comp, perf);
+        }
+        else {
+            IDUUIInstantiatedPipelineComponent.process(aCas, comp, perf);
+        }
     }
 
     @Override
@@ -266,12 +289,15 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
     static class InstantiatedComponent implements IDUUIInstantiatedPipelineComponent {
 
         private String _image_name;
+        private int _service_port;
         private boolean _gpu;
         private boolean _keep_runnging_after_exit;
         private int _scale;
         private boolean _withImageFetching;
         private Map<String,String> _parameters;
         private DUUIPipelineComponent _component;
+
+        private final boolean _websocket;
 
         private int _ws_elements;  // Dieses Attribut wird irgendwie dem _wsclient-String am Ende angeheftet. Ka wieso.
 
@@ -296,16 +322,47 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
             _components = new ConcurrentLinkedQueue<>();
 
             _ws_elements = comp.getWebsocketElements();
+
+            _websocket = comp.isWebsocket();
+        }
+
+        // Implementiert, weil SwarmDriver auch so eine Methode hat.
+        public DUUIKubernetesDriver.InstantiatedComponent initialise(int service_port, IDUUICommunicationLayer layer, DUUIKubernetesDriver kubeDriver) throws IOException, InterruptedException {
+            _service_port = service_port;
+
+            if (_websocket) {
+                kubeDriver._wsclient = new DUUIWebsocketAlt(
+                        getServiceUrl().replaceFirst("http", "ws") + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS_WEBSOCKET, _ws_elements);
+            }
+            else {
+                kubeDriver._wsclient = null;
+            }
+            for(int i = 0; i < _scale; i++) {
+                _components.add(new DUUIKubernetesDriver.ComponentInstance(getServiceUrl(), layer.copy(), kubeDriver._wsclient));
+
+            }
+            return this;
+        }
+
+        public String getServiceUrl() {
+            return format("http://localhost:",_service_port);
         }
 
         @Override
         public DUUIPipelineComponent getPipelineComponent() {
-            return null;
+            return _component;
         }
 
+        // vorläufig
         @Override
         public Triplet<IDUUIUrlAccessible, Long, Long> getComponent() {
-            return null;
+            long mutexStart = System.nanoTime();
+            DUUIKubernetesDriver.ComponentInstance inst = _components.poll();
+            while(inst == null) {
+                inst = _components.poll();
+            }
+            long mutexEnd = System.nanoTime();
+            return Triplet.with(inst,mutexStart,mutexEnd);
         }
 
         @Override
@@ -331,7 +388,15 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
             return _scale;
         }
 
+        public void set_service_port(int servicePort) {
+            this._service_port = servicePort;
+        }
+
         public int getWebsocketElements() { return _ws_elements; }
+
+        public boolean isWebsocket() {
+            return _websocket;
+        }
     }
 
     // Dieses Objekt wird in die Composer.add-Methode eingegeben und so zum _Pipeline-Attribut des Composers hinzugefügt.

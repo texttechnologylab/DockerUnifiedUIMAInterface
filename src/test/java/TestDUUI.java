@@ -66,6 +66,8 @@ import static org.apache.uima.fit.factory.AnalysisEngineFactory.createEngineDesc
 import static org.apache.uima.fit.factory.CollectionReaderFactory.createReaderDescription;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIKubernetesDriver.deleteDeployment;
+import static org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIKubernetesDriver.deleteService;
 
 import io.kubernetes.client.openapi.ApiClient;
 import io.kubernetes.client.openapi.ApiException;
@@ -1616,6 +1618,7 @@ public class TestDUUI {
         // Hinzufügen einer UIMA-Componente zum schreiben der Ergebnisse
         // (Hierfür wurde anscheinend der UIMA Driver hinzugefügt)
         // Wird zum Attribut _Pipeline des Composers hinzugefügt.
+
         composer.add(new DUUIUIMADriver.Component(createEngineDescription(XmiWriter.class,
                 XmiWriter.PARAM_TARGET_LOCATION, sOutputPath,
                 XmiWriter.PARAM_PRETTY_PRINT, true,
@@ -1624,8 +1627,13 @@ public class TestDUUI {
                 XmiWriter.PARAM_COMPRESSION, "GZIP"
         )).build());
 
+
+
         // Starten des Composers mit dem Reader und dem Namen des Jobs
         composer.run(pCorpusReader, "sentence");
+
+        deleteDeployment();
+        deleteService();
     }
 
 

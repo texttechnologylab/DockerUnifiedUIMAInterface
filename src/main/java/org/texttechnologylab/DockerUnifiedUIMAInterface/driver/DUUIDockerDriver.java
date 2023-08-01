@@ -219,7 +219,9 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
             uuid = UUID.randomUUID().toString();
         }
 
+
         InstantiatedComponent comp = new InstantiatedComponent(component);
+
 
         if (!comp.getImageFetching()) {
             if(comp.getUsername() != null) {
