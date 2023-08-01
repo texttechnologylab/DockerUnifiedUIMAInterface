@@ -1,6 +1,7 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.driver;
 
 import org.apache.commons.compress.compressors.CompressorException;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.uima.UIMAException;
 import org.apache.uima.analysis_engine.AnalysisEngine;
 import org.apache.uima.analysis_engine.AnalysisEngineDescription;
@@ -363,11 +364,20 @@ public class DUUIUIMADriver implements IDUUIDriverInterface {
             ann.setTimestamp(System.nanoTime());
             ann.setPipelineName(perf.getRunKey());
             ann.addToIndexes();
-            perf.addData(0,0,annotatorEnd-annotatorStart,mutexEnd-mutexStart,annotatorEnd-mutexStart, String.valueOf(component.getPipelineComponent().getFinalizedRepresentationHash()),0, jc);
+            perf.addData(0,0,annotatorEnd-annotatorStart,mutexEnd-mutexStart,annotatorEnd-mutexStart, String.valueOf(component.getPipelineComponent().getFinalizedRepresentationHash()),0, jc, null);
             component.add(engine);
         }
         catch(Exception e) {
             component.add(engine);
+
+            // track error docs
+            long annotatorStart = mutexEnd;
+            long annotatorEnd = System.nanoTime();
+            if (perf.shouldTrackErrorDocs()) {
+                perf.addData(0,0,annotatorEnd-annotatorStart,mutexEnd-mutexStart,annotatorEnd-mutexStart, String.valueOf(component.getPipelineComponent().getFinalizedRepresentationHash()),0, null, ExceptionUtils.getStackTrace(e));
+                component.add(engine);
+            }
+
             throw e;
         }
     }
