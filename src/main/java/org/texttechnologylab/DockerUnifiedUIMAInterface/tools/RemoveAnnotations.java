@@ -8,6 +8,7 @@ import org.apache.uima.jcas.JCas;
 import org.apache.uima.jcas.tcas.Annotation;
 import org.texttechnologylab.annotation.AnnotatorMetaData;
 import org.texttechnologylab.annotation.SharedData;
+import org.texttechnologylab.duui.ReproducibleAnnotation;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -20,6 +21,7 @@ public class RemoveAnnotations extends JCasAnnotator_ImplBase {
         List<Annotation> annoList = JCasUtil.select(jCas, Annotation.class).stream().collect(Collectors.toList());
         List<AnnotatorMetaData> annoList2 = JCasUtil.select(jCas, AnnotatorMetaData.class).stream().collect(Collectors.toList());
         List<SharedData> annoList3 = JCasUtil.select(jCas, SharedData.class).stream().collect(Collectors.toList());
+        List<ReproducibleAnnotation> annoReproducibleAnnotation = JCasUtil.select(jCas, ReproducibleAnnotation.class).stream().collect(Collectors.toList());
 
         annoList.stream().filter(a->{
             return !(a instanceof DocumentMetaData);
@@ -31,6 +33,9 @@ public class RemoveAnnotations extends JCasAnnotator_ImplBase {
             annotation.removeFromIndexes();
         });
         annoList3.stream().forEach(annotation->{
+            annotation.removeFromIndexes();
+        });
+        annoReproducibleAnnotation.stream().forEach(annotation->{
             annotation.removeFromIndexes();
         });
 
