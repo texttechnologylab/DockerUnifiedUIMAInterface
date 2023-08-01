@@ -280,7 +280,7 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
 
         @Override
         public String generateURL() {
-            return null;
+            return _pod_ip;
         }
 
         public IDUUIConnectionHandler getHandler() {return _handler;}
@@ -345,7 +345,7 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
         }
 
         public String getServiceUrl() {
-            return format("http://localhost:",_service_port);
+            return format("http://localhost:%d",_service_port);
         }
 
         @Override
