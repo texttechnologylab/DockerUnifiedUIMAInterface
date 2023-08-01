@@ -19,8 +19,8 @@ public class Experiments {
     @Test
     public void ChatGPT_Verbs() throws Exception {
 
-        String sourcePath = "/storage/projects/abrami/verbs/xmi";
-        String outputPath = "/storage/projects/abrami/verbs/output";
+        String sourcePath = "/storage/projects/abrami/verbs/new";
+        String outputPath = "/storage/projects/abrami/verbs/newoutput";
         String sourceSuffix = ".xmi";
 
         AsyncCollectionReader collectionReader = new AsyncCollectionReader(sourcePath, sourceSuffix, 1, true);
@@ -69,7 +69,7 @@ public class Experiments {
     @Test
     public void ChatGPT_Sum() throws Exception {
 
-        String sourcePath = "/storage/projects/abrami/verbs/output";
+        String sourcePath = "/storage/projects/abrami/verbs/newoutput";
         String sourceSuffix = ".xmi.gz";
 
         AsyncCollectionReader collectionReader = new AsyncCollectionReader(sourcePath, sourceSuffix, 1, true);

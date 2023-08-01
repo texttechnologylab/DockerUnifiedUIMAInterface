@@ -2,16 +2,20 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface.tools;
 
 import org.apache.uima.UimaContext;
 import org.apache.uima.analysis_engine.AnalysisEngineProcessException;
+import org.apache.uima.cas.SerialFormat;
 import org.apache.uima.fit.descriptor.ConfigurationParameter;
 import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.jcas.tcas.Annotation;
+import org.apache.uima.json.JsonCasSerializer;
 import org.apache.uima.resource.ResourceInitializationException;
+import org.apache.uima.util.CasIOUtils;
 import org.dkpro.core.api.io.JCasFileWriter_ImplBase;
 import org.texttechnologylab.annotation.AnnotationComment;
 import org.texttechnologylab.utilities.helper.BorlandUtils;
 import org.texttechnologylab.utilities.helper.FileUtils;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
@@ -38,8 +42,8 @@ public class BorlandExport extends JCasFileWriter_ImplBase {
 
         nodes.put("verb", BorlandUtils.DATATYPE.String);
         nodes.put("chatgpt", BorlandUtils.DATATYPE.String);
-//        nodes.put("pos", BorlandUtils.DATATYPE.StringList);
-//        nodes.put("lemma", BorlandUtils.DATATYPE.StringList);
+        nodes.put("xmi", BorlandUtils.DATATYPE.String);
+        nodes.put("json", BorlandUtils.DATATYPE.String);
 //        nodes.put("ner", BorlandUtils.DATATYPE.StringList);
 
     }
@@ -58,6 +62,17 @@ public class BorlandExport extends JCasFileWriter_ImplBase {
             objectMap.put("verb", acList.get(0).getValue());
         }
         objectMap.put("chatgpt", jCas.getDocumentText());
+
+        ByteArrayOutputStream xmiOut = new ByteArrayOutputStream();
+        ByteArrayOutputStream jsonOut = new ByteArrayOutputStream();
+        try {
+            CasIOUtils.save(jCas.getCas(), xmiOut, SerialFormat.XMI_1_1);
+            objectMap.put("xmi", xmiOut.toString().replaceAll("\n", " "));
+            JsonCasSerializer.jsonSerialize(jCas.getCas(), jsonOut);
+            objectMap.put("json", jsonOut.toString().replaceAll("\n", " "));
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
 
         outputString.append(BorlandUtils.addVertex(sID.replaceAll("/","_"), objectMap));
 
