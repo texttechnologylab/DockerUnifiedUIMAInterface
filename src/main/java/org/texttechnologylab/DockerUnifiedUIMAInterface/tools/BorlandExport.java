@@ -66,7 +66,7 @@ public class BorlandExport extends JCasFileWriter_ImplBase {
         ByteArrayOutputStream xmiOut = new ByteArrayOutputStream();
         ByteArrayOutputStream jsonOut = new ByteArrayOutputStream();
         try {
-            CasIOUtils.save(jCas.getCas(), xmiOut, SerialFormat.XMI_1_1);
+            CasIOUtils.save(jCas.getCas(), xmiOut, SerialFormat.XMI);
             objectMap.put("xmi", xmiOut.toString().replaceAll("\n", " "));
             JsonCasSerializer.jsonSerialize(jCas.getCas(), jsonOut);
             objectMap.put("json", jsonOut.toString().replaceAll("\n", " "));

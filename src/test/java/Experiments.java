@@ -1,3 +1,10 @@
+import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
+import org.apache.uima.UIMAException;
+import org.apache.uima.cas.SerialFormat;
+import org.apache.uima.fit.factory.JCasFactory;
+import org.apache.uima.fit.util.JCasUtil;
+import org.apache.uima.jcas.JCas;
+import org.apache.uima.util.CasIOUtils;
 import org.dkpro.core.io.xmi.XmiWriter;
 import org.junit.jupiter.api.Test;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
@@ -11,6 +18,16 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.sqlite.
 import org.texttechnologylab.DockerUnifiedUIMAInterface.tools.BorlandExport;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.tools.ChangeMetaData;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.tools.RemoveMetaData;
+import org.texttechnologylab.annotation.AnnotationComment;
+import org.texttechnologylab.utilities.helper.FileUtils;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import static org.apache.uima.fit.factory.AnalysisEngineFactory.createEngineDescription;
 
@@ -97,6 +114,63 @@ public class Experiments {
         composer.add(new DUUIUIMADriver.Component(createEngineDescription(BorlandExport.class)).build());
 
         composer.run(collectionReader, "chat_gpt_output_"+iWorkers);
+
+    }
+
+    @Test
+    public void rename() throws IOException, UIMAException {
+
+        String sInput = "/storage/projects/abrami/verbs/xmi/verbs";
+        String sOutput = "/storage/projects/abrami/verbs/new";
+
+        new File(sOutput).mkdir();
+
+        Set<File> fSet = FileUtils.getFiles(sInput, ".xmi");
+        Set<File> fSetOut = FileUtils.getFiles(sOutput, ".xmi");
+        JCas pCas = JCasFactory.createJCas();
+        JCas newCas = JCasFactory.createJCas();
+        fSet.stream().filter(f->!fSetOut.contains(f)).sorted().forEach(f->{
+            System.out.println(f.getName());
+            pCas.reset();
+            newCas.reset();
+            try {
+                CasIOUtils.load(new FileInputStream(f), pCas.getCas());
+
+                DocumentMetaData dmd = DocumentMetaData.get(pCas);
+                String sTitle = dmd.getDocumentTitle();
+                String sID = dmd.getDocumentId();
+
+                pCas.getDocumentText();
+
+                AnnotationComment ac = new AnnotationComment(newCas);
+                ac.setKey("created");
+                ac.setValue("abrami");
+                AnnotationComment content = new AnnotationComment(newCas);
+                content.setKey("content");
+
+                List<AnnotationComment> acList = JCasUtil.select(pCas, AnnotationComment.class).stream().filter(aC->{
+                    return aC.getKey().equalsIgnoreCase("content");
+                }).collect(Collectors.toList());
+
+                String s = acList.get(0).getValue();
+                content.setValue(s);
+                ac.addToIndexes();
+                content.addToIndexes();
+
+                newCas.setDocumentText(sTitle+": "+pCas.getDocumentText());
+                newCas.setDocumentLanguage("de");
+                DocumentMetaData dmdNew = DocumentMetaData.create(newCas);
+                dmdNew.setDocumentTitle(sTitle);
+                dmdNew.setDocumentId(sID);
+
+                CasIOUtils.save(newCas.getCas(), new FileOutputStream(new File(sOutput+"/"+sTitle.replace("/", "_")+".xmi")), SerialFormat.XMI);
+
+            } catch (Exception e) {
+                System.out.println(f.getName());
+                e.printStackTrace();
+            }
+
+        });
 
     }
 
