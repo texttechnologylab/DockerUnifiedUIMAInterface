@@ -1,6 +1,7 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage;
 
 import com.arangodb.entity.BaseDocument;
+import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import org.apache.uima.jcas.JCas;
 
 import java.util.HashMap;
@@ -17,6 +18,7 @@ public class DUUIPipelineDocumentPerformance {
     private Long _durationTotal;
     private Integer _documentSize;
     private Long _documentWaitTime;
+    private String document;
 
     /**
      * Whether to track error documents in the database or not
@@ -40,6 +42,20 @@ public class DUUIPipelineDocumentPerformance {
         }
         else{
             _documentSize = -1;
+        }
+
+        try {
+            DocumentMetaData meta = DocumentMetaData.get(jc);
+            document = meta.getDocumentId();
+            if (document == null) {
+                document = meta.getDocumentUri();
+            }
+            if (document == null) {
+                document = meta.getDocumentTitle();
+            }
+        }
+        catch (Exception e){
+            document = null;
         }
 
     }
@@ -66,7 +82,7 @@ public class DUUIPipelineDocumentPerformance {
         _durationTotalAnnotator += durationAnnotator;
         _durationTotalMutexWait += durationMutexWait;
         _durationTotal += durationComponentTotal;
-        _points.add(new DUUIPipelinePerformancePoint(durationSerialize,durationDeserialize,durationAnnotator,durationMutexWait,durationComponentTotal,componentKey,serializeSize, jc, error));
+        _points.add(new DUUIPipelinePerformancePoint(durationSerialize,durationDeserialize,durationAnnotator,durationMutexWait,durationComponentTotal,componentKey,serializeSize, jc, error, document));
     }
 
     public long getDocumentWaitTime() {
@@ -110,5 +126,9 @@ public class DUUIPipelineDocumentPerformance {
         props.put("docsize",_documentSize);
         doc.setProperties(props);
         return doc;
+    }
+
+    public String getDocument() {
+        return document;
     }
 }
