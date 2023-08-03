@@ -46,9 +46,9 @@ public class DUUIPipelineDocumentPerformance {
 
         try {
             DocumentMetaData meta = DocumentMetaData.get(jc);
-            document = meta.getDocumentId();
+            document = meta.getDocumentUri();
             if (document == null) {
-                document = meta.getDocumentUri();
+                document = meta.getDocumentId();
             }
             if (document == null) {
                 document = meta.getDocumentTitle();
