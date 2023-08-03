@@ -85,29 +85,27 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
         }
         DUUIKubernetesDriver.InstantiatedComponent comp = new DUUIKubernetesDriver.InstantiatedComponent(component);  // Initialisiere Komponente
 
-
         String dockerImage = comp.getImageName();  // Image der Komponente als String
         int scale = comp.getScale(); // Anzahl der Replicas in dieser Kubernetes-Komponente
 
         KubernetesClient k8s = new KubernetesClientBuilder().build();
-        createDeployment(dockerImage, scale);  // Erstelle Deployment
-        Service service = createService();  // Erstelle service und gebe diesen zurück
+        // Füge dem Namen vorne "a" hinzu, weil laut Regel die Namen mit alphabetischem Zeichen beginnen müssen (darf nicht mit Ziffer beginnen)
+        // TODO: Wenn falscher Name gewählt wird, dann wird das Deployment aber nicht mittels "destroy()" gelöscht!
+        createDeployment("a"+uuid, dockerImage, scale);  // Erstelle Deployment
+        Service service = createService("a"+uuid);  // Erstelle service und gebe diesen zurück
 
-        // TODO: Fragen was das hier macht
         int port = service.getSpec().getPorts().get(0).getNodePort();  // NodePort (stand jetzt: immer 30500)
 
         final String uuidCopy = uuid;
         IDUUICommunicationLayer layer = null;
 
         try {
-            // TODO: Hier brauche ich irgendeine Analoge Funktion für den KubernetesDriver
+            // TODO: Kann man hier wirklich einfach die DockerDriver-Methode verwenden?
             layer = DUUIDockerDriver.responsiveAfterTime("http://localhost:" + port, jc, _container_timeout, _client, (msg) -> {
                 System.out.printf("[KubernetesDriver][%s][%d Replicas] %s\n", uuidCopy, comp.getScale(), msg);
             }, _luaContext, skipVerification);
         }
         catch (Exception e){
-            deleteDeployment();
-            deleteService();
             throw e;
         }
 
@@ -127,12 +125,12 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
      * @param image
      * @param replicas
      */
-    public static void createDeployment(String image, int replicas) {
+    public static void createDeployment(String name, String image, int replicas) {
         try (KubernetesClient k8s = new KubernetesClientBuilder().build()) {
             // Load Deployment YAML Manifest into Java object
             Deployment deployment = new DeploymentBuilder()
                     .withNewMetadata()
-                    .withName("nginx")
+                    .withName(name)
                     .endMetadata()
                     .withNewSpec()
                     .withReplicas(replicas)
@@ -163,12 +161,12 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
     /**
      * Erstellt Service für Kubernetes-Cluster
      */
-    public static Service createService() {
+    public static Service createService(String name) {
         try (KubernetesClient client = new KubernetesClientBuilder().build()) {
             String namespace = Optional.ofNullable(client.getNamespace()).orElse("default");
             Service service = new ServiceBuilder()
                     .withNewMetadata()
-                    .withName("my-service")
+                    .withName(name)
                     .endMetadata()
                     .withNewSpec()
                     .withSelector(Collections.singletonMap("app", "nginx"))
@@ -177,7 +175,6 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
                     .withProtocol("TCP")
                     .withPort(80)
                     .withTargetPort(new IntOrString(9714))  // TargetPort muss anscheinend auf 9714 gesetzt werden.
-                    .withNodePort(30500)
                     .endPort()
                     .withType("LoadBalancer")
                     .endSpec()
@@ -197,11 +194,11 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
     /**
      * Löscht Deployment
      */
-    public static void deleteDeployment() {
+    public static void deleteDeployment(String name) {
         try (KubernetesClient k8s = new KubernetesClientBuilder().build()) {
             // argumente namespace und name könnten noch verallgemeinert werden
             k8s.apps().deployments().inNamespace("default")
-                    .withName("nginx")
+                    .withName(name)
                     .delete();
         }
     }
@@ -209,10 +206,10 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
     /**
      * Löscht Service.
      */
-    public static void deleteService() {
+    public static void deleteService(String name) {
         try (KubernetesClient client = new DefaultKubernetesClient()) {
             // Argumente namespace und name könnten noch verallgemeinert werden.
-            client.services().inNamespace("default").withName("my-service").delete();
+            client.services().inNamespace("default").withName(name).delete();
         }
     }
 
@@ -248,8 +245,16 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
 
     @Override
     public void destroy(String uuid) {
-
+        DUUIKubernetesDriver.InstantiatedComponent comp = _active_components.remove(uuid);
+        if (comp == null) {
+            throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
+        }
+        if (!comp.getRunningAfterExit()) {
+            deleteDeployment("a"+uuid);
+            deleteService("a"+uuid);
+        }
     }
+
 
     @Override
     public void shutdown() {
@@ -291,7 +296,7 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
         private String _image_name;
         private int _service_port;
         private boolean _gpu;
-        private boolean _keep_runnging_after_exit;
+        private boolean _keep_running_after_exit;
         private int _scale;
         private boolean _withImageFetching;
         private Map<String,String> _parameters;
@@ -317,7 +322,7 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
 
             _gpu = comp.getDockerGPU(false);
 
-            _keep_runnging_after_exit = comp.getDockerRunAfterExit(false);
+            _keep_running_after_exit = comp.getDockerRunAfterExit(false);
 
             _components = new ConcurrentLinkedQueue<>();
 
@@ -345,7 +350,7 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
         }
 
         public String getServiceUrl() {
-            return format("http://localhost:%d",_service_port);
+            return format("http://localhost:%d",_service_port);  // _service_port ist der targetPort des services, also das im Bereich 30.000
         }
 
         @Override
@@ -378,6 +383,10 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
         @Override
         public String getUniqueComponentKey() {
             return null;
+        }
+
+        public boolean getRunningAfterExit() {
+            return _keep_running_after_exit;
         }
 
         public String getImageName() {

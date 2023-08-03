@@ -1628,9 +1628,6 @@ public class TestDUUI {
 
         // Starten des Composers mit dem Reader und dem Namen des Jobs
         composer.run(pCorpusReader, "sentence");
-
-        deleteDeployment();
-        deleteService();
     }
 
     @Test
@@ -1697,9 +1694,6 @@ public class TestDUUI {
 
         // Starten des Composers mit dem Reader und dem Namen des Jobs
         composer.run(pCorpusReader, "sentence");
-
-        deleteDeployment();
-        deleteService();
     }
 
     @Test
