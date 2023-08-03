@@ -114,8 +114,11 @@ public class DUUISqliteStorageBackend implements IDUUIStorageBackend {
         for(DUUIPipelineComponent comp : composer.getPipeline()) {
             String value = comp.toJson();
 
+            // Note switched from "value.hashCode()" to the "finalized" hash to be able to match the value to table "pipeline_document_perf"
+            long hash = comp.getFinalizedRepresentationHash();
+
             PreparedStatement stmt2 = conn.prepareStatement("INSERT INTO pipeline_component (hash,name,description) VALUES (?,?,?)");
-            stmt2.setLong(1,value.hashCode());
+            stmt2.setLong(1,hash);
             stmt2.setString(2,name);
             stmt2.setString(3,value);
             stmt2.executeUpdate();
