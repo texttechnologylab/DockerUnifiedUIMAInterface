@@ -140,7 +140,11 @@ public class Experiments {
                 String sTitle = dmd.getDocumentTitle();
                 String sID = dmd.getDocumentId();
 
-                pCas.getDocumentText();
+                String sText = pCas.getDocumentText();
+                while (sText.contains("\n") || sText.contains("  ")) {
+                    sText = sText.replaceAll("\n", " ");
+                    sText = sText.replaceAll("  ", " ");
+                }
 
                 AnnotationComment ac = new AnnotationComment(newCas);
                 ac.setKey("created");
@@ -157,7 +161,7 @@ public class Experiments {
                 ac.addToIndexes();
                 content.addToIndexes();
 
-                newCas.setDocumentText(sTitle+": "+pCas.getDocumentText());
+                newCas.setDocumentText(sTitle + ": " + sText);
                 newCas.setDocumentLanguage("de");
                 DocumentMetaData dmdNew = DocumentMetaData.create(newCas);
                 dmdNew.setDocumentTitle(sTitle);

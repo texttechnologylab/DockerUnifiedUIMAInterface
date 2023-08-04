@@ -112,8 +112,8 @@ public class AsyncCollectionReader {
         return true;
     }
 
-    public AsyncCollectionReader(String folder, String ending, int debugCount, int sampleSize, DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE sampleMode, String savePath, boolean bAddMetadata, String language) {
-        this(folder, ending, debugCount, getRandomFromMode(sampleMode, sampleSize), getSortFromMode(sampleMode), savePath, bAddMetadata, language);
+    public AsyncCollectionReader(String folder, String ending, int debugCount, int sampleSize, DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE sampleMode, String savePath, boolean bAddMetadata, String language, int skipSmallerFiles) {
+        this(folder, ending, debugCount, getRandomFromMode(sampleMode, sampleSize), getSortFromMode(sampleMode), savePath, bAddMetadata, language, skipSmallerFiles);
     }
 
     public AsyncCollectionReader(String folder, String ending, int debugCount, int iRandom, boolean bSort, String savePath, boolean bAddMetadata, String language) {
@@ -270,6 +270,53 @@ public class AsyncCollectionReader {
 
     }
 
+    /**
+     * Skips files smaller than skipSmallerFiles
+     * @param paths paths to files
+     * @param skipSmallerFiles skip files smaller than this value in bytes
+     * @return filtered paths to files
+     */
+    public static ConcurrentLinkedQueue<String> skipBySize(ConcurrentLinkedQueue<String> paths, int skipSmallerFiles) {
+        ConcurrentLinkedQueue<String> rQueue = new ConcurrentLinkedQueue<>();
+
+        rQueue.addAll(paths
+                        .stream()
+                .filter(s -> new File(s).length() < skipSmallerFiles)
+                        .collect(Collectors.toList())
+        );
+
+        return rQueue;
+    }
+
+    public static void addFilesToConcurrentList(File folder, String ending, ConcurrentLinkedQueue<String> paths) {
+        File[] listOfFiles = folder.listFiles();
+
+        for (int i = 0; i < listOfFiles.length; i++) {
+            if (listOfFiles[i].isFile()) {
+                if(listOfFiles[i].getName().endsWith(ending)) {
+                    paths.add(listOfFiles[i].getPath().toString());
+                }
+            } else if (listOfFiles[i].isDirectory()) {
+                addFilesToConcurrentList(listOfFiles[i],ending,paths);
+            }
+        }
+    }
+
+    public static ConcurrentLinkedQueue<String> sortBySize(ConcurrentLinkedQueue<String> paths){
+
+        ConcurrentLinkedQueue<String> rQueue = new ConcurrentLinkedQueue<String>();
+
+        rQueue.addAll(paths.stream().sorted((s1, s2)->{
+            Long firstLength = new File(s1).length();
+            Long secondLength = new File(s2).length();
+
+            return firstLength.compareTo(secondLength)*-1;
+        }).collect(Collectors.toList()));
+
+        return rQueue;
+
+    }
+
     public boolean getNextCAS(JCas empty) throws IOException, CompressorException, SAXException {
         ByteReadFuture future = _loadedFiles.poll();
 
@@ -317,7 +364,7 @@ public class AsyncCollectionReader {
             decodedFile = new ByteArrayInputStream(file);
         }
 
-        XmiCasDeserializer.deserialize(decodedFile, empty.getCas());
+        XmiCasDeserializer.deserialize(decodedFile, empty.getCas(), true);
 
 //        try {
 //            XmiSerializationSharedData sharedData = deserialize(empty.getCas().getJCas());
@@ -343,53 +390,6 @@ public class AsyncCollectionReader {
         }
 
         return true;
-    }
-
-    public static void addFilesToConcurrentList(File folder, String ending, ConcurrentLinkedQueue<String> paths) {
-        File[] listOfFiles = folder.listFiles();
-
-        for (int i = 0; i < listOfFiles.length; i++) {
-            if (listOfFiles[i].isFile()) {
-                if(listOfFiles[i].getName().endsWith(ending)) {
-                    paths.add(listOfFiles[i].getPath().toString());
-                }
-            } else if (listOfFiles[i].isDirectory()) {
-                addFilesToConcurrentList(listOfFiles[i],ending,paths);
-            }
-        }
-    }
-
-    public static ConcurrentLinkedQueue<String> sortBySize(ConcurrentLinkedQueue<String> paths){
-
-        ConcurrentLinkedQueue<String> rQueue = new ConcurrentLinkedQueue<String>();
-
-        rQueue.addAll(paths.stream().sorted((s1, s2)->{
-            Long firstLength = new File(s1).length();
-            Long secondLength = new File(s2).length();
-
-            return firstLength.compareTo(secondLength)*-1;
-        }).collect(Collectors.toList()));
-
-        return rQueue;
-
-    }
-
-    /**
-     * Skips files smaller than skipSmallerFiles
-     * @param paths paths to files
-     * @param skipSmallerFiles skip files smaller than this value in bytes
-     * @return filtered paths to files
-     */
-    public static ConcurrentLinkedQueue<String> skipBySize(ConcurrentLinkedQueue<String> paths, int skipSmallerFiles) {
-        ConcurrentLinkedQueue<String> rQueue = new ConcurrentLinkedQueue<>();
-
-        rQueue.addAll(paths
-                        .stream()
-                        .filter(s -> new File(s).length() >= skipSmallerFiles)
-                        .collect(Collectors.toList())
-        );
-
-        return rQueue;
     }
 
     public static ConcurrentLinkedQueue<String> random(ConcurrentLinkedQueue<String> paths, int iRandom){

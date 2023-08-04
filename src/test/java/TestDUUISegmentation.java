@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class TestDUUISegmentation {
+
     static public void main(String[] args) throws Exception {
         DUUIComposer composer = new DUUIComposer()
                 .withSkipVerification(true)

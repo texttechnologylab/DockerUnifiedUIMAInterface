@@ -12,16 +12,13 @@ import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.util.CasIOUtils;
 import org.dkpro.core.api.io.JCasFileWriter_ImplBase;
 import org.texttechnologylab.annotation.AnnotationComment;
+import org.texttechnologylab.duui.ReproducibleAnnotation;
 import org.texttechnologylab.utilities.helper.BorlandUtils;
-import org.texttechnologylab.utilities.helper.FileUtils;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class BorlandExport extends JCasFileWriter_ImplBase {
@@ -46,6 +43,12 @@ public class BorlandExport extends JCasFileWriter_ImplBase {
         nodes.put("json", BorlandUtils.DATATYPE.String);
 //        nodes.put("ner", BorlandUtils.DATATYPE.StringList);
 
+        try {
+            BorlandUtils.writeHeader(nodes, edges, new File(output));
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
     }
 
     @Override
@@ -63,6 +66,14 @@ public class BorlandExport extends JCasFileWriter_ImplBase {
         }
         objectMap.put("chatgpt", jCas.getDocumentText());
 
+        Set<ReproducibleAnnotation> removeSet = new HashSet<>(0);
+        JCasUtil.select(jCas, ReproducibleAnnotation.class).stream().forEach(rp -> {
+            removeSet.add(rp);
+        });
+        removeSet.stream().forEach(rp -> {
+            rp.removeFromIndexes();
+        });
+
         ByteArrayOutputStream xmiOut = new ByteArrayOutputStream();
         ByteArrayOutputStream jsonOut = new ByteArrayOutputStream();
         try {
@@ -74,19 +85,24 @@ public class BorlandExport extends JCasFileWriter_ImplBase {
             throw new RuntimeException(e);
         }
 
-        outputString.append(BorlandUtils.addVertex(sID.replaceAll("/","_"), objectMap));
+        try {
+            BorlandUtils.writeVertex(sID.replaceAll("/", "_"), objectMap, new File(output));
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        //outputString.append(BorlandUtils.addVertex());
 
     }
 
     @Override
     public void destroy() {
 
-        String bOutput = BorlandUtils.createBorland(BorlandUtils.createHeader(nodes, edges), outputString.toString(), "");
-        try {
-            FileUtils.writeContent(bOutput, new File(output));
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+//        String bOutput = BorlandUtils.createBorland(BorlandUtils.createHeader(nodes, edges), outputString.toString(), "");
+//        try {
+//            FileUtils.writeContent(bOutput, new File(output));
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//        }
 
         super.destroy();
     }
