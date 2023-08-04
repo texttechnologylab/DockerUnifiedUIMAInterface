@@ -10,6 +10,8 @@ import io.fabric8.kubernetes.client.KubernetesClientBuilder;
 import io.fabric8.kubernetes.api.model.IntOrString;
 import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.ServiceBuilder;
+
+import java.net.*;
 import java.util.Collections;
 import java.util.Optional;
 
@@ -35,7 +37,6 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPip
 import org.xml.sax.SAXException;
 
 import java.io.IOException;
-import java.net.URISyntaxException;
 import java.net.http.HttpClient;
 import java.security.InvalidParameterException;
 import java.util.*;
@@ -89,12 +90,24 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
         int scale = comp.getScale(); // Anzahl der Replicas in dieser Kubernetes-Komponente
 
         KubernetesClient k8s = new KubernetesClientBuilder().build();
-        // Füge dem Namen vorne "a" hinzu, weil laut Regel die Namen mit alphabetischem Zeichen beginnen müssen (darf nicht mit Ziffer beginnen)
-        // TODO: Wenn falscher Name gewählt wird, dann wird das Deployment aber nicht mittels "destroy()" gelöscht!
-        createDeployment("a"+uuid, dockerImage, scale);  // Erstelle Deployment
-        Service service = createService("a"+uuid);  // Erstelle service und gebe diesen zurück
 
-        int port = service.getSpec().getPorts().get(0).getNodePort();  // NodePort (stand jetzt: immer 30500)
+        if(!isMasterNode(k8s)) {
+            throw new InvalidParameterException("This node is not a Kubernetes Master Node, thus cannot create and schedule new services!");
+        }
+
+        Service service;
+        try {
+            // Füge dem Namen vorne "a" hinzu, weil laut Regel die Namen mit alphabetischem Zeichen beginnen müssen (darf nicht mit Ziffer beginnen)
+            createDeployment("a"+uuid, dockerImage, scale);  // Erstelle Deployment
+            service = createService("a"+uuid);  // Erstelle service und gebe diesen zurück
+        }
+        catch (Exception e){
+            deleteDeployment("a"+uuid);
+            deleteService("a"+uuid);
+            throw e;
+        }
+
+        int port = service.getSpec().getPorts().get(0).getNodePort();  // NodePort
 
         final String uuidCopy = uuid;
         IDUUICommunicationLayer layer = null;
@@ -106,6 +119,8 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
             }, _luaContext, skipVerification);
         }
         catch (Exception e){
+            deleteDeployment("a"+uuid);
+            deleteService("a"+uuid);
             throw e;
         }
 
@@ -118,6 +133,22 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
 
         _active_components.put(uuid, comp);
         return uuid;
+    }
+
+    public boolean isMasterNode(KubernetesClient kubeClient) throws SocketException {
+        String masterNodeIP = kubeClient.getMasterUrl().getHost();  // IP-Adresse des Master Node
+        Enumeration<NetworkInterface> networkInterfaceEnumeration = NetworkInterface.getNetworkInterfaces();
+        // Quelle des Codeschnipsels: https://www.educative.io/answers/how-to-get-the-ip-address-of-a-localhost-in-java
+        while( networkInterfaceEnumeration.hasMoreElements()){
+            for ( InterfaceAddress interfaceAddress : networkInterfaceEnumeration.nextElement().getInterfaceAddresses()) {
+                if (interfaceAddress.getAddress().isSiteLocalAddress()) {
+                    if (interfaceAddress.getAddress().getHostAddress().equals(masterNodeIP)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
     }
 
     /**
@@ -196,7 +227,7 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
      */
     public static void deleteDeployment(String name) {
         try (KubernetesClient k8s = new KubernetesClientBuilder().build()) {
-            // argumente namespace und name könnten noch verallgemeinert werden
+            // argument namespace könnte noch verallgemeinert werden
             k8s.apps().deployments().inNamespace("default")
                     .withName(name)
                     .delete();
@@ -208,7 +239,7 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
      */
     public static void deleteService(String name) {
         try (KubernetesClient client = new DefaultKubernetesClient()) {
-            // Argumente namespace und name könnten noch verallgemeinert werden.
+            // Argument namespace könnte noch verallgemeinert werden.
             client.services().inNamespace("default").withName(name).delete();
         }
     }
@@ -350,7 +381,7 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
         }
 
         public String getServiceUrl() {
-            return format("http://localhost:%d",_service_port);  // _service_port ist der targetPort des services, also das im Bereich 30.000
+            return format("http://localhost:%d",_service_port);  // _service_port ist der NodePort des services, also das im Bereich 30.000
         }
 
         @Override

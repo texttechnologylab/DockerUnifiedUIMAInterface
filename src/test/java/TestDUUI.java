@@ -1581,7 +1581,7 @@ public class TestDUUI {
         new File(sOutputPath).mkdir();
 
         // Definition der Anzahl der Prozesse
-        int iWorkers = Integer.valueOf(1);
+        int iWorkers = Integer.valueOf(4);
 
         // Lua-Kontext für die Nutzung von Lua
         DUUILuaContext ctx = new DUUILuaContext().withJsonLibrary();
