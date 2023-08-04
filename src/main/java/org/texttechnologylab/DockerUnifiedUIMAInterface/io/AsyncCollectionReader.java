@@ -116,6 +116,10 @@ public class AsyncCollectionReader {
         this(folder, ending, debugCount, getRandomFromMode(sampleMode, sampleSize), getSortFromMode(sampleMode), savePath, bAddMetadata, language);
     }
 
+    public AsyncCollectionReader(String folder, String ending, int debugCount, int iRandom, boolean bSort, String savePath, boolean bAddMetadata, String language) {
+            this(folder, ending, debugCount, iRandom, bSort, savePath, bAddMetadata, language, 0);
+    }
+
     /***
      * Constructor for the AsyncCollectionReader
      * @param folder Input folder
@@ -126,8 +130,9 @@ public class AsyncCollectionReader {
      * @param savePath Path to a file where the paths of the selected documents are saved and loaded from, if the file exists
      * @param bAddMetadata Add metadata to the documents
      * @param language Add language to the documents
+     * @param skipSmallerFiles Skip files smaller than this value in bytes
      */
-    public AsyncCollectionReader(String folder, String ending, int debugCount, int iRandom, boolean bSort, String savePath, boolean bAddMetadata, String language) {
+    public AsyncCollectionReader(String folder, String ending, int debugCount, int iRandom, boolean bSort, String savePath, boolean bAddMetadata, String language, int skipSmallerFiles) {
 
         _addMetadata = bAddMetadata;
         _language = language;
@@ -160,6 +165,10 @@ public class AsyncCollectionReader {
 
             _path = folder;
             addFilesToConcurrentList(fl, ending, _filePaths);
+
+            if (skipSmallerFiles > 0) {
+                _filePaths = skipBySize(_filePaths, skipSmallerFiles);
+            }
         }
         if(bSort) {
             _filePaths = sortBySize(_filePaths);
@@ -363,6 +372,24 @@ public class AsyncCollectionReader {
 
         return rQueue;
 
+    }
+
+    /**
+     * Skips files smaller than skipSmallerFiles
+     * @param paths paths to files
+     * @param skipSmallerFiles skip files smaller than this value in bytes
+     * @return filtered paths to files
+     */
+    public static ConcurrentLinkedQueue<String> skipBySize(ConcurrentLinkedQueue<String> paths, int skipSmallerFiles) {
+        ConcurrentLinkedQueue<String> rQueue = new ConcurrentLinkedQueue<>();
+
+        rQueue.addAll(paths
+                        .stream()
+                        .filter(s -> new File(s).length() >= skipSmallerFiles)
+                        .collect(Collectors.toList())
+        );
+
+        return rQueue;
     }
 
     public static ConcurrentLinkedQueue<String> random(ConcurrentLinkedQueue<String> paths, int iRandom){
