@@ -10,6 +10,7 @@ import org.apache.uima.jcas.JCas;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.IDUUIDriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.Signature;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineProfiler;
 import org.xml.sax.SAXException;
 
 public class PipelinePart {
@@ -33,6 +34,7 @@ public class PipelinePart {
     }
 
     public void run(String name, JCas jc, DUUIPipelineDocumentPerformance perf) throws AnalysisEngineProcessException, CASException, InterruptedException, IOException, SAXException, CompressorException {
+        DUUIPipelineProfiler.add(name, _signature, _scale);
         _driver.run(_uuid, jc, perf);
     }
 

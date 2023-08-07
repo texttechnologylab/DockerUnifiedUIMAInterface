@@ -5,6 +5,8 @@ import java.net.ProxySelector;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.net.http.HttpResponse.BodyHandler;
+import java.net.http.HttpResponse.BodyHandlers;
 import java.time.Duration;
 import java.util.Optional;
 
@@ -44,10 +46,10 @@ public class DUUIRestClient {
         return _handler;
     }
 
-    public Optional<HttpResponse<byte []>> send(HttpRequest request) {
+    public <T> Optional<HttpResponse<T>> send(HttpRequest request, BodyHandler<T> handler) {
         HttpClient client = _driverClient == null ? _client : _driverClient; 
         try {
-            HttpResponse<byte []> response = client.send(request, HttpResponse.BodyHandlers.ofByteArray());
+            HttpResponse<T> response = client.send(request, handler);
             return Optional.ofNullable(response);
         } catch (IOException | InterruptedException e) {
             return Optional.empty();
@@ -58,7 +60,7 @@ public class DUUIRestClient {
         int tries = 0;
         Optional<HttpResponse<byte []>> response = Optional.empty();
         do {
-            response = send(request);
+            response = send(request, BodyHandlers.ofByteArray());
             if (response.isPresent()) 
                 break;
         } while (tries++ <= repeat);

@@ -10,6 +10,7 @@ import com.github.dockerjava.api.model.*;
 import com.github.dockerjava.core.DefaultDockerClientConfig;
 import com.github.dockerjava.core.DockerClientBuilder;
 import com.github.dockerjava.core.DockerClientConfig;
+import com.github.dockerjava.core.InvocationBuilder.AsyncResultCallback;
 import com.github.dockerjava.core.command.LogContainerResultCallback;
 import com.google.common.collect.ImmutableList;
 
@@ -214,6 +215,26 @@ public class DUUIDockerInterface {
             return true;
         }
         return false;
+    }
+
+    /**
+     * Retrieves the resource-usage-statistics of a container.
+     * 
+     * @param containder_id Id of container.
+     * @return Statistics info.
+     * @throws Exception
+     */
+    public Statistics get_stats(String containder_id) throws Exception {
+        AsyncResultCallback<Statistics> callback = new AsyncResultCallback<>();
+        _docker.statsCmd(containder_id).withNoStream(true).exec(callback);
+        try {
+            Statistics stats = callback.awaitResult();
+            callback.close();
+            return stats;
+        } catch (Exception e) {
+            throw new Exception(format("[%s] Error retrieving container stats: %s%n", 
+                Thread.currentThread().getName(), containder_id), e); 
+        }
     }
 
     /**

@@ -35,17 +35,15 @@ public class Signature {
     public String toString() {
         StringBuilder signature = new StringBuilder();
 
-        signature.append("[");
         this.inputs.forEach( input ->
             signature.append(input.getSimpleName() + " ")
         );
-        signature.append("] => [");
+        signature.append(" => ");
         this.outputs.forEach( output ->
         signature.append(output.getSimpleName() + " ")
         );
-        signature.append("]");
 
-        return signature.toString().replaceAll(" ]", "]");
+        return signature.toString();
     }
 
     public int compare(Signature s2) {

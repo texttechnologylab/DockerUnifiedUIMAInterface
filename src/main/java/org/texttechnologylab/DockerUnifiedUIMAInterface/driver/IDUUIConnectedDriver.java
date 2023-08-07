@@ -86,7 +86,9 @@ public interface IDUUIConnectedDriver extends IDUUIDriver {
                 while(connectionError && iCount<10) {
 
                     try {
-                        resp = client.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray()).join();
+                        synchronized (client) {
+                            resp = client.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray()).join();
+                        }
                         connectionError = false;
                     }
                     catch (Exception e){

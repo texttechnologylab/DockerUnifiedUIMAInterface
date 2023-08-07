@@ -25,13 +25,12 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
-public class DUUIRemoteDriver implements IDUUIConnectedDriver, IDUUIResource {
+public class DUUIRemoteDriver implements IDUUIConnectedDriver{
     private Map<String, IDUUIInstantiatedPipelineComponent> _components;
     private HttpClient _client;
     private IDUUIConnectionHandler _wsclient = null;
     private DUUICompressionHelper _helper;
     private DUUILuaContext _luaContext;
-    private ResourceManager _rm = ResourceManager.getInstance();  
 
 
 
@@ -53,14 +52,6 @@ public class DUUIRemoteDriver implements IDUUIConnectedDriver, IDUUIResource {
 
     public void setLuaContext(DUUILuaContext luaContext) {
         _luaContext = luaContext;
-    }
-    
-    public ResourceManager getResourceManager() {
-        return _rm;
-    }
-
-    public void setResourceManager(ResourceManager rm) {
-        _rm = rm; 
     }
 
     public boolean canAccept(DUUIPipelineComponent component) {

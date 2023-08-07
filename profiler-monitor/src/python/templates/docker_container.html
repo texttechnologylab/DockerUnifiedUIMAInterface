@@ -1,0 +1,39 @@
+<div id="scrollable-docker" hx-swap-oob="beforeend">
+  <div class="card col-lg-4 border-0 mx-1 shadow-lg rounded-0">
+    <div class="px-3 py-2">
+      <div class="row">
+        <div class="col-auto mt-n1">
+          <h6 class="card-title">{{ image_id }}</h6>
+          <h6 class="card-subtitle text-muted small">{{ container_id }}</h6>
+        </div>
+        <div id="d_{{ container_id }}_state" class="col-auto ms-auto text-end mt-n1">
+          {{ state|safe }}
+        </div>
+      </div>
+    </div>
+    <div class="card-body w-100 p-3">
+      <div class="row mb-2">
+        <div class="card col-6 border-0">
+          <div class="w-100 mb-3 h-50">
+            <h6 class="text-muted text-center small">CPU USAGE</h6>
+            <h5 id="d_{{ container_id }}_cpu_usage" class="card-title my-auto text-center">{{ cpu_usage }}</h5>
+          </div>
+          <div class="w-100 h-50">
+            <h6 class="text-muted text-center small">NETWORK I/O</h6>
+            <h5 id="d_{{ container_id }}_network" class="card-title my-auto text-center"> {{ network_i }} / {{ network_o }} </h5>
+          </div>
+        </div>
+        <div class="card col-6 border-0">
+          <div class="w-100 mb-3 h-50">
+            <h6 class="text-muted text-center small">MEMORY USAGE / LIMIT</h6>
+            <h5 id="d_{{ container_id }}_memory" class="card-title my-auto text-center"> {{ memory_usage }} / {{ memory_limit }} </h5>
+          </div>
+          <div class="w-100 h-50">
+            <h6 class="text-muted text-center small">PEAK MEMORY USAGE</h6>
+            <h5 id="d_{{ container_id }}_memory_max" class="card-title my-auto text-center"> {{ memory_max_usage }} </h5>
+          </div>
+        </div>
+      </div>
+      </div>
+  </div>
+</div>

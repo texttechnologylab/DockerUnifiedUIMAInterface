@@ -23,6 +23,7 @@ import org.apache.uima.util.CasCreationUtils;
 import org.apache.uima.util.InvalidXMLException;
 import org.apache.uima.util.TypeSystemUtil;
 import org.dkpro.core.io.xmi.XmiReader;
+import org.javatuples.Pair;
 import org.luaj.vm2.Globals;
 import org.luaj.vm2.lib.jse.JsePlatform;
 import org.texttechnologylab.ResourceManager;
@@ -72,20 +73,20 @@ public class DUUIComposer {
     public static class Config {
         static DUUIComposer _composer; 
         
-        public int workers() {
+        public static int workers() {
             return _composer._workers;
         }
 
-        public boolean skipVerification() {
+        public static boolean skipVerification() {
             return _composer._skipVerification;
         }
 
-        public IDUUIStorageBackend storage() {
+        public static IDUUIStorageBackend storage() {
             return _composer._storage; 
         }
 
-        public IDUUIMonitor monitor() {
-            return _composer._monitor;
+        public static IDUUIMonitor monitor() {
+            return _composer._monitor != null ? _composer._monitor : null;
         }
     }
 
@@ -115,6 +116,7 @@ public class DUUIComposer {
     public static final String V1_COMPONENT_ENDPOINT_COMMUNICATION_LAYER = "/v1/communication_layer";
     public static final String V1_COMPONENT_ENDPOINT_INPUT_OUTPUTS = "/v1/details/input_output"; 
 
+    final ResourceManager _rm; 
     public static List<IDUUIConnectionHandler> _clients = new ArrayList<>();
     private boolean _connection_open = false;
 
@@ -136,6 +138,8 @@ public class DUUIComposer {
         _shutdownAtomic = new AtomicBoolean(false);
         _instantiatedPipeline = new Vector<>();
         _executorService = Executors.newSingleThreadExecutor();
+        _rm = ResourceManager.getInstance();
+        ResourceManager.register(Thread.currentThread());
         _minimalTypesystem = TypeSystemDescriptionFactory.createTypeSystemDescriptionFromPath(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/types/reproducibleAnnotations.xml").toURI().toString());
         System.out.println("[Composer] Initialised LUA scripting layer with version "+ globals.get("_VERSION"));
 
@@ -189,7 +193,7 @@ public class DUUIComposer {
 
     public DUUIComposer withWorkers(int workers) {
         _workers = workers;
-        ResourceManager.getInstance().setWorkers(workers);
+        ResourceManager.getInstance().setByteStreams(workers);
         return this;
     }
 
@@ -337,22 +341,27 @@ public class DUUIComposer {
             }
             if (_monitor != null)
                 new DUUIPipelineProfiler(name, _executionPipeline.getGraph(), (DUUISimpleMonitor) _monitor); 
+
+            _rm._withMonitor.set(_monitor != null);
+            _rm.release();
             
-            pipelineUpdate("name", name);
-            pipelineUpdate("workers", _workers);
             Instant starttime = Instant.now();
             result = runPipeline.call();
             Instant end = Instant.now().minusSeconds(starttime.getEpochSecond());
-            pipelineUpdate("duration", end);
-
+            pipelineUpdate("duration", end.getEpochSecond());
+            DUUIPipelineProfiler.statusUpdate("FINISHED", format("Run successfully finished: %s", name));
+            
             if(_storage!=null) {
                 _storage.finalizeRun(name,starttime,Instant.now());
             }
         } catch (Exception e) {
             // e.printStackTrace();
             System.out.println("[Composer] Something went wrong, shutting down remaining components...");
+            DUUIPipelineProfiler.statusUpdate("FAILED", format("Fatal exception occured: %s", e));
             catched = e;
         }
+        _rm.finished();
+
         /** shutdown **/
         // shutdown_pipeline();
         if (catched != null) {
@@ -428,9 +437,7 @@ public class DUUIComposer {
         }
 
         List<Future<?>> tasks = new ArrayList<>();
-        if (_workers > 1)
-            _executorService = Executors.newFixedThreadPool(_workers);
-        else _executorService = Executors.newSingleThreadExecutor();
+        _executorService = Executors.newCachedThreadPool();
         Collection<TypeSystemDescription> descriptions = new ConcurrentLinkedQueue<>();
         descriptions.add(_minimalTypesystem);
         descriptions.add(TypeSystemDescriptionFactory.createTypeSystemDescription());
@@ -466,11 +473,12 @@ public class DUUIComposer {
         for (Future<?> task : tasks) 
             task.get();
 
+        _executorService.shutdownNow(); 
+
         // Pipeline ordering. 
         _executionPipeline = new DUUIParallelExecutionPipeline(_instantiatedPipeline);
         if (_workers == 1) {
             // Sort sequential pipeline according to dependencies.
-            _executorService.shutdownNow(); 
             Vector<PipelinePart> temp = new Vector<>(_instantiatedPipeline.size());
             
             _executionPipeline._executionplan.forEach(uuid -> 
@@ -494,6 +502,12 @@ public class DUUIComposer {
     }
 
     private JCas run_pipeline(String name, JCas jc, Vector<PipelinePart> pipeline) throws Exception {
+        
+        String _title = JCasUtil.select(jc, DocumentMetaData.class)
+                .stream().map(meta -> meta.getDocumentTitle()).findFirst().orElseGet(() -> "");
+
+        DUUIPipelineProfiler.documentMetaDataUpdate(name, _title, jc.size());
+
         DUUIPipelineDocumentPerformance perf = new DUUIPipelineDocumentPerformance(name, 0, jc);
         for (PipelinePart comp : pipeline) {
             comp.run(name, jc, perf);
@@ -509,18 +523,17 @@ public class DUUIComposer {
     private JCas run_pipeline(String name, JCas jc, DUUIParallelExecutionPipeline pipeline) 
     throws Exception {
 
+        String _title = JCasUtil.select(jc, DocumentMetaData.class)
+                .stream().map(meta -> meta.getDocumentTitle()).findFirst().orElseGet(() -> "");
+
+        DUUIPipelineProfiler.documentMetaDataUpdate(name, _title, jc.size());
+
         DUUIPipelineDocumentPerformance perf = 
             new DUUIPipelineDocumentPerformance(name, 0, jc);
 
-        List<Future<Boolean>> workers = 
-            _executorService.invokeAll(pipeline.getAllComponentRunners(name, jc, perf));
-
-        for (Future<?> f: workers)
-            f.get();
-
-        _executorService.shutdown();
-        _executorService.shutdownNow();
-        _executorService.awaitTermination(100, TimeUnit.NANOSECONDS);
+        _executionPipeline.run(name, jc, perf);
+        _executionPipeline.shutdown();
+        
         if(_storage!=null) {
             _storage.addMetricsForDocument(perf);
         }
@@ -531,63 +544,37 @@ public class DUUIComposer {
     private List<JCas> run_pipeline(String name, AsyncCollectionReader reader, TypeSystemDescription desc) 
         throws Exception {
 
-        List<Future<Boolean>> runningComponents = new ArrayList<>();
-        Map<Integer, JCas> results = new ConcurrentHashMap<>();
         TypeSystem ts = JCasFactory.createJCas(desc).getTypeSystem();
         JCas first = null; 
         AtomicInteger d = new AtomicInteger(1);
-        Callable<Boolean> component = null; 
-        for (String compId : _executionPipeline._executionplan) {
-            boolean firstComponent = !reader.isEmpty();
-            // TODO: Loop through components according hight in execution graph
-            while(!reader.isEmpty()) { // TODO: Add second condition limiting the number of documents
-                // Instantiate JCas.
-                String currName = format("%s-%d", name, d.get()); 
-                
-                // JCas jc = JCasFactory.createJCas(desc);
-                JCas jc =  CasCreationUtils
-                    .createCas(ts, null, null, null)
-                    .getJCas();
-                if (d.get() == 1)
-                    first = jc; 
-                long waitTimeStart = System.nanoTime();
-                reader.getNextCAS(jc);
-                long waitTimeEnd = System.nanoTime();
-
-                DUUIPipelineDocumentPerformance perf = new DUUIPipelineDocumentPerformance(currName, waitTimeEnd-waitTimeStart,jc);
-                // Get component and immediatiately submit to executorService
-                component = _executionPipeline.getComponentRunner(currName, compId, jc, perf);
-                d.incrementAndGet();
-                runningComponents.add(_executorService.submit(component));
-            }
+        while(!reader.isEmpty()) { // TODO: Add second condition limiting the number of documents
+            // Instantiate JCas.
+            String currName = format("%s-%d", name, d.get()); 
             
-            if (firstComponent) continue;
-           
-            for (int i = 1; i < d.get(); i++) {
-                String currName = format("%s-%d", name, i); 
-                component = _executionPipeline.getComponentRunner(currName, compId);
+            // JCas jc = JCasFactory.createJCas(desc);
+            JCas jc =  CasCreationUtils
+                .createCas(ts, null, null, null)
+                .getJCas();
+            if (d.get() == 1)
+                first = jc; 
+            long waitTimeStart = System.nanoTime();
+            reader.getNextCAS(jc);
+            long waitTimeEnd = System.nanoTime();
 
-                if (component == null) 
-                    throw new RuntimeException(format("[%s][%s] doesn't exist.", currName, compId));
-                runningComponents.add(_executorService.submit(component));
-            }
+            DUUIPipelineDocumentPerformance perf =
+                 new DUUIPipelineDocumentPerformance(currName, waitTimeEnd-waitTimeStart,jc);
+
+            _executionPipeline.run(currName, jc, perf);
+            d.incrementAndGet();
         }
 
-        pipelineUpdate("document_count", d.get());
+        pipelineUpdate("document_count", d.get()-1);
 
-        _executorService.shutdown();
-        try {
-            while (!_executorService.awaitTermination(100*runningComponents.size(), TimeUnit.MILLISECONDS)) {}
-            for (Future<Boolean> task : runningComponents) 
-                task.get();
-        } catch (Exception e) {
-            _executorService.shutdownNow();
-            throw e; 
-        }
+        _executionPipeline.shutdown();
 
         if (first != null)
             XmiCasSerializer.serialize(first.getCas(), new FileOutputStream(new File(name+".xmi")));
-        return results.values().stream().collect(Collectors.toList());
+        return new ArrayList<>();
     }
 
     private List<JCas> run_pipeline(String name, CollectionReader reader, TypeSystemDescription desc) 
@@ -667,7 +654,7 @@ public class DUUIComposer {
 
         DUUIComposer composer = new DUUIComposer()
             // .withMonitor(new DUUIMonitor("admin", "admin", 8087))
-            // .withMonitor(new DUUISimpleMonitor())
+            .withMonitor(new DUUISimpleMonitor())
             .withWorkers(10)
             .withSkipVerification(true)
             .withLuaContext(new DUUILuaContext().withJsonLibrary());
@@ -685,6 +672,10 @@ public class DUUIComposer {
             new DUUIDockerDriver.Component("ner:latest")
                 .withImageFetching(),
             new DUUIDockerDriver.Component("lemmatizer:latest")
+                .withImageFetching(),
+            new DUUIDockerDriver.Component("morphologizer:latest")
+                .withImageFetching(),
+            new DUUIDockerDriver.Component("tagger:latest")
                 .withImageFetching()
             
             // new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-lemmatizer:latest")

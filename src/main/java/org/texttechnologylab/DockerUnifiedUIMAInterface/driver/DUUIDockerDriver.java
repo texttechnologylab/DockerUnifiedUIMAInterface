@@ -6,6 +6,9 @@ import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.apache.uima.util.TypeSystemUtil;
+import org.javatuples.Pair;
+import org.json.JSONArray;
+import org.json.JSONObject;
 import org.texttechnologylab.ResourceManager;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIDockerInterface;
@@ -17,20 +20,29 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.IDUUICommunicationLayer;
 import org.xml.sax.SAXException;
 
+import com.github.dockerjava.api.model.Statistics;
+import com.google.gson.JsonObject;
+
 import java.io.IOException;
 import java.io.StringWriter;
 import java.net.URISyntaxException;
 import java.net.http.HttpClient;
 import java.security.InvalidParameterException;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static java.lang.String.format;
 
@@ -43,19 +55,22 @@ public class DUUIDockerDriver implements IDUUIConnectedDriver, IDUUIResource {
     private int _container_timeout;
     private DUUILuaContext _luaContext;
     private ResourceManager _rm = ResourceManager.getInstance();  
+    private ArrayList<JSONObject> _resource_container = null; 
+    private AtomicBoolean _isInstanstiated = new AtomicBoolean(false);
 
     private final static Logger LOGGER = Logger.getLogger(DUUIComposer.class.getName());
 
     public DUUIDockerDriver() throws IOException, UIMAException, SAXException {
         _interface = new DUUIDockerInterface();
-        _client = DUUIRestClient._client;
-        // _client = HttpClient.newBuilder().executor(Runnable::run).build();
+        // _client = DUUIRestClient._client;
+        _client = HttpClient.newBuilder().executor(Runnable::run).build();
 
         JCas _basic = JCasFactory.createJCas();
         _basic.setDocumentLanguage("en");
         _basic.setDocumentText("Hello World!");
         _container_timeout = 10000;
 
+        _rm.register(this);
 
         TypeSystemDescription desc = TypeSystemUtil.typeSystem2TypeSystemDescription(_basic.getTypeSystem());
         StringWriter wr = new StringWriter();
@@ -85,6 +100,48 @@ public class DUUIDockerDriver implements IDUUIConnectedDriver, IDUUIResource {
 
     public void setResourceManager(ResourceManager rm) {
         _rm = rm; 
+    }
+
+    public ArrayList<JSONObject> getContainer() {
+
+        if (_resource_container != null)
+            return _resource_container; 
+            
+        _resource_container = _active_components.values()
+            .stream()
+            .map(comp -> ((InstantiatedComponent)comp).getContainers()
+                .stream()
+                .map(pair -> new JSONObject()
+                    .put("container_id", pair.getValue0())
+                    .put("image_id", pair.getValue1()))
+                .collect(Collectors.toList()))
+            .flatMap(List::stream)
+            .collect(Collectors.toCollection(ArrayList::new));
+
+        return _resource_container;
+    }
+
+    @Override
+    public JSONObject collect() {
+
+        if (! _isInstanstiated.get())
+            return null;
+
+        JSONObject res = new JSONObject();
+        JSONArray stats = new JSONArray(_active_components.size());
+        ArrayList<JSONObject> containers = getContainer(); 
+        for (JSONObject container : containers) {
+            getContainerStats(_interface, container, 
+                    container.getString("container_id"), 
+                    container.getString("image_id"));
+            stats.put(container);
+        }
+
+        res.put("docker_driver", stats);
+        res.put("key", "docker_driver");
+        if (stats.length() > 0) 
+            return res;
+        else return null;
     }
 
     public void setLuaContext(DUUILuaContext luaContext) {
@@ -165,6 +222,7 @@ public class DUUIDockerDriver implements IDUUIConnectedDriver, IDUUIResource {
                 throw e;
             }
         }
+        _isInstanstiated.set(true); 
         return uuid;
     }
 
@@ -173,6 +231,7 @@ public class DUUIDockerDriver implements IDUUIConnectedDriver, IDUUIResource {
         if (comp == null) {
             throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local driver.");
         }
+        _isInstanstiated.set(false); 
         if (!comp.getRunningAfterExit()) {
             int counter = 1;
             for (ComponentInstance inst : comp.getInstances()) {
@@ -228,32 +287,46 @@ public class DUUIDockerDriver implements IDUUIConnectedDriver, IDUUIResource {
     }
 
     static class InstantiatedComponent implements IDUUIInstantiatedPipelineComponent {
-        private BlockingQueue<ComponentInstance> _instances;
-        private DUUIPipelineComponent _component;
-        private ResourceManager _manager;
-        private String _uniqueComponentKey; 
-        private Signature _signature; 
-        
+        BlockingQueue<ComponentInstance> _instances;
+        HashSet<ComponentInstance> __instancesSet; 
+        DUUIPipelineComponent _component;
+        ResourceManager _manager;
+        String _uniqueComponentKey; 
+        Signature _signature; 
+        DUUIDockerInterface _interface;        
 
         InstantiatedComponent(DUUIPipelineComponent comp) {
             _component = comp;
             if (comp.getDockerImageName() == null) {
-                throw new InvalidParameterException("The image name was not set! This is mandatory for the DockerLocalDriver Class.");
+                throw new InvalidParameterException("The image name was not set! This is mandatory for the DockerDriver Class.");
             }
 
             _uniqueComponentKey = "";
 
             _instances = new LinkedBlockingQueue<ComponentInstance>(getScale());
+            __instancesSet = new HashSet<>(getScale());
+
         }
 
+        
         public void addComponent(IDUUIUrlAccessible access) {
             _instances.add((ComponentInstance) access);
         }
 
         public void addInstance(ComponentInstance inst) {
             _instances.add(inst);
+            __instancesSet.add(inst);
         }
-        
+         
+        public ArrayList<Pair<String, String>> getContainers() {
+            ArrayList<Pair<String, String>> res = new ArrayList<>(__instancesSet.size());
+            for (ComponentInstance instance : __instancesSet) {
+                res.add(Pair.with(instance._container_id, _component.getDockerImageName("")));
+            }
+
+            return res; 
+        }
+
         public void setResourceManager(ResourceManager manager) {
             _manager = manager;
         }
