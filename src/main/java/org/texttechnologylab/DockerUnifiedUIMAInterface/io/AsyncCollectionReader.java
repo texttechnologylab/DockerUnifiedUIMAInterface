@@ -387,11 +387,16 @@ public class AsyncCollectionReader {
     public static ConcurrentLinkedQueue<String> skipBySize(ConcurrentLinkedQueue<String> paths, int skipSmallerFiles) {
         ConcurrentLinkedQueue<String> rQueue = new ConcurrentLinkedQueue<>();
 
+        System.out.println("Skip files smaller than " + skipSmallerFiles + " bytes");
+        System.out.println("  Number of files before skipping: " + paths.size());
+
         rQueue.addAll(paths
                         .stream()
-                        .filter(s -> new File(s).length() < skipSmallerFiles)
+                        .filter(s -> new File(s).length() >= skipSmallerFiles)
                         .collect(Collectors.toList())
         );
+
+        System.out.println("  Number of files after skipping: " + rQueue.size());
 
         return rQueue;
     }
@@ -429,6 +434,9 @@ public class AsyncCollectionReader {
     public static ConcurrentLinkedQueue<String> takeFirstOrLast(ConcurrentLinkedQueue<String> paths, int n){
         ConcurrentLinkedQueue<String> rQueue = new ConcurrentLinkedQueue<>();
         ArrayList<String> sList = new ArrayList<>(paths);
+
+        System.out.println("Take first or last " + n + " files");
+        System.out.println("  Number of files before taking: " + paths.size());
 
         if(n > 0){
             rQueue.addAll(sList.subList(0, n));
