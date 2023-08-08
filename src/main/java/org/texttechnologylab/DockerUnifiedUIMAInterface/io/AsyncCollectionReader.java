@@ -116,6 +116,10 @@ public class AsyncCollectionReader {
         this(folder, ending, debugCount, getRandomFromMode(sampleMode, sampleSize), getSortFromMode(sampleMode), savePath, bAddMetadata, language);
     }
 
+    public AsyncCollectionReader(String folder, String ending, int debugCount, int sampleSize, DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE sampleMode, String savePath, boolean bAddMetadata, String language, int skipSmallerFiles) {
+        this(folder, ending, debugCount, getRandomFromMode(sampleMode, sampleSize), getSortFromMode(sampleMode), savePath, bAddMetadata, language, skipSmallerFiles);
+    }
+
     public AsyncCollectionReader(String folder, String ending, int debugCount, int iRandom, boolean bSort, String savePath, boolean bAddMetadata, String language) {
             this(folder, ending, debugCount, iRandom, bSort, savePath, bAddMetadata, language, 0);
     }
@@ -385,7 +389,7 @@ public class AsyncCollectionReader {
 
         rQueue.addAll(paths
                         .stream()
-                        .filter(s -> new File(s).length() >= skipSmallerFiles)
+                        .filter(s -> new File(s).length() < skipSmallerFiles)
                         .collect(Collectors.toList())
         );
 
