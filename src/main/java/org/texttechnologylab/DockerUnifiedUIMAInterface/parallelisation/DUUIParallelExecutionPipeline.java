@@ -18,7 +18,10 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
+import java.util.concurrent.FutureTask;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.PriorityBlockingQueue;
+import java.util.concurrent.RunnableFuture;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -40,6 +43,24 @@ import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 
 public class DUUIParallelExecutionPipeline extends DirectedAcyclicGraph<String, CustomEdge>  {
 
+    /*
+     * 
+     * Taken and adapted from: https://jvmaware.com/priority-queue-and-threadpool/
+     */
+    static class ComparableFutureTask<T> extends FutureTask<T> implements Comparable<ComparableFutureTask<T>>{
+
+        private final DUUIWorker _task;
+        public ComparableFutureTask(Callable<T> task) {
+            super(task);
+            _task = (DUUIWorker) task;
+        }
+
+        @Override
+        public int compareTo(ComparableFutureTask<T> that) {
+            return Integer.compare(_task.getPriority(), that._task.getPriority());
+        }
+    }
+
     static class ParallelExecutor extends ThreadPoolExecutor {
 
         final Map<String, Set<String>> _childMap;
@@ -47,9 +68,14 @@ public class DUUIParallelExecutionPipeline extends DirectedAcyclicGraph<String, 
         final Set<String> _submitted = new HashSet<>(100);
 
         public ParallelExecutor(int corePoolSize, int maximumPoolSize, Map<String, Callable<Pair<String, Set<String>>>> componentRunners) {
-            super(corePoolSize, maximumPoolSize, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<Runnable>());
+            super(corePoolSize, maximumPoolSize, 0L, TimeUnit.MILLISECONDS, new PriorityBlockingQueue<Runnable>());
             _childMap = new HashMap<>();
             _componentRunners = componentRunners;
+        }
+
+        @Override
+        protected <T> RunnableFuture<T> newTaskFor(Callable<T> callable) {
+            return new ComparableFutureTask<>(callable);
         }
 
         @Override
@@ -133,13 +159,14 @@ public class DUUIParallelExecutionPipeline extends DirectedAcyclicGraph<String, 
 
     public void shutdown() throws Exception {
         try {
-            for (Future<Pair<String, Set<String>>> task : runningComponents) 
-                task.get();
-
-            while (_executor.getTaskCount() < _componentRunners.size()) {
-                _executor.awaitTermination(100, TimeUnit.MILLISECONDS);
+            while (!_executor.getQueue().isEmpty()) {
+                Thread.sleep(3000);
+                System.out.printf("Awaiting Threadpool! Queue size %d: | Completed Tasks: %d %n", 
+                    _executor.getQueue().size(), _executor.getCompletedTaskCount());
             }
+
             _executor.shutdown();
+            while (_executor.awaitTermination(100, TimeUnit.MILLISECONDS)) {}
         } catch (Exception e) {
             _executor.shutdownNow();
             throw e; 
@@ -185,7 +212,7 @@ public class DUUIParallelExecutionPipeline extends DirectedAcyclicGraph<String, 
                 Collection<ComponentLock> childLocks = _locks.get(uuid).getValue1();
 
 
-                _componentRunners.put(name+uuid, new DUUIWorker(name, comp, jc, perf, selfLocks, childLocks, getChildren(uuid)));
+                _componentRunners.put(name+uuid, new DUUIWorker(name, comp, jc, perf, selfLocks, childLocks, getChildren(uuid), getHeight(uuid)));
             });
     }
 
@@ -256,6 +283,17 @@ public class DUUIParallelExecutionPipeline extends DirectedAcyclicGraph<String, 
         return outgoingEdgesOf(child).stream()
             .map(CustomEdge::getTarget)
             .collect(Collectors.toSet());
+    }
+
+    public int getHeight(String node) {
+        if (incomingEdgesOf(node).isEmpty())
+            return 1;
+
+        return 1 + incomingEdgesOf(node).stream()
+            .map(CustomEdge::getSource)
+            .mapToInt(this::getHeight)
+            .max().orElse(0);
+
     }
 
     private void initialiseDAG() {

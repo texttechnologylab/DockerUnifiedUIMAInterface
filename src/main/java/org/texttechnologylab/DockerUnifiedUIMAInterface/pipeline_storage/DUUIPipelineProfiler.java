@@ -19,17 +19,12 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import org.json.JSONObject;
 import org.texttechnologylab.ResourceManager;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer.Config;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.Signature;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.DUUISimpleMonitor;
-
-import com.influxdb.client.JSON;
 
 import guru.nidi.graphviz.attribute.Color;
 import guru.nidi.graphviz.attribute.Rank;
@@ -127,7 +122,9 @@ public class DUUIPipelineProfiler {
         doc_update.put("title", title);
         doc_update.put("initial_size", initialSize);
 
-        send(doc_update, DUUISimpleMonitor.V1_MONITOR_DOCUMENT_UPDATE);
+        ResourceManager.getInstance().execute(() -> 
+            send(doc_update, DUUISimpleMonitor.V1_MONITOR_DOCUMENT_UPDATE)
+        );
     }
 
     public static void documentUpdate(String name, Signature signature, String updateValue, Object value) {
@@ -150,7 +147,6 @@ public class DUUIPipelineProfiler {
         state.put("status", status);
         state.put("message", message);
         send(state, DUUISimpleMonitor.V1_MONITOR_STATUS);
-
     }
 
     public static void pipelineUpdate(String updateValue, Object value) {
@@ -171,7 +167,6 @@ public class DUUIPipelineProfiler {
                 comp.add(progress, Style.lineWidth(2), Style.RADIAL);
             }
         });
-
         Instant start = Instant.now();
         String png = writeToFile(name, false); 
         Instant end = Instant.now().minusSeconds(start.getEpochSecond());

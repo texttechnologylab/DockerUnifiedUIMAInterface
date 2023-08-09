@@ -14,10 +14,8 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Map;
 
-import org.json.JSONArray;
 import org.json.JSONObject;
 import org.texttechnologylab.ResourceManager;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIDockerInterface;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUIResource;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.DUUIRestClient;
@@ -30,15 +28,14 @@ import com.github.dockerjava.api.model.Ports;
 
 public class DUUISimpleMonitor implements IDUUIMonitor, IDUUIResource {
     
-    // final static HttpClient _client = HttpClient.newBuilder()
-    //     .version(HttpClient.Version.HTTP_1_1)
-    //     .followRedirects(HttpClient.Redirect.ALWAYS)
-    //     .proxy(ProxySelector.getDefault())
-    //     .executor(Runnable::run)
-    //     .connectTimeout(Duration.ofSeconds(1000)).build();
+    final static HttpClient _client = HttpClient.newBuilder()
+        .version(HttpClient.Version.HTTP_1_1)
+        .followRedirects(HttpClient.Redirect.ALWAYS)
+        .proxy(ProxySelector.getDefault())
+        .executor(Runnable::run)
+        .connectTimeout(Duration.ofSeconds(1000)).build();
 
-    final DUUIRestClient _handler = DUUIRestClient.getInstance(); 
-
+    // final DUUIRestClient _handler = DUUIRestClient.getInstance(); 
     public final static String V1_MONITOR_PIPELINE_UPDATE = "/v1/pipeline_measurement";
     public final static String V1_MONITOR_DOCUMENT_UPDATE = "/v1/document_table";
     public final static String V1_MONITOR_DOCUMENT_MEASUREMENT_UPDATE = "/v1/document_measurement";
@@ -112,7 +109,7 @@ public class DUUISimpleMonitor implements IDUUIMonitor, IDUUIResource {
             .version(HttpClient.Version.HTTP_1_1)
             .build();
 
-        _handler.send(request, HttpResponse.BodyHandlers.ofInputStream());
+        _client.send(request, HttpResponse.BodyHandlers.ofInputStream());
     }
 
     public String generateURL() throws UnknownHostException {

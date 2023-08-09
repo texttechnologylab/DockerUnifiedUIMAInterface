@@ -36,6 +36,7 @@ public class DUUIWorker implements Callable<Pair<String, Set<String>>> {
     final Signature _signature;
     final String _threadName; 
     final Set<String> _childrenIds;
+    final int _height;
 
     final Set<ComponentLock> _finishedParents = new HashSet<>();
 
@@ -45,7 +46,8 @@ public class DUUIWorker implements Callable<Pair<String, Set<String>>> {
                 DUUIPipelineDocumentPerformance perf, 
                 Collection<DUUIWorker.ComponentLock> selfLatches, 
                 Collection<DUUIWorker.ComponentLock> childLatches,
-                Set<String> children) {
+                Set<String> children,
+                int height) {
         _name = name;
         _component = component; 
         _jc = jc; 
@@ -54,6 +56,7 @@ public class DUUIWorker implements Callable<Pair<String, Set<String>>> {
         _childrenLocks = childLatches; 
         _signature = _component.getSignature(); 
         _childrenIds = children;
+        _height = height;
         // _finishedParents = new HashSet<>(_parentLocks.size());
 
         _threadName = format("Worker-%s-%s", _name, _signature);
@@ -103,6 +106,10 @@ public class DUUIWorker implements Callable<Pair<String, Set<String>>> {
             }
 
         return Pair.with(_name, _childrenIds); 
+    }
+
+    public int getPriority() {
+        return _height; // Height of 1 corresponds to root nodes
     }
 
     public static class ComponentLock extends CountDownLatch {
