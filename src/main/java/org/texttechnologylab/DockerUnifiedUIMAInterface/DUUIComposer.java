@@ -280,7 +280,8 @@ class DUUIWorkerAsyncReader extends Thread {
                     //Ignore errors at the moment
                     //e.printStackTrace();
                     System.err.println(e.getMessage());
-                    System.out.println("Thread continues work!");
+                    System.out.println("Thread continues work with next document!");
+                    break;
                 }
             }
 
