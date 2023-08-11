@@ -152,6 +152,9 @@ public interface IDUUIInstantiatedPipelineComponent {
             catch(Exception e) {
                 System.err.printf("Caught exception printing response %s\n",new String(resp.body(), StandardCharsets.UTF_8));
 
+                // TODO better error handleing flow?
+                comp.addComponent(queue.getValue0());
+
                 // TODO handle error docs for db here too?
 
                 throw e;

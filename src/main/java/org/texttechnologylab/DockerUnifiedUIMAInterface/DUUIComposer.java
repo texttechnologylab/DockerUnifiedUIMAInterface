@@ -885,7 +885,6 @@ public class DUUIComposer {
             if (_instantiatedPipeline == null || _instantiatedPipeline.isEmpty()) {
                 instantiate_pipeline();
             }
-            instantiate_pipeline();
             JCas start = run_pipeline(name,jc,0,_instantiatedPipeline);
 
             if(_storage!=null) {
