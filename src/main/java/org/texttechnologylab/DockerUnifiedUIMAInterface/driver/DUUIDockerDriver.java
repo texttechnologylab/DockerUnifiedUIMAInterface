@@ -131,7 +131,7 @@ public class DUUIDockerDriver implements IDUUIConnectedDriver, IDUUIResource {
         JSONArray stats = new JSONArray(_active_components.size());
         ArrayList<JSONObject> containers = getContainer(); 
         for (JSONObject container : containers) {
-            getContainerStats(_interface, container, 
+            IDUUIResource.getContainerStats(_interface, container, 
                     container.getString("container_id"), 
                     container.getString("image_id"));
             stats.put(container);

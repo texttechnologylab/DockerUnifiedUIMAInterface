@@ -1,14 +1,11 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface;
 
-import java.time.Instant;
 import java.util.HashMap;
 
 import org.javatuples.Pair;
-import org.json.JSONArray;
 import org.json.JSONObject;
 import org.texttechnologylab.ResourceManager;
 
-import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.github.dockerjava.api.command.InspectContainerResponse.ContainerState;
 import com.github.dockerjava.api.model.StatisticNetworksConfig;
 import com.github.dockerjava.api.model.Statistics;
@@ -18,15 +15,31 @@ public interface IDUUIResource {
 
     static HashMap<String, Pair<Float, Float>> preCPUStats = new HashMap<>();
 
-    public ResourceManager getResourceManager();
-
-    public void setResourceManager(ResourceManager rm);
+    public default ResourceManager getResourceManager() {
+        return ResourceManager.getInstance();
+    };
 
     public default JSONObject collect() {
         return null; 
     }
 
-    public default JSONObject getContainerStats(DUUIDockerInterface _interface, JSONObject containerStats,  String containerId, String imageId) {
+    public default void scaleDown() {
+        System.out.println("[IDUUIResource] scaleDown not yet implemented");
+    };
+    
+    public default void scaleDown(String uuid) {
+        System.out.println("[IDUUIResource] scaleDown not yet implemented");
+    };
+    
+    public default void scaleUp() {
+        System.out.println("[IDUUIResource] scaleUp not yet implemented");
+    };
+    
+    public default void scaleUp(String uuid) {
+        System.out.println("[IDUUIResource] scaleUp not yet implemented");
+    };
+
+    public static JSONObject getContainerStats(DUUIDockerInterface _interface, JSONObject containerStats,  String containerId, String imageId) {
         try {
             ContainerState state = _interface.getDockerClient().inspectContainerCmd(containerId).exec().getState();
             String status = state.getStatus();

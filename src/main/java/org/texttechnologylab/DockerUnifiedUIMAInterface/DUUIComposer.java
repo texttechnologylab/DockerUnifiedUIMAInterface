@@ -1,59 +1,21 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface;
 
-import org.apache.commons.compress.compressors.CompressorException;
-import org.apache.uima.cas.impl.XmiCasSerializer;
-import org.apache.uima.cas.TypeSystem;
-import org.apache.uima.cas.impl.BinaryCasSerDes4;
-import org.apache.uima.cas.impl.BinaryCasSerDes4.CasCompare;
-import org.apache.uima.collection.CollectionReader;
-import org.apache.uima.collection.CollectionReaderDescription;
-import org.apache.uima.fit.factory.CasFactory;
-import org.apache.uima.fit.factory.CollectionReaderFactory;
-import org.apache.uima.fit.factory.JCasFactory;
-import org.apache.uima.fit.factory.TypeSystemDescriptionFactory;
-import org.apache.uima.fit.util.JCasUtil;
-import org.apache.uima.jcas.JCas;
-import org.apache.uima.jcas.cas.TOP;
-import org.apache.uima.jcas.impl.JCasHashMap;
-import org.apache.uima.jcas.impl.JCasImpl;
-import org.apache.uima.resource.ResourceInitializationException;
-import org.apache.uima.resource.metadata.TypeSystemDescription;
-import org.apache.uima.util.CasCopier;
-import org.apache.uima.util.CasCreationUtils;
-import org.apache.uima.util.InvalidXMLException;
-import org.apache.uima.util.TypeSystemUtil;
-import org.dkpro.core.io.xmi.XmiReader;
-import org.javatuples.Pair;
-import org.luaj.vm2.Globals;
-import org.luaj.vm2.lib.jse.JsePlatform;
-import org.texttechnologylab.ResourceManager;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.IDUUIConnectionHandler;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.*;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.io.AsyncCollectionReader;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.DUUIMonitor;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.DUUISimpleMonitor;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.IDUUIMonitor;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.DUUIParallelExecutionPipeline;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineProfiler;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.IDUUIStorageBackend;
-import org.xml.sax.SAXException;
-
-import de.tudarmstadt.ukp.dkpro.core.api.lexmorph.type.pos.POS;
-import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
-import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Sentence;
+import static java.lang.String.format;
+import static org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineProfiler.pipelineUpdate;
 
 import java.io.IOException;
-
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.FileOutputStream;
+import java.lang.ref.WeakReference;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
 import java.security.InvalidParameterException;
 import java.time.Instant;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Vector;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -65,8 +27,42 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
-import static java.lang.String.format;
-import static org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineProfiler.pipelineUpdate;
+import org.apache.commons.compress.compressors.CompressorException;
+import org.apache.uima.cas.TypeSystem;
+import org.apache.uima.collection.CollectionReader;
+import org.apache.uima.collection.CollectionReaderDescription;
+import org.apache.uima.fit.factory.CollectionReaderFactory;
+import org.apache.uima.fit.factory.JCasFactory;
+import org.apache.uima.fit.factory.TypeSystemDescriptionFactory;
+import org.apache.uima.fit.util.JCasUtil;
+import org.apache.uima.jcas.JCas;
+import org.apache.uima.resource.ResourceInitializationException;
+import org.apache.uima.resource.metadata.TypeSystemDescription;
+import org.apache.uima.util.CasCreationUtils;
+import org.apache.uima.util.InvalidXMLException;
+import org.dkpro.core.io.xmi.XmiReader;
+import org.luaj.vm2.Globals;
+import org.luaj.vm2.lib.jse.JsePlatform;
+import org.texttechnologylab.ResourceManager;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.IDUUIConnectionHandler;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIDockerDriver;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIPipelineComponent;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.IDUUIDriver;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.IDUUIDriverComponent;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.Signature;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.io.AsyncCollectionReader;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.DUUISimpleMonitor;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.IDUUIMonitor;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.DUUIParallelExecutionPipeline;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.DefaultStrategy;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.PoolStrategy;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineProfiler;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.IDUUIStorageBackend;
+import org.xml.sax.SAXException;
+
+import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 
 public class DUUIComposer {
 
@@ -85,8 +81,12 @@ public class DUUIComposer {
             return _composer._storage; 
         }
 
-        public static IDUUIMonitor monitor() {
-            return _composer._monitor != null ? _composer._monitor : null;
+        public static IDUUIMonitor monitor()   {
+            return _composer._monitor;
+        }
+
+        public static PoolStrategy strategy() {
+            return _composer._strategy; 
         }
     }
 
@@ -96,6 +96,8 @@ public class DUUIComposer {
     private ExecutorService _executorService;
     private int _workers;
     public Integer _cas_poolsize;
+    private PoolStrategy _strategy = new DefaultStrategy(); 
+
     private DUUILuaContext _context;
     private IDUUIMonitor _monitor;
     private IDUUIStorageBackend _storage;
@@ -144,7 +146,6 @@ public class DUUIComposer {
         System.out.println("[Composer] Initialised LUA scripting layer with version "+ globals.get("_VERSION"));
 
         DUUIComposer that = this;
-        Thread main = Thread.currentThread(); 
         _shutdownHook = new Thread(() -> {
                 try {
                     
@@ -186,14 +187,14 @@ public class DUUIComposer {
         return this;
     }
 
-    public DUUIComposer withCasPoolsize(int poolsize) {
-        _cas_poolsize = poolsize;
-        return this;
-    }
+    // TODO: 
+    // public DUUIComposer withParallelPipeline() {
+    //     _strategy = new DefaultStrategy(); 
+    //     return this;
+    // }
 
     public DUUIComposer withWorkers(int workers) {
         _workers = workers;
-        ResourceManager.getInstance().setByteStreams(workers);
         return this;
     }
 
@@ -329,6 +330,7 @@ public class DUUIComposer {
         }
 
         run(name, runPipeline);
+    
     }
 
     private <T> T run(String name, Callable<T> runPipeline) throws Exception {
@@ -343,12 +345,12 @@ public class DUUIComposer {
                 new DUUIPipelineProfiler(name, _executionPipeline.getGraph(), (DUUISimpleMonitor) _monitor); 
 
             _rm._withMonitor.set(_monitor != null);
-            _rm.release();
+            _rm.start();
             
             Instant starttime = Instant.now();
             result = runPipeline.call();
             Instant end = Instant.now().minusSeconds(starttime.getEpochSecond());
-            pipelineUpdate("duration", end.getEpochSecond());
+            pipelineUpdate("duration", end.getEpochSecond() + " s");
             DUUIPipelineProfiler.statusUpdate("FINISHED", format("Run successfully finished: %s", name));
             
             if(_storage!=null) {
@@ -359,8 +361,9 @@ public class DUUIComposer {
             System.out.println("[Composer] Something went wrong, shutting down remaining components...");
             DUUIPipelineProfiler.statusUpdate("FAILED", format("Fatal exception occured: %s", e));
             catched = e;
+        } finally { 
+            _rm.finishManager();
         }
-        _rm.finished();
 
         /** shutdown **/
         // shutdown_pipeline();
@@ -533,7 +536,7 @@ public class DUUIComposer {
 
         _executionPipeline.run(name, jc, perf);
         _executionPipeline.shutdown();
-        
+
         if(_storage!=null) {
             _storage.addMetricsForDocument(perf);
         }
@@ -544,25 +547,19 @@ public class DUUIComposer {
     private List<JCas> run_pipeline(String name, AsyncCollectionReader reader, TypeSystemDescription desc) 
         throws Exception {
 
-        TypeSystem ts = JCasFactory.createJCas(desc).getTypeSystem();
-        JCas first = null; 
+        _rm.initialiseCasPool(_strategy, desc);
         AtomicInteger d = new AtomicInteger(1);
-        while(!reader.isEmpty()) { // TODO: Add second condition limiting the number of documents
-            // Instantiate JCas.
+        while(!reader.isEmpty()) { 
+
+            JCas jc = _rm.takeCas();
+
             String currName = format("%s-%d", name, d.get()); 
-            
-            // JCas jc = JCasFactory.createJCas(desc);
-            JCas jc =  CasCreationUtils
-                .createCas(ts, null, null, null)
-                .getJCas();
-            if (d.get() == 1)
-                first = jc; 
             long waitTimeStart = System.nanoTime();
             reader.getNextCAS(jc);
             long waitTimeEnd = System.nanoTime();
 
             DUUIPipelineDocumentPerformance perf =
-                 new DUUIPipelineDocumentPerformance(currName, waitTimeEnd-waitTimeStart,jc);
+                new DUUIPipelineDocumentPerformance(currName, waitTimeEnd-waitTimeStart,jc);
 
             _executionPipeline.run(currName, jc, perf);
             d.incrementAndGet();
@@ -571,9 +568,7 @@ public class DUUIComposer {
         pipelineUpdate("document_count", d.get()-1);
 
         _executionPipeline.shutdown();
-
-        if (first != null)
-            XmiCasSerializer.serialize(first.getCas(), new FileOutputStream(new File(name+".xmi")));
+        
         return new ArrayList<>();
     }
 
@@ -664,7 +659,7 @@ public class DUUIComposer {
         composer.add(  
             // new DUUIDockerDriver.Component("docker.texttechnologylab.org/languagedetection:0.5"),
             new DUUIDockerDriver.Component("tokenizer:latest")
-                .withImageFetching(),
+                .withImageFetching().withScale(3),
             new DUUIDockerDriver.Component("sentencizer:latest")
                 .withImageFetching(),
             new DUUIDockerDriver.Component("parser:latest")
@@ -780,7 +775,7 @@ public class DUUIComposer {
 
         AsyncCollectionReader rd = new AsyncCollectionReader("src\\main\\resources\\sample_splitted\\", ".txt", 1, -1, true, "", true, "de");
 
-        composer.run(rd, "ComponentFirst");
+        composer.run(rd, "BigDocs");
         
         composer.shutdown();
 

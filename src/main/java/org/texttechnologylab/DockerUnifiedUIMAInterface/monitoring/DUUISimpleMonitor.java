@@ -150,7 +150,7 @@ public class DUUISimpleMonitor implements IDUUIMonitor, IDUUIResource {
             
             statsJson.put("container_id", container_id);
             statsJson.put("image_id", _image_id);
-            getContainerStats(_docker, statsJson, container_id, _image_id);
+            IDUUIResource.getContainerStats(_docker, statsJson, container_id, _image_id);
             monitorStats.put("monitor", statsJson);
             monitorStats.put("key", "monitor");
             return monitorStats;
@@ -160,10 +160,6 @@ public class DUUISimpleMonitor implements IDUUIMonitor, IDUUIResource {
     @Override
     public ResourceManager getResourceManager() {
         return ResourceManager.getInstance();
-    }
-
-    @Override
-    public void setResourceManager(ResourceManager rm) {
     }
 
  }
