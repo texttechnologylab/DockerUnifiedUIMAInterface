@@ -26,17 +26,17 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPip
 import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import guru.nidi.graphviz.attribute.Color;
 
-public class DUUIWorker implements Callable<Pair<String, Set<String>>> {
-    final String _name;
-    final PipelinePart _component;
-    final JCas _jc;
-    final DUUIPipelineDocumentPerformance _perf;
-    final Collection<DUUIWorker.ComponentLock> _parentLocks;
-    final Collection<DUUIWorker.ComponentLock> _childrenLocks;
-    final Signature _signature;
-    final String _threadName; 
-    final Set<String> _childrenIds;
-    final int _height;
+public class DUUIWorker implements Callable<DUUIWorker> {
+    public final String _name;
+    public final PipelinePart _component;
+    public JCas _jc;
+    public final DUUIPipelineDocumentPerformance _perf;
+    public final Collection<DUUIWorker.ComponentLock> _parentLocks;
+    public final Collection<DUUIWorker.ComponentLock> _childrenLocks;
+    public final Signature _signature;
+    public final String _threadName; 
+    public final Set<String> _childrenIds;
+    public final int _height;
 
     final Set<ComponentLock> _finishedParents = new HashSet<>();
 
@@ -63,7 +63,7 @@ public class DUUIWorker implements Callable<Pair<String, Set<String>>> {
     }
 
     @Override
-    public Pair<String, Set<String>> call() throws Exception {
+    public DUUIWorker call() throws Exception {
         Thread.currentThread().setName(_threadName);
         ResourceManager.register(Thread.currentThread());
         long start = System.nanoTime();
@@ -85,11 +85,11 @@ public class DUUIWorker implements Callable<Pair<String, Set<String>>> {
             }
             parentWait = System.nanoTime() - parentWaitStart;
                         
-            System.out.printf("[%s] starting analysis.%n", _threadName);
+            // System.out.printf("[%s] starting analysis.%n", _threadName);
             updatePipelineGraphStatus(_name, _signature.toString(), Color.YELLOW2);
             _component.run(_name, _jc, _perf); 
             updatePipelineGraphStatus(_name, _signature.toString(), Color.GREEN3);
-            System.out.printf("[%s] finished analysis.%n", _threadName);
+            // System.out.printf("[%s] finished analysis.%n", _threadName);
                 
             for (DUUIWorker.ComponentLock childLock : _childrenLocks)
                 childLock.countDown(); // children can continue
@@ -103,10 +103,13 @@ public class DUUIWorker implements Callable<Pair<String, Set<String>>> {
                 documentUpdate(_name, _signature, "parent_wait", parentWait);
                 documentUpdate(_name, _signature, "worker_total", System.nanoTime() - start);
                 finalizeDocument(_name, _signature.toString());
+                _jc = null;
             }
 
-        return Pair.with(_name, _childrenIds); 
+        return this; 
     }
+
+
 
     public int getPriority() {
         return _height; // Height of 1 corresponds to root nodes

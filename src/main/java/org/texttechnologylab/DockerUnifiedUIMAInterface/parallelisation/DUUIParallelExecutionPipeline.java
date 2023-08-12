@@ -1,7 +1,5 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation;
 
-import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -9,7 +7,6 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.Vector;
 import java.util.concurrent.BlockingQueue;
@@ -19,12 +16,13 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.FutureTask;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.PriorityBlockingQueue;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.RunnableFuture;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import static java.util.function.Predicate.not;
 import java.util.stream.Collectors;
 
 import org.apache.uima.fit.util.JCasUtil;
@@ -34,20 +32,23 @@ import org.javatuples.Pair;
 import org.jgrapht.graph.DefaultEdge;
 import org.jgrapht.graph.DirectedAcyclicGraph;
 import org.jgrapht.graph.GraphCycleProhibitedException;
+import org.texttechnologylab.ResourceManager;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUIResource;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.PipelinePart;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.IDUUIDriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.DUUIWorker.ComponentLock;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineProfiler;
 
 import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 
-public class DUUIParallelExecutionPipeline extends DirectedAcyclicGraph<String, CustomEdge>  {
+public class DUUIParallelExecutionPipeline extends DirectedAcyclicGraph<String, CustomEdge> implements IDUUIResource {
 
     /*
      * 
      * Taken and adapted from: https://jvmaware.com/priority-queue-and-threadpool/
      */
-    static class ComparableFutureTask<T> extends FutureTask<T> implements Comparable<ComparableFutureTask<T>>{
+    static class ComparableFutureTask<T> extends FutureTask<T> implements Comparable<ComparableFutureTask<T>> {
 
         private final DUUIWorker _task;
         public ComparableFutureTask(Callable<T> task) {
@@ -61,16 +62,28 @@ public class DUUIParallelExecutionPipeline extends DirectedAcyclicGraph<String, 
         }
     }
 
-    static class ParallelExecutor extends ThreadPoolExecutor {
+    class ParallelExecutor extends ThreadPoolExecutor {
 
         final Map<String, Set<String>> _childMap;
-        final Map<String, Callable<Pair<String, Set<String>>>> _componentRunners;
+        final Map<String, Callable<DUUIWorker>> _componentRunners;
         final Set<String> _submitted = new HashSet<>(100);
+        final Map<String, AtomicInteger> _finishedComponents; 
+        final Map<String, AtomicInteger> _documentProgress; 
 
-        public ParallelExecutor(int corePoolSize, int maximumPoolSize, Map<String, Callable<Pair<String, Set<String>>>> componentRunners) {
+        public ParallelExecutor(int corePoolSize, 
+                                int maximumPoolSize, 
+                                Map<String, 
+                                Callable<DUUIWorker>> componentRunners, 
+                                Map<String, 
+                                AtomicInteger> finishedComponents, 
+                                Map<String, 
+                                AtomicInteger> documentProgress) {
+
             super(corePoolSize, maximumPoolSize, 0L, TimeUnit.MILLISECONDS, new PriorityBlockingQueue<Runnable>());
             _childMap = new HashMap<>();
             _componentRunners = componentRunners;
+            _finishedComponents = finishedComponents;
+            _documentProgress = documentProgress;
         }
 
         @Override
@@ -84,38 +97,81 @@ public class DUUIParallelExecutionPipeline extends DirectedAcyclicGraph<String, 
                 Object result = null;
                 try {
                     result = ((Future<?>) r).get();
-                    Pair<String, Set<String>> next = (Pair<String, Set<String>>) result; 
-                    for (String child : next.getValue1()) {
-                        if (_submitted.contains(next.getValue0()+child))
-                            continue;
-
-                        Callable<?> childRunner = _componentRunners.get(next.getValue0()+child);
-                        this.submit(childRunner);
+                    if (result instanceof DUUIWorker) {
+                        DUUIWorker worker = (DUUIWorker) result; 
+                        afterWorker(worker);
                     }
+
+                    
                 } catch (CancellationException ce) {
                     t = ce;
                 } catch (ExecutionException ee) {
                     t = ee.getCause();
                 } catch (InterruptedException ie) {
-                    // If future got interrupted exception, we want to interrupt parent thread itself.
                     Thread.currentThread().interrupt();
-                } catch (Exception e) {
-                    System.out.printf("RESULT NOT CONVERTIBLE: %s%n Exception: %s, %s ", result, e, e.getMessage());
+                } catch (RejectedExecutionException e) {
+                    System.out.printf("[DUUIParallelPipeline] Worker rejected: %s %n", result);
+                    e.printStackTrace();
+                }
+
+
+            }
+        }
+
+        void afterWorker(DUUIWorker worker) {
+            // Scale component down if all instances 
+            // of current component-batch are finished
+            int finishedComponentInstances = _finishedComponents
+                .get(worker._component.getUUID()).incrementAndGet(); 
+            boolean isComponentFinished = 
+                finishedComponentInstances == _documentProgress.size();
+            if (isComponentFinished) {
+                IDUUIDriver driver = worker._component.getDriver();
+                if (driver instanceof IDUUIResource) {
+                    IDUUIResource resource = (IDUUIResource) driver;
+                    resource.scaleDown(worker._component.getUUID()); 
                 }
             }
+                        
+            // Schedule children
+            Set<String> children = worker._childrenIds;
+            children.stream()
+                .map(child -> worker._name+child)
+                .filter(not(_submitted::contains))
+                .map(_componentRunners::get)
+                .forEach(this::submit);
+
+            
+            // Return JCas to pool if document processing is finished
+            int finishedComponents = 
+                _documentProgress.get(worker._name).incrementAndGet();
+
+            boolean isDocumentFinished = 
+                finishedComponents == _finishedComponents.size()
+                && children.size() == 0;
+
+            if (isDocumentFinished)
+                ResourceManager.getInstance().returnCas(worker._jc);
         }
 
     }
 
     public final Map<String, PipelinePart> _pipeline;
     public final Iterable<String> _executionplan;  
-    final Map<String, Callable<Pair<String, Set<String>>>> _componentRunners = new ConcurrentHashMap<>(100); 
-    List<Future<Pair<String, Set<String>>>> runningComponents = new ArrayList<>();
     final ThreadPoolExecutor _executor;
     final Set<String> _topNodes = new HashSet<>();
 
+    final Map<String, Callable<DUUIWorker>> _componentRunners = new ConcurrentHashMap<>(100); 
+    List<Future<DUUIWorker>> runningComponents = new ArrayList<>(100);
+    final Map<String, AtomicInteger> _finishedComponents; 
+    final Map<String, AtomicInteger> _documentProgress = new ConcurrentHashMap<>(100);
+    BlockingQueue<JCas> casPool;
+
     public DUUIParallelExecutionPipeline(Vector<PipelinePart> flow) {
         super(CustomEdge.class);
+
+        getResourceManager().register(this);
+
         _pipeline = flow.stream()
         .collect(Collectors.toMap(
                             ppart -> ppart.getUUID(),
@@ -123,12 +179,15 @@ public class DUUIParallelExecutionPipeline extends DirectedAcyclicGraph<String, 
                             
         initialiseDAG();
         _executionplan = () -> iterator();
-        _executor = new ParallelExecutor(10, 10, _componentRunners);
-
+        _finishedComponents = new ConcurrentHashMap<>(_pipeline.size()); 
+        
         for (String node : _executionplan) {
+            _finishedComponents.put(node, new AtomicInteger(0));
             if (getAncestors(node).size() == 0)
-                _topNodes.add(node);
+            _topNodes.add(node);
         }
+
+        _executor = new ParallelExecutor(10, 10, _componentRunners, _finishedComponents, _documentProgress);
     }
     
 
@@ -149,9 +208,11 @@ public class DUUIParallelExecutionPipeline extends DirectedAcyclicGraph<String, 
 
     public void run(String name, JCas jc, DUUIPipelineDocumentPerformance perf) {
         
-        Future<Pair<String, Set<String>>> future = null;
+        _documentProgress.put(name, new AtomicInteger(0));
+
+        Future<DUUIWorker> future = null;
         for (String node : _topNodes) {
-            Callable<Pair<String, Set<String>>> runner = getComponentRunner(name, node, jc, perf);
+            Callable<DUUIWorker> runner = getComponentRunner(name, node, jc, perf);
             future = _executor.submit(runner);
             runningComponents.add(future);
         }
@@ -161,8 +222,8 @@ public class DUUIParallelExecutionPipeline extends DirectedAcyclicGraph<String, 
         try {
             while (!_executor.getQueue().isEmpty()) {
                 Thread.sleep(3000);
-                System.out.printf("Awaiting Threadpool! Queue size %d: | Completed Tasks: %d %n", 
-                    _executor.getQueue().size(), _executor.getCompletedTaskCount());
+                // System.out.printf("Awaiting Threadpool! Queue size %d: | Completed Tasks: %d %n", 
+                //     _executor.getQueue().size(), _executor.getCompletedTaskCount());
             }
 
             _executor.shutdown();
@@ -173,24 +234,11 @@ public class DUUIParallelExecutionPipeline extends DirectedAcyclicGraph<String, 
         }
     }
 
-    public List<Callable<Pair<String, Set<String>>>> getAllComponentRunners(String name, JCas jc, DUUIPipelineDocumentPerformance perf) throws Exception {
-
-        List<Callable<Pair<String, Set<String>>>> compRunners = new ArrayList<>(_pipeline.size()); 
-
-        for (String compId : _pipeline.keySet()) {
-            compRunners.add(getComponentRunner(name, compId, jc, perf));
-        }
-        
-        return compRunners; 
+    public void destroy() {
+        _executor.shutdownNow();
     }
 
-    public Callable<Pair<String, Set<String>>> getComponentRunner(String name, String uuid) {
-        if (!_componentRunners.containsKey(name+uuid)) return null;
-
-        return _componentRunners.get(name+uuid);
-    }
-
-    public Callable<Pair<String, Set<String>>> getComponentRunner(String name, String uuid, JCas jc, DUUIPipelineDocumentPerformance perf) {
+    public Callable<DUUIWorker> getComponentRunner(String name, String uuid, JCas jc, DUUIPipelineDocumentPerformance perf) {
         if (_componentRunners.containsKey(name+uuid)) 
             return _componentRunners.get(name+uuid);
 
@@ -224,7 +272,7 @@ public class DUUIParallelExecutionPipeline extends DirectedAcyclicGraph<String, 
             latchesCovered = new ConcurrentHashMap<>(_pipeline.size()); 
         Map<String, List<ComponentLock>> childLatches = new HashMap<>(_pipeline.size()); 
 
-        // for every node save a lock for every dependency if not already in jc 
+        // for every node save a lock for every dependency if not already in JCas 
         for (PipelinePart part : _pipeline.values()) {
             String self = part.getUUID();
             List<Class<? extends Annotation>> dependencies = part.getSignature().getInputs();
