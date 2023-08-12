@@ -122,9 +122,7 @@ public class DUUIPipelineProfiler {
         doc_update.put("title", title);
         doc_update.put("initial_size", initialSize);
 
-        ResourceManager.getInstance().execute(() -> 
-            send(doc_update, DUUISimpleMonitor.V1_MONITOR_DOCUMENT_UPDATE)
-        );
+        send(doc_update, DUUISimpleMonitor.V1_MONITOR_DOCUMENT_UPDATE);
     }
 
     public static void documentUpdate(String name, Signature signature, String updateValue, Object value) {
