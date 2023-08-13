@@ -228,11 +228,18 @@ public interface IDUUIInstantiatedPipelineComponent extends IDUUIResource {
                 }
             }
 
-            ByteArrayOutputStream out = comp.getResourceManager().takeByteStream();
-            layer.serialize(viewJc,out,comp.getParameters());
-            byte[] ok = out.toByteArray();
-            out.reset();
-            comp.getResourceManager().returnByteStream(out);
+            ByteArrayOutputStream out;
+            byte[] ok;
+            out = comp.getResourceManager().takeByteStream();
+            try {
+                synchronized (jc) {
+                    System.out.println("JCAS LANGUAGE " + jc.getDocumentLanguage());
+                    layer.serialize(viewJc,out,comp.getParameters());
+                }
+                ok = out.toByteArray();
+            } finally {
+                comp.getResourceManager().returnByteStream(out);
+            }
             long serializeSize = ok.length;
             long serializeEnd = System.nanoTime();
             long durationSerialize = serializeEnd - serializeStart;

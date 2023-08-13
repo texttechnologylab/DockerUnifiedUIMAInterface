@@ -16,10 +16,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Predicate;
@@ -36,15 +35,14 @@ import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.apache.uima.util.CasCreationUtils;
 import org.json.JSONObject;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer.Config;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUIResource;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.DUUISimpleMonitor;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.IDUUIMonitor;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.PoolStrategy;
 
 public class ResourceManager extends Thread {
 
     final List<IDUUIResource> _resources = new ArrayList<>(); 
-    public final AtomicBoolean _withMonitor = new AtomicBoolean(false);
     final AtomicBoolean _finished = new AtomicBoolean(false);
     static final HashSet<Thread> _activeThreads = new HashSet<>(20);
 
@@ -65,12 +63,16 @@ public class ResourceManager extends Thread {
         // this.setDaemon(true);
         _activeThreads.add(this);
         
-        _system = new SystemResources(0.1, -1L);
+        _system = new SystemResources(0.01, -1L);
     }
 
     public static ResourceManager getInstance() {
         return _rm; 
     };
+
+    public void withMonitor(IDUUIMonitor monitor) {
+        _monitor = (DUUISimpleMonitor) monitor;
+    }
    
     public synchronized static void register(Thread thread) {
         _activeThreads.add(thread);
@@ -146,8 +148,8 @@ public class ResourceManager extends Thread {
         memoryLock.lock();
         try {
             if ( used <  thresholdBytes*0.8) {
-                System.out.printf(
-                    "MEMORY SAFE! Used: %d | Threshhold: %d %n", used, thresholdBytes);
+                // System.out.printf(
+                //     "MEMORY SAFE! Used: %d | Threshhold: %d %n", used, thresholdBytes);
                 memoryCritical = false;
                 unpaused.signalAll();
             }
@@ -177,7 +179,7 @@ public class ResourceManager extends Thread {
     }
 
     public ByteArrayOutputStream takeByteStream() throws InterruptedException {
-        if (_casPool != null) 
+        if (_casPool == null) 
             return new ByteArrayOutputStream(3*1024*1024);
 
         return _casPool.takeStream();
@@ -218,8 +220,8 @@ public class ResourceManager extends Thread {
     }
 
     void dispatch(Map<String, Object> resourceData, String type) {    
-        if (_monitor != null)
-            _monitor = (DUUISimpleMonitor) Config.monitor();  
+        if (_monitor == null)
+            return;  
         try {
             _monitor.sendUpdate(resourceData, type);
         } catch (IOException | InterruptedException e) {
@@ -234,13 +236,13 @@ public class ResourceManager extends Thread {
         final Supplier<JCas> _casSupplier; 
         final Supplier<ByteArrayOutputStream> _streamSupplier; 
         final PoolStrategy _strategy;
-        int _currCasPoolSize; 
-        int _currStreamPoolSize;
-        int _maxPoolSize; 
+        final AtomicInteger _currCasPoolSize; 
+        final AtomicInteger _currStreamPoolSize;
+        final AtomicInteger _maxPoolSize; 
 
 
         CasPool(PoolStrategy strategy, TypeSystemDescription desc) throws UIMAException {
-            _maxPoolSize = Integer.MAX_VALUE;
+            _maxPoolSize = new AtomicInteger(strategy.getMaxPoolSize());
             _strategy = strategy;
             _casPool = _strategy.instantiate(JCas.class);
             _bytestreams = _strategy.instantiate(ByteArrayOutputStream.class);
@@ -258,59 +260,66 @@ public class ResourceManager extends Thread {
                         e.printStackTrace(); return null; 
                     }
                 }; 
-            Stream<JCas> casStream = Stream.generate(_casSupplier)
-                .limit(_strategy.getCorePoolSize());
-            
-            assert casStream.anyMatch(null) : 
-                new RuntimeException("[DUUIResourceManager] Exception occured while populating JCas pool.");
-            casStream
-                .forEach(_casPool::add);    
-            casStream
-                .forEach(_casMonitorPool::add);
-            _currCasPoolSize = _strategy.getCorePoolSize();
+           
+            boolean casCreationFailed = Stream.generate(_casSupplier)
+                .limit(_strategy.getCorePoolSize())
+                .peek(_casMonitorPool::add)
+                .peek(_casPool::add)
+                .anyMatch(Predicate.isEqual(null));
 
+            assert casCreationFailed : 
+                new RuntimeException("[DUUIResourceManager] Exception occured while populating JCas pool.");
+            _currCasPoolSize = new AtomicInteger(_strategy.getCorePoolSize());
             
             _streamSupplier = () -> new ByteArrayOutputStream(exJcas.size());
             Stream.generate(_streamSupplier)
                 .limit(_strategy.getCorePoolSize())
                 .forEach(_bytestreams::add);
-            _currStreamPoolSize = _strategy.getCorePoolSize();
+            _currStreamPoolSize = new AtomicInteger(_strategy.getCorePoolSize());
             
         }
 
         void setMaxPoolSize() {
-            _maxPoolSize = _casMonitorPool.size(); 
+            _maxPoolSize.set(_casMonitorPool.size()); 
         }
         
         void returnCas(JCas jc) {
+            System.out.printf("JCAS QUEUE CAPACITY: %d | #JCAS: %d | #RESERVED: %d %n", _maxPoolSize.get(), _currCasPoolSize.get(), _casPool.size());
             _casPool.add(jc);
 
         }
 
         void returnByteStream(ByteArrayOutputStream bs) {
+            System.out.printf("BYTESTREAM QUEUE CAPACITY: %d | #BYTESTREAM: %d | #RESERVED: %d %n", _maxPoolSize.get(), _currStreamPoolSize.get(), _bytestreams.size());
             _bytestreams.add(bs);
         }
 
         JCas takeCas () throws InterruptedException {
+                System.out.printf("JCAS QUEUE CAPACITY: %d | #JCAS: %d | #RESERVED: %d %n", _maxPoolSize.get(), _currCasPoolSize.get(), _casPool.size());
             return take(_casPool, _casSupplier, _currCasPoolSize);
         }
 
         ByteArrayOutputStream takeStream() throws InterruptedException {
+            System.out.printf("BYTESTREAM QUEUE CAPACITY: %d | #BYTESTREAM: %d | #RESERVED: %d %n", _maxPoolSize.get(), _currStreamPoolSize.get(), _bytestreams.size());
             return take(_bytestreams, _streamSupplier, _currStreamPoolSize);
         }
 
-        <T> T take(BlockingQueue<T> pool, Supplier<T> generator, long poolSize) throws InterruptedException {
+        <T> T take(BlockingQueue<T> pool, Supplier<T> generator, AtomicInteger poolSize) throws InterruptedException {
             T resource = pool.poll(_strategy.getTimeOut(TimeUnit.SECONDS), TimeUnit.SECONDS);
 
             if (resource != null)
                 return resource; 
 
-            if (poolSize < _maxPoolSize) {
+            if (poolSize.get() < _maxPoolSize.get()) {
                 T t = generator.get();
                 pool.add(t);
+                poolSize.incrementAndGet();
                 if (t instanceof JCas) {
                     JCas jc = (JCas) t;
                     _casMonitorPool.add(jc);
+                    System.out.printf("JCAS NEW ELEMENT ADDED: QUEUE CAPACITY: %d | #JCAS: %d | #RESERVED: %d %n", _maxPoolSize.get(), poolSize.get(), _casPool.size());
+                } else {
+                    System.out.printf("BYTESTREAM NEW ELEMENT ADDED: QUEUE CAPACITY: %d | #BYTESTREAM: %d | #RESERVED: %d %n", _maxPoolSize.get(), poolSize.get(), _bytestreams.size());
                 }
             }
 
@@ -339,11 +348,11 @@ public class ResourceManager extends Thread {
         long _usedBytes = 0L; 
 
         {
-            try {
-                _memory.setVerbose(true);
-            } catch (Exception e) {
-                System.out.println("[DUUIResourceManager] Memory monitoring limited.");
-            }
+            // try {
+            //     _memory.setVerbose(true);
+            // } catch (Exception e) {
+            //     System.out.println("[DUUIResourceManager] Memory monitoring limited.");
+            // }
             try {
                 _threads.setThreadContentionMonitoringEnabled(true);
                 _threads.setThreadCpuTimeEnabled(true);
@@ -363,6 +372,8 @@ public class ResourceManager extends Thread {
         }
 
         boolean isMemoryCritical() {
+            if (_casPool == null) 
+                return false; 
             _usedBytes = _casPool.getJCasMemoryConsumption();
             boolean critical = _usedBytes > _thresholdBytes;
             if (critical) _casPool.setMaxPoolSize();

@@ -37,6 +37,7 @@ public class DUUIWorker implements Callable<DUUIWorker> {
     public final String _threadName; 
     public final Set<String> _childrenIds;
     public final int _height;
+    public final CountDownLatch _jCasLock;
 
     final Set<ComponentLock> _finishedParents = new HashSet<>();
 
@@ -47,7 +48,8 @@ public class DUUIWorker implements Callable<DUUIWorker> {
                 Collection<DUUIWorker.ComponentLock> selfLatches, 
                 Collection<DUUIWorker.ComponentLock> childLatches,
                 Set<String> children,
-                int height) {
+                int height, 
+                CountDownLatch jCasLock) {
         _name = name;
         _component = component; 
         _jc = jc; 
@@ -57,6 +59,7 @@ public class DUUIWorker implements Callable<DUUIWorker> {
         _signature = _component.getSignature(); 
         _childrenIds = children;
         _height = height;
+        _jCasLock = jCasLock;
         // _finishedParents = new HashSet<>(_parentLocks.size());
 
         _threadName = format("Worker-%s-%s", _name, _signature);
@@ -75,21 +78,21 @@ public class DUUIWorker implements Callable<DUUIWorker> {
                 for (DUUIWorker.ComponentLock parent : _parentLocks) {
                     boolean finished = parent.await(1, TimeUnit.SECONDS);
                     if (parent.failed())
-                        throw new Exception(format("[%s] Parent failed.%n", _threadName));
+                        throw new RuntimeException(format("[%s] Parent failed.%n", _threadName));
 
                     if (finished) 
                         _finishedParents.add(parent);
                 }
                 if (Thread.interrupted()) 
-                    throw new Exception(format("[%s] interrupted.%n", _threadName));
+                    throw new InterruptedException(format("[%s] interrupted.%n", _threadName));
             }
             parentWait = System.nanoTime() - parentWaitStart;
                         
-            // System.out.printf("[%s] starting analysis.%n", _threadName);
+            System.out.printf("[%s] starting analysis.%n", _threadName);
             updatePipelineGraphStatus(_name, _signature.toString(), Color.YELLOW2);
             _component.run(_name, _jc, _perf); 
             updatePipelineGraphStatus(_name, _signature.toString(), Color.GREEN3);
-            // System.out.printf("[%s] finished analysis.%n", _threadName);
+            System.out.printf("[%s] finished analysis.%n", _threadName);
                 
             for (DUUIWorker.ComponentLock childLock : _childrenLocks)
                 childLock.countDown(); // children can continue
@@ -103,7 +106,7 @@ public class DUUIWorker implements Callable<DUUIWorker> {
                 documentUpdate(_name, _signature, "parent_wait", parentWait);
                 documentUpdate(_name, _signature, "worker_total", System.nanoTime() - start);
                 finalizeDocument(_name, _signature.toString());
-                _jc = null;
+                _jCasLock.countDown();
             }
 
         return this; 

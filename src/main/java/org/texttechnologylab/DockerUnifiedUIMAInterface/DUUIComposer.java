@@ -169,6 +169,7 @@ public class DUUIComposer {
     public DUUIComposer withMonitor(IDUUIMonitor monitor) throws Exception {
         _monitor = monitor;
         _monitor.setup();
+        _rm.withMonitor(_monitor);
         return this;
     }
 
@@ -344,7 +345,6 @@ public class DUUIComposer {
             if (_monitor != null)
                 new DUUIPipelineProfiler(name, _executionPipeline.getGraph(), (DUUISimpleMonitor) _monitor); 
 
-            _rm._withMonitor.set(_monitor != null);
             _rm.start();
             
             Instant starttime = Instant.now();
@@ -432,8 +432,8 @@ public class DUUIComposer {
     private TypeSystemDescription instantiate_pipeline() throws Exception {
         _hasShutdown = false;
         JCas jc = JCasFactory.createJCas();
-        jc.setDocumentLanguage("en");
-        jc.setDocumentText("Hello World!");
+        jc.setDocumentLanguage("de");
+        jc.setDocumentText("Hallo Welt!");
 
         if(_skipVerification) {
             System.out.println("[Composer] Running without verification, no process calls will be made during initialization!");
@@ -658,20 +658,20 @@ public class DUUIComposer {
         
         composer.add(  
             // new DUUIDockerDriver.Component("docker.texttechnologylab.org/languagedetection:0.5"),
-            new DUUIDockerDriver.Component("tokenizer:latest")
-                .withImageFetching().withScale(3),
-            new DUUIDockerDriver.Component("sentencizer:latest")
+            new DUUIDockerDriver.Component("tokenizer:latest").withScale(5)
                 .withImageFetching(),
-            new DUUIDockerDriver.Component("parser:latest")
+            new DUUIDockerDriver.Component("sentencizer:latest").withScale(5)
                 .withImageFetching(),
-            new DUUIDockerDriver.Component("ner:latest")
-                .withImageFetching(),
-            new DUUIDockerDriver.Component("lemmatizer:latest")
-                .withImageFetching(),
-            new DUUIDockerDriver.Component("morphologizer:latest")
-                .withImageFetching(),
-            new DUUIDockerDriver.Component("tagger:latest")
+            new DUUIDockerDriver.Component("parser:latest").withScale(5)
                 .withImageFetching()
+            // new DUUIDockerDriver.Component("ner:latest")
+            //     .withImageFetching(),
+            // new DUUIDockerDriver.Component("lemmatizer:latest")
+            //     .withImageFetching(),
+            // new DUUIDockerDriver.Component("morphologizer:latest")
+            //     .withImageFetching(),
+            // new DUUIDockerDriver.Component("tagger:latest")
+            //     .withImageFetching()
             
             // new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-lemmatizer:latest")
             //     .withImageFetching().withScale(3).withGPU(true),

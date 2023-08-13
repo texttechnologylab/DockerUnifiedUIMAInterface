@@ -12,8 +12,7 @@ public interface PoolStrategy {
     };
     
     default int getMaxPoolSize() {
-        return 
-            ((int) Math.round(Runtime.getRuntime().availableProcessors() * 1.5));
+        return ((int) Math.round(Runtime.getRuntime().availableProcessors() * 1.5));
     }; 
 
     default int getCorePoolSize() {

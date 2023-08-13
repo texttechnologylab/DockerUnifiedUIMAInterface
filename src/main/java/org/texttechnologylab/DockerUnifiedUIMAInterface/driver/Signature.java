@@ -35,10 +35,10 @@ public class Signature {
     public String toString() {
         StringBuilder signature = new StringBuilder();
 
-        this.inputs.forEach( input ->
-            signature.append(input.getSimpleName() + " ")
-        );
-        signature.append(" => ");
+        // this.inputs.forEach( input ->
+        //     signature.append(input.getSimpleName() + " ")
+        // );
+        // signature.append(" => ");
         this.outputs.forEach( output ->
         signature.append(output.getSimpleName() + " ")
         );

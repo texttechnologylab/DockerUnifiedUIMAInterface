@@ -86,12 +86,11 @@ public interface IDUUIConnectedDriver extends IDUUIDriver {
                 while(connectionError && iCount<10) {
 
                     try {
-                        synchronized (client) {
-                            resp = client.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray()).join();
-                        }
+                        resp = client.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray()).join();
                         connectionError = false;
                     }
                     catch (Exception e){
+                        System.out.println("[ConnectedDriver] Exception occured while requesting communication layer: ");
                         System.out.println(e.getMessage()+"\t"+url);
                         if(e instanceof java.net.ConnectException){
                             Thread.sleep(timeout_ms);
