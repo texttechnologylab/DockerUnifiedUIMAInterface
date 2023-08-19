@@ -2,6 +2,7 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import org.javatuples.Pair;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.ResourceManager.ResourceStatistics;
@@ -23,11 +24,11 @@ public interface IDUUIResource {
 
         try {   
             ContainerState state = _interface.getDockerClient().inspectContainerCmd(containerId).exec().getState();
+            
             String status = state.getStatus();
             containerStats.put("status", status);
 
             Statistics stats = _interface.get_stats(containerId);
-
             float cpuPercent = getCPUStats(containerId, stats);
             
             long network_i = -1L;

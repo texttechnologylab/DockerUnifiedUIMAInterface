@@ -201,7 +201,7 @@ public class DUUIDockerDriver implements IDUUIConnectedDriver, IDUUIResource {
                 );
                 int port = _interface.extract_port_mapping(containerid);
 
-                IDUUICommunicationLayer layer = get_communication_layer("http://127.0.0.1:" + String.valueOf(port), null, _container_timeout, _client,(msg) -> {
+                IDUUICommunicationLayer layer = get_communication_layer("http://127.0.0.1:" + String.valueOf(port), null, 3000, _client,(msg) -> {
                     System.out.printf("[DockerLocalDriver][%s][Docker Replication %d/%d] %s\n", uuid, instanceCount + 1, instanceCount + 1, msg);
                 },_luaContext, true);
                 System.out.printf(
@@ -273,24 +273,25 @@ public class DUUIDockerDriver implements IDUUIConnectedDriver, IDUUIResource {
             Map<String, Integer> levels = pipeline.getComponentLevels();
 
             if (! levels.isEmpty()) {
-                Map<Integer, Integer> componentsPerLevel = new HashMap<>();
-                levels.forEach((component, level) -> 
-                {
-                    int prev = componentsPerLevel.getOrDefault(level, 0);
-                    prev++;
-                    if (_active_components.containsKey(component))
-                        componentsPerLevel.put(level, prev);
-                });
+                // Map<Integer, Integer> componentsPerLevel = new HashMap<>();
+                // levels.forEach((component, level) -> 
+                // {
+                //     int prev = componentsPerLevel.getOrDefault(level, 0);
+                //     prev++;
+                //     if (_active_components.containsKey(component))
+                //         componentsPerLevel.put(level, prev);
+                // });
 
                 levels.forEach((uuid, level) -> 
                 {
                     InstantiatedComponent component = 
                         (InstantiatedComponent) _active_components.get(uuid);
 
-                    int currScale = poolSize;
-                    int newScale = (int) 
-                        Math.ceil(currScale / componentsPerLevel.get(level));
-                    component.setScale(newScale);
+                    // float currScale = (float) poolSize;
+                    // float levelSize = (float) componentsPerLevel.get(level);
+                    // int newScale = (int) Math.ceil(currScale/levelSize);
+                    // component.setScale(newScale);
+                    component.setScale(poolSize);
                 });
                 _stats.initialScaling.set(true);
             }
@@ -302,6 +303,9 @@ public class DUUIDockerDriver implements IDUUIConnectedDriver, IDUUIResource {
             
             InstantiatedComponent obj = 
                 (InstantiatedComponent) _active_components.get(component);
+
+            int currentLevel = pipeline.getCurrentPipelineLevel();
+            int componentLevel = pipeline.getComponentPipelineLevel(component);
 
             // if (crashes.get() >= 1) {
             //     System.out.printf("[DUUIResourceManager][DockerLocalDriver][%s] Scaling down!%n", 
@@ -315,8 +319,9 @@ public class DUUIDockerDriver implements IDUUIConnectedDriver, IDUUIResource {
             //     crashes.set(0);
             // }
 
-            while (obj._instancesSet.size() > obj.getScale()
-                || obj._instances.size() > Config.strategy().getCorePoolSize()) {
+            while ((obj._instancesSet.size() > obj.getScale()
+                || obj._instances.size() > Config.strategy().getCorePoolSize())
+                && currentLevel != componentLevel) {
                 System.out.printf("[DUUIResourceManager][DockerLocalDriver][%s] Scaling down!%n", 
                                     obj._signature);
                 obj.removeInstance();

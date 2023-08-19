@@ -403,7 +403,7 @@ public class DUUIComposer {
 
             pipelineUpdate("duration", duration.getEpochSecond() + " s");
             DUUIPipelineProfiler.statusUpdate("FINISHED", format("Run successfully finished: %s", name));
-            
+            System.out.printf("FINISHED ANALYSIS: %d s %n", duration.getEpochSecond());
             if(_storage!=null) {
                 _storage.finalizeRun(name,starttime,Instant.now());
             }
@@ -648,10 +648,10 @@ public class DUUIComposer {
         
 
         DUUIComposer composer = new DUUIComposer()
-            .withResourceManager(0.01)
-            .withParallelPipeline(new AdaptiveStrategy(2, 4))
+            .withResourceManager(0.1)
             // .withParallelPipeline()
-            // .withParallelPipeline(new FixedStrategy(3))
+            .withParallelPipeline(new AdaptiveStrategy(2, 4))
+            // .withParallelPipeline(new FixedStrategy(4))
             .withSkipVerification(true)
             .withLuaContext(new DUUILuaContext().withJsonLibrary());
 
@@ -664,31 +664,22 @@ public class DUUIComposer {
             new DUUIDockerDriver.Component("sentencizer:latest")//.withScale(3)
                 .withImageFetching(),
             new DUUIDockerDriver.Component("parser:latest")//.withScale(3)
+                .withImageFetching(),
+            new DUUIDockerDriver.Component("ner:latest")
+                .withImageFetching(),
+            new DUUIDockerDriver.Component("lemmatizer:latest")
+                .withImageFetching(),
+            new DUUIDockerDriver.Component("morphologizer:latest")
+                .withImageFetching(),
+            new DUUIDockerDriver.Component("tagger:latest")
                 .withImageFetching()
-            // new DUUIDockerDriver.Component("ner:latest")
-            //     .withImageFetching(),
-            // new DUUIDockerDriver.Component("lemmatizer:latest")
-            //     .withImageFetching(),
-            // new DUUIDockerDriver.Component("morphologizer:latest")
-            //     .withImageFetching(),
-            // new DUUIDockerDriver.Component("tagger:latest")
-            //     .withImageFetching()
-            
-            // new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-lemmatizer:latest")
-            //     .withImageFetching().withScale(3).withGPU(true),
-            
-            // new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-morphologizer:latest")
-            //     .withImageFetching().withScale(3).withGPU(true),
-            
-            // new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-parser:latest")
-            //     .withImageFetching().withScale(3).withGPU(true),
-            
-            // new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-sentencizer:latest")
-            //     .withImageFetching().withScale(3).withGPU(true),
-            
-            // new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-tokenizer:latest")
-            //     .withImageFetching().withScale(3).withGPU(true)
         );
+
+        AsyncCollectionReader rd = new AsyncCollectionReader("src\\main\\resources\\sample_splitted\\", ".txt", 1, -1, true, "", true, "de");
+
+        composer.run(rd, "SmallTexts");
+        
+        composer.shutdown();
         // composer.add(  
         //     new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-ner:latest")
         //         .withImageFetching().withScale(3).withGPU(true),
@@ -707,22 +698,6 @@ public class DUUIComposer {
             
         //     new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-tokenizer:latest")
         //         .withImageFetching().withScale(3).withGPU(true)
-        // );
-        // composer.add( // 
-        // new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-tokenizer:latest")
-        // );
-        // composer.add(new DUUIDockerDriver.Component("").withScale(0).withGPU(false));
-        // composer.add( // 
-        // new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-tokenizer:latest")
-        // );
-        // composer.add( // 
-        // new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-tokenizer:latest")
-        // );
-        // composer.add( // 
-        // new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-tokenizer:latest")
-        // );
-        // composer.add( // 
-        // new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-tokenizer:latest")
         // );
 
         // String val = "Dies ist ein kleiner Test Text für Abies!";
@@ -768,17 +743,13 @@ public class DUUIComposer {
         // assertEquals(restText, wsText);
         
         
-        CollectionReaderDescription reader = null;
-        reader = org.apache.uima.fit.factory.CollectionReaderFactory.createReaderDescription(XmiReader.class,
-                XmiReader.PARAM_SOURCE_LOCATION,  "C:\\Users\\davet\\projects\\DockerUnifiedUIMAInterface\\src\\main\\resources\\sample\\**.gz.xmi.gz",
-                XmiReader.PARAM_SORT_BY_SIZE, true
-        );
+        // CollectionReaderDescription reader = null;
+        // reader = org.apache.uima.fit.factory.CollectionReaderFactory.createReaderDescription(XmiReader.class,
+        //         XmiReader.PARAM_SOURCE_LOCATION,  "C:\\Users\\davet\\projects\\DockerUnifiedUIMAInterface\\src\\main\\resources\\sample\\**.gz.xmi.gz",
+        //         XmiReader.PARAM_SORT_BY_SIZE, true
+        // );
 
-        AsyncCollectionReader rd = new AsyncCollectionReader("src\\main\\resources\\sample_splitted\\", ".txt", 1, -1, true, "", true, "de");
-
-        composer.run(rd, "BigDocs");
         
-        composer.shutdown();
 
         
 

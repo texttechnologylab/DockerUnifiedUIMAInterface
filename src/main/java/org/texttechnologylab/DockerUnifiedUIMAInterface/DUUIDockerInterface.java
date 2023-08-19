@@ -230,7 +230,7 @@ public class DUUIDockerInterface {
      */
     public Statistics get_stats(String containder_id) throws Exception {
         AsyncResultCallback<Statistics> callback = new AsyncResultCallback<>();
-        _docker.statsCmd(containder_id).withNoStream(true).exec(callback);
+        _docker.statsCmd(containder_id).exec(callback);
         try {
             Statistics stats = callback.awaitResult();
             callback.close();
@@ -287,7 +287,7 @@ public class DUUIDockerInterface {
      */
     public void stop_container(String id) {
         try{
-            _docker.stopContainerCmd(id).withTimeout(10).exec();
+            _docker.stopContainerCmd(id).withTimeout(3).exec();
         } catch (NotModifiedException e) {
             System.out.printf("Could not stop container: %s%n", id);
             System.out.println(e.getMessage());
