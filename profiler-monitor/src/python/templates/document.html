@@ -1,0 +1,36 @@
+<div id="scrollable-components" hx-swap-oob="beforeend">
+  <div class="card col-lg-6 border-0 mx-1 shadow-lg rounded-0">
+    <div class="px-3 py-2">
+      <div class="row">
+        <div class="col-auto mt-n1">
+          <h5 class="card-title">
+            {{ name }}
+          </h5>
+          <h6 class="card-subtitle text-muted small">Title: {{ title }} | Size: {{initial_size}} </h6>
+        </div>
+        <div id="d_{{ name }}_graph" class="col-auto ms-auto text-end mt-n1">
+          
+        </div>
+      </div>
+    </div>
+    <div class="card-body w-100 p-0">
+      <table class="table table-hover table-striped table-sm m-0">
+        <thead class="small">
+          <tr>
+            <th class="small">Component</th>
+            <th class="small">URL-Wait</th>
+            <th class="small">Serialization</th>
+            <th class="small">Deserialization</th>
+            <th class="small">Annotator</th>
+            <th class="small">Component-Total</th>
+            <th class="small">Worker-Total</th>
+            <th class="small">Size</th>
+          </tr>
+        </thead>
+        <tbody id="d_{{ name }}_measurements">
+          
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

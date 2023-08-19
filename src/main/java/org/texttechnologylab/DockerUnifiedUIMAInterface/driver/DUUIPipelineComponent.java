@@ -20,6 +20,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class DUUIPipelineComponent {
     private HashMap<String, String> _options;
@@ -41,6 +42,7 @@ public class DUUIPipelineComponent {
     private static String urlOptionName = "url";
     private static String websocketOptionName = "websocket";
     private String websocketElementsOptionName = "websocketElements";
+    private AtomicBoolean _scaleFixed = new AtomicBoolean(false);
 
     private static String dockerPasswordOptionName = "dockerPassword";
     private static String dockerUsernameOptionName = "dockerUsername";
@@ -187,6 +189,8 @@ public class DUUIPipelineComponent {
             _options.remove(scaleOptionName);
             return this;
         }
+
+        _scaleFixed.set(true);
         _options.put(scaleOptionName,String.valueOf(iScale));
         return this;
     }
@@ -203,6 +207,11 @@ public class DUUIPipelineComponent {
 
     public List<String> getConstraints(){
         return _constraints;
+    }
+
+    public void setScale(int scale) {
+        if (_scaleFixed.get()) return; 
+        _options.put(scaleOptionName,String.valueOf(scale));
     }
 
     public Integer getScale() {

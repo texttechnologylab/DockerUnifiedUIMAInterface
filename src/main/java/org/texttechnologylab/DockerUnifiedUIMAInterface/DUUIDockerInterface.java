@@ -4,13 +4,16 @@ import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.async.ResultCallback;
 import com.github.dockerjava.api.async.ResultCallbackTemplate;
 import com.github.dockerjava.api.command.*;
+import com.github.dockerjava.api.command.InspectContainerResponse.ContainerState;
 import com.github.dockerjava.api.exception.DockerClientException;
 import com.github.dockerjava.api.exception.NotModifiedException;
 import com.github.dockerjava.api.model.*;
 import com.github.dockerjava.core.DefaultDockerClientConfig;
 import com.github.dockerjava.core.DockerClientBuilder;
 import com.github.dockerjava.core.DockerClientConfig;
+import com.github.dockerjava.core.InvocationBuilder.AsyncResultCallback;
 import com.github.dockerjava.core.command.LogContainerResultCallback;
+import com.github.dockerjava.jaxrs.JerseyDockerHttpClient;
 import com.google.common.collect.ImmutableList;
 
 import java.io.File;
@@ -22,6 +25,8 @@ import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 import static java.lang.String.format;
@@ -217,6 +222,26 @@ public class DUUIDockerInterface {
     }
 
     /**
+     * Retrieves the resource-usage-statistics of a container.
+     * 
+     * @param containder_id Id of container.
+     * @return Statistics info.
+     * @throws Exception
+     */
+    public Statistics get_stats(String containder_id) throws Exception {
+        AsyncResultCallback<Statistics> callback = new AsyncResultCallback<>();
+        _docker.statsCmd(containder_id).exec(callback);
+        try {
+            Statistics stats = callback.awaitResult();
+            callback.close();
+            return stats;
+        } catch (Exception e) {
+            throw new Exception(format("[%s] Error retrieving container stats: %s%n", 
+                Thread.currentThread().getName(), containder_id), e); 
+        }
+    }
+
+    /**
      * Reads the container gateway bridge ip if inside the container to enable communication between sibling containers or the
      * localhost ip if one is the host.
      *
@@ -262,7 +287,7 @@ public class DUUIDockerInterface {
      */
     public void stop_container(String id) {
         try{
-            _docker.stopContainerCmd(id).withTimeout(10).exec();
+            _docker.stopContainerCmd(id).withTimeout(3).exec();
         } catch (NotModifiedException e) {
             System.out.printf("Could not stop container: %s%n", id);
             System.out.println(e.getMessage());
@@ -483,25 +508,26 @@ public class DUUIDockerInterface {
      */
     public String run(String imageid, boolean gpu, boolean autoremove, int port, boolean mapDaemon) throws InterruptedException {
 
-        HostConfig cfg = new HostConfig();
-        if (autoremove) {
-            cfg = cfg.withAutoRemove(true);
-        }
-        if (gpu) {
-            cfg = cfg.withDeviceRequests(ImmutableList.of(new DeviceRequest()
-                    .withCapabilities(ImmutableList.of(ImmutableList.of("gpu")))));
-        }
+        // HostConfig cfg = new HostConfig();
+        // if (autoremove) {
+        //     cfg = cfg.withAutoRemove(true);
+        // }
+        // if (gpu) {
+        //     cfg = cfg.withDeviceRequests(ImmutableList.of(new DeviceRequest()
+        //             .withCapabilities(ImmutableList.of(ImmutableList.of("gpu")))));
+        // }
 
-        if(mapDaemon) {
-            cfg = cfg.withBinds(Bind.parse("/var/run/docker.sock:/var/run/docker.sock"));
-        }
-        CreateContainerCmd cmd = _docker.createContainerCmd(imageid)
-                .withHostConfig(cfg)
-                .withExposedPorts(ExposedPort.tcp(port)).withPublishAllPorts(true);
+        // if(mapDaemon) {
+        //     cfg = cfg.withBinds(Bind.parse("/var/run/docker.sock:/var/run/docker.sock"));
+        // }
+        // CreateContainerCmd cmd = _docker.createContainerCmd(imageid)
+        //         .withHostConfig(cfg)
+        //         .withExposedPorts(ExposedPort.tcp(port)).withPublishAllPorts(true);
 
-        CreateContainerResponse feedback = cmd.exec();
-        _docker.startContainerCmd(feedback.getId()).exec();
-        return feedback.getId();
+        // CreateContainerResponse feedback = cmd.exec();
+        String id = create(imageid, gpu, autoremove, port, mapDaemon);
+        _docker.startContainerCmd(id).exec();
+        return id;
     }
 
     /**
@@ -513,8 +539,6 @@ public class DUUIDockerInterface {
      * @throws InterruptedException
      */
     public String run(String imageid, boolean gpu, boolean autoremove, int portContainer, int portHost, boolean mapDaemon) throws InterruptedException {
-
-
         HostConfig cfg = new HostConfig();
         if (autoremove) {
             cfg = cfg.withAutoRemove(true);
@@ -536,5 +560,60 @@ public class DUUIDockerInterface {
         CreateContainerResponse feedback = cmd.exec();
         _docker.startContainerCmd(feedback.getId()).exec();
         return feedback.getId();
+    }
+    
+    /**
+     * Builds the container with a specified temporary build directory and some flags.
+     *
+     * @param gpu        If the gpu should be used
+     * @param autoremove If the autoremove flag is set for the container
+     * @return The docker container id
+     * @throws InterruptedException
+     */
+    public String create(String imageid, boolean gpu, boolean autoremove, int port, boolean mapDaemon) throws InterruptedException {
+        HostConfig cfg = new HostConfig();
+        if (autoremove) {
+            cfg = cfg.withAutoRemove(true);
+        }
+        if (gpu) {
+            cfg = cfg.withDeviceRequests(ImmutableList.of(new DeviceRequest()
+                    .withCapabilities(ImmutableList.of(ImmutableList.of("gpu")))));
+        }
+
+        if(mapDaemon) {
+            cfg = cfg.withBinds(Bind.parse("/var/run/docker.sock:/var/run/docker.sock"));
+        }
+        CreateContainerCmd cmd = _docker.createContainerCmd(imageid)
+                .withHostConfig(cfg)
+                .withExposedPorts(ExposedPort.tcp(port)).withPublishAllPorts(true);
+
+        CreateContainerResponse feedback = cmd.exec();
+        return feedback.getId();
+    }
+
+    /*
+     * Restarts existing container.
+     * 
+     * @param containerId Id of container to be started.
+     */
+    public void unpause_container(String containerId) {
+        ContainerState state = _docker.inspectContainerCmd(containerId).exec().getState();
+        if (state.getPaused()) {
+            _docker.unpauseContainerCmd(Objects.requireNonNull(containerId))
+            .exec();
+        }
+    }
+
+    /*
+     * Pauses existing container.
+     * 
+     * @param containerId Id of container to be paused.
+     */
+    public void pause_container(String containerId) {
+        ContainerState state = _docker.inspectContainerCmd(containerId).exec().getState();
+        if (state.getRunning()) {
+            _docker.pauseContainerCmd(Objects.requireNonNull(containerId))
+            .exec();
+        }
     }
 }

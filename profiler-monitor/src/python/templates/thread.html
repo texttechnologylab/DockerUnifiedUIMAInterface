@@ -1,0 +1,39 @@
+<div id="scrollable-threads" hx-swap-oob="afterbegin">
+  <div class="card col-lg-4 border-0 mx-1 shadow-lg rounded-0">
+    <div class="px-3 py-2">
+      <div class="row">
+        <div class="col-auto mt-n1">
+          <h6 id="t_{{ thread_id }}_thread_name" class="card-title">{{ thread_name }}</h6>
+          <h6 class="card-subtitle text-muted small">{{ thread_id }}</h6>
+        </div>
+        <div id="t_{{ thread_id }}_thread_state" class="col-auto ms-auto text-end mt-n1">
+          {{ thread_state|safe }}
+        </div>
+      </div>
+    </div>
+    <div class="card-body w-100 p-3">
+      <div class="row mb-2">
+        <div class="card col-6 border-0">
+          <div class="w-100 mb-3 h-50">
+            <h6 class="text-muted text-center small">THREAD CPU TIME / JVM CPU TIME</h6>
+            <h5 id="t_{{ thread_id }}_thread_jvm_cpu_time" class="card-title my-auto text-center">{{ thread_cpu_time }} / {{ jvm_cpu_time }}</h5>
+          </div>
+          <div class="w-100 h-50">
+            <h6 class="text-muted text-center small">MEMORY USAGE</h6>
+            <h5 id="t_{{ thread_id }}_thread_memory_usage" class="card-title my-auto text-center"> {{ thread_memory_usage }} </h5>
+          </div>
+        </div>
+        <div class="card col-6 border-0">
+          <div class="w-100 mb-3 h-50">
+            <h6 class="text-muted text-center small">WAIT TIME</h6>
+            <h5 id="t_{{ thread_id }}_thread_total_wait_time" class="card-title my-auto text-center"> {{ thread_total_wait_time }} </h5>
+          </div>
+          <div class="w-100 h-50">
+            <h6 class="text-muted text-center small">BLOCKED TIME</h6>
+            <h5 id="t_{{ thread_id }}_thread_total_block_time" class="card-title my-auto text-center"> {{ thread_total_block_time }} </h5>
+          </div>
+        </div>
+      </div>
+      </div>
+  </div>
+</div>

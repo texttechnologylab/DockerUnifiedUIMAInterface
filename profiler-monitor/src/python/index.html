@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <title>DUUI-Monitor</title>
+    <script src="https://unpkg.com/feather-icons"></script>
+    <link rel="icon" href="https://cdn.jsdelivr.net/npm/feather-icons@4.28.0/dist/icons/activity.svg" type="image/svg+xml">
+    <script src="https://unpkg.com/htmx.org@1.9.4" integrity="sha384-zUfuhFKKZCbHTY6aRR46gxiqszMk5tcHjsVFxnUo8VMus4kHGVdIYVbOYYNlKmHV" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/htmx.org/dist/ext/ws.js"></script>
+    <!-- <script defer>
+      htmx.onLoad(function(elt){console.log(elt);htmx.process(elt)})
+
+      
+    </script> -->
+  </head>
+  <body class="">
+    <!-- <nav class="rounded navbar navbar-expand-xl bg-body-tertiary m-4">
+      <div class="container-fluid">
+        <h2 class="navbar-brand">DUUI-Monitor</h2>
+      </div>
+    </nav> -->
+
+    <nav class="navbar navbar-expand navbar-light navbar-bg shadow-lg">
+      <a class="sidebar-toggle js-sidebar-toggle">
+        <i class="hamburger align-self-center"></i>
+      </a>
+      <div class="container-fluid">
+        <a class="navbar-brand" href="#">DUUI-Monitor</a>
+      </div>
+      
+
+      <ul class="navbar-nav d-none d-lg-flex">
+        <li class="nav-item px-2 dropdown">
+          <a class="nav-link dropdown-toggle" href="#" id="megaDropdown" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+            Mega Menu
+          </a>
+          <div class="dropdown-menu dropdown-menu-start dropdown-mega" aria-labelledby="megaDropdown">
+            <div class="d-md-flex align-items-start justify-content-start">
+              <div class="dropdown-mega-list">
+                <div class="dropdown-header">UI Elements</div>
+                <a class="dropdown-item" href="#">Alerts</a>
+                <a class="dropdown-item" href="#">Buttons</a>
+                <a class="dropdown-item" href="#">Cards</a>
+                <a class="dropdown-item" href="#">Carousel</a>
+                <a class="dropdown-item" href="#">General</a>
+                <a class="dropdown-item" href="#">Grid</a>
+                <a class="dropdown-item" href="#">Modals</a>
+                <a class="dropdown-item" href="#">Tabs</a>
+                <a class="dropdown-item" href="#">Typography</a>
+              </div>
+              <div class="dropdown-mega-list">
+                <div class="dropdown-header">Forms</div>
+                <a class="dropdown-item" href="#">Layouts</a>
+                <a class="dropdown-item" href="#">Basic Inputs</a>
+                <a class="dropdown-item" href="#">Input Groups</a>
+                <a class="dropdown-item" href="#">Advanced Inputs</a>
+                <a class="dropdown-item" href="#">Editors</a>
+                <a class="dropdown-item" href="#">Validation</a>
+                <a class="dropdown-item" href="#">Wizard</a>
+              </div>
+              <div class="dropdown-mega-list">
+                <div class="dropdown-header">Tables</div>
+                <a class="dropdown-item" href="#">Basic Tables</a>
+                <a class="dropdown-item" href="#">Responsive Table</a>
+                <a class="dropdown-item" href="#">Table with Buttons</a>
+                <a class="dropdown-item" href="#">Column Search</a>
+                <a class="dropdown-item" href="#">Muulti Selection</a>
+                <a class="dropdown-item" href="#">Ajax Sourced Data</a>
+              </div>
+            </div>
+          </div>
+        </li>
+
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" id="resourcesDropdown" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+            Resources
+          </a>
+          <div class="dropdown-menu" aria-labelledby="resourcesDropdown">
+            <a class="dropdown-item" href="https://adminkit.io/" target="_blank"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-home align-middle me-1"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+              Homepage</a>
+            <a class="dropdown-item" href="https://adminkit.io/docs/" target="_blank"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-book-open align-middle me-1"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
+              Documentation</a>
+            <a class="dropdown-item" href="https://adminkit.io/docs/getting-started/changelog/" target="_blank"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-edit align-middle me-1"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg> Changelog</a>
+          </div>
+        </li>
+      </ul>
+
+    </nav>
+
+    <main hx-ext="ws" ws-connect="/ws" class="px-2">
+      
+      <!-- SYSTEM DASHBOARD sse-connect="/system_update" -->
+      <div class="container-fluid m-1 gap-1 rounded-0" id="systemDashboard">
+        <div class="row mt-1 mb-2 mb-xl-3">
+          <div class="col-auto d-none d-sm-block">
+            <h3><strong>System</strong></h3>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-12 d-flex">
+            <div class="w-100">
+              <div class="row">
+                <div class="col-sm-5">
+                  <div class="card h-100 border-0 shadow-lg">
+                    <div class="px-3 py-2">
+                      <div class="row">
+                        <div class="col-auto mt-n1">
+                          <h6 id="os_name" class="card-title"></h6>
+                          <h6 class="card-subtitle text-muted small">
+                            <span id="os_version"></span> | <span id="os_arch"></span>
+                          </h6>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="card-body w-100 p-3">
+                      <div class="row mb-2">
+                        <div class="card col-6 border-0">
+                          <div class="w-100 mb-1 h-75">
+                            <h6 class="text-muted text-center small">CPU LOAD AVERAGE</h6>
+                            <h5 id="dy_cpu_load_average" class="card-title my-auto text-center"></h5>
+                          </div>
+                          <div class="w-100 h-25">
+                            <h6 class="text-muted text-center small">CPU CORES</h6>
+                            <h5 id="os_processors" class="card-title my-auto text-center"></h5>
+                          </div>
+                        </div>
+                        <div class="card col-6 border-0">
+                          <h6 class="text-muted text-center small">HOST USED MEMORY / HOST TOTAL MEMORY</h6>
+                          <h5 class="card-title my-auto text-center">
+                            <span id="dy_system_memory_used"></span> / <span id="dy_system_memory_total"></span>
+                          </h5>
+                        </div>
+                      </div>
+                      </div>
+                  </div>
+                </div>
+                <div class="col-sm-7">
+                  <div class="h-100 rounded-0 shadow-lg">
+                    <div class="px-3 py-2 ">
+                      <div class="row">
+                        <div class="col-auto mt-n1">
+                          <h6 class="card-title">JVM</h6>
+                          <h6 class="card-subtitle text-muted small">11 | <span id="os_jvm_vendor" ></span></h6>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="card-body w-100 p-3">
+                      <div class="row mb-2 pb-4">
+                        <div class="card col-4 border-0">
+                          <h6 class="text-muted text-center small">JVM CPU LOAD / SYSTEM LOAD AVERAGE</h6>
+                          <h5 class="card-title my-auto text-center">
+                            <span id="dy_cpu_jvm_load"></span> / <span id="dy_cpu_system_load"></span>
+                          </h5>
+                        </div>
+                        <div class="card col-4 border-0">
+                          <div class="w-100 mb-1 h-75">
+                            <h6 class="text-muted text-center small">USED MEMORY / TOTAL MEMORY</h6>
+                            <h5 class="card-title my-auto text-center">
+                              <span id="dy_memory_used"></span> / <span id="dy_memory_total"></span>
+                            </h5>
+                          </div>
+                          <div class="w-100 h-25">
+                            <h6 class="text-muted text-center small">JVM MAX MEMORY</h6>
+                            <h5 id="os_jvm_max_memory" class="card-title my-auto text-center"></h5>
+                          </div>
+                        </div>
+                        <div class="card col-4 border-0">
+                          <div class="w-100 mb-2">
+                            <h6 class="text-muted text-center small">HEAP USED / HEAP COMMITTED</h6>
+                            <h5 class="card-title my-auto text-center">
+                              <span id="dy_memory_heap_used"></span> / <span id="dy_memory_heap_committed"></span>
+                            </h5>
+                          </div>
+                          <div class="w-100">
+                            <h6 class="text-muted text-center small">NON-HEAP USED / NON-HEAP COMMITTED</h6>
+                            <h5 class="card-title my-auto text-center">
+                              <span id="dy_memory_non_heap_used"></span> / <span id="dy_memory_non_heap_committed"></span>
+                            </h5>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      
+      <!--  PIPELINE DASHBOARD sse-connect="/pipeline_update"  -->
+
+      <div class="container-fluid m-1 p-1 rounded-0"  id="pipelineDashboard">
+        <div class="row mb-2 mb-xl-3">
+          <div class="col-auto d-none d-sm-block">
+            <h3><strong>Pipeline</strong></h3>
+          </div>
+          <div class="col-auto mt-1">
+            <small class="d-inline-flex my-auto px-2 py-1 fw-semibold text-success-emphasis bg-success-subtle border border-success-subtle rounded-0">Running</small>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-sm-6">
+            <div class="card h-100 border-0 mx-1 shadow-lg rounded-0">
+              <div class="px-3 py-2">
+                <div class="row">
+                  <div class="col-auto mt-n1">
+                    <h4 class="card-title">Pipeline Configuration</h4>
+                  </div>
+                </div>
+              </div>
+              <div class="card-body w-100 p-3">
+                <div class="row mb-2">
+                  <div class="card col-6 border-0">
+                    <div class="w-100 mb-3 h-50">
+                      <h6 class="text-muted text-center small">PIPELINE RUN NAME</h6>
+                      <h5 id="pipeline_name" class="card-title my-auto text-center"></h5>
+                    </div>
+                    <div class="w-100 h-50">
+                      <h6 class="text-muted text-center small">PIPELINE DURATION</h6>
+                      <h5 id="pipeline_duration" class="card-title my-auto text-center"></h5>
+                    </div>
+                  </div>
+                  <div class="card col-6 border-0">
+                    <div class="w-100 mb-3 h-50">
+                      <h6 class="text-muted text-center small">WORKER COUNT</h6>
+                      <h5 id="pipeline_workers" class="card-title my-auto text-center"></h5>
+                    </div>
+                    <div class="w-100 h-50">
+                      <h6 class="text-muted text-center small">DOCUMENT COUNT</h6>
+                      <h5 id="pipeline_document_count" class="card-title my-auto text-center"></h5>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-sm-6">
+            <div class="card h-100 border-0 mx-1 shadow-lg rounded-0">
+              <div class="px-3 py-2">
+                <div class="row">
+                  <div class="col-auto mt-n1">
+                    <h4 class="card-title">Pipeline Graph</h4>
+                  </div>
+                </div>
+              </div>
+              <div class="card-body p-3">
+                <div id="pipeline_graph" class="text-center">
+                  
+                  <!-- <figcaption class="mx-auto small figure-caption">Time to produce image: <span>{{ engine_duration }}</span></figcaption> -->
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- COMPONENT DASHBOARD -->
+
+      <div class="container-fluid m-1 p-1 rounded-0"  id="componentDashboard">
+        <div class="row mb-2 mb-xl-3">
+          <div class="col-auto d-none d-sm-block">
+            <h3><strong></strong></h3>
+          </div>
+        </div>
+        <div class="row gap-4 flex-nowrap overflow-auto" id="scrollable-components">
+
+        </div>
+      </div>
+
+      <!-- THREADS DASHBOARD sse-connect="/thread_update" -->
+
+      <div class="container-fluid m-1 p-1 gap-1 rounded-0" id="threadsDashboard">
+        <div class="row mb-2 mb-xl-3">
+          <div class="col-auto d-none d-sm-block">
+            <h3><strong>Host-Threads</strong></h3>
+          </div>
+        </div>
+        <div class="row gap-3 flex-nowrap overflow-auto" id="scrollable-threads">
+          
+        </div>
+      </div>
+
+      <!-- DOCKER DASHBOARD -->
+
+      <div class="container-fluid m-1 p-1 rounded-0"  id="dockerDashboard">
+        <div class="row mb-2 mb-xl-3">
+          <div class="col-auto d-none d-sm-block">
+            <h3><strong>Docker Container</strong></h3>
+          </div>
+        </div>
+        <div class="row gap-3 flex-nowrap overflow-auto" id="scrollable-docker">
+          
+        </div>
+      </div>
+    </main>
+    <!-- End Example Code -->
+  </body>
+  <script defer>
+    const scrollThreads = document.getElementById("scrollable-threads");
+    const scrollContainer = document.getElementById("scrollable-docker");
+    const scrollComponents = document.getElementById("scrollable-components");
+    scrollComponents.addEventListener("wheel", (event) => {
+      event.preventDefault();
+      scrollComponents.scrollLeft += event.deltaY;
+    });
+    scrollThreads.addEventListener("wheel", (event) => {
+      event.preventDefault();
+      scrollThreads.scrollLeft += event.deltaY;
+    });
+    scrollContainer.addEventListener("wheel", (event) => {
+      event.preventDefault();
+      scrollContainer.scrollLeft += event.deltaY;
+    });
+    // const monitor = new WebSocket("ws://localhost:8086/v1/updates");
+    // let pipeline_set = false;
+    // const document_measurements = document.getElementById("document_measurements")
+
+    // addEventListener("beforeunload", (event) => {monitor.close()});
+
+    // monitor.onmessage = async (msg) => {
+    //   let update = JSON.parse(msg.data)
+    //   console.log(update)
+    //   if (update["pipeline"] === null 
+    //       && update["document"] === null 
+    //       && update["document_table"] === null
+    //       && update["graph"] === null)
+    //     return;
+
+    //   console.log(update)
+
+    //   if (update["pipeline"] !== null) {
+    //     let pipeline = JSON.parse(update["pipeline"])
+    //     let name = document.getElementById("pipeline-name")
+    //     if (name !== null && pipeline["name"] !== null) 
+    //       name.innerText = pipeline["name"]
+
+    //     let workers = document.getElementById("pipeline-workers")
+    //     if (workers !== null && pipeline["workers"] !== null) 
+    //       workers.innerText = pipeline["workers"]
+
+    //     let document_count = document.getElementById("pipeline-documents")
+    //     if (document_count !== null && pipeline["document_count"] !== null) 
+    //       document_count.innerText = pipeline["document_count"]
+
+    //     let duration = document.getElementById("pipeline-duration")
+    //     if (duration !== null && pipeline["duration"] !== null) 
+    //       duration.innerText = pipeline["duration"]
+    //   } 
+      
+    //   if (update["document"] !== null) {
+    //     let doc = JSON.parse(update["document"])
+    //     let card = document.getElementById(doc["name"])
+    //     if (card === null) {
+    //       document_measurements.innerHTML += doc["body"].trim()
+    //     }
+    //   }
+
+    //   if (update["document_table"] !== null) {
+    //     let doc = JSON.parse(update["document_table"])
+    //     let tablebody = document.getElementById(`${doc["name"]}-document-table`)
+    //     if (tablebody !== null && doc["measurement"] !== null) {
+    //       tablebody.innerHTML += doc["measurement"].trim()
+    //     }
+    //   }
+
+    //   if (update["graph"] !== null) {
+    //     let graph = JSON.parse(update["graph"])
+    //     let bodyhtml = document.getElementById(`${graph["name"]}-graph`) 
+    //     if (bodyhtml !== null) {
+    //       bodyhtml.innerHTML = graph["body"].trim()
+    //     }
+    //   }
+    // };
+  </script>
+</html>

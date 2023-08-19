@@ -13,8 +13,12 @@ import org.xml.sax.SAXException;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashSet;
 
 public interface IDUUIDriver {
+
+    HashSet<String> _components = new HashSet<>(100);
+
     public default void setLuaContext(DUUILuaContext luaContext) {};
     public boolean canAccept(DUUIPipelineComponent component) throws InvalidXMLException, IOException, SAXException;
     public String instantiate(DUUIPipelineComponent component, JCas jc, boolean skipVerification) throws Exception;

@@ -1,0 +1,174 @@
+Translation Thread State
+    RUNNING, NEW -> RUNNING
+    WAITING, TIMED_WAITING -> WARNING
+    BLOCKED -> WARNING
+    EXITED -> DANGER
+
+Translation Docker Container State 
+    RUNNING -> SUCCESS
+    PAUSED -> WARNING
+    RESTARTING -> WARNING 
+    EXITED -> DANGER
+
+Graphs
+    - Avg. Component Waiting in Pie Chart with different types of waiting (parent wait, urlwait, memory-wait, ...)
+    - Per Component Pie Chart
+    - Memory Chart with two lines: used / limit 
+    - Memory Chart growth heap-memory vs. growth non-heap-memory
+    - CPU Chart: jvm_load / system_load
+
+
+Tasks
+    - Gather Data
+        - System-Info ✅
+        - Composer-Config-Class
+        - ResourceManager 
+            - Drivers register themselves
+            - DUUIWorker registers Thread 
+            - 
+    - Build Website Template
+        - System-View 
+            - Host
+                - Threads
+                - CPU
+                - Memory
+            - Docker-Containers
+                - CPU
+                - Memory
+                - I/O
+        - Document-View 
+            - Pipeline-Overview
+            - Single-Document-Card with Table + SVG
+    - Build Proper Connection between Monitor Server and DUUI
+        - Jinja2 HTML Templates
+        - Dynamically Insert Data
+    
+
+
+
+ResourceManager 
+
+    - # Instances of Component 
+    - ByteArrayOutputStreams for Serialization and Deserialization
+
+Approximation of created objects:
+    - DUUIWorker: #Components * #Documents
+    - ComponentLock: #Component * #Inputs * #Documents
+    - ByteArrays: #Components * #Documents
+    - JCAS: #Documents 
+
+
+Estimated Parameters / Optimized Solutions
+    - # Workers 
+    - Scale of Component => Starting Components at optimal points 
+    - ByteArrayOutputStreams Memory Size 
+    - Different ExecutorServices (CachedPool)
+    - Phases on top of CountDownLatches
+
+Profiler 
+    - Features 
+        - Scheduled Data-Gathering and Dispatch
+    - Status => RUNNING FINISHED FAILED? & button to download database On Navigation Bar
+        Implementation: Periodic GET Request
+    - Sidebar
+        - Document-View 
+        - System-View
+        Implementation: Bootstrap-Template
+    - Documents-View 
+        - Pipeline-Overview 
+            - Settings
+                - #Workers
+                - #Documents
+                - Document-Wait-Time
+            - SVG of Pipeline Graph
+            Implementation:
+                Multiple events in different elements (from the same source).
+                <div hx-ext="sse" sse-connect="/server-url">
+                    <div sse-swap="event1"></div>
+                    <div sse-swap="event2"></div>
+                </div>
+        - Document-Overview ✅
+            - Document: 
+                - JCas-Info:
+                    - Name 
+                    - Title
+                    - Initial Size [bytes]
+                    
+                - Measurement Per Component: 
+                    - Signature
+                    - URL-Wait [s] 
+                    - Serialization-Wait [s]
+                    - Deserialization-Wait [s] 
+                    - Annotator-Wait [s]  
+                    - Component-Total [s]
+                    - # Annotations 
+                    - Size After Annotation [bytes]
+                    ???
+                    - 
+                - Minimal SVG
+                Implementation: 
+                    Multiple events in different elements (from the same source).
+                    <div hx-ext="sse" sse-connect="/documents" sse-swap="documents">
+                        <div hx-ext="sse" sse-connect="/document?name={document_name}">
+                            {JCas-Info}
+                            <div sse-swap="{document_name}-document_info"></div>
+                            <thead></thead>
+                            <div sse-swap="{document_name}-measurement"></div>
+                            <div sse-swap="{document_name}-svg"></div>
+                        </div>
+                    </div>
+    - System-View
+        - Host
+            - Static:
+                os_processors: int
+                os_version: str
+                os_name: str
+                os_arch: str
+                os_jvm_vendor: str
+                os_jvm_max_memory: int 
+            Implementation: 
+                <div hx-ext="sse" sse-connect="/static" sse-swap="static">
+                </div>
+                <div hx-ext="sse" sse-connect="/dynamic" sse-swap="dynamic">
+                </div>
+            - Thread: 
+                thread_id: int
+                thread_name: str
+                thread_state: str 
+                thread_total_wait_time: int # milliseconds
+                thread_total_block_time: int # milliseconds
+                thread_memory_usage: int 
+
+            
+            - CPU
+                cpu_load_average: float
+                cpu_load: float 
+                cpu_system_load: float
+            - Memory
+                memory_heap_used: int 
+                memory_heap_committed: int
+                memory_non_heap_used: int
+                memory_non_heap_committed: int 
+                memory_free: int 
+                memory_total: int
+                # - Average-JCas-Memory-Usage
+                # - Approx-Resource-Memory-Usage: [bytes]
+                #     - ComponentLocks
+                #     - IDUURLAccessible
+                #     - ComponentInstance
+                #     - DUUIWorker
+
+
+        - Docker-Containers
+            - Container-Info:
+                - Name 
+                - Hash? 
+            cpu_usage: float 
+            memory_usage: int
+            memory_max_usage: int 
+            num_procs: int
+
+            Implementation:
+                
+        # - Docker-Swarm-Redirect?
+        

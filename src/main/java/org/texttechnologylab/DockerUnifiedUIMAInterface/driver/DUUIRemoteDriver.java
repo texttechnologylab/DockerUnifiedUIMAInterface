@@ -2,10 +2,10 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface.driver;
 
 import org.apache.commons.compress.compressors.CompressorStreamFactory;
 import org.apache.uima.jcas.JCas;
-import org.texttechnologylab.ResourceManager;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUICompressionHelper;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUIResource;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.ResourceManager;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.DUUIWebsocketAlt;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.IDUUIConnectionHandler;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
@@ -25,13 +25,12 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
-public class DUUIRemoteDriver implements IDUUIConnectedDriver, IDUUIResource {
+public class DUUIRemoteDriver implements IDUUIConnectedDriver{
     private Map<String, IDUUIInstantiatedPipelineComponent> _components;
     private HttpClient _client;
     private IDUUIConnectionHandler _wsclient = null;
     private DUUICompressionHelper _helper;
     private DUUILuaContext _luaContext;
-    private ResourceManager _rm = ResourceManager.getInstance();  
 
 
 
@@ -53,14 +52,6 @@ public class DUUIRemoteDriver implements IDUUIConnectedDriver, IDUUIResource {
 
     public void setLuaContext(DUUILuaContext luaContext) {
         _luaContext = luaContext;
-    }
-    
-    public ResourceManager getResourceManager() {
-        return _rm;
-    }
-
-    public void setResourceManager(ResourceManager rm) {
-        _rm = rm; 
     }
 
     public boolean canAccept(DUUIPipelineComponent component) {
@@ -101,7 +92,7 @@ public class DUUIRemoteDriver implements IDUUIConnectedDriver, IDUUIResource {
                 added_communication_layer = true;
             }
             for (int i = 0; i < comp.getScale(); i++) {
-                comp.addComponent(new ComponentInstance(url,layer.copy(), _wsclient));
+                comp.returnInstance(new ComponentInstance(url,layer.copy(), _wsclient));
             }
             _components.put(uuid, comp);
             System.out.printf("[RemoteDriver][%s] Remote URL %s is online and seems to understand DUUI V1 format!\n", uuid, url);
@@ -190,7 +181,6 @@ public class DUUIRemoteDriver implements IDUUIConnectedDriver, IDUUIResource {
     static class InstantiatedComponent implements IDUUIInstantiatedPipelineComponent {
         List<String> _urls;
         BlockingQueue<ComponentInstance> _components;
-        ResourceManager _manager;
         String _uniqueComponentKey;
         DUUIPipelineComponent _component;
         Signature _signature; 
@@ -207,22 +197,14 @@ public class DUUIRemoteDriver implements IDUUIConnectedDriver, IDUUIResource {
             _components = new LinkedBlockingQueue<ComponentInstance>(getScale());
         }
 
-        public void addComponent(IDUUIUrlAccessible access) {
+        public void returnInstance(IDUUIUrlAccessible access) {
             _components.add((ComponentInstance) access);
         }
 
         public DUUIPipelineComponent getPipelineComponent() {
             return _component;
         }
-
-        public void setResourceManager(ResourceManager manager) {
-            _manager = manager;
-        }
-
-        public ResourceManager getResourceManager() {
-            return _manager; 
-        }
-
+        
         public String getUniqueComponentKey() {
             return _uniqueComponentKey;
         }
