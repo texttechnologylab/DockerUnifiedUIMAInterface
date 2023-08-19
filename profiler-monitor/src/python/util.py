@@ -10,20 +10,32 @@ def format_bytes(num_bytes: float) -> str:
 
 def format_time(num_time: float, format_str: str) -> str:
     units = {
-        "seconds": 1,
-        "milliseconds": 1000,
-        "microseconds": 1000000,
-        "nanoseconds": 1000000000
+        "seconds": lambda x: f"{num_time:.2f} s",
+        "milliseconds": format_milli,
+        "microseconds": lambda x: f"{num_time:.2f} us",
+        "nanoseconds": format_nano
     }
     for unit in ['seconds', 'milliseconds', 'microseconds', 'nanoseconds']:
         if format_str == unit:
-            break
-        num_time *= units[unit]
-    for unit in ['s', 'ms', 'us', 'ns']:
-        if abs(num_time) < 1000.0:
-            return f"{num_time:.2f} {unit}"
-        num_time /= 1000.0
-    return f"{num_time:.2f} s"
+            return units[unit](num_time)
+
+def format_milli(num_time: float) -> str:
+    if num_time < 1000:
+        return f"{num_time:.2f} ms"
+    else:
+        return f"{num_time / 1000:.2f} s"
+
+def format_nano(num_time: float) -> str:
+    if num_time < 1000:
+        return f"{num_time:.2f} ns"
+    elif num_time < 1_000_000:
+        return f"{num_time / 1000:.2f} μs"
+    elif num_time < 1_000_000_000:
+        return f"{num_time / 1000000:.2f} ms"
+    else:
+        return f"{num_time / 1000000000:.2f} s"
+
+
 
 def format_state(state: str):
 

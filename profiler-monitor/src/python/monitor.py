@@ -84,10 +84,10 @@ async def shutdown_event():
 
 @app.post("/v1/status")
 async def status(info: Status):
-    global run_active, state, system_state, thread_states, docker_states, document_states
+    global state, system_state, thread_states, docker_states, document_states
     
     if info.status.upper() == "STARTED":
-        run_active = True
+        # run_active = True
         state = PipelineState()
         system_state = SystemState()
         thread_states = ThreadStates()
@@ -309,9 +309,9 @@ async def document_poll():
         if not run_active:
             end = True
 
-
+measurement_init: Dict[str, bool] = {}
 async def document_measurements_poll():
-    measurement_init: Dict[str, bool] = {}
+    global measurement_init
     end = False
     while not end:
         for did, ds in document_states.document_states.items():
@@ -340,8 +340,9 @@ async def graph_poll():
             end = True
 
 
+container_sent_dict: Dict[str, bool] = {}
 async def container_stats_poll():
-    container_sent_dict: Dict[str, bool] = {}
+    global container_sent_dict
     end = False
     while not end:
         for tid, ts in docker_states.docker_states.items():
@@ -366,8 +367,9 @@ async def container_stats_poll():
             end = True
 
 
+thread_sent_dict: Dict[str, bool] = {}
 async def thread_stats_poll():
-    thread_sent_dict: Dict[str, bool] = {}
+    global thread_sent_dict
     end = False
     while not end:
         for tid, ts in thread_states.threads.items():
@@ -457,8 +459,13 @@ async def combined_poll():
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
+    global container_sent_dict, measurement_init, thread_sent_dict
     poll_gen: Callable[[], AsyncGenerator[Any, Any]] = combined_poll
     await websocket.accept()
+    container_sent_dict = {}
+    measurement_init = {}
+    thread_sent_dict = {}
+
     async for update in poll_gen():
         await websocket.send_text(update)
 
