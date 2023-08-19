@@ -11,6 +11,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.Vector;
+import java.util.Map.Entry;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
@@ -27,7 +28,9 @@ import java.util.concurrent.RunnableFuture;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import org.apache.uima.fit.util.JCasUtil;
@@ -151,6 +154,7 @@ public class DUUIParallelPipelineExecutor extends DUUILinearPipelineExecutor imp
                 executor.getQueue().add(r);
                 // we do this after the put() to stop race conditions
                 if (executor.isShutdown()) {
+                    System.out.println("");
                     throw new RejectedExecutionException(
                         "Task " + r + " rejected from " + executor);
                 }
@@ -308,15 +312,24 @@ public class DUUIParallelPipelineExecutor extends DUUILinearPipelineExecutor imp
 
     public void shutdown() throws Exception {
         getResourceManager().setBatchReadIn(true);
+
+        BooleanSupplier isFinished = () -> 
+        {
+            return _completedComponentInstances.entrySet().stream()
+            .map(Entry::getValue)
+            .map(AtomicInteger::get)
+            .allMatch(Predicate.isEqual(_registeredDocumentsCount.get()));
+        };
+
         try {
-            while (!_executor.getQueue().isEmpty()) {
-                Thread.sleep(3000);
+            while (!isFinished.getAsBoolean()) {
+                Thread.sleep(500);
                 // System.out.printf("Awaiting Threadpool! Queue size %d: | Completed Tasks: %d %n", 
                 //     _executor.getQueue().size(), _executor.getCompletedTaskCount());
             }
 
             _executor.shutdown();
-            while (_executor.awaitTermination(100, TimeUnit.MILLISECONDS)) {}
+            while (!_executor.awaitTermination(100, TimeUnit.MILLISECONDS)) {}
         } catch (Exception e) {
             _executor.shutdownNow();
             throw e; 

@@ -8,6 +8,7 @@ import java.lang.management.MemoryUsage;
 import java.lang.management.OperatingSystemMXBean;
 import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -17,6 +18,7 @@ import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -47,7 +49,7 @@ public class ResourceManager extends Thread {
     static final AtomicBoolean _finished = new AtomicBoolean(false);
     static final HashSet<Thread> _activeThreads = new HashSet<>(20);
     static final Map<Long, Thread> _workerThreads = new ConcurrentHashMap<>(20);
-
+    static final CountDownLatch finishLock = new CountDownLatch(1);
 
     CasPool _casPool;     
 
@@ -117,6 +119,7 @@ public class ResourceManager extends Thread {
                 // Collection phase
                 dispatchSystemDynamicInfo();
                 dispatchResourceInfo();
+                
 
                 // Scaling phase
                 scale();
@@ -124,11 +127,14 @@ public class ResourceManager extends Thread {
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+        } finally {
+            finishLock.countDown();
         }
     }
 
-    public void finishManager() {
+    public void finishManager() throws InterruptedException {
         _finished.set(true);
+        finishLock.await();
     }
 
     void scale() {
