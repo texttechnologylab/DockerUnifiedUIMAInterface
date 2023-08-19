@@ -11,6 +11,7 @@ import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidParameterException;
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeoutException;
@@ -143,13 +144,19 @@ public interface IDUUIConnectedDriver extends IDUUIDriver {
                 }
             }
         }
-        if(skipVerification) {
-            return layer;
-        }
+
+        if (!skipVerification)
+            verify(url, client, layer, jc);
+        
+        return layer;
+
+    }
+
+    public default void verify(String url, HttpClient client, IDUUICommunicationLayer layer, JCas jc) throws Exception {
         ByteArrayOutputStream stream = new ByteArrayOutputStream();
         try {
             //TODO: Make this accept options to better check the instantiation!
-            layer.serialize(jc, stream,null);
+            layer.serialize(jc, stream, new HashMap<>(0));
         }
         catch(Exception e) {
             e.printStackTrace();
@@ -162,20 +169,19 @@ public interface IDUUIConnectedDriver extends IDUUIDriver {
                 .POST(HttpRequest.BodyPublishers.ofByteArray(stream.toByteArray()))
                 .build();
                 HttpResponse<byte[]> resp = client.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray()).join();
-                if (resp.statusCode() == 200) {
-                    ByteArrayInputStream inputStream = new ByteArrayInputStream(resp.body());
-                    try {
-                        layer.deserialize(jc, inputStream);
-                    }
-                    catch(Exception e) {
-                        System.err.printf("Caught exception printing response %s\n",new String(resp.body(), StandardCharsets.UTF_8));
-                        throw e;
-                    }
-                    return layer;
-                }
-                else {
-                    throw new Exception(format("The container returned response with code != 200\nResponse %s",resp.body().toString()));
-                }
+        if (resp.statusCode() == 200) {
+            ByteArrayInputStream inputStream = new ByteArrayInputStream(resp.body());
+            try {
+                layer.deserialize(jc, inputStream);
+            }
+            catch(Exception e) {
+                System.err.printf("Caught exception deserializing response: %s\n",new String(resp.body(), StandardCharsets.UTF_8));
+                throw e;
+            }
+        }
+        else {
+            throw new Exception(format("The container returned response with code != 200\nResponse %s",resp.body().toString()));
+        }
     }
 
     public default void run(String uuid, JCas aCas, DUUIPipelineDocumentPerformance perf) throws InterruptedException, IOException, SAXException, AnalysisEngineProcessException, CompressorException, CASException {

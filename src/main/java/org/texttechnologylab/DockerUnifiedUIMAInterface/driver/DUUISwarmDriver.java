@@ -4,16 +4,14 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface.driver;
 import org.apache.uima.UIMAException;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.jcas.JCas;
-import org.texttechnologylab.ResourceManager;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIDockerInterface;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUIResource;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.ResourceManager;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.DUUIWebsocketAlt;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.IDUUIConnectionHandler;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.IDUUICommunicationLayer;
-
-import com.influxdb.client.domain.Block;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
@@ -26,7 +24,6 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
 import static java.lang.String.format;
@@ -39,7 +36,6 @@ public class DUUISwarmDriver implements IDUUIConnectedDriver, IDUUIResource {
     private int _container_timeout;
     private DUUILuaContext _luaContext;
     private String _withSwarmVisualizer;
-    private ResourceManager _rm = ResourceManager.getInstance();  
 
 
 
@@ -67,14 +63,6 @@ public class DUUISwarmDriver implements IDUUIConnectedDriver, IDUUIResource {
 
     public Map<String, IDUUIInstantiatedPipelineComponent> getComponents() {
         return _active_components;
-    }
-
-    public ResourceManager getResourceManager() {
-        return _rm;
-    }
-
-    public void setResourceManager(ResourceManager rm) {
-        _rm = rm; 
     }
 
     public DUUISwarmDriver withSwarmVisualizer() throws InterruptedException {
@@ -239,7 +227,6 @@ public class DUUISwarmDriver implements IDUUIConnectedDriver, IDUUIResource {
         private final String _fromLocalImage;
         private final BlockingQueue<ComponentInstance> _components;
         private DUUIPipelineComponent _component;
-        private ResourceManager _manager;
         private Signature _signature; 
 
         InstantiatedComponent(DUUIPipelineComponent comp) {
@@ -277,15 +264,7 @@ public class DUUISwarmDriver implements IDUUIConnectedDriver, IDUUIResource {
         public DUUIPipelineComponent getPipelineComponent() {
             return _component;
         }
-
-        public void setResourceManager(ResourceManager manager) {
-            _manager = manager;
-        }
-
-        public ResourceManager getResourceManager() {
-            return _manager; 
-        }
-
+    
         public String getUniqueComponentKey() {
             return "";
         }
@@ -344,7 +323,7 @@ public class DUUISwarmDriver implements IDUUIConnectedDriver, IDUUIResource {
             return _signature; 
         }
 
-        public void addComponent(IDUUIUrlAccessible item) {
+        public void returnInstance(IDUUIUrlAccessible item) {
             _components.add((ComponentInstance) item);
         }
     }

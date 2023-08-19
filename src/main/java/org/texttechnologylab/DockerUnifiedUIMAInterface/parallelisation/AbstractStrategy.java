@@ -1,6 +1,6 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation;
 
-public abstract class AbstractStrategy implements PoolStrategy{
+public abstract class AbstractStrategy implements PoolStrategy {
     int _corePoolSize;
     int _maxPoolSize; 
 

@@ -1,10 +1,10 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface;
 
 import java.util.HashMap;
+import java.util.Map;
 
 import org.javatuples.Pair;
-import org.json.JSONObject;
-import org.texttechnologylab.ResourceManager;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.ResourceManager.ResourceStatistics;
 
 import com.github.dockerjava.api.command.InspectContainerResponse.ContainerState;
 import com.github.dockerjava.api.model.StatisticNetworksConfig;
@@ -15,56 +15,20 @@ public interface IDUUIResource {
 
     static HashMap<String, Pair<Float, Float>> preCPUStats = new HashMap<>();
 
-    public default ResourceManager getResourceManager() {
-        return ResourceManager.getInstance();
-    };
+    public static Map<String, Object> getContainerStats(
+        DUUIDockerInterface _interface, 
+        Map<String, Object> containerStats,  
+        String containerId, 
+        String imageId) {
 
-    public default JSONObject collect() {
-        return null; 
-    }
-
-    public default void scaleDown() {
-        System.out.println("[IDUUIResource] scaleDown not yet implemented");
-    };
-    
-    public default void scaleDown(String uuid) {
-        System.out.println("[IDUUIResource] scaleDown not yet implemented");
-    };
-    
-    public default void scaleUp() {
-        System.out.println("[IDUUIResource] scaleUp not yet implemented");
-    };
-    
-    public default void scaleUp(String uuid) {
-        System.out.println("[IDUUIResource] scaleUp not yet implemented");
-    };
-
-    public static JSONObject getContainerStats(DUUIDockerInterface _interface, JSONObject containerStats,  String containerId, String imageId) {
-        try {
+        try {   
             ContainerState state = _interface.getDockerClient().inspectContainerCmd(containerId).exec().getState();
             String status = state.getStatus();
             containerStats.put("status", status);
-        } catch (Exception e) {
-            System.out.println(e);
-            return containerStats; 
-        }
-        try {
+
             Statistics stats = _interface.get_stats(containerId);
 
-            float preCPU; float preSystemCpu;
-            if (preCPUStats.containsKey(containerId)) {
-                preCPU = preCPUStats.get(containerId).getValue0();
-                preSystemCpu = preCPUStats.get(containerId).getValue1();
-            } else {
-                preCPU = stats.getPreCpuStats().getCpuUsage().getTotalUsage().floatValue();
-                preSystemCpu = stats.getPreCpuStats().getSystemCpuUsage().floatValue();
-                preCPUStats.put(containerId, Pair.with(preCPU, preSystemCpu));
-            }
-
-            float cpuPercent = -1.0f;
-            float cpuDelta = stats.getCpuStats().getCpuUsage().getTotalUsage().floatValue() - preCPU;
-            float systemDelta = stats.getCpuStats().getSystemCpuUsage().floatValue() - preSystemCpu;
-            cpuPercent = (cpuDelta / systemDelta) * stats.getCpuStats().getOnlineCpus() * 100F;
+            float cpuPercent = getCPUStats(containerId, stats);
             
             long network_i = -1L;
             long network_o = -1L;
@@ -85,8 +49,51 @@ public interface IDUUIResource {
             containerStats.put("image_id", imageId);
             return containerStats; 
         } catch (Exception e) {
-            System.out.println(e);
+            System.out.printf("[%s] Error retrieving docker container stats: %s %n %s %n", 
+                Thread.currentThread().getName(), e,  e.getLocalizedMessage()    
+            );
             return containerStats;  
         }
+    };
+
+    /*
+     * 
+     * Taken from: https://shihtiy.com/posts/ECS-calculate-CPU-utilization-metadata-endpoing/
+     */
+    static float getCPUStats(String containerId, Statistics stats) {
+        
+        long onlineCPUs = stats.getCpuStats().getOnlineCpus();
+
+        float preCPU = 0; 
+        float preSystemCPU = 0;
+        if (preCPUStats.containsKey(containerId)) {
+            preCPU = preCPUStats.get(containerId).getValue0();
+            preSystemCPU = preCPUStats.get(containerId).getValue1();
+        }
+
+        float currCPU = stats.getCpuStats().getCpuUsage().getTotalUsage().floatValue();
+        float currSystemCPU = stats.getCpuStats().getSystemCpuUsage().floatValue();
+        float cpuDelta = currCPU - preCPU; 
+        float systemDelta = currSystemCPU - preSystemCPU; 
+
+        float cpuLoad = (cpuDelta / systemDelta) * onlineCPUs * 100f; 
+
+        preCPUStats.put(containerId, Pair.with(currCPU, currSystemCPU));
+
+        return cpuLoad; 
     }
+
+    public default ResourceManager getResourceManager() {
+        return ResourceManager.getInstance();
+    }
+
+    public default Map<String, Object> collect() {
+        return null; 
+    }
+
+    public default void scale(ResourceStatistics statistics) {
+        // System.out.printf("[%s] Scaling unimplemented. %n", this.getClass().getSimpleName());
+
+    }
+    
 }

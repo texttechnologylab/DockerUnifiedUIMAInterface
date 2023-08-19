@@ -19,7 +19,8 @@ public class DUUIRestClient {
             .followRedirects(HttpClient.Redirect.ALWAYS)
             .proxy(ProxySelector.getDefault())
             .executor(Runnable::run) // Forces client to use current thread.
-            .connectTimeout(Duration.ofSeconds(1000)).build();
+            .connectTimeout(Duration.ofSeconds(1000))
+            .build();
 
     private final static DUUIRestClient _handler = new DUUIRestClient();
 

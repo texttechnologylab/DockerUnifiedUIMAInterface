@@ -21,7 +21,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import org.texttechnologylab.ResourceManager;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.ResourceManager;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer.Config;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.Signature;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.DUUISimpleMonitor;

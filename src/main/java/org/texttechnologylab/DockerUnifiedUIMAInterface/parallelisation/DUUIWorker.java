@@ -5,7 +5,7 @@ import static org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.
 import static org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineProfiler.finalizeDocument;
 import static org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineProfiler.updatePipelineGraphStatus;
 
-import java.time.Instant;
+import java.io.Serializable;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
@@ -14,19 +14,17 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
-import org.javatuples.Pair;
-import org.texttechnologylab.ResourceManager;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.AnnotatorUnreachableException;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.PipelinePart;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.ResourceManager;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.Signature;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.DUUIParallelPipelineExecutor.PipelineWorker;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineProfiler;
 
-import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import guru.nidi.graphviz.attribute.Color;
 
-public class DUUIWorker implements Callable<DUUIWorker> {
+public class DUUIWorker implements Callable<DUUIWorker>, Serializable, PipelineWorker {
     public final String _name;
     public final PipelinePart _component;
     public JCas _jc;
@@ -68,7 +66,7 @@ public class DUUIWorker implements Callable<DUUIWorker> {
     @Override
     public DUUIWorker call() throws Exception {
         Thread.currentThread().setName(_threadName);
-        ResourceManager.register(Thread.currentThread());
+        ResourceManager.register(Thread.currentThread(), true);
         long start = System.nanoTime();
         long parentWait = System.nanoTime();
         try {
@@ -96,12 +94,20 @@ public class DUUIWorker implements Callable<DUUIWorker> {
                 
             for (DUUIWorker.ComponentLock childLock : _childrenLocks)
                 childLock.countDown(); // children can continue
-                    
+                 
+            } catch (AnnotatorUnreachableException e) {
+                updatePipelineGraphStatus(_name, _signature.toString(), Color.RED3);
+                for (DUUIWorker.ComponentLock childLock : _childrenLocks)
+                    childLock.fail();
+                e.setFailedWorker(this);
+                throw e;
             } catch (Exception e) {
                 updatePipelineGraphStatus(_name, _signature.toString(), Color.RED3);
                 for (DUUIWorker.ComponentLock childLock : _childrenLocks)
                     childLock.fail();
-                throw new Exception(format("[%s] Pipeline component failed.%n", _threadName), e);
+                throw new RuntimeException(format(
+                    "[%s] Pipeline component failed.%n", _threadName), e
+                );
             } finally {
                 documentUpdate(_name, _signature, "parent_wait", parentWait);
                 documentUpdate(_name, _signature, "worker_total", System.nanoTime() - start);

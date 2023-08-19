@@ -4,7 +4,6 @@ import static java.lang.String.format;
 import static org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineProfiler.pipelineUpdate;
 
 import java.io.IOException;
-import java.lang.ref.WeakReference;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
 import java.security.InvalidParameterException;
@@ -17,18 +16,12 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Vector;
 import java.util.concurrent.Callable;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
+import java.util.function.Consumer;
 
 import org.apache.commons.compress.compressors.CompressorException;
-import org.apache.uima.cas.TypeSystem;
 import org.apache.uima.collection.CollectionReader;
 import org.apache.uima.collection.CollectionReaderDescription;
 import org.apache.uima.fit.factory.CollectionReaderFactory;
@@ -36,14 +29,12 @@ import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.fit.factory.TypeSystemDescriptionFactory;
 import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
-import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.apache.uima.util.CasCreationUtils;
 import org.apache.uima.util.InvalidXMLException;
 import org.dkpro.core.io.xmi.XmiReader;
 import org.luaj.vm2.Globals;
 import org.luaj.vm2.lib.jse.JsePlatform;
-import org.texttechnologylab.ResourceManager;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.IDUUIConnectionHandler;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIDockerDriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIPipelineComponent;
@@ -54,8 +45,12 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.io.AsyncCollectionReader
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.DUUISimpleMonitor;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.IDUUIMonitor;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.DUUIParallelExecutionPipeline;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.AdaptiveStrategy;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.DUUILinearPipelineExecutor;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.DUUIParallelPipelineExecutor;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.DefaultStrategy;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.FixedStrategy;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.IDUUIPipelineExecutor;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.PoolStrategy;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineProfiler;
@@ -65,6 +60,9 @@ import org.xml.sax.SAXException;
 import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 
 public class DUUIComposer {
+
+    public static interface JCasWriter extends Consumer<JCas> {
+    }
 
     public static class Config {
         static DUUIComposer _composer; 
@@ -88,12 +86,19 @@ public class DUUIComposer {
         public static PoolStrategy strategy() {
             return _composer._strategy; 
         }
+
+        public static boolean isParallel() {
+            return _composer._withParallelPipeline.get();
+        }
+
+        public static void write(JCas jc) {
+            _composer._writer.accept(jc);
+        }
     }
 
     private final Map<String, IDUUIDriver> _drivers;
     private final Vector<DUUIPipelineComponent> _pipeline;
 
-    private ExecutorService _executorService;
     private int _workers;
     public Integer _cas_poolsize;
     private PoolStrategy _strategy = new DefaultStrategy(); 
@@ -104,7 +109,7 @@ public class DUUIComposer {
     private boolean _skipVerification;
 
     private Vector<PipelinePart> _instantiatedPipeline;
-    private DUUIParallelExecutionPipeline _executionPipeline;
+    private IDUUIPipelineExecutor _executionPipeline;
     private Thread _shutdownHook;
     private AtomicBoolean _shutdownAtomic;
     private boolean _hasShutdown;
@@ -118,11 +123,13 @@ public class DUUIComposer {
     public static final String V1_COMPONENT_ENDPOINT_COMMUNICATION_LAYER = "/v1/communication_layer";
     public static final String V1_COMPONENT_ENDPOINT_INPUT_OUTPUTS = "/v1/details/input_output"; 
 
-    final ResourceManager _rm; 
+    ResourceManager _rm; 
     public static List<IDUUIConnectionHandler> _clients = new ArrayList<>();
     private boolean _connection_open = false;
 
     private TypeSystemDescription _minimalTypesystem;
+    private AtomicBoolean _withParallelPipeline = new AtomicBoolean(false);
+    private JCasWriter _writer = jCas -> {};
 
 
     public DUUIComposer() throws URISyntaxException {
@@ -139,7 +146,6 @@ public class DUUIComposer {
         _hasShutdown = false;
         _shutdownAtomic = new AtomicBoolean(false);
         _instantiatedPipeline = new Vector<>();
-        _executorService = Executors.newSingleThreadExecutor();
         _rm = ResourceManager.getInstance();
         ResourceManager.register(Thread.currentThread());
         _minimalTypesystem = TypeSystemDescriptionFactory.createTypeSystemDescriptionFromPath(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/types/reproducibleAnnotations.xml").toURI().toString());
@@ -166,9 +172,16 @@ public class DUUIComposer {
         return _workers;
     }
 
+    public DUUIComposer withJCasWriter(JCasWriter writer) {
+        _writer = writer;
+        return this;
+    }
+
     public DUUIComposer withMonitor(IDUUIMonitor monitor) throws Exception {
         _monitor = monitor;
         _monitor.setup();
+        if (_monitor instanceof IDUUIResource)
+            ResourceManager.register((IDUUIResource)monitor);
         _rm.withMonitor(_monitor);
         return this;
     }
@@ -188,11 +201,40 @@ public class DUUIComposer {
         return this;
     }
 
-    // TODO: 
-    // public DUUIComposer withParallelPipeline() {
-    //     _strategy = new DefaultStrategy(); 
-    //     return this;
-    // }
+    public DUUIComposer withResourceManager(double jCasMemoryThreshholdPercentage) {
+        if (jCasMemoryThreshholdPercentage <= 0.0 || jCasMemoryThreshholdPercentage >= 100.0) {
+            throw new IllegalArgumentException(
+                format("A valid percentage must be supplied as a memory threshold: %s", 
+                jCasMemoryThreshholdPercentage)
+            );
+        }
+
+        _rm = new ResourceManager(jCasMemoryThreshholdPercentage, -1L);
+        return this;
+    }
+
+    public DUUIComposer withResourceManager(long jCasMemoryThreshholdBytes) {
+        if (jCasMemoryThreshholdBytes <= 0 || jCasMemoryThreshholdBytes >= Runtime.getRuntime().maxMemory()) {
+            throw new IllegalArgumentException(
+                format("A valid number must be supplied as a memory threshold in bytes: %s", 
+                jCasMemoryThreshholdBytes)
+            );
+        }
+        _rm = new ResourceManager(-1, jCasMemoryThreshholdBytes);
+        return this;
+    }
+    
+    public DUUIComposer withParallelPipeline(PoolStrategy strategy) {
+        _strategy = strategy; 
+        _withParallelPipeline.set(true);
+        return this;
+    }
+    
+    public DUUIComposer withParallelPipeline() {
+        _withParallelPipeline.set(true);
+        _strategy = new DefaultStrategy(); 
+        return this;
+    }
 
     public DUUIComposer withWorkers(int workers) {
         _workers = workers;
@@ -207,6 +249,8 @@ public class DUUIComposer {
     public DUUIComposer addDriver(IDUUIDriver driver) {
         driver.setLuaContext(_context);
         _drivers.put(driver.getClass().getCanonicalName(), driver);
+        if (driver instanceof IDUUIResource) 
+            ResourceManager.register((IDUUIResource)driver);
         return this;
     }
 
@@ -214,6 +258,8 @@ public class DUUIComposer {
         for (IDUUIDriver driver : drivers) {
             driver.setLuaContext(_context);
             _drivers.put(driver.getClass().getCanonicalName(), driver);
+            if (driver instanceof IDUUIResource) 
+                ResourceManager.register((IDUUIResource)driver);
         }
         return this;
     }
@@ -262,19 +308,45 @@ public class DUUIComposer {
         return this;
     }
 
-    public List<JCas> run(CollectionReaderDescription reader) throws Exception {
-        return run(reader,null);
+    public Vector<DUUIPipelineComponent> getPipeline() {
+        return _pipeline;
     }
 
-    public List<JCas> run(CollectionReaderDescription reader, String name) throws Exception {
+    public DUUIComposer resetPipeline() {
+        _pipeline.clear();
+        return this;
+    }
+
+    public void run(CollectionReaderDescription reader) throws Exception {
+        run(reader,null);
+    }
+
+    public void run(CollectionReaderDescription reader, String name) throws Exception {
 
         if(_storage!= null && name == null) {
             throw new RuntimeException("[Composer] When a storage backend is specified a run name is required, since it is the primary key");
         }
         CollectionReader collectionReader = CollectionReaderFactory.createReader(reader);
+        
         System.out.println("[Composer] Instantiated the collection reader.");
 
-        return run(collectionReader, name);
+        run(collectionReader, name);
+    }
+
+    public void run(CollectionReader collectionReader, String name) throws Exception {
+        
+        if(_storage!= null && name == null) {
+            throw new RuntimeException("[Composer] When a storage backend is specified a run name is required, since it is the primary key");
+        }
+
+        TypeSystemDescription desc = instantiate_pipeline();
+
+        System.out.println("[Composer] Generating pipeline-dependency graph.");
+
+        Callable<Void> runPipeline = () -> {run_pipeline(name, collectionReader, desc); return null;};
+
+        run(name, runPipeline);
+
     }
 
     public void run(AsyncCollectionReader collectionReader, String name) throws Exception {
@@ -287,25 +359,9 @@ public class DUUIComposer {
 
         System.out.println("[Composer] Generating pipeline-dependency graph.");
 
-        Callable<List<JCas>> runPipeline = () -> run_pipeline(name, collectionReader, desc);
+        Callable<Void> runPipeline = () -> {run_pipeline(name, collectionReader, desc); return null;};
 
         run(name, runPipeline);
-
-    }
-
-    public List<JCas> run(CollectionReader collectionReader, String name) throws Exception {
-        
-        if(_storage!= null && name == null) {
-            throw new RuntimeException("[Composer] When a storage backend is specified a run name is required, since it is the primary key");
-        }
-
-        TypeSystemDescription desc = instantiate_pipeline();
-
-        System.out.println("[Composer] Generating pipeline-dependency graph.");
-
-        Callable<List<JCas>> runPipeline = () -> run_pipeline(name, collectionReader, desc);
-
-        return run(name, runPipeline);
 
     }
 
@@ -323,21 +379,15 @@ public class DUUIComposer {
 
         System.out.println("[Composer] Generating pipeline-dependency graph.");
         
-        Callable<JCas> runPipeline;
-        if (_workers > 1) {
-            runPipeline = () -> run_pipeline(name, jc, _executionPipeline);
-        } else {
-            runPipeline = () -> run_pipeline(name, jc, _instantiatedPipeline);
-        }
+        Callable<Void> runPipeline = () -> {run_pipeline(name, jc); return null;};
 
         run(name, runPipeline);
     
     }
 
-    private <T> T run(String name, Callable<T> runPipeline) throws Exception {
+    private void run(String name, Callable<Void> runPipeline) throws Exception {
 
         Exception catched = null;
-        T result = null; 
         try {
             if(_storage!=null) {
                 _storage.addNewRun(name,this);
@@ -348,9 +398,10 @@ public class DUUIComposer {
             _rm.start();
             
             Instant starttime = Instant.now();
-            result = runPipeline.call();
-            Instant end = Instant.now().minusSeconds(starttime.getEpochSecond());
-            pipelineUpdate("duration", end.getEpochSecond() + " s");
+            runPipeline.call();
+            Instant duration = Instant.now().minusSeconds(starttime.getEpochSecond());
+
+            pipelineUpdate("duration", duration.getEpochSecond() + " s");
             DUUIPipelineProfiler.statusUpdate("FINISHED", format("Run successfully finished: %s", name));
             
             if(_storage!=null) {
@@ -371,18 +422,15 @@ public class DUUIComposer {
             shutdown();
             throw catched;
         }
-
-        return result;
     }
 
     public void shutdown() throws UnknownHostException, InterruptedException {
         if(!_hasShutdown) {
             _shutdownAtomic.set(true);
             
-            _executorService.shutdownNow(); 
-            while (!_executorService.awaitTermination(100, TimeUnit.MILLISECONDS)) {}
-            if (_executorService.isTerminated()) 
-                System.out.println("[DUUIComposer] Executor terminated!");
+            _rm.finishManager();
+            if (_executionPipeline != null) _executionPipeline.destroy();
+            System.out.println("[DUUIComposer] Executor terminated!");
 
             if (_monitor != null) {
                 _monitor.shutdown();
@@ -408,6 +456,130 @@ public class DUUIComposer {
         }
     }
 
+    private TypeSystemDescription instantiate_pipeline() throws Exception {
+        _hasShutdown = false;
+        JCas jc = JCasFactory.createJCas();
+        jc.setDocumentLanguage("de");
+        jc.setDocumentText("Hallo Welt!");
+
+        if(_skipVerification) {
+            System.out.println("[Composer] Running without verification, no process calls will be made during initialization!");
+        }
+
+        Collection<TypeSystemDescription> descriptions = new ConcurrentLinkedQueue<>();
+        descriptions.add(_minimalTypesystem);
+        descriptions.add(TypeSystemDescriptionFactory.createTypeSystemDescription());
+
+        // Initialization
+        for (DUUIPipelineComponent comp : _pipeline) {
+            IDUUIDriver driver = _drivers.get(comp.getDriver());
+            String uuid = driver.instantiate(comp, jc, _skipVerification);
+            Signature signature = driver.get_signature(uuid);
+            TypeSystemDescription desc = driver.get_typesystem(uuid);
+            
+            if (desc != null) descriptions.add(desc);
+            _instantiatedPipeline.add(new PipelinePart(driver, uuid, signature, comp));
+        }
+
+        // Pipeline ordering. 
+        if (_withParallelPipeline.get()) {
+            _executionPipeline = new DUUIParallelPipelineExecutor(_instantiatedPipeline);
+        } else {
+            _executionPipeline = new DUUILinearPipelineExecutor(_instantiatedPipeline);
+
+        }
+        
+        if(descriptions.size() > 1) {
+            return CasCreationUtils.mergeTypeSystems(descriptions);
+        }
+        else if(descriptions.size() == 1) {
+            return descriptions.stream().findFirst().get();
+        }
+        else {
+            return TypeSystemDescriptionFactory.createTypeSystemDescription();
+        }
+    }
+
+    private void run_pipeline(String name, JCas jc) throws Exception {
+        
+        String _title = JCasUtil.select(jc, DocumentMetaData.class)
+                .stream().map(meta -> meta.getDocumentTitle()).findFirst().orElseGet(() -> "");
+
+        DUUIPipelineProfiler.documentMetaDataUpdate(name, _title, jc.size());
+
+        DUUIPipelineDocumentPerformance perf = new DUUIPipelineDocumentPerformance(name, 0, jc);
+
+        _executionPipeline.run(name, jc, perf);
+        _executionPipeline.shutdown();
+
+        if(_storage!=null) {
+            _storage.addMetricsForDocument(perf);
+        }
+    }
+
+    private void run_pipeline(String name, AsyncCollectionReader reader, TypeSystemDescription desc) 
+        throws Exception {
+
+        _rm.initialiseCasPool(_strategy, desc);
+        AtomicInteger readCount = new AtomicInteger(1);
+        while(!reader.isEmpty()) { 
+            String currName = format("%s-%d", name, readCount.get()); 
+
+            long waitTimeStart = System.nanoTime();
+            JCas jc = _rm.takeCas();
+            reader.getNextCAS(jc);
+            long waitTimeEnd = System.nanoTime();
+
+            DUUIPipelineDocumentPerformance perf =
+                new DUUIPipelineDocumentPerformance(currName, waitTimeEnd-waitTimeStart,jc);
+
+            _executionPipeline.run(currName, jc, perf);
+            
+            pipelineUpdate("document_count", readCount.get());
+            readCount.incrementAndGet();
+        }
+
+
+        _executionPipeline.shutdown();
+    }
+
+    private void run_pipeline(String name, CollectionReader reader, TypeSystemDescription desc) 
+        throws Exception {
+
+        _rm.initialiseCasPool(_strategy, desc);
+        AtomicInteger readCount = new AtomicInteger(1);
+        while(!reader.hasNext()) { 
+            String currName = format("%s-%d", name, readCount.get()); 
+
+            long waitTimeStart = System.nanoTime();
+            JCas jc = _rm.takeCas();
+            reader.getNext(jc.getCas());
+            long waitTimeEnd = System.nanoTime();
+
+            DUUIPipelineDocumentPerformance perf =
+                new DUUIPipelineDocumentPerformance(currName, waitTimeEnd-waitTimeStart,jc);
+
+            _executionPipeline.run(currName, jc, perf);
+            
+            pipelineUpdate("document_count", readCount.get());
+            readCount.incrementAndGet();
+        }
+
+        _executionPipeline.shutdown();            
+    }
+
+    private void shutdown_pipeline() throws Exception {
+        if(!_instantiatedPipeline.isEmpty()) {
+            _instantiatedPipeline.forEach(PipelinePart::shutdown);
+            _instantiatedPipeline.clear();
+            System.out.println("[Composer] Shut down complete.");
+        }
+
+        if(_monitor!=null) {
+            System.out.printf("[Composer] Visit %s to view the data.\n",_monitor.generateURL());
+        }
+    }
+
     public void printConcurrencyGraph() throws Exception {
         Exception catched = null;
         try {
@@ -428,178 +600,6 @@ public class DUUIComposer {
             throw catched;
         }
     }  
-
-    private TypeSystemDescription instantiate_pipeline() throws Exception {
-        _hasShutdown = false;
-        JCas jc = JCasFactory.createJCas();
-        jc.setDocumentLanguage("de");
-        jc.setDocumentText("Hallo Welt!");
-
-        if(_skipVerification) {
-            System.out.println("[Composer] Running without verification, no process calls will be made during initialization!");
-        }
-
-        List<Future<?>> tasks = new ArrayList<>();
-        _executorService = Executors.newCachedThreadPool();
-        Collection<TypeSystemDescription> descriptions = new ConcurrentLinkedQueue<>();
-        descriptions.add(_minimalTypesystem);
-        descriptions.add(TypeSystemDescriptionFactory.createTypeSystemDescription());
-
-        // Initialization
-        for (DUUIPipelineComponent comp : _pipeline) {
-            tasks.add(
-            _executorService.submit(() -> {
-                IDUUIDriver driver = _drivers.get(comp.getDriver());
-                String uuid = null;
-                Signature signature = null;
-                try {
-                    uuid = driver.instantiate(comp, jc, _skipVerification);
-                    TypeSystemDescription desc = driver.get_typesystem(uuid);
-                    if (desc != null) 
-                        descriptions.add(desc);
-                    signature = driver.get_signature(uuid);
-                } catch (ResourceInitializationException e) {
-                    System.out.println("[Composer] Error retrieving resources: ");
-                    e.printStackTrace();
-                } catch (Exception e) {
-                    System.out.println("[Composer] Error during component initialization: ");
-                    e.printStackTrace();
-                }
-
-                synchronized (_instantiatedPipeline) {
-                    _instantiatedPipeline.add(new PipelinePart(driver, uuid, signature, comp.getScale()));
-                }  
-            }));
-        }
-
-        // Initialization finished. Can throw!
-        for (Future<?> task : tasks) 
-            task.get();
-
-        _executorService.shutdownNow(); 
-
-        // Pipeline ordering. 
-        _executionPipeline = new DUUIParallelExecutionPipeline(_instantiatedPipeline);
-        if (_workers == 1) {
-            // Sort sequential pipeline according to dependencies.
-            Vector<PipelinePart> temp = new Vector<>(_instantiatedPipeline.size());
-            
-            _executionPipeline._executionplan.forEach(uuid -> 
-            {
-                PipelinePart comp = _instantiatedPipeline.stream()
-                    .filter(c -> uuid == c.getUUID()).findFirst().orElseGet(() -> null);
-                if (comp != null) temp.add(comp);
-            });
-            _instantiatedPipeline = temp; 
-        }
-        
-        if(descriptions.size() > 1) {
-            return CasCreationUtils.mergeTypeSystems(descriptions);
-        }
-        else if(descriptions.size() == 1) {
-            return descriptions.stream().findFirst().get();
-        }
-        else {
-            return TypeSystemDescriptionFactory.createTypeSystemDescription();
-        }
-    }
-
-    private JCas run_pipeline(String name, JCas jc, Vector<PipelinePart> pipeline) throws Exception {
-        
-        String _title = JCasUtil.select(jc, DocumentMetaData.class)
-                .stream().map(meta -> meta.getDocumentTitle()).findFirst().orElseGet(() -> "");
-
-        DUUIPipelineProfiler.documentMetaDataUpdate(name, _title, jc.size());
-
-        DUUIPipelineDocumentPerformance perf = new DUUIPipelineDocumentPerformance(name, 0, jc);
-        for (PipelinePart comp : pipeline) {
-            comp.run(name, jc, perf);
-        }
-
-        if(_storage!=null) {
-            _storage.addMetricsForDocument(perf);
-        }
-
-        return jc;
-    }
-
-    private JCas run_pipeline(String name, JCas jc, DUUIParallelExecutionPipeline pipeline) 
-    throws Exception {
-
-        String _title = JCasUtil.select(jc, DocumentMetaData.class)
-                .stream().map(meta -> meta.getDocumentTitle()).findFirst().orElseGet(() -> "");
-
-        DUUIPipelineProfiler.documentMetaDataUpdate(name, _title, jc.size());
-
-        DUUIPipelineDocumentPerformance perf = 
-            new DUUIPipelineDocumentPerformance(name, 0, jc);
-
-        _executionPipeline.run(name, jc, perf);
-        _executionPipeline.shutdown();
-
-        if(_storage!=null) {
-            _storage.addMetricsForDocument(perf);
-        }
-
-        return jc;
-    }
-
-    private List<JCas> run_pipeline(String name, AsyncCollectionReader reader, TypeSystemDescription desc) 
-        throws Exception {
-
-        _rm.initialiseCasPool(_strategy, desc);
-        AtomicInteger d = new AtomicInteger(1);
-        while(!reader.isEmpty()) { 
-
-            JCas jc = _rm.takeCas();
-
-            String currName = format("%s-%d", name, d.get()); 
-            long waitTimeStart = System.nanoTime();
-            reader.getNextCAS(jc);
-            long waitTimeEnd = System.nanoTime();
-
-            DUUIPipelineDocumentPerformance perf =
-                new DUUIPipelineDocumentPerformance(currName, waitTimeEnd-waitTimeStart,jc);
-
-            _executionPipeline.run(currName, jc, perf);
-            d.incrementAndGet();
-        }
-
-        pipelineUpdate("document_count", d.get()-1);
-
-        _executionPipeline.shutdown();
-        
-        return new ArrayList<>();
-    }
-
-    private List<JCas> run_pipeline(String name, CollectionReader reader, TypeSystemDescription desc) 
-        throws Exception {
-        // TODO: If needed, this can also be implemented similarly to the version with AsyncCollectionReader
-        Map<Integer, JCas> results = new ConcurrentHashMap<>();
-
-        return results.values().stream().collect(Collectors.toList());
-    }
-
-    private void shutdown_pipeline() throws Exception {
-        if(!_instantiatedPipeline.isEmpty()) {
-            _instantiatedPipeline.forEach(PipelinePart::shutdown);
-            _instantiatedPipeline.clear();
-            System.out.println("[Composer] Shut down complete.");
-        }
-
-        if(_monitor!=null) {
-            System.out.printf("[Composer] Visit %s to view the data.\n",_monitor.generateURL());
-        }
-    }
-
-    public Vector<DUUIPipelineComponent> getPipeline() {
-        return _pipeline;
-    }
-
-    public DUUIComposer resetPipeline() {
-        _pipeline.clear();
-        return this;
-    }
 
     public static void main(String[] args) throws Exception {
         // DUUILuaContext ctx = new DUUILuaContext().withGlobalLibrary("json",DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/json.lua").toURI());
@@ -648,9 +648,10 @@ public class DUUIComposer {
         
 
         DUUIComposer composer = new DUUIComposer()
-            // .withMonitor(new DUUIMonitor("admin", "admin", 8087))
-            .withMonitor(new DUUISimpleMonitor())
-            .withWorkers(10)
+            .withResourceManager(0.01)
+            .withParallelPipeline(new AdaptiveStrategy(2, 4))
+            // .withParallelPipeline()
+            // .withParallelPipeline(new FixedStrategy(3))
             .withSkipVerification(true)
             .withLuaContext(new DUUILuaContext().withJsonLibrary());
 
@@ -658,11 +659,11 @@ public class DUUIComposer {
         
         composer.add(  
             // new DUUIDockerDriver.Component("docker.texttechnologylab.org/languagedetection:0.5"),
-            new DUUIDockerDriver.Component("tokenizer:latest").withScale(5)
+            new DUUIDockerDriver.Component("tokenizer:latest")//.withScale(3)
                 .withImageFetching(),
-            new DUUIDockerDriver.Component("sentencizer:latest").withScale(5)
+            new DUUIDockerDriver.Component("sentencizer:latest")//.withScale(3)
                 .withImageFetching(),
-            new DUUIDockerDriver.Component("parser:latest").withScale(5)
+            new DUUIDockerDriver.Component("parser:latest")//.withScale(3)
                 .withImageFetching()
             // new DUUIDockerDriver.Component("ner:latest")
             //     .withImageFetching(),

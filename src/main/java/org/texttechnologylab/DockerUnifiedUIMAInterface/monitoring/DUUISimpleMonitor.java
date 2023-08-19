@@ -11,14 +11,13 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
-import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.json.JSONObject;
-import org.texttechnologylab.ResourceManager;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIDockerInterface;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUIResource;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.DUUIRestClient;
 
 import com.github.dockerjava.api.command.CreateContainerResponse;
 import com.github.dockerjava.api.command.InspectContainerResponse;
@@ -49,6 +48,8 @@ public class DUUISimpleMonitor implements IDUUIMonitor, IDUUIResource {
     final DUUIDockerInterface _docker;
     String container_id = null;
     final String _image_id = "duui_monitor";
+    Map<String, Object> containerStats = new ConcurrentHashMap<>();
+        
     int _port = 8086;
 
     JSONObject statsJson = new JSONObject();
@@ -92,7 +93,16 @@ public class DUUISimpleMonitor implements IDUUIMonitor, IDUUIResource {
 
         System.out.printf("[SimpleMonitor] Monitor dashboard panel is opened at %s\n", generateURL());
         Thread.sleep(2000);
-        ResourceManager.getInstance().register(this);
+        containerStats.put("status", "IRRETRIEVABLE");
+        containerStats.put("memory_limit", -1L);
+        containerStats.put("memory_usage", -1L);
+        containerStats.put("memory_max_usage", -1L);
+        containerStats.put("num_procs", -1);
+        containerStats.put("network_i", -1L);
+        containerStats.put("network_o", -1L);
+        containerStats.put("cpu_usage", -1);
+        containerStats.put("container_id", container_id);
+        containerStats.put("image_id", _image_id); 
         return this;
     }
 
@@ -123,45 +133,17 @@ public class DUUISimpleMonitor implements IDUUIMonitor, IDUUIResource {
     public void shutdown() {
     }
 
-    public static void main(String[] args) throws IOException, InterruptedException {
-
-        DUUISimpleMonitor m = new DUUISimpleMonitor().setup(); 
-        org.texttechnologylab.ResourceManager.getInstance().register(m);
-        Thread.sleep(60 * 1000);
-        
-        // JSONObject update = new JSONObject("{'name':'Fuchs', 'title': '0120.xmi', 'scale': 4, 'component': 'Lemma -> Token', 'engine_duration': '00:22:10',  'urlwait': '00:01:41', 'svg': '<svg class=\"mx-auto bg-primary\" height=\"180\" width=\"500\"><polyline points=\"0,40 40,40 40,80 80,80 80,120 120,120 120,160\" style=\"fill:white;stroke:red;stroke-width:4\" /></svg>'}");
-        // System.out.println(m.generateURL() + DUUISimpleMonitor.V1_MONITOR_DOCUMENT_UPDATE);
-        // HttpRequest request = HttpRequest.newBuilder()
-        // .uri(URI.create(m.generateURL() + DUUISimpleMonitor.V1_MONITOR_DOCUMENT_UPDATE))
-        // .POST(HttpRequest.BodyPublishers.ofString(update.toString()))
-        // .header("Content-type", "application/json")
-        // .version(HttpClient.Version.HTTP_1_1)
-        // .build();
-
-        // _client.sendAsync(request, HttpResponse.BodyHandlers.ofInputStream()).join();
-    }
-
-    boolean first = true; 
     @Override
-    public JSONObject collect() {
+    public Map<String, Object> collect() {
 
-        JSONObject monitorStats = new JSONObject();
+        Map<String, Object> monitorStats = new HashMap<>();
+        
         if (container_id != null) {
-            
-            statsJson.put("container_id", container_id);
-            statsJson.put("image_id", _image_id);
-            IDUUIResource.getContainerStats(_docker, statsJson, container_id, _image_id);
-            monitorStats.put("monitor", statsJson);
-            monitorStats.put("key", "monitor");
+            IDUUIResource.getContainerStats(_docker, containerStats, container_id, _image_id);
+            monitorStats.put(this.getClass().getSimpleName(), statsJson);
             return monitorStats;
         } else return null;
     }
-
-    @Override
-    public ResourceManager getResourceManager() {
-        return ResourceManager.getInstance();
-    }
-
  }
 
  

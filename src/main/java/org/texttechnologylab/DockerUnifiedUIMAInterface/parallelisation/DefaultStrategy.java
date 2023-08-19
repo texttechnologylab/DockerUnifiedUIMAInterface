@@ -7,6 +7,6 @@ public class DefaultStrategy implements PoolStrategy {
 
     @Override
     public <T> BlockingQueue<T> instantiate(Class<T> t) {
-        return new LinkedBlockingQueue<T>(getMaxPoolSize());
+        return new LinkedBlockingQueue<T>();
     }
 }

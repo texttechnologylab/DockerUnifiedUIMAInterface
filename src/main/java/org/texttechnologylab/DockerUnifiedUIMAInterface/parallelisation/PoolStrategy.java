@@ -7,8 +7,8 @@ public interface PoolStrategy {
 
     <T> BlockingQueue<T> instantiate(Class<T> t);
 
-    default long getTimeOut(TimeUnit unit) {
-        return TimeUnit.SECONDS.convert(3, unit);
+    default long getTimeout(TimeUnit unit) {
+        return unit.convert(500, TimeUnit.MILLISECONDS);
     };
     
     default int getMaxPoolSize() {
