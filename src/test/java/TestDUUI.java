@@ -63,8 +63,7 @@ import static org.apache.uima.fit.factory.AnalysisEngineFactory.createEngineDesc
 import static org.apache.uima.fit.factory.CollectionReaderFactory.createReaderDescription;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIKubernetesDriver.deleteDeployment;
-import static org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIKubernetesDriver.deleteService;
+import static org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIKubernetesDriver.*;
 
 import io.kubernetes.client.openapi.ApiClient;
 import io.kubernetes.client.openapi.ApiException;
@@ -1597,6 +1596,7 @@ public class TestDUUI {
          * Definition verschiedener Driver
          */
         DUUIKubernetesDriver kubernetes_driver = new DUUIKubernetesDriver();
+        //kubernetes_driver.useGPU();
         DUUIUIMADriver uima_driver = new DUUIUIMADriver()
                 .withDebug(true);
 

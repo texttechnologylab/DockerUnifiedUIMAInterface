@@ -1,15 +1,12 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.driver;
 
 
+import io.fabric8.kubernetes.api.model.*;
 import io.fabric8.kubernetes.api.model.apps.Deployment;
 import io.fabric8.kubernetes.api.model.apps.DeploymentBuilder;
 import io.fabric8.kubernetes.client.DefaultKubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientBuilder;
-
-import io.fabric8.kubernetes.api.model.IntOrString;
-import io.fabric8.kubernetes.api.model.Service;
-import io.fabric8.kubernetes.api.model.ServiceBuilder;
 
 import java.net.*;
 import java.util.Collections;
@@ -54,6 +51,8 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
     private HttpClient _client;
     private int _container_timeout;
 
+    private static boolean _usesGPU;
+
     private IDUUIConnectionHandler _wsclient;
 
     public DUUIKubernetesDriver() throws IOException {
@@ -64,7 +63,13 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
 
         _active_components = new HashMap<>();
 
+        _usesGPU = false;
+
         //_kube_client = new DefaultKubernetesClient();
+    }
+
+    public void useGPU() {
+        _usesGPU = true;
     }
 
     // Hier muss anscheinend nichts mehr gemacht werden
@@ -173,6 +178,13 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
                     .addNewContainer()
                     .withName("nginx")
                     .withImage(image)
+                    .withResources(
+                            _usesGPU ?
+                                    new ResourceRequirementsBuilder()
+                                            .addToLimits("nvidia.com/gpu", new Quantity("1"))
+                                            .build()
+                                    : null
+                    )
                     .addNewPort()
                     .withContainerPort(80)
                     .endPort()
