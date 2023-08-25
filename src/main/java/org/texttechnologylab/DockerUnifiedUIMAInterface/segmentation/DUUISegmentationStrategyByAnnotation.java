@@ -139,6 +139,7 @@ public class DUUISegmentationStrategyByAnnotation extends DUUISegmentationStrate
 
         // Prepare output cas by copying the full input cas as base
         jCasOutput = JCasFactory.createJCas(typeSystemDescription);
+
         CasCopier.copyCas(jCasInput.getCas(), jCasOutput.getCas(), true, true);
 
         // copy metadata explicitly

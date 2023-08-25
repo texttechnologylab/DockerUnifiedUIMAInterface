@@ -26,7 +26,26 @@
         </repository>
     </repositories>
 
+
     <build>
+        <resources>
+            <resource>
+                <filtering>false</filtering>
+                <directory>src/main/resources</directory>
+                <excludes>
+                    <exclude>desc/type/**/*</exclude>
+                    <exclude>org/**/*</exclude>
+                </excludes>
+            </resource>
+            <resource>
+                <filtering>true</filtering>
+                <directory>src/main/resources</directory>
+                <includes>
+                    <include>desc/type/**/*</include>
+                    <include>org/**/*</include>
+                </includes>
+            </resource>
+        </resources>
         <plugins>
 
                     <plugin>
@@ -258,7 +277,7 @@
         <dependency>
             <groupId>com.github.texttechnologylab</groupId>
             <artifactId>UIMATypeSystem</artifactId>
-            <version>021f3cfff6</version>
+            <version>74a8489af5</version>
         </dependency>
 
         <!-- https://mvnrepository.com/artifact/org.msgpack/msgpack-core -->

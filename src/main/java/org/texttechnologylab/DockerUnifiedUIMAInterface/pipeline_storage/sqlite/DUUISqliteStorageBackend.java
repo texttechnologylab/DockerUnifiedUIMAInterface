@@ -20,6 +20,7 @@ public class DUUISqliteStorageBackend implements IDUUIStorageBackend {
     private ConcurrentLinkedQueue<Connection> _client;
     private String _sqliteUrl;
 
+
     /**
      * Whether to track error documents in the database or not
      */

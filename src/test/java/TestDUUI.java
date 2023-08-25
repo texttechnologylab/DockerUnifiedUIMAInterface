@@ -71,6 +71,57 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 public class TestDUUI {
 
     @Test
+    public void TestSentimentBERT() throws Exception {
+        int iWorkers = 1;
+
+        AsyncCollectionReader testReader = new AsyncCollectionReader("/storage/xmi/GerParCorDownload", "xmi.gz", 1, 1, false, "/tmp/sentimentBertTest", false, "all");
+
+        DUUILuaContext ctx = new DUUILuaContext().withJsonLibrary();
+
+        DUUIComposer composer = new DUUIComposer()
+                .withWorkers(iWorkers)
+                .withLuaContext(ctx).withSkipVerification(true);
+
+        // Instantiate drivers with options
+        DUUIUIMADriver uima_driver = new DUUIUIMADriver();
+        DUUIRemoteDriver remote_driver = new DUUIRemoteDriver(1000);
+        DUUIDockerDriver docker_driver = new DUUIDockerDriver(10000);
+        DUUISwarmDriver swarm_driver = new DUUISwarmDriver(10000);
+
+        // A driver must be added before components can be added for it in the composer.
+        composer.addDriver(uima_driver);
+        composer.addDriver(remote_driver);
+        composer.addDriver(docker_driver);
+        composer.addDriver(swarm_driver);
+
+        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/german-sentiment-bert:0.1")
+                .withImageFetching()
+                .withScale(iWorkers)
+                .build());
+
+        composer.add(new DUUIUIMADriver.Component(
+                createEngineDescription(XmiWriter.class,
+                        XmiWriter.PARAM_TARGET_LOCATION, "/tmp/test/",
+                        XmiWriter.PARAM_PRETTY_PRINT, true,
+                        XmiWriter.PARAM_OVERWRITE, true,
+                        XmiWriter.PARAM_VERSION, "1.1",
+                        XmiWriter.PARAM_COMPRESSION, "GZIP"
+                )).withScale(1).build());
+
+
+        composer.run(testReader, "test");
+
+//        JCasUtil.select(jc, Entity.class).forEach(t -> {
+//            System.out.println(t.getCoveredText());
+//        });
+
+//        System.out.println(jc.getDocumentLanguage());
+
+
+    }
+
+
+    @Test
     public void creatingSample() throws IOException, UIMAException {
 
         String sInputPath = TestDUUI.class.getClassLoader().getResource("Bundestag.txt").getPath();
