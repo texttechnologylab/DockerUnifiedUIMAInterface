@@ -9,10 +9,12 @@ import com.github.dockerjava.api.exception.NotModifiedException;
 import com.github.dockerjava.api.model.*;
 import com.github.dockerjava.core.DockerClientBuilder;
 import com.github.dockerjava.core.command.LogContainerResultCallback;
+import com.github.dockerjava.httpclient5.ApacheDockerHttpClient;
 import com.google.common.collect.ImmutableList;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URI;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.InvalidParameterException;
@@ -146,11 +148,24 @@ public class DUUIDockerInterface {
 
     /**
      * Creates a default object which connects to the local docker daemon, may need admin rights depending on the docker installation
+     * Depending on the Operating System a different connection URI is required. On Windows the npipe protocol
+     * is required to establish a connection with the docker daemon.
      *
      * @throws IOException
      */
     public DUUIDockerInterface() throws IOException {
-        _docker = DockerClientBuilder.getInstance().build();
+        URI dockerClientURI;
+        if (System.getProperty("os.name").toLowerCase().contains("windows")) {
+            dockerClientURI = URI.create("npipe:////./pipe/docker_engine");
+        } else {
+            dockerClientURI = URI.create("tcp://localhost:2375");
+        }
+
+
+        _docker = DockerClientBuilder.getInstance()
+                .withDockerHttpClient(new ApacheDockerHttpClient.Builder()
+                        .dockerHost(dockerClientURI).build()).build();
+
 
 //        DockerClientConfig config = DefaultDockerClientConfig.createDefaultConfigBuilder().withDockerHost("tcp://localhost:2375").build();
 //        _docker = DockerClientBuilder.getInstance(config).build();
@@ -257,7 +272,7 @@ public class DUUIDockerInterface {
      * @param id The id of the container to stop.
      */
     public void stop_container(String id) {
-        try{
+        try {
             _docker.stopContainerCmd(id).withTimeout(10).exec();
         } catch (NotModifiedException e) {
         } catch (Exception e) {
@@ -290,12 +305,12 @@ public class DUUIDockerInterface {
         List<Image> images = _docker.listImagesCmd()
                 .withShowAll(true)
                 .exec();
-        for(Image i : images) {
-            if(i.getId() == imageName) {
+        for (Image i : images) {
+            if (i.getId() == imageName) {
                 return i;
             }
             String[] repoTags = i.getRepoTags();
-            if(repoTags!=null) {
+            if (repoTags != null) {
                 for (String repo : repoTags) {
                     if (repo.equals(imageName)) {
                         return i;
@@ -306,14 +321,14 @@ public class DUUIDockerInterface {
         return null;
     }
 
-    public void push_image(String remoteName, String localName,String username, String password) throws InterruptedException {
+    public void push_image(String remoteName, String localName, String username, String password) throws InterruptedException {
         Image img = getLocalImage(localName);
-        if(img==null) {
-            throw new InvalidParameterException(format("Could not find local image %s, not attempting to upload it to a registry!",localName));
+        if (img == null) {
+            throw new InvalidParameterException(format("Could not find local image %s, not attempting to upload it to a registry!", localName));
         }
 
-        _docker.tagImageCmd(localName,remoteName,"latest").exec();
-        if(username!=null && password!=null) {
+        _docker.tagImageCmd(localName, remoteName, "latest").exec();
+        if (username != null && password != null) {
             AuthConfig cfg = new AuthConfig();
             cfg.withPassword(password);
             cfg.withUsername(username);
@@ -321,8 +336,7 @@ public class DUUIDockerInterface {
                     .withAuthConfig(cfg)
                     .exec(new PushImageStdout())
                     .awaitCompletion();
-        }
-        else {
+        } else {
             _docker.pushImageCmd(remoteName)
                     .exec(new PushImageStdout())
                     .awaitCompletion();
@@ -332,6 +346,7 @@ public class DUUIDockerInterface {
     public String run_service(String imagename, int scale) throws InterruptedException {
         return run_service(imagename, scale, new ArrayList<>(0));
     }
+
     public String run_service(String imagename, int scale, List<String> constraints) throws InterruptedException {
         ServiceSpec spec = new ServiceSpec();
         ServiceModeConfig cfg = new ServiceModeConfig();
@@ -344,7 +359,7 @@ public class DUUIDockerInterface {
         ContainerSpec cont = new ContainerSpec();
         cont = cont.withImage(imagename);
         task.withContainerSpec(cont);
-        if(constraints.size()>0) {
+        if (constraints.size() > 0) {
             task.withPlacement(new ServicePlacement().withConstraints(constraints));
         }
 
@@ -371,26 +386,25 @@ public class DUUIDockerInterface {
 
     public boolean hasLocalImage(String imageName) {
         InspectImageResponse resp = _docker.inspectImageCmd(imageName).exec();
-        if(resp!=null) {
+        if (resp != null) {
             return true;
         }
 
         List<Image> images = _docker.listImagesCmd()
                 .withShowAll(true)
                 .exec();
-        for(Image i : images) {
-            if(i.getId() == imageName) {
+        for (Image i : images) {
+            if (i.getId() == imageName) {
                 return true;
             }
 
-            if(i.getRepoTags()!=null) {
+            if (i.getRepoTags() != null) {
                 for (String repo : i.getRepoTags()) {
                     if (repo.equals(imageName)) {
                         return true;
                     }
                 }
-            }
-            else if(i.getRepoDigests()!=null) {
+            } else if (i.getRepoDigests() != null) {
                 for (String dig : i.getRepoDigests()) {
                     if (dig.equals(imageName)) {
                         return true;
@@ -430,7 +444,7 @@ public class DUUIDockerInterface {
         return pullImage(tag, null, null);
     }
 
-    public String pullImage(String tag,String username, String password) throws InterruptedException {
+    public String pullImage(String tag, String username, String password) throws InterruptedException {
         try {
             if (username != null && password != null) {
                 AuthConfig cfg = new AuthConfig();
@@ -447,23 +461,22 @@ public class DUUIDockerInterface {
                 template.onError(new Exception());
                 template.awaitCompletion();
             }
-        }
-        catch(Exception e) {
+        } catch (Exception e) {
             e.printStackTrace();
-            System.out.printf("Could not fetch image %s, continuing without.\n",tag);
+            System.out.printf("Could not fetch image %s, continuing without.\n", tag);
         }
         return tag;
     }
 
     public String getDigestFromImage(String imagename) {
 
-        if(imagename.split(":").length == 1) {
-            imagename = imagename+":latest";
+        if (imagename.split(":").length == 1) {
+            imagename = imagename + ":latest";
         }
         InspectImageResponse resp = _docker.inspectImageCmd(imagename).exec();
         List<String> digests = resp.getRepoDigests();
 
-        for(String i : digests) {
+        for (String i : digests) {
             return i;
         }
         return null;
@@ -489,7 +502,7 @@ public class DUUIDockerInterface {
                     .withCapabilities(ImmutableList.of(ImmutableList.of("gpu")))));
         }
 
-        if(mapDaemon) {
+        if (mapDaemon) {
             cfg = cfg.withBinds(Bind.parse("/var/run/docker.sock:/var/run/docker.sock"));
         }
         CreateContainerCmd cmd = _docker.createContainerCmd(imageid)
@@ -521,9 +534,9 @@ public class DUUIDockerInterface {
                     .withCapabilities(ImmutableList.of(ImmutableList.of("gpu")))));
         }
 
-        cfg.withPortBindings(new PortBinding(new Ports.Binding(null,String.valueOf(portHost)), new ExposedPort(portContainer)));
+        cfg.withPortBindings(new PortBinding(new Ports.Binding(null, String.valueOf(portHost)), new ExposedPort(portContainer)));
 
-        if(mapDaemon) {
+        if (mapDaemon) {
             cfg = cfg.withBinds(Bind.parse("/var/run/docker.sock:/var/run/docker.sock"));
         }
         CreateContainerCmd cmd = _docker.createContainerCmd(imageid)
