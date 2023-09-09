@@ -15,7 +15,6 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPip
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.IDUUIStorageBackend;
 
 import java.net.UnknownHostException;
-import java.sql.SQLException;
 import java.time.Instant;
 import java.util.HashMap;
 
