@@ -116,7 +116,7 @@ public class DUUIMongoStorageBackend implements IDUUIStorageBackend {
 
 
     @Override
-    public void finalizeRun(String name, Instant start, Instant end) throws SQLException {
+    public void finalizeRun(String name, Instant start, Instant end) {
         MongoDatabase database = this._client.getDatabase("duui_metrics");
         MongoCollection<Document> performanceCollection = database.getCollection("pipeline_perf");
 
