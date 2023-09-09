@@ -1596,7 +1596,6 @@ public class TestDUUI {
          * Definition verschiedener Driver
          */
         DUUIKubernetesDriver kubernetes_driver = new DUUIKubernetesDriver();
-        //kubernetes_driver.useGPU();
         DUUIUIMADriver uima_driver = new DUUIUIMADriver()
                 .withDebug(true);
 
@@ -1608,6 +1607,13 @@ public class TestDUUI {
 
         // Hierfür wurde anscheinend der Docker Driver hinzugefügt.
         // Wird zum Attribut _Pipeline des Composers hinzugefügt.
+        /*
+        Testen:
+        docker.texttechnologylab.org/srl_cuda_1024:latest
+        docker.texttechnologylab.org/udepparser_cuda_1024:latest
+        docker.texttechnologylab.org/gercoref_cuda:latest
+        docker.texttechnologylab.org/textimager-duui-transformers-summary-cuda:latest
+         */
         composer.add(new DUUIKubernetesDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
                 .withScale(iWorkers)
                 .build());

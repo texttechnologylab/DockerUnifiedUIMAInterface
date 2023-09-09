@@ -51,8 +51,6 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
     private HttpClient _client;
     private int _container_timeout;
 
-    private static boolean _usesGPU;
-
     private IDUUIConnectionHandler _wsclient;
 
     public DUUIKubernetesDriver() throws IOException {
@@ -63,13 +61,7 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
 
         _active_components = new HashMap<>();
 
-        _usesGPU = false;
-
         //_kube_client = new DefaultKubernetesClient();
-    }
-
-    public void useGPU() {
-        _usesGPU = true;
     }
 
     // Hier muss anscheinend nichts mehr gemacht werden
@@ -103,7 +95,7 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
         Service service;
         try {
             // Füge dem Namen vorne "a" hinzu, weil laut Regel die Namen mit alphabetischem Zeichen beginnen müssen (darf nicht mit Ziffer beginnen)
-            createDeployment("a"+uuid, dockerImage, scale);  // Erstelle Deployment
+            createDeployment("a"+uuid, dockerImage, scale, comp.getGPU());  // Erstelle Deployment
             service = createService("a"+uuid);  // Erstelle service und gebe diesen zurück
         }
         catch (Exception e){
@@ -161,7 +153,7 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
      * @param image
      * @param replicas
      */
-    public static void createDeployment(String name, String image, int replicas) {
+    public static void createDeployment(String name, String image, int replicas, boolean useGPU) {
         try (KubernetesClient k8s = new KubernetesClientBuilder().build()) {
             // Load Deployment YAML Manifest into Java object
             Deployment deployment = new DeploymentBuilder()
@@ -179,7 +171,7 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
                     .withName("nginx")
                     .withImage(image)
                     .withResources(
-                            _usesGPU ?
+                            useGPU ?
                                     new ResourceRequirementsBuilder()
                                             .addToLimits("nvidia.com/gpu", new Quantity("1"))
                                             .build()
@@ -363,6 +355,7 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
 
             _scale = comp.getScale(1);
 
+            // TODO: Das hier verstehe ich noch nicht. Warum so kompliziert gemacht?
             _gpu = comp.getDockerGPU(false);
 
             _keep_running_after_exit = comp.getDockerRunAfterExit(false);
@@ -449,6 +442,8 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
         public boolean isWebsocket() {
             return _websocket;
         }
+
+        public boolean getGPU() { return _gpu; }
     }
 
     // Dieses Objekt wird in die Composer.add-Methode eingegeben und so zum _Pipeline-Attribut des Composers hinzugefügt.
@@ -458,6 +453,11 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
         public Component(String globalRegistryImageName) throws URISyntaxException, IOException {
             _component = new DUUIPipelineComponent();
             _component.withDockerImageName(globalRegistryImageName);
+        }
+
+        public DUUIKubernetesDriver.Component withGPU(boolean gpu) {
+            _component.withDockerGPU(gpu);
+            return this;
         }
 
         public DUUIKubernetesDriver.Component withScale(int scale) {
