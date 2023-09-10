@@ -60,12 +60,13 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 import static org.apache.uima.fit.factory.AnalysisEngineFactory.createEngineDescription;
 import static org.apache.uima.fit.factory.CollectionReaderFactory.createReaderDescription;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.*;
 
 
 public class TestDUUI {
@@ -94,14 +95,14 @@ public class TestDUUI {
         int iMaxLength = pCas.getDocumentText().length();
         int iMaxSplit = 10;
 
-        int iSplitIterator = iMaxLength/iMaxSplit;
+        int iSplitIterator = iMaxLength / iMaxSplit;
 
         Map<Integer, String> sMap = new HashMap<>();
 
-        for(int a=0; a<iMaxSplit; a++){
+        for (int a = 0; a < iMaxSplit; a++) {
 
             StringBuilder sb = new StringBuilder();
-            for (Sentence sentence : JCasUtil.selectCovered(pCas, Sentence.class, 0, iSplitIterator * (a+1))) {
+            for (Sentence sentence : JCasUtil.selectCovered(pCas, Sentence.class, 0, iSplitIterator * (a + 1))) {
                 sb.append(sentence.getCoveredText());
             }
             sMap.put(sb.toString().length(), sb.toString());
@@ -140,12 +141,90 @@ public class TestDUUI {
 
     }
 
+    @Test
+    public void cancelPipelineTest() throws Exception {
+
+        final String dockerImageName = "docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:latest";
+
+        DUUILuaContext context = new DUUILuaContext().withJsonLibrary();
+        DUUIComposer composerDocker = new DUUIComposer().withSkipVerification(true).withLuaContext(context);
+        DUUIComposer composerUIMA = new DUUIComposer().withSkipVerification(true);
+
+        DUUIUIMADriver duuiuimaDriver = new DUUIUIMADriver().withDebug(true);
+        DUUIDockerDriver duuiDockerDriver = new DUUIDockerDriver();
+
+        composerUIMA.addDriver(duuiuimaDriver);
+        composerUIMA.add(new DUUIUIMADriver.Component(createEngineDescription(BreakIteratorSegmenter.class)));
+
+        composerDocker.addDriver(duuiDockerDriver);
+        composerDocker.add(new DUUIDockerDriver.Component(dockerImageName).withImageFetching().withGPU(true));
+
+
+        JCas cas = JCasFactory.createJCas();
+        cas.setDocumentLanguage("de");
+        cas.setDocumentText("Das ist ein Testsatz.");
+
+        JCas casUIMA = JCasFactory.createJCas();
+        casUIMA.setDocumentLanguage("de");
+        casUIMA.setDocumentText("Das ist ein Testsatz.");
+
+        HashMap<DUUIComposer, CompletableFuture<Void>> activeComposers = new HashMap<>();
+
+        CompletableFuture<Void> dockerThread = CompletableFuture.runAsync(() -> {
+            try {
+                composerDocker.run(cas, "TestDocker");
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        });
+
+        CompletableFuture<Void> uimaThread = CompletableFuture.runAsync(() -> {
+            try {
+                composerUIMA.run(cas, "TestUIMA");
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        });
+
+        activeComposers.put(composerDocker, dockerThread);
+        activeComposers.put(composerUIMA, uimaThread);
+
+
+        Thread.sleep(500); // Sleep for 2 seconds
+        activeComposers.values().forEach((future) -> future.cancel(true));
+
+        try {
+            dockerThread.get();
+        } catch (CancellationException e) {
+            System.out.println("Cancelled.");
+        }
+
+        try {
+            uimaThread.get();
+        } catch (CancellationException e) {
+            System.out.println("Cancelled.");
+        }
+
+
+        if (dockerThread.isCancelled()) {
+            composerDocker.interrupt();
+            composerDocker.shutdown();
+        }
+
+        if (uimaThread.isCancelled()) {
+            composerUIMA.interrupt();
+            composerUIMA.shutdown();
+        }
+
+        assertTrue(composerDocker.wasInterrupted());
+        assertTrue(composerUIMA.wasInterrupted());
+    }
 
     @Test
     public void SwarmTest() throws Exception {
 
         System.out.println("Running SwarmTest");
-CollectionReader();
+        CollectionReader();
         String sInputPath = TestDUUI.class.getClassLoader().getResource("sample").getPath();
         String sSuffix = "xmi.gz";
         String sOutputPath = "/tmp/";
@@ -164,24 +243,24 @@ CollectionReader();
         composer.addDriver(swarm_driver, uima_driver);
 
         composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/languagedetection:0.1")
-                        .withScale(iWorkers)
-                        .build());
+                .withScale(iWorkers)
+                .build());
 
         composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
-                        .withScale(iWorkers)
-                        .build());
+                .withScale(iWorkers)
+                .build());
 
         composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/gnfinder:latest")
-                        .withScale(iWorkers)
-                        .build());
+                .withScale(iWorkers)
+                .build());
 
         composer.add(new DUUIUIMADriver.Component(createEngineDescription(XmiWriter.class,
-                        XmiWriter.PARAM_TARGET_LOCATION, sOutputPath,
-                        XmiWriter.PARAM_PRETTY_PRINT, true,
-                        XmiWriter.PARAM_OVERWRITE, true,
-                        XmiWriter.PARAM_VERSION, "1.1",
-                        XmiWriter.PARAM_COMPRESSION, "GZIP"
-                )).build());
+                XmiWriter.PARAM_TARGET_LOCATION, sOutputPath,
+                XmiWriter.PARAM_PRETTY_PRINT, true,
+                XmiWriter.PARAM_OVERWRITE, true,
+                XmiWriter.PARAM_VERSION, "1.1",
+                XmiWriter.PARAM_COMPRESSION, "GZIP"
+        )).build());
 
 
         CollectionReaderDescription reader = null;
@@ -220,12 +299,12 @@ CollectionReader();
         composer.addDriver(docker_driver);
 
         composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/languagedetection:0.2")
-                        .withScale(1)
-                        .build());
+                .withScale(1)
+                .build());
 
         composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9716")
-                        .withScale(1)
-                        .build());
+                .withScale(1)
+                .build());
 
         composer.run(jc);
 
@@ -241,6 +320,7 @@ CollectionReader();
 
 
     }
+
     @Test
     public void TestHeidelTimeExt() throws Exception {
         JCas jc = JCasFactory.createJCas();
@@ -258,17 +338,15 @@ CollectionReader();
         // Instantiate drivers with options
         DUUIRemoteDriver remote_driver = new DUUIRemoteDriver(10000);
         DUUIDockerDriver docker_driver = new DUUIDockerDriver(10000);
-        DUUISwarmDriver swarm_driver = new DUUISwarmDriver(10000).withSwarmVisualizer();
+//        DUUISwarmDriver swarm_driver = new DUUISwarmDriver(10000).withSwarmVisualizer();
 
         // A driver must be added before components can be added for it in the composer.
         composer.addDriver(remote_driver);
         composer.addDriver(docker_driver);
-        composer.addDriver(swarm_driver);
+//        composer.addDriver(swarm_driver);
 
-        composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
-                .withScale(1).build());
-        composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/heideltime_ext:0.2")
-                .withScale(1).build());
+        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm").withImageFetching());
+        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/heideltime_ext:0.2").withImageFetching());
 
 //        composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9715")
 //                        .withScale(1)
@@ -284,6 +362,7 @@ CollectionReader();
 
 
     }
+
     @Test
     public void TestCuda() throws Exception {
         JCas jc = JCasFactory.createJCas();
@@ -321,13 +400,13 @@ CollectionReader();
 //                .build());
 
         List<String> urls = new ArrayList<>(0);
-        for(int a=1; a<6; a++) {
-            urls.add("http://geltlin.hucompute.org:800"+a);
+        for (int a = 1; a < 6; a++) {
+            urls.add("http://geltlin.hucompute.org:800" + a);
         }
 
         composer.add(new DUUIRemoteDriver.Component(urls)
-                        .withScale(1)
-                        .build());
+                .withScale(1)
+                .build());
 
         composer.add(new DUUIUIMADriver.Component(
                 createEngineDescription(XmiWriter.class,
@@ -337,7 +416,6 @@ CollectionReader();
                         XmiWriter.PARAM_VERSION, "1.1",
                         XmiWriter.PARAM_COMPRESSION, "GZIP"
                 )).withScale(1).build());
-
 
 
         composer.run(testReader, "test");
@@ -397,7 +475,7 @@ CollectionReader();
                 .build());
 
         composer.run(pCas, "test");
-        JCasUtil.select(pCas, Annotation.class).forEach(pAnno->{
+        JCasUtil.select(pCas, Annotation.class).forEach(pAnno -> {
             System.out.println(pAnno.getType().getShortName());
         });
 
@@ -445,11 +523,11 @@ CollectionReader();
 //                .withScale(iScale).build());
 
         composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9715")
-                        .withScale(1)
-                        .build());
+                .withScale(1)
+                .build());
 
         composer.run(pCas, "test");
-        JCasUtil.select(pCas, Annotation.class).forEach(pAnno->{
+        JCasUtil.select(pCas, Annotation.class).forEach(pAnno -> {
             System.out.println(pAnno.getType().getShortName());
         });
 
@@ -545,8 +623,6 @@ CollectionReader();
         );
 
         //((TTLabXmiWriter)writerEngine).setAsyncCollectionCeader(testReader);
-
-
 
 
         composer.add(new DUUIUIMADriver.Component(
@@ -652,8 +728,8 @@ CollectionReader();
         composer.addDriver(swarm_driver);
 
         composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9715")
-                        .withScale(1)
-                        .build());
+                .withScale(1)
+                .build());
 
         composer.run(jc);
 
@@ -764,8 +840,8 @@ CollectionReader();
         composer.addDriver(dockerDriver, remoteDriver);
 
         composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/languagedetection:0.5")
-                        .withScale(1)
-                        .withImageFetching());
+                .withScale(1)
+                .withImageFetching());
 
 //        composer.add(new DUUIRemoteDriver.Component("http://localhost:9719")
 //                        .withScale(1)
@@ -855,19 +931,19 @@ CollectionReader();
         composer.addDriver(driver, remote_driver, uima_driver, swarm_driver);
 
         composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/languagedetection:0.1")
-                        .withImageFetching()
-                        .withScale(1)
-                        .build());
+                .withImageFetching()
+                .withScale(1)
+                .build());
 
         composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
-                        .withImageFetching()
-                        .withScale(1)
-                        .build());
+                .withImageFetching()
+                .withScale(1)
+                .build());
 
         composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/gnfinder:latest")
-                        .withImageFetching()
-                        .withScale(1)
-                        .build());
+                .withImageFetching()
+                .withScale(1)
+                .build());
 
 
         composer.run(jc);
@@ -1037,18 +1113,18 @@ CollectionReader();
         jc.setDocumentText("Hallo Welt! Wie geht es dir?");
         jc.setDocumentLanguage("de");
         AnalysisEngineDescription desc = AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class);
-        SimplePipeline.runPipeline(jc,desc);
-        for(Sentence i : JCasUtil.select(jc,Sentence.class)) {
+        SimplePipeline.runPipeline(jc, desc);
+        for (Sentence i : JCasUtil.select(jc, Sentence.class)) {
             System.out.println(JCasUtil.selectCovered(Token.class, i).stream().collect(Collectors.toList()));
         }
 
         String val = Files.readString(Path.of(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/select_covered.lua").toURI()));
         DUUILuaContext ctxt = new DUUILuaContext();
-        ctxt.withGlobalLibrary("json",DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/json.lua").toURI());
-        DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(val,"remote",ctxt);
+        ctxt.withGlobalLibrary("json", DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/json.lua").toURI());
+        DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(val, "remote", ctxt);
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         long start = System.currentTimeMillis();
-        lua.serialize(jc,out,null);
+        lua.serialize(jc, out, null);
         System.out.println(out.toString());
     }
 
@@ -1099,7 +1175,7 @@ CollectionReader();
         String val = Files.readString(Path.of(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/rust_communication_msgpack.lua").toURI()));
         DUUILuaContext ctxt = new DUUILuaContext();
         DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(val, "remote", ctxt);
-        for(int i = 0; i < 10; i++) {
+        for (int i = 0; i < 10; i++) {
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             long start = System.currentTimeMillis();
             lua.serialize(jc, out, null);
@@ -1332,18 +1408,18 @@ CollectionReader();
                 .withScale(4)
                 .withImageFetching()
                 .build());
-       composer.add(new DUUIUIMADriver.Component(
+        composer.add(new DUUIUIMADriver.Component(
                 AnalysisEngineFactory.createEngineDescription(XmiWriter.class,
                         XmiWriter.PARAM_TARGET_LOCATION, "/home/alexander/Documents/Corpora/German-Political-Speeches-Corpus/test_benchmark/",
                         XmiWriter.PARAM_PRETTY_PRINT, true,
                         XmiWriter.PARAM_OVERWRITE, true,
                         XmiWriter.PARAM_VERSION, "1.1"
-                        )
+                )
         ).withScale(4).build());
 
         composer.run(CollectionReaderFactory.createReaderDescription(TextReader.class,
-                TextReader.PARAM_LANGUAGE,"de",
-                TextReader.PARAM_SOURCE_LOCATION,"/home/alexander/Documents/Corpora/German-Political-Speeches-Corpus/output/*.txt"),"run2");
+                TextReader.PARAM_LANGUAGE, "de",
+                TextReader.PARAM_SOURCE_LOCATION, "/home/alexander/Documents/Corpora/German-Political-Speeches-Corpus/output/*.txt"), "run2");
         composer.shutdown();
     }
 
@@ -1361,11 +1437,11 @@ CollectionReader();
         composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9716").build());
 
         composer.run(CollectionReaderFactory.createReaderDescription(XmiReader.class,
-                XmiReader.PARAM_LANGUAGE,"de",
-                XmiReader.PARAM_ADD_DOCUMENT_METADATA,false,
-                XmiReader.PARAM_OVERRIDE_DOCUMENT_METADATA,false,
-                XmiReader.PARAM_LENIENT,true,
-                XmiReader.PARAM_SOURCE_LOCATION,"/home/alexander/Documents/Corpora/German-Political-Speeches-Corpus/processed/*.xmi"),"run_serialize_json");
+                XmiReader.PARAM_LANGUAGE, "de",
+                XmiReader.PARAM_ADD_DOCUMENT_METADATA, false,
+                XmiReader.PARAM_OVERRIDE_DOCUMENT_METADATA, false,
+                XmiReader.PARAM_LENIENT, true,
+                XmiReader.PARAM_SOURCE_LOCATION, "/home/alexander/Documents/Corpora/German-Political-Speeches-Corpus/processed/*.xmi"), "run_serialize_json");
         composer.shutdown();
     }
 
@@ -1387,8 +1463,8 @@ CollectionReader();
 
 
         composer.run(CollectionReaderFactory.createReaderDescription(TextReader.class,
-                TextReader.PARAM_LANGUAGE,"de",
-                TextReader.PARAM_SOURCE_LOCATION,"/home/alexander/Documents/Corpora/German-Political-Speeches-Corpus/output/*.txt"),"run_test");
+                TextReader.PARAM_LANGUAGE, "de",
+                TextReader.PARAM_SOURCE_LOCATION, "/home/alexander/Documents/Corpora/German-Political-Speeches-Corpus/output/*.txt"), "run_test");
         composer.shutdown();
     }
 
@@ -1401,15 +1477,15 @@ CollectionReader();
         DUUIComposer composer = new DUUIComposer();
         composer.addDriver(new DUUIUIMADriver());
         composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class)).build());
-        composer.run(jc,"pipeline");
+        composer.run(jc, "pipeline");
         composer.shutdown();
 
         DUUIPipelineDescription desc = DUUIPipelineDescription.fromJCas(jc);
-        assertEquals(desc.getComponents().size(),1);
+        assertEquals(desc.getComponents().size(), 1);
         DUUIPipelineAnnotationComponent comp = desc.getComponents().get(0);
 
-        assertEquals(comp.getComponent().getDriver(),DUUIUIMADriver.class.getCanonicalName());
-        assertEquals(comp.getComponent().asUIMADriverComponent().getAnnotatorName(),BreakIteratorSegmenter.class.getCanonicalName());
+        assertEquals(comp.getComponent().getDriver(), DUUIUIMADriver.class.getCanonicalName());
+        assertEquals(comp.getComponent().asUIMADriverComponent().getAnnotatorName(), BreakIteratorSegmenter.class.getCanonicalName());
     }
 
     @Test
@@ -1435,17 +1511,17 @@ CollectionReader();
 
         DUUIPipelineDescription desc = DUUIPipelineDescription.fromJCas(jc);
 
-        assertEquals(desc.getComponents().size(),2);
+        assertEquals(desc.getComponents().size(), 2);
         DUUIPipelineAnnotationComponent comp = desc.getComponents().get(0);
 
-        assertEquals(comp.getComponent().getDriver(),DUUIUIMADriver.class.getCanonicalName());
-        assertEquals(comp.getComponent().asUIMADriverComponent().getAnnotatorName(),BreakIteratorSegmenter.class.getCanonicalName());
+        assertEquals(comp.getComponent().getDriver(), DUUIUIMADriver.class.getCanonicalName());
+        assertEquals(comp.getComponent().asUIMADriverComponent().getAnnotatorName(), BreakIteratorSegmenter.class.getCanonicalName());
 //        assertEquals(comp.getAnnotation().getPipelineName(),"pipeline");
 
         DUUIPipelineAnnotationComponent comp2 = desc.getComponents().get(1);
 
-        assertEquals(comp2.getComponent().getDriver(),DUUIUIMADriver.class.getCanonicalName());
-        assertEquals(comp2.getComponent().asUIMADriverComponent().getAnnotatorName(),OpenNlpPosTagger.class.getCanonicalName());
+        assertEquals(comp2.getComponent().getDriver(), DUUIUIMADriver.class.getCanonicalName());
+        assertEquals(comp2.getComponent().asUIMADriverComponent().getAnnotatorName(), OpenNlpPosTagger.class.getCanonicalName());
 //        assertEquals(comp2.getAnnotation().getPipelineName(),"pos_tagger");
 
         JCas jc_dup = JCasFactory.createJCas();
@@ -1460,7 +1536,7 @@ CollectionReader();
             composer.shutdown();
         }
 
-        assertEquals(JCasUtil.select(jc_dup,TOP.class).size(), JCasUtil.select(jc,TOP.class).size());
+        assertEquals(JCasUtil.select(jc_dup, TOP.class).size(), JCasUtil.select(jc, TOP.class).size());
     }
 
     @Test
@@ -1479,11 +1555,11 @@ CollectionReader();
 
         DUUIPipelineDescription desc = DUUIPipelineDescription.fromJCas(jc);
 
-        for(DUUIPipelineAnnotationComponent comp : desc.getComponents()) {
-            if(comp.getComponent().asUIMADriverComponent().getAnnotatorName().equals(BreakIteratorSegmenter.class.getCanonicalName())) {
+        for (DUUIPipelineAnnotationComponent comp : desc.getComponents()) {
+            if (comp.getComponent().asUIMADriverComponent().getAnnotatorName().equals(BreakIteratorSegmenter.class.getCanonicalName())) {
                 comp.getComponent()
                         .asUIMADriverComponent()
-                        .setAnalysisEngineParameter(BreakIteratorSegmenter.PARAM_SPLIT_AT_APOSTROPHE,true);
+                        .setAnalysisEngineParameter(BreakIteratorSegmenter.PARAM_SPLIT_AT_APOSTROPHE, true);
             }
         }
 
@@ -1499,7 +1575,7 @@ CollectionReader();
             composer.shutdown();
         }
 
-        assertEquals(JCasUtil.select(jc_dup,TOP.class).size(), JCasUtil.select(jc,TOP.class).size()+1);
+        assertEquals(JCasUtil.select(jc_dup, TOP.class).size(), JCasUtil.select(jc, TOP.class).size() + 1);
     }
 
     @Test
@@ -1509,17 +1585,17 @@ CollectionReader();
                 "var util = Java.type(\"org.apache.uima.fit.util.JCasUtil\");\n" +
                 "var msgpack = Java.type(\"org.msgpack.core.MessagePack\");" +
                 "    var packer = msgpack.newDefaultPacker(outputStream);" +
-                        "packer.packArrayHeader(2);" +
-                        "packer.packString(inputCas.getDocumentText());\n" +
-                        "var size = util.select(inputCas,token.class).size();\n" +
-                        "packer.packArrayHeader(size*2);\n" +
-                        "var result = util.select(inputCas,token.class).iterator();\n" +
-                        "while(result.hasNext()) {\n" +
-                        "   var x = result.next();\n" +
-                        "    packer.packInt(x.getBegin());\n" +
-                        "    packer.packInt(x.getEnd());\n" +
-                        "}\n" +
-                        "  packer.close();" +
+                "packer.packArrayHeader(2);" +
+                "packer.packString(inputCas.getDocumentText());\n" +
+                "var size = util.select(inputCas,token.class).size();\n" +
+                "packer.packArrayHeader(size*2);\n" +
+                "var result = util.select(inputCas,token.class).iterator();\n" +
+                "while(result.hasNext()) {\n" +
+                "   var x = result.next();\n" +
+                "    packer.packInt(x.getBegin());\n" +
+                "    packer.packInt(x.getEnd());\n" +
+                "}\n" +
+                "  packer.close();" +
                 "");
 
 
@@ -1536,7 +1612,7 @@ CollectionReader();
         }
 
 
-        for(int i = 0; i < 10; i++) {
+        for (int i = 0; i < 10; i++) {
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             long start = System.currentTimeMillis();
             Bindings b = ee.createBindings();
@@ -1566,7 +1642,7 @@ CollectionReader();
                 .withWorkers(2);
         // Instantiate drivers with options
         DUUIDockerDriver docker_driver = new DUUIDockerDriver()
-            .withTimeout(10000);
+                .withTimeout(10000);
         DUUIRemoteDriver remote_driver = new DUUIRemoteDriver(10000);
         // Definition of the UIMA driver with the option of debugging output in the log.
         DUUIUIMADriver uima_driver = new DUUIUIMADriver().withDebug(true);
@@ -1578,24 +1654,24 @@ CollectionReader();
         // A new component for the composer is added
         composer.add(new DUUIDockerDriver
                 // The component is based on a Docker image stored in a remote repository.
-                        .Component("docker.texttechnologylab.org/gnfinder:latest")
-        // The image is reloaded and fetched, regardless of whether it already exists locally (optional)
-                        .withImageFetching()
-        // The scaling parameter is set
-        .withScale(1));
+                .Component("docker.texttechnologylab.org/gnfinder:latest")
+                // The image is reloaded and fetched, regardless of whether it already exists locally (optional)
+                .withImageFetching()
+                // The scaling parameter is set
+                .withScale(1));
         // Adding a UIMA annotator for writing the result of the pipeline as XMI files in compressed form.
         composer.add(new DUUIUIMADriver.Component(
                 createEngineDescription(XmiWriter.class,
-                XmiWriter.PARAM_TARGET_LOCATION, "output_temp_path",
-                XmiWriter.PARAM_COMPRESSION, "GZIP"
+                        XmiWriter.PARAM_TARGET_LOCATION, "output_temp_path",
+                        XmiWriter.PARAM_COMPRESSION, "GZIP"
                 )).withScale(1));
         // The document is processed through the pipeline.
         composer.run(CollectionReaderFactory.createReaderDescription(XmiReader.class,
-                XmiReader.PARAM_LANGUAGE,"de",
-                XmiReader.PARAM_ADD_DOCUMENT_METADATA,false,
-                XmiReader.PARAM_OVERRIDE_DOCUMENT_METADATA,false,
-                XmiReader.PARAM_LENIENT,true,
-                XmiReader.PARAM_SOURCE_LOCATION,"/home/alexander/Documents/Corpora/German-Political-Speeches-Corpus/processed_sample/*.xmi"),"run_python_token_annotator");
+                XmiReader.PARAM_LANGUAGE, "de",
+                XmiReader.PARAM_ADD_DOCUMENT_METADATA, false,
+                XmiReader.PARAM_OVERRIDE_DOCUMENT_METADATA, false,
+                XmiReader.PARAM_LENIENT, true,
+                XmiReader.PARAM_SOURCE_LOCATION, "/home/alexander/Documents/Corpora/German-Political-Speeches-Corpus/processed_sample/*.xmi"), "run_python_token_annotator");
     }
    /* @Test
     public void TestCasIoUtils() throws UIMAException, IOException {

@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class DUUIRemoteDriver implements IDUUIDriverInterface {
     private HashMap<String, InstantiatedComponent> _components;
@@ -285,7 +286,7 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         return IDUUIInstantiatedPipelineComponent.getTypesystem(uuid,comp);
     }
 
-    public void run(String uuid, JCas aCas, DUUIPipelineDocumentPerformance perf) throws InterruptedException, IOException, SAXException, CompressorException, CASException {
+    public void run(String uuid, JCas aCas, DUUIPipelineDocumentPerformance perf, AtomicBoolean _isInterrupted) throws InterruptedException, IOException, SAXException, CompressorException, CASException {
         long mutexStart = System.nanoTime();
         InstantiatedComponent comp = _components.get(uuid);
 
@@ -300,10 +301,10 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
          */
 
             if (comp.isWebsocket()) {
-                    IDUUIInstantiatedPipelineComponent.process_handler(aCas, comp, perf);
+                    IDUUIInstantiatedPipelineComponent.process_handler(aCas, comp, perf, _isInterrupted);
             }
             else {
-                IDUUIInstantiatedPipelineComponent.process(aCas, comp, perf);
+                IDUUIInstantiatedPipelineComponent.process(aCas, comp, perf, _isInterrupted);
             }
     }
 

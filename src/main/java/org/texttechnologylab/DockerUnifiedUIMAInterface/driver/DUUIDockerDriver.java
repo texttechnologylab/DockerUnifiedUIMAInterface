@@ -42,6 +42,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Logger;
 
 import static java.lang.String.format;
@@ -221,7 +222,7 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
 
         InstantiatedComponent comp = new InstantiatedComponent(component);
 
-        if (!comp.getImageFetching()) {
+        if (comp.getImageFetching()) {
             if(comp.getUsername() != null) {
                 System.out.printf("[DockerLocalDriver] Attempting image %s download from secure remote registry\n",comp.getImageName());
             }
@@ -303,17 +304,22 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
         return IDUUIInstantiatedPipelineComponent.getTypesystem(uuid,comp);
     }
 
-    public void run(String uuid, JCas aCas, DUUIPipelineDocumentPerformance perf) throws InterruptedException, IOException, SAXException, CompressorException, CASException {
+    public void run(String uuid, JCas aCas, DUUIPipelineDocumentPerformance perf, AtomicBoolean _isInterrupted) throws InterruptedException, IOException, SAXException, CompressorException, CASException {
         long mutexStart = System.nanoTime();
         InstantiatedComponent comp = _active_components.get(uuid);
         if (comp == null) {
             throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
         }
+
+        if (_isInterrupted.get()) {
+            return;
+        }
+
         if (comp.isWebsocket()) {
-            IDUUIInstantiatedPipelineComponent.process_handler(aCas, comp, perf);
+            IDUUIInstantiatedPipelineComponent.process_handler(aCas, comp, perf, _isInterrupted);
         }
         else {
-            IDUUIInstantiatedPipelineComponent.process(aCas, comp, perf);
+            IDUUIInstantiatedPipelineComponent.process(aCas, comp, perf, _isInterrupted);
         }
     }
     public void shutdown() {

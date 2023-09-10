@@ -28,6 +28,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public interface IDUUIInstantiatedPipelineComponent {
     public static HttpClient _client = HttpClient.newBuilder()
@@ -80,7 +81,7 @@ public interface IDUUIInstantiatedPipelineComponent {
         throw new ResourceInitializationException(new Exception("Endpoint is unreachable!"));
     }
 
-    public static void process(JCas jc, IDUUIInstantiatedPipelineComponent comp, DUUIPipelineDocumentPerformance perf) throws CompressorException, IOException, SAXException, CASException {
+    public static void process(JCas jc, IDUUIInstantiatedPipelineComponent comp, DUUIPipelineDocumentPerformance perf, AtomicBoolean _isInterrupted) throws CompressorException, IOException, SAXException, CASException, InterruptedException {
         Triplet<IDUUIUrlAccessible,Long,Long> queue = comp.getComponent();
 
         IDUUICommunicationLayer layer = queue.getValue0().getCommunicationLayer();
@@ -121,6 +122,11 @@ public interface IDUUIInstantiatedPipelineComponent {
         int tries = 0;
         HttpResponse<byte[]> resp = null;
         while(tries < 10) {
+            if (_isInterrupted.get()) {
+                System.out.println("[Composer] Pipeline interrupt requested.");
+                throw new InterruptedException("Pipeline has been canceled.");
+            }
+
             tries++;
             try {
                 HttpRequest request = HttpRequest.newBuilder()
@@ -197,12 +203,15 @@ public interface IDUUIInstantiatedPipelineComponent {
 
     public static void process_handler(JCas jc,
                                        IDUUIInstantiatedPipelineComponent comp,
-                                       DUUIPipelineDocumentPerformance perf) throws CompressorException, IOException, SAXException, CASException, InterruptedException {
+                                       DUUIPipelineDocumentPerformance perf, AtomicBoolean _isInterrupted) throws CompressorException, IOException, SAXException, CASException, InterruptedException {
         Triplet<IDUUIUrlAccessible,Long,Long> queue = comp.getComponent();
 
         IDUUICommunicationLayer layer = queue.getValue0().getCommunicationLayer();
         long serializeStart = System.nanoTime();
-
+        if (_isInterrupted.get()) {
+            System.out.println("[Composer] Pipeline interrupt requested.");
+            throw new InterruptedException("Pipeline has been canceled.");
+        }
         ByteArrayOutputStream out = new ByteArrayOutputStream();
 
         DUUIPipelineComponent pipelineComponent = comp.getPipelineComponent();

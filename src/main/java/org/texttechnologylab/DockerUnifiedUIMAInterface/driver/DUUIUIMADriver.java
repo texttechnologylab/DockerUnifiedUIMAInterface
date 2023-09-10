@@ -28,6 +28,7 @@ import java.security.InvalidParameterException;
 import java.util.*;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static java.lang.String.format;
 
@@ -322,7 +323,7 @@ public class DUUIUIMADriver implements IDUUIDriverInterface {
         return TypeSystemDescriptionFactory.createTypeSystemDescription();
     }
 
-    public void run(String uuid, JCas aCas, DUUIPipelineDocumentPerformance perf) throws InterruptedException, IOException, SAXException, AnalysisEngineProcessException, CompressorException, CASException {
+    public void run(String uuid, JCas aCas, DUUIPipelineDocumentPerformance perf, AtomicBoolean _isInterrupted) throws InterruptedException, IOException, SAXException, AnalysisEngineProcessException, CompressorException, CASException {
         long mutexStart = System.nanoTime();
 
         InstantiatedComponent component = _engines.get(uuid);

@@ -12,6 +12,7 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPip
 import org.xml.sax.SAXException;
 
 import java.io.IOException;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public interface IDUUIDriverInterface {
     public void setLuaContext(DUUILuaContext luaContext);
@@ -22,7 +23,7 @@ public interface IDUUIDriverInterface {
     //TODO: public InputOutput get_inputs_and_outputs(String uuid)
     //Example: get_typesystem(...)
     public TypeSystemDescription get_typesystem(String uuid) throws InterruptedException, IOException, SAXException, CompressorException, ResourceInitializationException;
-    public void run(String uuid, JCas aCas, DUUIPipelineDocumentPerformance perf) throws InterruptedException, IOException, SAXException, AnalysisEngineProcessException, CompressorException, CASException;
+    public void run(String uuid, JCas aCas, DUUIPipelineDocumentPerformance perf, AtomicBoolean _isInterrupted) throws InterruptedException, IOException, SAXException, AnalysisEngineProcessException, CompressorException, CASException;
 
     public void destroy(String uuid);
     public void shutdown();

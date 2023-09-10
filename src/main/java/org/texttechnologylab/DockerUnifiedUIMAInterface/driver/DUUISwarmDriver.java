@@ -25,6 +25,7 @@ import java.security.InvalidParameterException;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static java.lang.String.format;
 
@@ -181,17 +182,17 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         return IDUUIInstantiatedPipelineComponent.getTypesystem(uuid,comp);
     }
 
-    public void run(String uuid, JCas aCas, DUUIPipelineDocumentPerformance perf) throws InterruptedException, IOException, SAXException, CompressorException, CASException {
+    public void run(String uuid, JCas aCas, DUUIPipelineDocumentPerformance perf, AtomicBoolean _isInterrupted) throws InterruptedException, IOException, SAXException, CompressorException, CASException {
         DUUISwarmDriver.InstantiatedComponent comp = _active_components.get(uuid);
         if (comp == null) {
             throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
         }
 
         if (comp.isWebsocket()) {
-            IDUUIInstantiatedPipelineComponent.process_handler(aCas, comp, perf);
+            IDUUIInstantiatedPipelineComponent.process_handler(aCas, comp, perf, _isInterrupted);
         }
         else {
-            IDUUIInstantiatedPipelineComponent.process(aCas, comp, perf);
+            IDUUIInstantiatedPipelineComponent.process(aCas, comp, perf, _isInterrupted);
         }
     }
 
