@@ -456,10 +456,11 @@ public class DUUIDockerInterface {
                 temp.onError(new Exception());
                 temp.awaitCompletion();
             } else {
-                ResultCallbackTemplate template = _docker.pullImageCmd(tag)
-                        .exec(new PullImageStdout());
-                template.onError(new Exception());
+                System.out.printf("[DUUIDockerDriver]: Trying to fetch image %s\n", tag);
+                ResultCallbackTemplate template = _docker.pullImageCmd(tag).exec(new PullImageStdout());
                 template.awaitCompletion();
+//                template.onError(new Exception());
+//                template.awaitCompletion();
             }
         } catch (Exception e) {
             e.printStackTrace();
