@@ -3,6 +3,8 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface.driver;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.Socket;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -14,6 +16,7 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 import org.apache.commons.compress.compressors.CompressorException;
@@ -49,7 +52,7 @@ public interface IDUUIConnectedDriver extends IDUUIDriver {
         if (comp.getSignature() != null)
             return comp.getSignature();
 
-        Signature sig = IDUUIInstantiatedPipelineComponent.getInputOutputs(uuid,comp);
+        Signature sig = IDUUIInstantiatedPipelineComponent.getInputOutputs(uuid, comp);
         comp.setSignature(sig);
         sig.getInputs()
             .forEach(in -> comp.getParameters().put(in.getSimpleName(), "true")); 
@@ -65,26 +68,29 @@ public interface IDUUIConnectedDriver extends IDUUIDriver {
     }
     
     public default IDUUICommunicationLayer get_communication_layer(String url, JCas jc, int timeout_ms, HttpClient client, ResponsiveMessageCallback printfunc, DUUILuaContext context, boolean skipVerification) throws Exception {
-        // TODO: Requires clean up dynamic scaling 
         long start = System.currentTimeMillis();
         IDUUICommunicationLayer layer = new DUUIFallbackCommunicationLayer();
         boolean fatal_error = false;
-
         int iError = 0;
         while(true) {
             HttpRequest request = HttpRequest.newBuilder()
-                            .uri(URI.create(url + DUUIComposer.V1_COMPONENT_ENDPOINT_COMMUNICATION_LAYER))
-                            .version(HttpClient.Version.HTTP_1_1)
-                            .timeout(Duration.ofSeconds(timeout_ms))
-                            .GET()
-                            .build();
+                .uri(URI.create(url + DUUIComposer.V1_COMPONENT_ENDPOINT_COMMUNICATION_LAYER))
+                .version(HttpClient.Version.HTTP_1_1)
+                .timeout(Duration.ofSeconds(timeout_ms))
+                .GET()
+                .build();
 
+            
+            long pingStart = System.nanoTime();
+            boolean reachable = ping(url, client, request, 20);
+            System.out.printf("[ConnectedDriver] It took %d ms to connect to container: %s \n", 
+                TimeUnit.MILLISECONDS.convert(System.nanoTime() - pingStart, TimeUnit.NANOSECONDS), reachable);
             try {
                 HttpResponse<byte[]> resp = null;
 
                 boolean connectionError = true;
                 int iCount = 0;
-                while(connectionError && iCount<10) {
+                while(connectionError && iCount<100) {
 
                     try {
                         resp = client.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray()).join();
@@ -152,7 +158,22 @@ public interface IDUUIConnectedDriver extends IDUUIDriver {
 
     }
 
-    public default void verify(String url, HttpClient client, IDUUICommunicationLayer layer, JCas jc) throws Exception {
+    public default boolean ping(String url, HttpClient client, HttpRequest request, int retry) throws InterruptedException {
+        int tries = 0; 
+        boolean success = false; 
+        do {
+            try {
+                client.send(request, HttpResponse.BodyHandlers.ofByteArray());
+                success = true;
+            } catch (Exception e) {
+                TimeUnit.MILLISECONDS.sleep(500);
+            }
+        } while (tries++ <= retry && !success);
+
+        return success;
+    }
+
+    public default boolean verify(String url, HttpClient client, IDUUICommunicationLayer layer, JCas jc) throws Exception {
         ByteArrayOutputStream stream = new ByteArrayOutputStream();
         try {
             //TODO: Make this accept options to better check the instantiation!
@@ -160,28 +181,38 @@ public interface IDUUIConnectedDriver extends IDUUIDriver {
         }
         catch(Exception e) {
             e.printStackTrace();
-            throw new Exception(format("The serialization step of the communication layer fails for implementing class %s", layer.getClass().getCanonicalName()));
+            return false;
+            // throw new Exception(format("The serialization step of the communication layer fails for implementing class %s", layer.getClass().getCanonicalName()));
         }
-
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(url + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS))
-                .version(HttpClient.Version.HTTP_1_1)
-                .POST(HttpRequest.BodyPublishers.ofByteArray(stream.toByteArray()))
-                .build();
-                HttpResponse<byte[]> resp = client.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray()).join();
+        HttpResponse<byte[]> resp = null;
+        try {
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(url + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS))
+                    .version(HttpClient.Version.HTTP_1_1)
+                    .POST(HttpRequest.BodyPublishers.ofByteArray(stream.toByteArray()))
+                    .build();
+            resp = client.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray()).join();
+            if (resp == null) return false;
+        } catch (Exception e) {
+            return false;
+        }
         if (resp.statusCode() == 200) {
             ByteArrayInputStream inputStream = new ByteArrayInputStream(resp.body());
             try {
                 layer.deserialize(jc, inputStream);
             }
             catch(Exception e) {
-                System.err.printf("Caught exception deserializing response: %s\n",new String(resp.body(), StandardCharsets.UTF_8));
-                throw e;
+                return false;
+                // System.err.printf("Caught exception deserializing response: %s\n",new String(resp.body(), StandardCharsets.UTF_8));
+                // throw e;
             }
         }
         else {
-            throw new Exception(format("The container returned response with code != 200\nResponse %s",resp.body().toString()));
+            return false;
+            // throw new Exception(format("The container returned response with code != 200\nResponse %s",resp.body().toString()));
         }
+
+        return true;
     }
 
     public default void run(String uuid, JCas aCas, DUUIPipelineDocumentPerformance perf) throws InterruptedException, IOException, SAXException, AnalysisEngineProcessException, CompressorException, CASException {

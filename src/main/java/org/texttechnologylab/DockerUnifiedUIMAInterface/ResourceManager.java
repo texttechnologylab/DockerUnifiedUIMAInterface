@@ -8,13 +8,17 @@ import java.lang.management.MemoryUsage;
 import java.lang.management.OperatingSystemMXBean;
 import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Map.Entry;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -22,11 +26,15 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import java.util.stream.Collector;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.apache.uima.UIMAException;
@@ -38,6 +46,10 @@ import org.apache.uima.jcas.JCas;
 import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.apache.uima.util.CasCreationUtils;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.ResourceManager.HostUsage;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.ResourceManager.ResourceView;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.ResourceManager.SystemView;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.IDUUIDriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.DUUISimpleMonitor;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.IDUUIMonitor;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.DUUIParallelPipelineExecutor;
@@ -47,7 +59,7 @@ public class ResourceManager extends Thread {
 
     static final List<IDUUIResource> _resources = new ArrayList<>(); 
     static final AtomicBoolean _finished = new AtomicBoolean(false);
-    static final HashSet<Thread> _activeThreads = new HashSet<>(20);
+    static final Set<Thread> _activeThreads = ConcurrentHashMap.newKeySet(20);
     static final Map<Long, Thread> _workerThreads = new ConcurrentHashMap<>(20);
     static final CountDownLatch finishLock = new CountDownLatch(1);
 
@@ -107,19 +119,16 @@ public class ResourceManager extends Thread {
     @Override
     public void run() {
         try {
-            dispatch(_system.collectStaticData(), 
-                DUUISimpleMonitor.V1_MONITOR_SYSTEM_STATIC_INFO);
-
+            // Collection phase
+            dispatchResourceViews();
+            
             while (! _finished.get()) {
-                Thread.sleep(500);
+                dispatchHostView();
+
+                Thread.sleep(1000);
                 
-                //Main thread memory control
-                resumeWhenMemoryFree();
-        
-                // Collection phase
-                dispatchSystemDynamicInfo();
-                dispatchResourceInfo();
-                
+                //Main thread memory lock
+                resumeWhenMemoryFree();            
 
                 // Scaling phase
                 scale();
@@ -127,6 +136,7 @@ public class ResourceManager extends Thread {
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+        // } catch (Exception e) {
         } finally {
             finishLock.countDown();
         }
@@ -134,7 +144,8 @@ public class ResourceManager extends Thread {
 
     public void finishManager() throws InterruptedException {
         _finished.set(true);
-        finishLock.await();
+        if (!Thread.interrupted())
+            finishLock.await();
     }
 
     void scale() {
@@ -153,7 +164,7 @@ public class ResourceManager extends Thread {
     }
 
     public boolean isBatchReadIn() {
-        return _batchRead.get();
+        return _batchRead.get() || _casPool._casPool.size() == 0;
     }
 
     public void setBatchReadIn(boolean batchRead) {
@@ -239,14 +250,17 @@ public class ResourceManager extends Thread {
         _casPool.returnByteStream(bs);
     }
 
-    private void dispatchResourceInfo() {
-        dispatch(_system.collectResourcesData(),
-            DUUISimpleMonitor.V1_MONITOR_RESOURCE_INFO);
+    private void dispatchResourceViews() {
+        final Map<Class<? extends IDUUIResource>, ResourceView> data = 
+            _system.collectResourcesData();
+        // dispatch(,
+        //     DUUISimpleMonitor.V1_MONITOR_RESOURCE_INFO);
     }
 
-    private void dispatchSystemDynamicInfo() {
-        dispatch(_system.collect(), 
-            DUUISimpleMonitor.V1_MONITOR_SYSTEM_DYNAMIC_INFO);
+    private void dispatchHostView() {
+        final ResourceViews data = _system.collect();
+        // dispatch(_system.collect(), 
+        //     DUUISimpleMonitor.V1_MONITOR_SYSTEM_DYNAMIC_INFO);
     }
 
     void dispatch(Map<String, Object> resourceData, String type) {    
@@ -296,25 +310,27 @@ public class ResourceManager extends Thread {
                     }
                 }; 
            
+            int initialPoolSize = _casPool.remainingCapacity() == Integer.MAX_VALUE ?
+                _strategy.getCorePoolSize() : _casPool.remainingCapacity();
             boolean casCreationFailed = Stream.generate(_casSupplier)
-                .limit(_strategy.getCorePoolSize())
+                .limit(initialPoolSize)
                 .peek(_casMonitorPool::add)
                 .peek(_casPool::add)
                 .anyMatch(Predicate.isEqual(null));
 
             assert casCreationFailed : 
                 new RuntimeException("[DUUIResourceManager] Exception occured while populating JCas pool.");
-            _currCasPoolSize = new AtomicInteger(_strategy.getCorePoolSize());
+            _currCasPoolSize = new AtomicInteger(initialPoolSize);
             
             _streamSupplier = () -> new ByteArrayOutputStream(exJcas.size());
             Stream.generate(_streamSupplier)
-                .limit(_strategy.getCorePoolSize())
+                .limit(initialPoolSize)
                 .forEach(_bytestreams::add);
-            _currStreamPoolSize = new AtomicInteger(_strategy.getCorePoolSize());
+            _currStreamPoolSize = new AtomicInteger(initialPoolSize);
             
             System.out.printf(
                 "JCAS QUEUE CAPACITY: %d | #JCAS: %d | #RESERVED: %d \nMEMORY USED:      %d \nMEMORY THRESHOLD: %d %n", 
-                _maxPoolSize.get(), _currCasPoolSize.get(), _casPool.size(), _system._usedBytes, _system._thresholdBytes);
+                _maxPoolSize.get(), initialPoolSize, _casPool.size(), _system._usedBytes, _system._thresholdBytes);
         }
 
         boolean poolFullAndLimited() {
@@ -327,9 +343,6 @@ public class ResourceManager extends Thread {
         }
 
         void setMaxPoolSize() {
-            if (_casPool.remainingCapacity() < Integer.MAX_VALUE)
-                return;
-
             _maxPoolSize.set(_casMonitorPool.size()); 
         }
         
@@ -362,7 +375,7 @@ public class ResourceManager extends Thread {
             if (borrowedItems >= _maxPoolSize.get())
                 return pool.take();
 
-            T resource = pool.poll(_strategy.getTimeout(TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS);
+            T resource = pool.poll();
             
             if (resource != null)
                 return resource; 
@@ -388,134 +401,23 @@ public class ResourceManager extends Thread {
             return _casMonitorPool.stream()
                     .mapToInt(JCas::size)
                     .sum();
-            // Consumer<JCas> serializer = (jc) -> {
-            //     synchronized (jc) {
-            //         try {
-            //             Serialization.serializeCAS(jc.getCas(), test);
-            //         } catch (Exception e) {
-            //         }
-            //     }
-            // };
-
-            // _casMonitorPool.stream()
-            //     .findAny()
-            //     .ifPresent(serializer);
-
-            // long size;
-            // if (test.size() > 0) {
-            //     size = test.size() * _casMonitorPool.size();
-            //     test.reset();
-            //     return size;
-            // } else {
-                
-            // }
         }
 
     }
 
-    public static interface HostConfig {
+    class SystemResourceStatistics implements ResourceViews {
 
-        long getMemoryThreshhold();
-
-        long getJVMMaxMemory();
-
-        long getHostMemoryTotal();
-
-        int getAvailableProcessors();
-
-    }
-
-    public static interface HostUsageStatistics {
-
-        double getSystemCpuLoad();
-
-        double getJvmCpuLoad();
-
-        long getHostMemoryUsage();
-
-        long getHeapMemoryUsage();
-
-        long getHeapMemoryTotal();
-        
-        long getNonHeapMemoryUsage();
-        
-        long getNonHeapMemoryTotal();
-
-        int calculateDynamicPoolsize();
-    }
-
-    public static interface ResourceStatistics {
-
-        default ComponentProgress getComponentProgress() {
-            return (ComponentProgress) this;
-        }
-
-        default HostConfig getHostConfig() {
-            return (HostConfig) this;
-        }
-
-        default HostUsageStatistics getHostUsageStatistics() {
-            return (HostUsageStatistics) this;
-        }
-
-        Map<String, Object> getResourceStatistics();
-    }
-
-    public static interface ComponentProgress {
-
-        int getCompletedInstances(String uuid);
-        
-        int getTotalInstances(String uuid);
-        
-        boolean isComponentCompleted(String uuid);
-
-        int getComponentPipelineLevel(String uuid);
-        
-        int getCurrentPipelineLevel();
-
-        int getRegisteredDocumentCount();
-
-        Map<String, Integer> getComponentLevels(); 
-    }
-
-    class SystemResourceStatistics implements ResourceStatistics, ComponentProgress, HostConfig, HostUsageStatistics {
-
-        final OperatingSystemMXBean _os = ManagementFactory.getOperatingSystemMXBean();
-        final ThreadMXBean _threads = ManagementFactory.getThreadMXBean();
-        final MemoryMXBean _memory = ManagementFactory.getMemoryMXBean();
         final Runtime _runtime = Runtime.getRuntime();
-        final Map<String, Object> _static = new ConcurrentHashMap<>(6);
-        final Map<String, Object> _dynamic = new ConcurrentHashMap<>(16);
-        final Map<String, Map<String, Object>> _threadStats = new ConcurrentHashMap<>();
 
-        final Set<IDUUIResource> _skipCollection = new HashSet<>(16);
-        final Map<String, Object> _resourceStats = new ConcurrentHashMap<>();
-        // Format:  
-        // Resource name (e.g. DUUIDockerDriver) => ResourceStats (e.g list of container stats in maps) 
-
-        Map<String, AtomicInteger> _completedComponentInstances = new ConcurrentHashMap<>(1);
-        Map<String, Integer> _heightMap = new ConcurrentHashMap<>(1);
-        AtomicInteger _currentLevel = new AtomicInteger(0);
-        AtomicInteger _registeredDocumentsCount = new AtomicInteger(0);
-        String _currentInstance = "";
+        // Resoucre Views
+        PipelineProgress _pipelineProgress = null;
+        final SystemView _systemView = new SystemView(_activeThreads);
+        final Map<Class<? extends IDUUIResource>, ResourceView> _resourceStats = new IdentityHashMap<>(_resources.size());
+        final Set<IDUUIResource<ResourceView>> _skipCollection = new HashSet<>(16);
 
         final long _thresholdBytes;
         long _usedBytes = 0L; 
         AtomicBoolean _poolSizeSet = new AtomicBoolean(false);
-
-        {
-            // try {
-            //     _memory.setVerbose(true);
-            // } catch (Exception e) {
-            // }
-            try {
-                _threads.setThreadContentionMonitoringEnabled(true);
-                _threads.setThreadCpuTimeEnabled(true);
-            } catch (Exception e) {
-                System.out.println("[DUUIResourceManager] Thread monitoring limited.");
-
-            }
-        }
         
         public SystemResourceStatistics(double memoryThreshhold, long thresholdBytes) {
             if (memoryThreshhold == -1 && thresholdBytes == -1) 
@@ -555,179 +457,54 @@ public class ResourceManager extends Thread {
             return critical;
         }
 
-        @Override
-        public Map<String, Object> getResourceStatistics() {
-            return _resourceStats;
-        }
-
-        // HOST CONFIG
-
-        public long getMemoryThreshhold() {
-            return _thresholdBytes;
-        }
-
-        public long getJVMMaxMemory() {
-            return (long) _static.get("os_jvm_max_memory");
-        }
-
-        public long getHostMemoryTotal() {
-            return (long) _dynamic.get("system_memory_total");
-        }
-
-        public int getAvailableProcessors() {
-            return (int) _static.get("os_processors");
-        }
-
-        // HOST USAGE STATISTICS
-
-        public double getSystemCpuLoad() {
-            return (double) _dynamic.get("cpu_system_load");
-        }
-
-        public double getJvmCpuLoad() {
-            return (double) _dynamic.get("cpu_jvm_load");
-        }
-
-        public long getHostMemoryUsage() {
-            return (long) _dynamic.get("system_memory_used");
-        }
-
-        public long getHeapMemoryTotal() {
-            return (long) _dynamic.get("memory_heap_committed");
-        }
-
-        public long getHeapMemoryUsage() {
-            return (long) _dynamic.get("memory_heap_used");
-        }
-
-        public long getNonHeapMemoryTotal() {
-            return (long) _dynamic.get("memory_non_heap_committed");
-        }
-
-        public long getNonHeapMemoryUsage() {
-            return (long) _dynamic.get("memory_non_heap_used");
-        }
-
-        public int calculateDynamicPoolsize() {
-            long[] cumulatedCpuTime = {0L};
-            long[] cumulatedWaitTime = {0L};
-
-            // _threadStats.keySet().stream()
-            // .map(Long::valueOf)
-            // .filter(_workerThreads::containsKey)
-            // .map(String::valueOf)
-            // .forEach(threadId -> {
-            //     cumulatedWaitTime[0] += (long) _threadStats
-            //         .get(threadId).get("thread_total_wait_time");
-            //     cumulatedCpuTime[0] += (long) _threadStats
-            //         .get(threadId).get("thread_cpu_time");
-            // });
-
-
-            double blockingFactor;
-            // System.out.println("CUMULATED CPU TIME: " + cumulatedCpuTime[0]);
-            // System.out.println("CUMULATED WAIT TIME: " + cumulatedWaitTime[0]);
-            if (cumulatedCpuTime[0] == 0L || cumulatedWaitTime[0] == 0L)
-                blockingFactor = 0.5;
-            else
-                blockingFactor = cumulatedCpuTime[0] / cumulatedWaitTime[0];
-
-            return (int) Math.round(getAvailableProcessors() / (1 - blockingFactor));
-        }
-
-        // COMPONENT PROGRESS
-    
-        @Override
-        public Map<String, Integer> getComponentLevels() {
-            return _heightMap;
-        }
+        // RESOURCE VIEWS
 
         @Override
-        public ComponentProgress getComponentProgress() {
-            return this;
+        public void update() {
+            _systemView.update();
+            _pipelineProgress.update();
         }
-
+        
         @Override
-        public int getRegisteredDocumentCount() {
-            return _registeredDocumentsCount.get();
-        }
-
-        @Override
-        public int getComponentPipelineLevel(String uuid) {
-            return _heightMap.get(uuid);
+        public PipelineProgress getComponentProgress() {
+            return _pipelineProgress;
         }
 
         @Override 
-        public boolean isComponentCompleted(String uuid) {
-            return getTotalInstances(uuid) == getCompletedInstances(uuid);
+        public HostUsage getHostUsage() {
+            return _systemView;
+        }
+
+        @Override 
+        public HostConfig getHostConfig() {
+            return _systemView._config;
         }
 
         @Override
-        public int getTotalInstances(String uuid) {
-            return _registeredDocumentsCount.get();
+        public Map<Class<? extends IDUUIResource>, ResourceView> getResourceViews() {
+            return _resourceStats;
         }
-
-        @Override
-        public int getCompletedInstances(String uuid) {
-            AtomicInteger completed = _completedComponentInstances.get(uuid);
-
-            if (completed == null) return -1;
-
-            return completed.get();
-        }
-
-        @Override
-        public int getCurrentPipelineLevel() {
-            return _currentLevel.get();
-        }
-
         // COLLECTION METHODS
 
-        Map<String, Object> collect() {
-            collectHostData();
-            collectMemoryData();
-
-            return _dynamic; 
+        ResourceViews collect() {
+            update();
+            return this; 
         }
 
-        Map<String, Object> collectStaticData() {
-
-            _static.put("os_processors", _os.getAvailableProcessors());
-            _static.put("os_version", _os.getVersion());
-            _static.put("os_name", _os.getName());
-            _static.put("os_arch", _os.getArch());
-            _static.put("os_jvm_vendor", ManagementFactory.getRuntimeMXBean().getVmVendor());
-            _static.put("os_jvm_max_memory", _runtime.maxMemory());
-
-            return _static;
-        }
-
-        Map<String, Object> collectResourcesData() {
+        Map<Class<? extends IDUUIResource>, ResourceView> collectResourcesData() {
             for (IDUUIResource resource : _resources) {
-                if (_skipCollection.contains(resource)) 
-                    continue;
+                if (_skipCollection.contains(resource)) continue;
                     
                 try {
-                    // size += serialize(resource);
-                    Map<String, Object> resourceStats = resource.collect();
-                    if (resourceStats == null) continue; 
+                    ResourceView resourceView = resource.collect();
+                    if (resourceView == null) continue; 
 
-                    String clazz = resource.getClass().getSimpleName();
-
-                    if (resource instanceof DUUIParallelPipelineExecutor) {
-                        _currentLevel = (AtomicInteger) 
-                            resourceStats.get("currentLevel");
-                        _registeredDocumentsCount = (AtomicInteger)
-                            resourceStats.get("registeredDocumentsCount");
-                        _completedComponentInstances = (Map<String, AtomicInteger>)
-                            resourceStats.get("completedComponentInstances");
-                        _heightMap = (Map<String, Integer>)
-                             resourceStats.get("heightMap");
-
-                        _skipCollection.add(resource);
+                    if (resourceView instanceof PipelineProgress) {
+                        _pipelineProgress = (PipelineProgress) resourceView; 
                     } else {
-                        _resourceStats.put(clazz, resourceStats.get(clazz));
+                        _resourceStats.put(resource.getClass(), resourceView);
                     }
+                    _skipCollection.add(resource);
                 } catch (Exception e) {
                     System.out.printf(
                         "[DUUIResourceManager] Error collecting resource stats: %s%n%s%n",
@@ -737,88 +514,303 @@ public class ResourceManager extends Thread {
 
             return _resourceStats; 
         }
+        
+        // public int calculateDynamicPoolsize() {
+        //     long[] cumulatedCpuTime = {0L};
+        //     long[] cumulatedWaitTime = {0L};
 
-        void collectHostData() {
-            double cpuLoad = -1; 
-            double systemLoad = -1;
-            long jvm_cpu_time = -1; 
-            long systemTotalMemory = -1;
-            long systemUsedMemory = -1; 
+        //     // _threadStats.keySet().stream()
+        //     // .map(Long::valueOf)
+        //     // .filter(_workerThreads::containsKey)
+        //     // .map(String::valueOf)
+        //     // .forEach(threadId -> {
+        //     //     cumulatedWaitTime[0] += (long) _threadStats
+        //     //         .get(threadId).get("thread_total_wait_time");
+        //     //     cumulatedCpuTime[0] += (long) _threadStats
+        //     //         .get(threadId).get("thread_cpu_time");
+        //     // });
 
+
+        //     double blockingFactor;
+        //     // System.out.println("CUMULATED CPU TIME: " + cumulatedCpuTime[0]);
+        //     // System.out.println("CUMULATED WAIT TIME: " + cumulatedWaitTime[0]);
+        //     if (cumulatedCpuTime[0] == 0L || cumulatedWaitTime[0] == 0L)
+        //         blockingFactor = 0.5;
+        //     else
+        //         blockingFactor = cumulatedCpuTime[0] / cumulatedWaitTime[0];
+
+        //     return (int) Math.round(getAvailableProcessors() / (1 - blockingFactor));
+        // }
+    }
+    
+    public static interface ResourceView {
+        default void update() {};
+    }
+
+    public static interface ResourceViews extends ResourceView {
+
+        PipelineProgress getComponentProgress();
+
+        HostConfig getHostConfig();
+
+        HostUsage getHostUsage();
+
+        Map<Class<? extends IDUUIResource>, ResourceView> getResourceViews();
+    }
+
+    public static interface PipelineProgress extends ResourceView {
+
+        int getComponentPoolSize(String uuid);
+
+        long getAcceleration();
+
+        double getLevelProgress();
+
+        double getComponentProgress(String uuid);
+
+        boolean isCompleted(String uuid);
+
+        default boolean isBatchReadIn() {
+            return _rm.isBatchReadIn();
+        }
+
+        int getPipelineLevel(String uuid);
+
+        int getNextLevel();
+
+        int getCurrentLevel();
+
+        int getLevelSize(int level);
+
+        int getLevelSize(int level, Class<? extends IDUUIDriver> filter);
+
+        int getLevelSize(int level, Class<? extends IDUUIDriver> ...filters);
+    }
+
+    public static interface HostConfig extends ResourceView {
+
+        long getJVMMaxMemory();
+
+        long getHostMemoryTotal();
+
+        int getAvailableProcessors();
+
+        String getOSName();
+
+        String getJVMVendor();
+    }
+
+    public static interface HostUsage extends ResourceView {
+
+        double getSystemCpuLoad();
+
+        double getJvmCpuLoad();
+
+        long getHostMemoryUsage();
+
+        long getHeapMemoryUsage();
+
+        long getHeapMemoryTotal();
+
+        // int calculateDynamicPoolsize();
+    }
+
+    static interface HostThreadView extends ResourceView {
+        long getWaitedTime();
+
+        long getBlockedTime();
+        
+        long getCpuTime();
+
+        long getMemoryUsage();
+    }
+
+    class SystemView implements HostUsage {
+        class ThreadView implements HostThreadView {
+            final Thread th;
+            final ThreadInfo info;
+            final long id;
+            String name;
+            String state;
+            long wait_time; // milliseconds
+            long block_time; // milliseconds
+            long cpu_time; // nanoseconds
+            long memory_usage; 
+
+            ThreadView(Thread thread) {
+                this.id = thread.getId();
+                this.th = thread;
+                this.info = _threads.getThreadInfo(id);
+            }
+
+            @Override
+            public long getWaitedTime() {
+                return wait_time;
+            }
+
+            @Override
+            public long getBlockedTime() {
+                return block_time;
+            }
+            
+            @Override
+            public long getCpuTime() {
+                return cpu_time;
+            }
+
+            @Override
+            public long getMemoryUsage() {
+                return memory_usage;
+            }
+
+            @Override
+            public void update() {
+                long id = th.getId();
+
+                long memoryUsage = -1L;
+                if (_threads instanceof com.sun.management.ThreadMXBean) {
+                    com.sun.management.ThreadMXBean threadsSun = 
+                        (com.sun.management.ThreadMXBean) _threads;
+                    memoryUsage = threadsSun.getThreadAllocatedBytes(id);
+                }
+                this.name = th.getName();
+                this.state = info.getThreadState().toString();
+                this.wait_time = info.getWaitedTime();
+                this.block_time = info.getBlockedTime();
+                this.cpu_time = TimeUnit.NANOSECONDS.toMillis(_threads.getThreadCpuTime(id));
+                this.memory_usage = memoryUsage;
+            }
+        }
+
+        class SystemConfigView implements HostConfig {
+            final int processors;
+            final String arch;
+            final String os_version;
+            final String os_name;
+            final String jvm_vendor;
+            final long jvm_max_memory;
+            final long system_memaory_total;
+
+            SystemConfigView() {
+                processors = _os.getAvailableProcessors();
+                arch = _os.getArch();
+                os_version = _os.getVersion();
+                os_name = _os.getName();
+                jvm_vendor = ManagementFactory.getRuntimeMXBean().getVmVendor();
+                jvm_max_memory = _runtime.maxMemory();
+
+                if (_os instanceof com.sun.management.OperatingSystemMXBean) {
+                    com.sun.management.OperatingSystemMXBean osSun = (com.sun.management.OperatingSystemMXBean) _os;
+                    system_memaory_total = osSun.getTotalPhysicalMemorySize();
+                } else system_memaory_total = -1;
+
+            }
+
+            @Override
+            public String getOSName() {
+                return os_name; 
+            }
+
+            @Override
+            public String getJVMVendor() {
+                return jvm_vendor;
+            }
+
+            @Override
+            public long getJVMMaxMemory() {
+                return jvm_max_memory;
+            }
+
+            @Override
+            public long getHostMemoryTotal() {
+                return system_memaory_total;
+            }
+
+            @Override
+            public int getAvailableProcessors() {
+                return processors;
+            }
+        }
+
+        final OperatingSystemMXBean _os = ManagementFactory.getOperatingSystemMXBean();
+        final ThreadMXBean _threads = ManagementFactory.getThreadMXBean();
+        final MemoryMXBean _memory = ManagementFactory.getMemoryMXBean();
+        final Runtime _runtime = Runtime.getRuntime();
+
+        final SystemConfigView _config = new SystemConfigView();
+        final Map<Long, ThreadView> _threadviews;
+        final Collection<ThreadView> _threadviewsSet;
+        final Set<Thread> _th; 
+
+        double cpu_load_average = -1.f;
+        double system_cpu_load = -1.f; // percent [0.0, 1.0]
+        double jvm_cpu_load = -1.f; // percent [0.0, 1.0]
+        long jvm_cpu_time = -1L; // nanoseconds
+
+        long memory_used = -1L;
+        long memory_total = -1L;
+        long system_memaory_used = -1L;
+
+        public SystemView (Set<Thread> activeThreads){
+            _th = activeThreads;
+            _threadviews = _th.stream()
+                .map(ThreadView::new)
+                .collect(Collectors.toMap(tv-> tv.id, Function.identity()));
+            _threadviewsSet = _threadviews.values();
+
+            try {
+                _threads.setThreadContentionMonitoringEnabled(true);
+                _threads.setThreadCpuTimeEnabled(true);
+            } catch (Exception e) {
+                System.out.println("[DUUIResourceManager] Thread monitoring limited.");
+            }
+        }
+
+        @Override
+        public double getSystemCpuLoad() {
+            return system_cpu_load;
+        }
+
+        @Override
+        public double getJvmCpuLoad() {
+            return jvm_cpu_load;
+        }
+
+        @Override
+        public long getHostMemoryUsage() {
+            return system_memaory_used;
+        }
+
+        @Override
+        public long getHeapMemoryUsage() {
+            return memory_used;
+        }
+
+        @Override
+        public long getHeapMemoryTotal() {
+            return memory_total;
+        }
+
+        @Override
+        public void update() {
             if (_os instanceof com.sun.management.OperatingSystemMXBean) {
                 com.sun.management.OperatingSystemMXBean osSun = (com.sun.management.OperatingSystemMXBean) _os;
-                cpuLoad = osSun.getProcessCpuLoad();  // -1 => not available
-                systemLoad = osSun.getSystemCpuLoad(); // -1 => not available
+                cpu_load_average = osSun.getSystemLoadAverage();
+                system_cpu_load = osSun.getSystemCpuLoad();
                 jvm_cpu_time = osSun.getProcessCpuTime();
-                systemTotalMemory = osSun.getTotalPhysicalMemorySize();
-                systemUsedMemory = osSun.getTotalPhysicalMemorySize() - osSun.getFreePhysicalMemorySize();
+                jvm_cpu_load = osSun.getProcessCpuLoad();
+                system_memaory_used = osSun.getTotalPhysicalMemorySize() - osSun.getFreePhysicalMemorySize();
             }
-
-            _dynamic.put("cpu_load_average", _os.getSystemLoadAverage());
-            _dynamic.put("cpu_jvm_load", cpuLoad);
-            _dynamic.put("cpu_system_load", systemLoad);
-            _dynamic.put("system_memory_total", systemTotalMemory);
-            _dynamic.put("system_memory_used", systemUsedMemory);
-            _dynamic.put("thread_stats", collectThreadData(jvm_cpu_time));
-        }
-
-        void collectMemoryData() {
-            _dynamic.put("memory_heap_used", _runtime.totalMemory() - _runtime.freeMemory());
-            _dynamic.put("memory_heap_committed", _runtime.totalMemory());
-
-            MemoryUsage stackUsage = _memory.getNonHeapMemoryUsage();
-            _dynamic.put("memory_non_heap_used", stackUsage.getUsed());
-            _dynamic.put("memory_non_heap_committed", stackUsage.getCommitted());
-            _dynamic.put("memory_used", _runtime.totalMemory() - _runtime.freeMemory());
-            _dynamic.put("memory_total", _runtime.totalMemory());
             
-            stackUsage = null;
+            memory_used = _runtime.totalMemory() - _runtime.freeMemory();
+            memory_total = _runtime.totalMemory();
+
+            _th.stream()
+                .filter(t -> !_threadviews.containsKey(t.getId()))
+                .map(ThreadView::new)
+                .forEach(tv -> _threadviews.putIfAbsent(tv.id, tv));
+            _threadviewsSet.forEach(ThreadView::update);
         }
-
-        List<Map<String, Object>> collectThreadData(long jvm_cpu_time) {
-            List<Map<String, Object>> threadStats = new ArrayList<>(_activeThreads.size());
-
-            for (Thread th : _activeThreads) {
-                long id = th.getId();
-                try {
-                    Map<String, Object> threadStat; 
-                    if (_threadStats.containsKey(String.valueOf(id))) {
-                        threadStat = _threadStats.get(String.valueOf(id));
-                    } else {
-                        threadStat = new HashMap<>(10);
-                        _threadStats.put(String.valueOf(id), threadStat);
-                    }
-    
-                    ThreadInfo info = _threads.getThreadInfo(id);
-                    if (info == null) continue;
-
-                    long memoryUsage = -1L;
-                    if (_threads instanceof com.sun.management.ThreadMXBean) {
-                        com.sun.management.ThreadMXBean threadsSun = 
-                            (com.sun.management.ThreadMXBean) _threads;
-                        memoryUsage = threadsSun.getThreadAllocatedBytes(id);
-                    }
-    
-                    threadStat.put("thread_id", id);
-                    threadStat.put("thread_name", th.getName());
-                    threadStat.put("thread_state", info.getThreadState().toString());
-                    threadStat.put("thread_total_wait_time", info.getWaitedTime()); // milliseconds
-                    threadStat.put("thread_total_block_time", info.getBlockedTime());
-                    threadStat.put("thread_cpu_time", _threads.getThreadCpuTime(id)); // nanoseconds
-                    threadStat.put("jvm_cpu_time", jvm_cpu_time); // nanoseconds
-                    threadStat.put("thread_memory_usage", memoryUsage);
-    
-                    threadStats.add(threadStat);
-                } catch (Exception e) {
-                    System.out.println(
-                        "[DUUIResourceManager] Exception getting thread statistics. Thread: " +
-                        th.getName());
-                    System.out.printf("%s: %s%n", e, e.getMessage());
-                }
-            }
-
-            return threadStats;
-        }
-
     }
+
 }

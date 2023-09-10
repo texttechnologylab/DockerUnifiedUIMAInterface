@@ -5,15 +5,17 @@ import static java.lang.String.format;
 
 import java.io.IOException;
 import java.io.StringWriter;
+import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
 import java.security.InvalidParameterException;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
@@ -22,8 +24,13 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.BiFunction;
+import java.util.function.BooleanSupplier;
+import java.util.function.Function;
 import java.util.logging.Logger;
-import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import org.apache.uima.UIMAException;
 import org.apache.uima.fit.factory.JCasFactory;
@@ -34,13 +41,12 @@ import org.javatuples.Pair;
 import org.json.JSONObject;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer.Config;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.ResourceManager.ComponentProgress;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.ResourceManager.ResourceStatistics;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIDockerInterface;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUIResource;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.ResourceManager;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.ResourceManager.PipelineProgress;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.ResourceManager.ResourceView;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.ResourceManager.ResourceViews;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.DUUIRestClient;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.DUUIWebsocketAlt;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.IDUUIConnectionHandler;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.IDUUICommunicationLayer;
@@ -52,12 +58,16 @@ public class DUUIDockerDriver implements IDUUIConnectedDriver, IDUUIResource {
     IDUUIConnectionHandler _wsclient;
 
     Map<String, IDUUIInstantiatedPipelineComponent> _active_components;
+    Map<String, IDUUICommunicationLayer> _layers;
     int _container_timeout;
     DUUILuaContext _luaContext;
     
     ArrayList<JSONObject> _resource_container = null; 
     final AtomicBoolean _isInstanstiated = new AtomicBoolean(false);
-    final DockerStats _stats = new DockerStats(); 
+    final DockerDriverView _stats = new DockerDriverView(); 
+    Function<String, Boolean> _container_resumer = this::start; 
+    Function<String, Boolean> _container_pauser = this::kill; 
+    final JCas _basic; 
 
 
     private final static Logger LOGGER = Logger.getLogger(DUUIComposer.class.getName());
@@ -67,19 +77,24 @@ public class DUUIDockerDriver implements IDUUIConnectedDriver, IDUUIResource {
         _client = DUUIRestClient._client;
         // _client = HttpClient.newBuilder().build();
 
-        JCas _basic = JCasFactory.createJCas();
-        _basic.setDocumentLanguage("en");
-        _basic.setDocumentText("Hello World!");
+        _basic = JCasFactory.createJCas();
+        _basic.setDocumentLanguage("de");
+        _basic.setDocumentText("Hallo, Welt!");
         _container_timeout = 10000;
 
         TypeSystemDescription desc = TypeSystemUtil.typeSystem2TypeSystemDescription(_basic.getTypeSystem());
         StringWriter wr = new StringWriter();
         desc.toXML(wr);
         _active_components = new ConcurrentHashMap<>();
+        _layers = new ConcurrentHashMap<>();
         _luaContext = null;
     }
 
     public DUUIDockerDriver(int timeout) throws IOException, UIMAException, SAXException {
+        _basic = JCasFactory.createJCas();
+        _basic.setDocumentLanguage("de");
+        _basic.setDocumentText("Hallo, Welt!");
+
         _interface = new DUUIDockerInterface();
         _client = HttpClient.newBuilder()
             .executor(Runnable::run)    
@@ -88,6 +103,12 @@ public class DUUIDockerDriver implements IDUUIConnectedDriver, IDUUIResource {
         _container_timeout = timeout;
 
         _active_components = new HashMap<>();
+    }
+
+    public DUUIDockerDriver withContainerPause() {
+        _container_pauser = this::pause;
+        _container_resumer = this::resume;
+        return this; 
     }
 
     public Map<String, IDUUIInstantiatedPipelineComponent> getComponents() {
@@ -141,11 +162,14 @@ public class DUUIDockerDriver implements IDUUIConnectedDriver, IDUUIResource {
         System.out.printf("[DockerLocalDriver] Transformed image %s to pinnable image name %s\n", comp.getImageName(),comp.getPipelineComponent().getDockerImageName());
         
         _active_components.put(uuid, comp);
-        _stats.crashes.put(uuid, new AtomicInteger(0));
-        int scale = comp.getScale();
-
+        _stats.crashes.put(uuid, new AtomicInteger(0));        
+        comp.setScale(DUUIComposer.Config.strategy().getMaxPoolSize()); // If scale fixed, nothing changes
+        int scale = comp.getScale() <= DUUIComposer.Config.strategy().getCorePoolSize() ? 
+            comp.getScale() : DUUIComposer.Config.strategy().getCorePoolSize();
         for (int i = 0; i < scale; i++) {
-            String containerid = _interface.run(comp.getPipelineComponent().getDockerImageName(), comp.usesGPU(), true, 9714,false);
+            final long startUp = System.nanoTime();
+
+            String containerid = _interface.run(comp.getPipelineComponent().getDockerImageName(), comp.usesGPU(), false, 9714,false);
             int port = _interface.extract_port_mapping(containerid);
             try {
                 if (port == 0) {
@@ -166,7 +190,9 @@ public class DUUIDockerDriver implements IDUUIConnectedDriver, IDUUIResource {
                 //     _wsclient = new DUUIWebsocketAlt(
                 //             url + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS_WEBSOCKET, comp.getWebsocketElements());
                 // }
+                _layers.put(uuid, layer);
                 comp.addInstance(new ComponentInstance(containerid, port, layer));
+                _stats.addStartUp(uuidCopy, Duration.ofNanos(System.nanoTime() - startUp));
             }
             catch(Exception e) {
                 _interface.stop_container(containerid);
@@ -174,56 +200,81 @@ public class DUUIDockerDriver implements IDUUIConnectedDriver, IDUUIResource {
                 throw e;
             }
         }
-        comp.setScale(DUUIComposer.Config.strategy().getMaxPoolSize()); // If scale fixed, nothing changes
+        fillUpReserves(uuid);
         _isInstanstiated.set(true); 
         return uuid;
     }
 
-    public boolean scaleUp(String uuid, int repeat) {
+    void fillUpReserves(String uuid) {
         InstantiatedComponent comp = (InstantiatedComponent) _active_components.get(uuid);
         if (comp == null) {
             throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local driver.");
         }
-        
-        int instanceCount = comp._instancesSet.size(); 
+
+        final int totalInstances = comp._instancesSet.size() + comp._backup.size();
+        final int fillUpRange = comp.getScale() - totalInstances;
+        if (fillUpRange <= 0) return;
         int tries = 0;
-        boolean created = false;
-
-        do {
+        for (int i = 0; i < fillUpRange; i++) {
             String containerid = null;
-            try {
-                containerid = _interface.run(
-                    comp.getPipelineComponent().getDockerImageName(), 
-                    false,
-                    true, 
-                    9714,
-                    false
-                );
-                int port = _interface.extract_port_mapping(containerid);
+            boolean created = false;
+            do {
+                try {
+                    containerid = _interface.create(comp.getPipelineComponent().getDockerImageName(), comp.usesGPU(),false, 9714,false);
+                    created = true;
+                } catch (Exception e) {}    
+            } while (tries++<3 && !created);
 
-                IDUUICommunicationLayer layer = get_communication_layer("http://127.0.0.1:" + String.valueOf(port), null, 3000, _client,(msg) -> {
-                    System.out.printf("[DockerLocalDriver][%s][Docker Replication %d/%d] %s\n", uuid, instanceCount + 1, instanceCount + 1, msg);
-                },_luaContext, true);
-                System.out.printf(
-                    "[DockerLocalDriver][%s][Docker Replication %d/%d] Container for image %s is online (URL http://127.0.0.1:%d) and seems to understand DUUI V1 format!\n", 
-                    uuid, instanceCount + 1, comp.getScale(), comp.getImageName(), port
-                );
+            if (containerid == null) continue;
 
-                created = true; 
-                comp.addInstance(new ComponentInstance(containerid, port, layer));
-            } catch (Exception e) {
-                if (containerid != null) 
-                    _interface.stop_container(containerid);
-                System.out.printf("[DockerLocalDriver][%s] Scaling up component failed.%n", uuid);
-                e.printStackTrace();
-            }
-        } while (tries++<=repeat && !created);
-
-        if (!created) {
-            _stats.crashes.get(uuid).incrementAndGet();
+            final IDUUICommunicationLayer layer = _layers.get(uuid).copy();
+            comp.addInstance(new ComponentInstance(containerid, 0, layer));
         }
+    }
 
-        return created;
+    public boolean scaleUp(ComponentInstance instance) {
+        boolean started = _container_resumer.apply(instance.getContainerId());
+        try {
+            instance._port = _interface.extract_port_mapping(instance.getContainerId());
+            String url = "http://127.0.0.1:" + String.valueOf(instance._port);
+            HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(url + DUUIComposer.V1_COMPONENT_ENDPOINT_COMMUNICATION_LAYER))
+                .version(HttpClient.Version.HTTP_1_1)
+                .timeout(Duration.ofSeconds(_container_timeout))
+                .GET()
+                .build();
+
+            while (!ping(url, _client, request, 1)) {
+            }
+        } catch (Exception e) {
+            started = false;
+        }
+        
+        return started;
+    }
+
+    public boolean start(String containerId) {
+        try {
+            _interface.start_container(containerId);
+            return true;
+        } catch (Exception e) {
+            // System.out.println("START CONTAINER FAIL: ");
+            // System.out.printf("%s: %s", e, e.getLocalizedMessage());
+            _interface.stop_container(containerId);
+            return false;
+        }
+    }
+
+    public boolean kill(String containerId) {
+        try {
+            _interface.kill_container(containerId);
+            return true;
+        } catch (Exception e) {
+            // System.out.println("START CONTAINER FAIL: ");
+            // System.out.printf("%s: %s", e, e.getLocalizedMessage());
+            _interface.stop_container(containerId);
+            return false;
+        }
     }
 
     public boolean resume(String containerId) {
@@ -231,6 +282,7 @@ public class DUUIDockerDriver implements IDUUIConnectedDriver, IDUUIResource {
             _interface.unpause_container(containerId);
             return true;
         } catch (Exception e) {
+            _interface.stop_container(containerId);
             return false;
         }
     }
@@ -240,8 +292,17 @@ public class DUUIDockerDriver implements IDUUIConnectedDriver, IDUUIResource {
             _interface.pause_container(containerId);
             return true;
         } catch (Exception e) {
+            _interface.stop_container(containerId);
             return false;
         }
+    }
+
+    boolean aliveAndRunning(String containerId) {
+        return isAlive(containerId) && _interface.is_container_running(containerId);
+    }
+
+    public boolean isAlive(String containerId) {
+        return _interface.is_container_alive(containerId);
     }
 
     public void destroy(String uuid) {
@@ -254,6 +315,7 @@ public class DUUIDockerDriver implements IDUUIConnectedDriver, IDUUIResource {
             int counter = 1;
             int containerCount = comp._instancesSet.size();
             String image = comp.getImageName(); 
+            comp._backup.drainTo(comp._instancesSet);
             for (ComponentInstance inst : comp._instancesSet) {
                 System.out.printf("[DockerLocalDriver][Replication %d/%d] Stopping docker container %s...\n",
                     counter, containerCount, image
@@ -265,124 +327,158 @@ public class DUUIDockerDriver implements IDUUIConnectedDriver, IDUUIResource {
     }
 
     @Override
-    public void scale(ResourceStatistics statistics) {
+    public void scale(ResourceViews statistics) {
         
-        ComponentProgress pipeline = statistics.getComponentProgress();
-        final int poolSize = Config.strategy().getMaxPoolSize();
-        if (!_stats.initialScaling.get()) {
-            Map<String, Integer> levels = pipeline.getComponentLevels();
+        final PipelineProgress pipeline = statistics.getComponentProgress();
+        if (pipeline == null) return;
 
-            if (! levels.isEmpty()) {
-                // Map<Integer, Integer> componentsPerLevel = new HashMap<>();
-                // levels.forEach((component, level) -> 
-                // {
-                //     int prev = componentsPerLevel.getOrDefault(level, 0);
-                //     prev++;
-                //     if (_active_components.containsKey(component))
-                //         componentsPerLevel.put(level, prev);
-                // });
+        for (IDUUIInstantiatedPipelineComponent icomponent : _active_components.values()) {
 
-                levels.forEach((uuid, level) -> 
-                {
-                    InstantiatedComponent component = 
-                        (InstantiatedComponent) _active_components.get(uuid);
-
-                    // float currScale = (float) poolSize;
-                    // float levelSize = (float) componentsPerLevel.get(level);
-                    // int newScale = (int) Math.ceil(currScale/levelSize);
-                    // component.setScale(newScale);
-                    component.setScale(poolSize);
-                });
-                _stats.initialScaling.set(true);
-            }
-        }
-
-        _stats.crashes.forEach((component, crashes) -> 
-        {
-            boolean downScalable = pipeline.isComponentCompleted(component);
+            final InstantiatedComponent component = (InstantiatedComponent) icomponent;
             
-            InstantiatedComponent obj = 
-                (InstantiatedComponent) _active_components.get(component);
+            // boolean downScalable = pipeline.isComponentCompleted(component.getUniqueComponentKey());
+            final BooleanSupplier downScalable = () -> {
+                final int idleInstances = component._instances.size();
+                final int coreSize = Config.strategy().getCorePoolSize();
+                return idleInstances > coreSize;// && pipeline.isCompleted(uuid);
+            };
+            final String uuid = component.getUniqueComponentKey();
+            final int level = pipeline.getPipelineLevel(component.getUniqueComponentKey());
+            final boolean isNext = pipeline.getNextLevel() == level;
+            final boolean isCurrent = pipeline.getCurrentLevel() == level;
+            // System.out.printf("======= COMPONENT  %s    LEVEL %d IsCurrent  %s   IsNext %s  ========\n", 
+            //     component.getSignature(), level, isCurrent, isNext && pipeline.isBatchReadIn());
 
-            int currentLevel = pipeline.getCurrentPipelineLevel();
-            int componentLevel = pipeline.getComponentPipelineLevel(component);
-
-            // if (crashes.get() >= 1) {
-            //     System.out.printf("[DUUIResourceManager][DockerLocalDriver][%s] Scaling down!%n", 
-            //         obj._signature);
-            //     System.out.printf(
-            //         "[DUUIResourceManager][DockerLocalDriver][%s] NUMBER OF CRASHES: %d %n", 
-            //         obj._signature, crashes.get());
+            // Preemptive Up-Scaling
+            if (isNext && pipeline.isBatchReadIn()) {
+                final double progress = pipeline.getLevelProgress();
+                final long acceleration = pipeline.getAcceleration();
+                final int backupsize = component.getScale() - Config.strategy().getCorePoolSize();
+                final boolean shouldScale = _stats.shouldScale(acceleration, progress, uuid, backupsize, pipeline.getCurrentLevel());
+                if (shouldScale) {
+                    final long s = System.nanoTime();
+                    final int levelSize = pipeline.getLevelSize(level, this.getClass());
+                    final int poolMax = Config.strategy().getMaxPoolSize();
+                    final int max = (int) Math.ceil(poolMax / (float) levelSize); 
+                    if (component._instancesSet.size() < max) {
+                        IntStream.rangeClosed(1, Integer.min(max, component._backup.size()))
+                        .parallel()
+                        .forEach(x -> component.scaleUp());
+                    }
+                    System.out.printf("SCALE UP REAL FILL UP TIME MS: %d \n", 
+                        Duration.ofNanos(System.nanoTime() - s).toMillis());
+                    _stats.addStartUp(uuid, Duration.ofNanos(System.nanoTime() - s));
+                } else {
+                    System.out.println("                                DOWN SCALING NOW");
+                    while (downScalable.getAsBoolean()) {
+                        component.scaleDown();
+                    }
+                }
+            }// Matching replica size with thread-pool-sizes
+            else if (isCurrent) {
+                // final int poolSize = pipeline.getComponentPoolSize(uuid);
+                // while (component.scaleUp() && component._instancesSet.size() < poolSize) {
+                //     System.out.println("POOL SIZE MATCHING");
+                // }
+            } else if (!isCurrent && !isNext) {
                 
-            //     obj.removeInstance();
-            //     obj.setScale(obj._instancesSet.size());
-            //     crashes.set(0);
-            // }
-
-            while ((obj._instancesSet.size() > obj.getScale()
-                || obj._instances.size() > Config.strategy().getCorePoolSize())
-                && currentLevel != componentLevel) {
-                System.out.printf("[DUUIResourceManager][DockerLocalDriver][%s] Scaling down!%n", 
-                                    obj._signature);
-                obj.removeInstance();
+                while (downScalable.getAsBoolean()) {
+                    component.scaleDown();
+                }
             }
-        });
+
+            // fillUpReserves(component._uniqueComponentKey);
+        }
     }
 
     @Override
-    public Map<String, Object> collect() {
-
-        if (! _isInstanstiated.get())
-            return null;
-
-        List<Map<String, Object>> stats = _active_components.values().stream()
-            .map(comp -> (InstantiatedComponent) comp)
-            .flatMap(comp -> comp.getContainers().stream())
-            .map(container -> 
-                getContainerStats(container.getValue0(), container.getValue1()))
-            .collect(Collectors.toList());
-
-        _stats.dispatchMap.put(this.getClass().getSimpleName(), stats);
-
-        return _stats.dispatchMap;
+    public DockerDriverView collect() {
+        _stats.update();
+        return _stats;
+    }
+    
+    public int totalContainers() {
+        return _active_components.entrySet().stream()
+            .map(Entry::getValue)
+            .map(InstantiatedComponent.class::cast)
+            .mapToInt(c -> c._instancesSet.size())
+            .sum();
     }
 
-    Map<String, Object> getContainerStats(String containerId, String image) {
-        
-        Map<String, Object> containerStats; 
-        boolean containerRegistered = _stats.containerStats.containsKey(containerId); 
+    private class DockerDriverView implements ResourceView {
 
-        if (containerRegistered) {
-            containerStats = _stats.containerStats.get(containerId);
-        } else {
-            containerStats = new HashMap<>();
-            containerStats.put("status", "IRRETRIEVABLE");
-            containerStats.put("memory_limit", -1L);
-            containerStats.put("memory_usage", -1L);
-            containerStats.put("memory_max_usage", -1L);
-            containerStats.put("num_procs", -1);
-            containerStats.put("network_i", -1L);
-            containerStats.put("network_o", -1L);
-            containerStats.put("cpu_usage", -1);
-            containerStats.put("container_id", containerId);
-            containerStats.put("image_id", image); 
-            _stats.containerStats.put(containerId, containerStats);
+        final Map<String, DockerContainerView> _views;
+        final Collection<DockerContainerView> _viewsSet;
+        
+        Map<String, AtomicInteger> crashes = new ConcurrentHashMap<>(20);
+        Map<String, Duration> _avgStartUp = new ConcurrentHashMap<>();
+
+        DockerDriverView() {
+            _views = new HashMap<>();
+            _viewsSet = _views.values();
         }
 
-        return IDUUIResource
-            .getContainerStats(_interface, containerStats, containerId, image);
+        void init() {
+            _active_components.values().stream()
+            .map(comp -> (InstantiatedComponent) comp)
+            .flatMap(comp -> comp.getContainers().stream())
+            .filter(c -> !_views.containsKey(c))
+            .map(container -> 
+                new DockerContainerView(container.getValue0(), container.getValue1()))
+            .forEach(cv -> _views.put(cv.container_id, cv));
+        }
+
+        public void update() {
+            init();
+            _viewsSet.forEach(cv -> cv.stats(_interface));
+        }
+
+        boolean scaleUp = false;            
+        final long extraPunishmentMillis = 2000;
+        final AtomicInteger prevLevel = new AtomicInteger(-1);
+        Map<Integer, Long> punishments = new HashMap<>(10);
+
+
+        boolean shouldScale(long acceleration, double progress, String nextComponent, int size, int currLevel) {
+            // Reset to initial values
+            if (acceleration <= 0)
+                return false;
+
+            final Duration fillUpTime = _avgStartUp.get(nextComponent);
+            final long punishment = punishments.getOrDefault(prevLevel.get(), 0L) + extraPunishmentMillis;
+            // final long fillUpTimeMs = fillUpTime.toMillis() * size + punishment;
+            final long fillUpTimeMs = fillUpTime.toMillis() + extraPunishmentMillis;// + punishment;
+            final long durationMS = TimeUnit.NANOSECONDS.toMillis(acceleration);
+            final double fillUpPercentage = (((double) fillUpTimeMs) / ((double) durationMS)) % 100;
+            scaleUp = (100.f - fillUpPercentage) <= progress*100.f;
+
+            System.out.printf("PREEMPTIVE SCALING                                              %s \n", scaleUp);
+            System.out.printf("PIPELINE PROGRESS:                                              %.2f \n", (progress * 100.f));
+            System.out.printf("FILL_UP_PERCENTAGE = FILL_UP_TIME_MS / EST_PERCENTAGE_TIME ---= %.2f \n", (100.f - fillUpPercentage) % 100);
+            System.out.printf("%.2f             = %d          / %d \n", fillUpPercentage, fillUpTimeMs, durationMS);
+            return scaleUp;
+           
+        }
+
+        void addPunishment(long punishmentMillis) {
+            punishments.merge(prevLevel.get(), punishmentMillis, Long::sum);
+
+        }
+
+        void addStartUp(final String uuid, final Duration startUp) {
+            final BiFunction<Duration, Duration, Duration> average = (now, curr) -> {
+                return Duration.ofMillis(Long.max(now.toMillis(), curr.toMillis()));
+
+                // final long avg = (long) (Long.sum(now.toMillis(), curr.toMillis()) / (double) 2.f); 
+                // return Duration.ofNanos(avg);
+                // final long sum = now.toNanos() + curr.toNanos();
+                // final long avg = (long) (((double) sum)/ 2f);
+            };
+            _stats._avgStartUp.merge(uuid, startUp, average);
+        } 
     }
 
-    private class DockerStats {
-        Map<String, AtomicInteger> crashes = new ConcurrentHashMap<>(20);
-        Map<String, Map<String, Object>> 
-            containerStats = new ConcurrentHashMap<>(); 
-        Map<String, Object> dispatchMap = new HashMap<>();
-        Map<String, Integer> _heightsMap = new ConcurrentHashMap<>();
-        AtomicBoolean initialScaling = new AtomicBoolean(false);
-    }
-
-    public static class ComponentInstance implements IDUUIUrlAccessible {
+    static class ComponentInstance implements IDUUIUrlAccessible {
         private String _container_id;
         private int _port;
         private IDUUIConnectionHandler _handler;
@@ -428,11 +524,13 @@ public class DUUIDockerDriver implements IDUUIConnectedDriver, IDUUIResource {
 
     static class InstantiatedComponent implements IDUUIInstantiatedPipelineComponent {
         BlockingQueue<ComponentInstance> _instances;
+        BlockingQueue<ComponentInstance> _backup;
         Set<ComponentInstance> _instancesSet; 
         DUUIPipelineComponent _component;
         String _uniqueComponentKey; 
         Signature _signature; 
-        final DUUIDockerDriver _driver;        
+        final DUUIDockerDriver _driver;   
+        final ReentrantLock _scaleUpLock = new ReentrantLock(true);     
 
         InstantiatedComponent(DUUIPipelineComponent comp, String uuid, DUUIDockerDriver driver) {
             _driver = driver;
@@ -444,102 +542,105 @@ public class DUUIDockerDriver implements IDUUIConnectedDriver, IDUUIResource {
             _uniqueComponentKey = uuid;
 
             _instances = new LinkedBlockingQueue<ComponentInstance>();
+            _backup = new LinkedBlockingQueue<ComponentInstance>();
             _instancesSet = ConcurrentHashMap.newKeySet();
         }
 
-        public void addInstance(ComponentInstance inst) {
-            _driver.pause(inst.getContainerId());
-            _instances.offer(inst);
-            _instancesSet.add(inst);
-
-            if (getScale() < _instancesSet.size())
-                _component.setScale(_instancesSet.size());
+        public void tryScaleUp() throws InterruptedException {
+            _scaleUpLock.lock();
+            try {
+                int totalScale = _driver.totalContainers();
+                if ((_instancesSet.size() < getScale() 
+                    && totalScale < Config.strategy().getMaxPoolSize())
+                    || _instancesSet.size() < Config.strategy().getCorePoolSize()) { 
+                    boolean scaledUp = scaleUp();
+                    if (!scaledUp) {
+                        System.out.printf("[%s][%s] SCALING UP FAILED %s\n", 
+                            Thread.currentThread().getName(), 
+                            this.getClass().getSimpleName(),
+                            getImageName());
+                    }
+                }
+            } finally {
+                _scaleUpLock.unlock();
+            }
         }
 
-        public void removeInstance() {
+        public boolean scaleUp() {
+            // _scaleUpLock.lock();
+            // try {
+            final ComponentInstance comp = _backup.poll();
+            if (comp == null) return false; 
+            final boolean success = _driver.scaleUp(comp);
+            if (!success) return false;
+            addInstance(comp);
+            return true;
+            // } finally {
+            //     _scaleUpLock.unlock();
+            // }
+        }
+
+        public void scaleDown() {
+            // _scaleUpLock.lock();
+            // try {
             ComponentInstance _instance = _instances.poll();
             if (_instance == null) return;
-            _driver._interface.stop_container(_instance.getContainerId());
             _instancesSet.remove(_instance);
+            final long startUp = System.nanoTime();
+            _driver._container_pauser.apply(_instance.getContainerId());
+            final Duration pun = Duration.ofNanos(System.nanoTime() - startUp);
+            _driver._stats.addPunishment(pun.toMillis());
+            _driver._stats.addStartUp(_uniqueComponentKey, pun);
+            _backup.add(_instance);
+            // } finally {
+            //     _scaleUpLock.unlock();
+            // }
+        }
+
+        public void addInstance(ComponentInstance inst) {
+            if (_driver.aliveAndRunning(inst.getContainerId())) {
+                if (_instances.offer(inst)) {
+                    _instancesSet.add(inst);
+                }
+            } else {
+                _backup.add(inst);
+            }
+
         }
         
         public void returnInstance(IDUUIUrlAccessible access) throws InterruptedException {
-            boolean pauseSuccessful;
-            pauseSuccessful = _driver.pause(((ComponentInstance)access).getContainerId());
-            if (pauseSuccessful) {
-                _instances.offer((ComponentInstance) access); // Only return uncrashed containers
+            if (_driver.aliveAndRunning(((ComponentInstance)access).getContainerId())) {
+                _instances.offer((ComponentInstance) access); // TODO: Only return uncrashed containers
                 return;
             }
 
-            System.out.printf("[%s][%s] CONTAINER CRASHED %s", 
-                Thread.currentThread().getName(), 
-                this.getClass().getSimpleName(),
-                getImageName());
-            _driver._stats.crashes.get(_uniqueComponentKey).incrementAndGet();
-            _instancesSet.remove(access);
+            cleanCrashedContainer((ComponentInstance) access);
 
-            if (_instancesSet.size() < 1) {
-                boolean scaledUp = _driver.scaleUp(_uniqueComponentKey, 3);
-                if (!scaledUp) {
-                    System.out.printf("[%s][%s] SCALING UP FAILED %s", 
-                        Thread.currentThread().getName(), 
-                        this.getClass().getSimpleName(),
-                        getImageName());
-                    throw new InterruptedException(
-                        format("[%s][%s] Component instances failed too many times: %s", 
-                            Thread.currentThread().getName(), 
-                            this.getClass().getSimpleName(),
-                            getImageName())
-                    );
-                }
-            }
+            // tryScaleUp();
+            long start = System.nanoTime();
+            scaleUp();
+            DUUIComposer.totalscalingwait.addAndGet(System.nanoTime() - start);
         }
 
         @Override
         public IDUUIUrlAccessible takeInstance() throws InterruptedException {
             try {
-                ComponentInstance url = getInstances().poll(
-                        Config.strategy().getTimeout(TimeUnit.MILLISECONDS), 
-                        TimeUnit.MILLISECONDS
-                );
+                ComponentInstance url = getInstances().poll();
 
-                boolean resumeSuccessful;
                 if (url != null) {
-                    resumeSuccessful = _driver.resume(url.getContainerId());
-                    if (resumeSuccessful) // if false, container likely crashed or worse
+                    if (_driver.aliveAndRunning(url.getContainerId())) // if false, container likely crashed or worse
                         return url; 
                     else {
-                        System.out.printf("[%s][%s] CONTAINER CRASHED %s", 
-                            Thread.currentThread().getName(), 
-                            this.getClass().getSimpleName(),
-                            getImageName());
-                        _instancesSet.remove(url);
-                    } // Remove crashed container
-                } 
-                
-                if (_instancesSet.size() < getScale()){// Scale represents the maximum number of urls
-                    boolean scaledUp = _driver.scaleUp(_uniqueComponentKey, 3);
-                    if (!scaledUp) {
-                        System.out.printf("[%s][%s] SCALING UP FAILED %s", 
-                            Thread.currentThread().getName(), 
-                            this.getClass().getSimpleName(),
-                            getImageName());
-                        throw new InterruptedException(
-                            format("[%s][%s] Component instances failed too many times: %s", 
-                                Thread.currentThread().getName(), 
-                                this.getClass().getSimpleName(),
-                                getImageName())
-                        );
+                        cleanCrashedContainer(url);
                     }
-                }
-                
+                } 
+                // tryScaleUp();
+                long start = System.nanoTime();
+                scaleUp();
                 url = getInstances().take();
-                resumeSuccessful = _driver.resume(url.getContainerId());
-                if (!resumeSuccessful) {
-                    System.out.printf("[%s][%s] CONTAINER CRASHED %s", 
-                        Thread.currentThread().getName(), 
-                        this.getClass().getSimpleName(),
-                        getImageName());
+                DUUIComposer.totalscalingwait.addAndGet(System.nanoTime() - start);
+                if (!_driver.aliveAndRunning(url.getContainerId())) {
+                    cleanCrashedContainer(url);
                     throw new InterruptedException(
                         format("[%s][%s] Component instances failed too many times: %s", 
                             Thread.currentThread().getName(), 
@@ -567,6 +668,15 @@ public class DUUIDockerDriver implements IDUUIConnectedDriver, IDUUIResource {
             }
 
             return res; 
+        }
+
+        void cleanCrashedContainer(ComponentInstance instance) {
+            _instancesSet.remove(instance);
+            System.out.printf("[%s][%s] CONTAINER CRASHED %s", 
+                Thread.currentThread().getName(), 
+                this.getClass().getSimpleName(),
+                getImageName());
+            _driver._stats.crashes.get(_uniqueComponentKey).incrementAndGet();
         }
         
         public BlockingQueue<ComponentInstance> getInstances() {
@@ -671,5 +781,4 @@ public class DUUIDockerDriver implements IDUUIConnectedDriver, IDUUIResource {
             return _component;
         }
     }
-
 }

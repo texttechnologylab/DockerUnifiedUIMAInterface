@@ -287,7 +287,10 @@ public class DUUIDockerInterface {
      */
     public void stop_container(String id) {
         try{
-            _docker.stopContainerCmd(id).withTimeout(3).exec();
+            if (is_container_running(id))
+                _docker.killContainerCmd(id).exec();
+            if (is_container_alive(id))
+                _docker.removeContainerCmd(id).exec();
         } catch (NotModifiedException e) {
             System.out.printf("Could not stop container: %s%n", id);
             System.out.println(e.getMessage());
@@ -588,7 +591,21 @@ public class DUUIDockerInterface {
                 .withExposedPorts(ExposedPort.tcp(port)).withPublishAllPorts(true);
 
         CreateContainerResponse feedback = cmd.exec();
+        
         return feedback.getId();
+    }
+
+    public void start_container(String containerId) {
+        if (is_container_alive(containerId)) {
+            _docker.startContainerCmd(Objects.requireNonNull(containerId))
+            .exec();
+        }
+    }
+
+    public void kill_container(String containerId) {
+        if (is_container_running(containerId)) {
+            _docker.killContainerCmd(containerId).exec();
+        }
     }
 
     /*
@@ -598,6 +615,12 @@ public class DUUIDockerInterface {
      */
     public void unpause_container(String containerId) {
         ContainerState state = _docker.inspectContainerCmd(containerId).exec().getState();
+        
+        if (state.getStatus().equalsIgnoreCase("created")) {
+            start_container(containerId);
+            return;
+        }
+
         if (state.getPaused()) {
             _docker.unpauseContainerCmd(Objects.requireNonNull(containerId))
             .exec();
@@ -614,6 +637,28 @@ public class DUUIDockerInterface {
         if (state.getRunning()) {
             _docker.pauseContainerCmd(Objects.requireNonNull(containerId))
             .exec();
+        }
+    }
+
+    public boolean is_container_running(String containerId){
+        try {
+            ContainerState state = _docker.inspectContainerCmd(containerId).exec().getState();
+            return state.getStatus().equalsIgnoreCase("running");
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    public boolean is_container_alive(String containerId) {
+        try {
+            ContainerState state = _docker.inspectContainerCmd(containerId).exec().getState();
+            return state.getStatus().equalsIgnoreCase("exited")
+                || state.getStatus().equalsIgnoreCase("running")
+                || state.getStatus().equalsIgnoreCase("created");
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
         }
     }
 }

@@ -6,25 +6,37 @@ import java.util.concurrent.TimeUnit;
 
 public class AdaptiveStrategy extends AbstractStrategy {
 
+    final int _casPoolSize;
 
     public AdaptiveStrategy() {
-        this(Runtime.getRuntime().availableProcessors(), Integer.MAX_VALUE);
+        this(1, Integer.MAX_VALUE);
     }
 
-    public AdaptiveStrategy(int corePoolSize, int maxPoolSize) {
+    public AdaptiveStrategy(int casPoolSize, int corePoolSize, int maxPoolSize) {
         if (_corePoolSize > maxPoolSize) {
             throw new IllegalArgumentException(
                 String.format("Max pool size has to be greater than core pool size:\n Core size: %d | Max size: %d", 
                 _corePoolSize, maxPoolSize));
         }
+        if (casPoolSize < 1) {
+            throw new IllegalArgumentException(
+                String.format("Cas pool size must be greater than 1: %d", 
+                casPoolSize));
+        }
+
         _corePoolSize = corePoolSize;
         _maxPoolSize = maxPoolSize; 
+        _casPoolSize = casPoolSize;
+    }
+
+    public AdaptiveStrategy(int corePoolSize, int maxPoolSize) {
+        this(Integer.MAX_VALUE, corePoolSize, maxPoolSize);
     }
 
 
     @Override
     public <T> BlockingQueue<T> instantiate(Class<T> t) {
-        return new LinkedBlockingQueue<T>();
+        return new LinkedBlockingQueue<T>(_casPoolSize);
     }
 
     public void setMaxPoolSize(int newMaxPoolSize) {
@@ -32,7 +44,7 @@ public class AdaptiveStrategy extends AbstractStrategy {
     }
 
     public long getTimeout(TimeUnit unit) {
-        return unit.convert(100, TimeUnit.MILLISECONDS);
+        return unit.convert(3000, TimeUnit.MILLISECONDS);
     }
     
 }

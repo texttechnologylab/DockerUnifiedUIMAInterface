@@ -1,16 +1,23 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface;
-
-import java.util.concurrent.Callable;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.DUUIWorker;
 
 public class AnnotatorUnreachableException extends RuntimeException{
 
-    public Callable<?> failedWorker;
+    public DUUIWorker failedWorker;
+    final public boolean resuable;
+
+    public AnnotatorUnreachableException(DUUIWorker worker, Exception e) {
+        super(e);
+        failedWorker = worker;
+        resuable = false;
+    }
 
     public AnnotatorUnreachableException(String format) {
         super(format);
+        resuable = true;
     }
 
-    public void setFailedWorker(Callable<?> worker) {
+    public void setFailedWorker(DUUIWorker worker) {
         failedWorker = worker;
     }
     

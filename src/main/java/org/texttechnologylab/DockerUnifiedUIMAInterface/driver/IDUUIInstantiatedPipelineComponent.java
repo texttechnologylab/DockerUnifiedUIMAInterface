@@ -223,110 +223,117 @@ public interface IDUUIInstantiatedPipelineComponent extends IDUUIResource {
         long mutexEnd = System.nanoTime();
         long durationMutexWait = mutexEnd - mutexStart;
         documentUpdate(perf.getRunKey(), comp.getSignature(), "urlwait", durationMutexWait);
+        DUUIComposer.totalurlwait.addAndGet(durationMutexWait);
 
+        // Serialization
+        long serializeStart = System.nanoTime();
+        IDUUICommunicationLayer layer = accessible.getCommunicationLayer();
+        DUUIPipelineComponent pipelineComponent = comp.getPipelineComponent();
+        String viewName = pipelineComponent.getViewName();
+        JCas viewJc;
+        if(viewName == null) {
+            viewJc = jc;
+        }
+        else {
+            try {
+                viewJc = jc.getView(viewName);
+            }
+            catch(CASException e) {
+                if(pipelineComponent.getCreateViewFromInitialView()) {
+                    viewJc = jc.createView(viewName);
+                    viewJc.setDocumentText(jc.getDocumentText());
+                    viewJc.setDocumentLanguage(jc.getDocumentLanguage());
+                }
+                else {
+                    throw e;
+                }
+            }
+        }
+
+        byte[] ok;
+        {
+            ByteArrayOutputStream out;
+            long start = System.nanoTime();
+            out = comp.getResourceManager().takeByteStream();
+            DUUIComposer.totalbytestreamwait.addAndGet(System.nanoTime() - start);
+            try {
+                synchronized (viewJc) {
+                    layer.serialize(viewJc,out,comp.getParameters());
+
+                }
+                ok = out.toByteArray();
+            } finally {
+                comp.getResourceManager().returnByteStream(out);
+            }
+        }
+        long serializeSize = ok.length;
+        long serializeEnd = System.nanoTime();
+        long durationSerialize = serializeEnd - serializeStart;
+        documentUpdate(perf.getRunKey(), comp.getSignature(), "serialization", durationSerialize);
+        DUUIComposer.totalserializewait.addAndGet(durationSerialize);
+        // Annotator
+        long annotatorStart = serializeEnd;
+        HttpRequest request = HttpRequest.newBuilder()
+            .uri(URI.create(accessible.generateURL() + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS))
+            .POST(HttpRequest.BodyPublishers.ofByteArray(ok))
+            .version(HttpClient.Version.HTTP_1_1)
+            .build();
+
+        HttpResponse<byte[]> resp = null;
         try {
-            // Serialization
-            long serializeStart = System.nanoTime();
-            IDUUICommunicationLayer layer = accessible.getCommunicationLayer();
-            DUUIPipelineComponent pipelineComponent = comp.getPipelineComponent();
-            String viewName = pipelineComponent.getViewName();
-            JCas viewJc;
-            if(viewName == null) {
-                viewJc = jc;
-            }
-            else {
-                try {
-                    viewJc = jc.getView(viewName);
-                }
-                catch(CASException e) {
-                    if(pipelineComponent.getCreateViewFromInitialView()) {
-                        viewJc = jc.createView(viewName);
-                        viewJc.setDocumentText(jc.getDocumentText());
-                        viewJc.setDocumentLanguage(jc.getDocumentLanguage());
-                    }
-                    else {
-                        throw e;
-                    }
-                }
-            }
-
-            byte[] ok;
-            {
-                ByteArrayOutputStream out;
-                out = comp.getResourceManager().takeByteStream();
-                try {
-                    synchronized (viewJc) {
-                        layer.serialize(viewJc,out,comp.getParameters());
-    
-                    }
-                    ok = out.toByteArray();
-                } finally {
-                    comp.getResourceManager().returnByteStream(out);
-                }
-            }
-            long serializeSize = ok.length;
-            long serializeEnd = System.nanoTime();
-            long durationSerialize = serializeEnd - serializeStart;
-            documentUpdate(perf.getRunKey(), comp.getSignature(), "serialization", durationSerialize);
-
-            // Annotator
-            long annotatorStart = serializeEnd;
-            HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(accessible.generateURL() + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS))
-                .POST(HttpRequest.BodyPublishers.ofByteArray(ok))
-                .version(HttpClient.Version.HTTP_1_1)
-                .build();
-
-            HttpResponse<byte[]> resp = _handler.send(request, 2)
+            resp = _handler.send(request, 5)
                 .orElseThrow(() -> 
-                    new AnnotatorUnreachableException(format("[%s] %s-Could not reach endpoint after 2 tries!",
+                    new AnnotatorUnreachableException(format("[%s] %s-Could not reach endpoint after 5 tries!",
                         Thread.currentThread().getName(), perf.getRunKey())
                     )
                 );
-
-            if (resp.statusCode() != 200) {
-                throw new InvalidObjectException(
-                    String.format("Expected response 200, got %d: %s", resp.statusCode(), 
-                    new String(resp.body(), StandardCharsets.UTF_8)));
-            }
-
-            ByteArrayInputStream st = new ByteArrayInputStream(resp.body());
-            long annotatorEnd = System.nanoTime();
-            long durationAnnotator = annotatorEnd - annotatorStart;
-            documentUpdate(perf.getRunKey(), comp.getSignature(), "annotator", durationAnnotator);
-
-            // Deserialization
-            long deserializeStart = annotatorEnd;
-            long jcSize = 0;
-            try {
-                synchronized(viewJc) {
-                    layer.deserialize(viewJc, st);
-                    ByteArrayOutputStream siz = new ByteArrayOutputStream(viewJc.size());
-                    org.apache.uima.cas.impl.Serialization.serializeCAS(viewJc.getCas(), siz);
-                    jcSize = siz.size();
-                }
-            }
-            catch(Exception e) {
-                System.err.printf("Caught exception deserializing, printing response %s\n",new String(resp.body(), StandardCharsets.UTF_8));
-                throw e;
-            }
-            long deserializeEnd = System.nanoTime();
-            long durationDeserialize = deserializeEnd - deserializeStart;
-            documentUpdate(perf.getRunKey(), comp.getSignature(), "deserialization", durationDeserialize);
-            documentUpdate(perf.getRunKey(), comp.getSignature(), "document_size", jcSize);
-
-            String componentKey = String.valueOf(comp.getPipelineComponent().getFinalizedRepresentationHash());
-            ReproducibleAnnotation ann = new ReproducibleAnnotation(jc);
-            ann.setDescription(comp.getPipelineComponent().getFinalizedRepresentation());
-            ann.setCompression(DUUIPipelineComponent.compressionMethod);
-            ann.setTimestamp(System.nanoTime());
-            ann.setPipelineName(perf.getRunKey());
-            ann.addToIndexes();
-            perf.addData(durationSerialize, durationDeserialize, durationAnnotator, durationMutexWait, deserializeEnd-mutexStart, componentKey, serializeSize, jc);
-            documentUpdate(perf.getRunKey(), comp.getSignature(), "component_total", deserializeEnd-mutexStart);
         } finally {
             comp.returnInstance(accessible); // return url to component!
         }
+    
+        if (resp.statusCode() != 200) {
+            throw new InvalidObjectException(
+                String.format("Expected response 200, got %d: %s", resp.statusCode(), 
+                new String(resp.body(), StandardCharsets.UTF_8)));
+        }
+
+        ByteArrayInputStream st = new ByteArrayInputStream(resp.body());
+        long annotatorEnd = System.nanoTime();
+        long durationAnnotator = annotatorEnd - annotatorStart;
+        DUUIComposer.totalannotatorwait.addAndGet(durationAnnotator);
+        documentUpdate(perf.getRunKey(), comp.getSignature(), "annotator", durationAnnotator);
+        // Deserialization
+        long deserializeStart = annotatorEnd;
+        long jcSize = 0;
+        try {
+            synchronized(viewJc) {
+                layer.deserialize(viewJc, st);
+                // ByteArrayOutputStream siz = new ByteArrayOutputStream(viewJc.size());
+                // org.apache.uima.cas.impl.Serialization.serializeCAS(viewJc.getCas(), siz);
+                jcSize = viewJc.size();
+            }
+        }
+        catch(Exception e) {
+            System.err.printf("[%s] Caught exception deserializing, printing response %s\n",
+                Thread.currentThread().getName(), new String(resp.body(), StandardCharsets.UTF_8));
+            throw e;
+        }
+        long deserializeEnd = System.nanoTime();
+        long durationDeserialize = deserializeEnd - deserializeStart;
+        DUUIComposer.totaldeserializewait.addAndGet(durationDeserialize);
+        documentUpdate(perf.getRunKey(), comp.getSignature(), "deserialization", durationDeserialize);
+        documentUpdate(perf.getRunKey(), comp.getSignature(), "document_size", jcSize);
+
+        String componentKey = String.valueOf(comp.getPipelineComponent().getFinalizedRepresentationHash());
+        ReproducibleAnnotation ann = new ReproducibleAnnotation(jc);
+        ann.setDescription(comp.getPipelineComponent().getFinalizedRepresentation());
+        ann.setCompression(DUUIPipelineComponent.compressionMethod);
+        ann.setTimestamp(System.nanoTime());
+        ann.setPipelineName(perf.getRunKey());
+        ann.addToIndexes();
+        perf.addData(durationSerialize, durationDeserialize, durationAnnotator, durationMutexWait, deserializeEnd-mutexStart, componentKey, serializeSize, jc);
+        documentUpdate(perf.getRunKey(), comp.getSignature(), "component_total", deserializeEnd-mutexStart);
+    
     }
 
     public static void process_handler(JCas jc,

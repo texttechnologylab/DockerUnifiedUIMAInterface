@@ -28,13 +28,17 @@ public class DUUIRestClient {
 
     public DUUIRestClient(Class<IDUUIDriver> driver, int timeout){
         _driverClient = HttpClient.newBuilder()
-            .connectTimeout(Duration.ofSeconds(timeout))
+            .followRedirects(HttpClient.Redirect.ALWAYS)
+            .proxy(ProxySelector.getDefault())
+            .connectTimeout(Duration.ofMillis(timeout))
             .executor(Runnable::run)
             .build();
     }
     
     public DUUIRestClient(Class<IDUUIDriver> driver){
         _driverClient = HttpClient.newBuilder()
+            .followRedirects(HttpClient.Redirect.ALWAYS)
+            .proxy(ProxySelector.getDefault())
             .executor(Runnable::run)
             .build();
     }
@@ -49,10 +53,17 @@ public class DUUIRestClient {
 
     public <T> Optional<HttpResponse<T>> send(HttpRequest request, BodyHandler<T> handler) {
         HttpClient client = _driverClient == null ? _client : _driverClient; 
+        // try {
+        //     HttpResponse<T> response = client.send(request, handler);
+        //     return Optional.ofNullable(response);
+        // } catch (IOException | InterruptedException e) {
+        //     return Optional.empty();
+        // }
         try {
-            HttpResponse<T> response = client.send(request, handler);
+            HttpResponse<T> response = client.sendAsync(request, handler)
+                .join();
             return Optional.ofNullable(response);
-        } catch (IOException | InterruptedException e) {
+        } catch (Exception e) {
             return Optional.empty();
         }
     }

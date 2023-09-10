@@ -18,9 +18,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.json.JSONObject;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIDockerInterface;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUIResource;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.ResourceManager.ResourceView;
 
 import com.github.dockerjava.api.command.CreateContainerResponse;
 import com.github.dockerjava.api.command.InspectContainerResponse;
+import com.github.dockerjava.api.command.InspectContainerResponse.ContainerState;
 import com.github.dockerjava.api.model.ExposedPort;
 import com.github.dockerjava.api.model.HostConfig;
 import com.github.dockerjava.api.model.Ports;
@@ -49,6 +51,7 @@ public class DUUISimpleMonitor implements IDUUIMonitor, IDUUIResource {
     String container_id = null;
     final String _image_id = "duui_monitor";
     Map<String, Object> containerStats = new ConcurrentHashMap<>();
+    DockerContainerView view;
         
     int _port = 8086;
 
@@ -88,21 +91,13 @@ public class DUUISimpleMonitor implements IDUUIMonitor, IDUUIResource {
             .withName(_image_id)
             .exec();
             container_id = container.getId();
-            _docker.getDockerClient().startContainerCmd(container.getId()).exec();
+            // _docker.getDockerClient().startContainerCmd(container.getId()).exec();
         }
 
         System.out.printf("[SimpleMonitor] Monitor dashboard panel is opened at %s\n", generateURL());
         Thread.sleep(2000);
-        containerStats.put("status", "IRRETRIEVABLE");
-        containerStats.put("memory_limit", -1L);
-        containerStats.put("memory_usage", -1L);
-        containerStats.put("memory_max_usage", -1L);
-        containerStats.put("num_procs", -1);
-        containerStats.put("network_i", -1L);
-        containerStats.put("network_o", -1L);
-        containerStats.put("cpu_usage", -1);
-        containerStats.put("container_id", container_id);
-        containerStats.put("image_id", _image_id); 
+        view = new DockerContainerView(container_id, _image_id);
+
         return this;
     }
 
@@ -134,15 +129,33 @@ public class DUUISimpleMonitor implements IDUUIMonitor, IDUUIResource {
     }
 
     @Override
-    public Map<String, Object> collect() {
-
-        Map<String, Object> monitorStats = new HashMap<>();
-        
+    public DockerContainerView collect() {
         if (container_id != null) {
-            IDUUIResource.getContainerStats(_docker, containerStats, container_id, _image_id);
-            monitorStats.put(this.getClass().getSimpleName(), statsJson);
-            return monitorStats;
+            return view.stats(_docker);
         } else return null;
+    }
+
+    public static void main(String[] args) throws UnknownHostException, InterruptedException, IOException {
+        // DUUISimpleMonitor monitor = new DUUISimpleMonitor();
+        // String containerId = monitor._docker.create("tokenizer:latest", false, false, 9714, false);
+        // // String containerId2 = monitor._docker.create("sentencizer:latest", false, true, 9714, false);
+
+        // // int port = monitor._docker.extract_port_mapping(containerId);
+        // ContainerState state = monitor._docker.state(containerId);
+        // // Thread.sleep(3000); 
+        // monitor._docker.start_container(containerId);
+        // state = monitor._docker.state(containerId);
+        // // Thread.sleep(3000); 
+        // monitor._docker.kill_container(containerId);
+        // state = monitor._docker.state(containerId);
+        // monitor._docker.start_container(containerId);
+        // // int port2 = monitor._docker.extract_port_mapping(containerId2);
+        
+        // // Thread.sleep(3000); 
+        // monitor._docker.stop_container(containerId);
+        // state = monitor._docker.state(containerId);
+
+
     }
  }
 
