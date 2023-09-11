@@ -56,6 +56,7 @@ public interface IDUUIConnectedDriver extends IDUUIDriver {
         comp.setSignature(sig);
         sig.getInputs()
             .forEach(in -> comp.getParameters().put(in.getSimpleName(), "true")); 
+            
         return sig;
     }
 

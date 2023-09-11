@@ -30,7 +30,5 @@ public interface IDUUIDriver {
     public void run(String uuid, JCas _jc, DUUIPipelineDocumentPerformance perf) throws InterruptedException, IOException, SAXException, AnalysisEngineProcessException, CompressorException, CASException;
     public void printConcurrencyGraph(String uuid);
 
-    public default Signature get_signature(String uuid) throws ResourceInitializationException, InterruptedException {
-        return new Signature(new ArrayList<>(), new ArrayList<>()); 
-    };
+    public Signature get_signature(String uuid) throws ResourceInitializationException, InterruptedException;
 }

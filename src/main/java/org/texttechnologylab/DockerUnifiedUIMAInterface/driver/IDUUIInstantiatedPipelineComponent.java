@@ -49,6 +49,7 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.AnnotatorUnreachableExce
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUIResource;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.ResourceManager;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.ResourceManager.ResourceView;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.DUUIRestClient;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.DUUIWebsocketAlt;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.IDUUIConnectionHandler;
@@ -59,7 +60,7 @@ import org.xml.sax.SAXException;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-public interface IDUUIInstantiatedPipelineComponent extends IDUUIResource {
+public interface IDUUIInstantiatedPipelineComponent extends IDUUIResource<ResourceView> {
 
     
     public static HttpClient _client = HttpClient.newBuilder()

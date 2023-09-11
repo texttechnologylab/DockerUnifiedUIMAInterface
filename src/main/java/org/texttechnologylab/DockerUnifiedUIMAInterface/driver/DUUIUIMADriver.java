@@ -201,6 +201,12 @@ public class DUUIUIMADriver implements IDUUIDriver {
     public TypeSystemDescription get_typesystem(String uuid) throws ResourceInitializationException {
         return TypeSystemDescriptionFactory.createTypeSystemDescription();
     }
+
+    public Signature get_signature(String uuid) throws ResourceInitializationException, InterruptedException {
+        InstantiatedComponent component = _engines.get(uuid);
+
+        return component.getSignature();
+    }
     
     public void run(String uuid, JCas aCas, DUUIPipelineDocumentPerformance perf) throws InterruptedException, IOException, SAXException, AnalysisEngineProcessException, CompressorException, CASException {
         long mutexStart = System.nanoTime();
@@ -283,6 +289,10 @@ public class DUUIUIMADriver implements IDUUIDriver {
         public InstantiatedComponent add(AnalysisEngine engine) {
             _engines.add(engine);
             return this;
+        }
+
+        public Signature getSignature() {
+            return getPipelineComponent().getSignature();
         }
 
         public ConcurrentLinkedQueue<AnalysisEngine> getEngines() {

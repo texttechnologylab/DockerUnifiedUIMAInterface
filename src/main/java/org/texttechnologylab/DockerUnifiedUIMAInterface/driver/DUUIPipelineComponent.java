@@ -9,6 +9,7 @@ import org.apache.uima.fit.factory.AnalysisEngineFactory;
 import org.apache.uima.util.InvalidXMLException;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.Signature.DependencyType;
 import org.xml.sax.SAXException;
 
 import java.io.ByteArrayInputStream;
@@ -27,6 +28,7 @@ public class DUUIPipelineComponent {
     private HashMap<String,String> _parameters;
 
     private AnalysisEngineDescription _engine;
+    private Signature _signature = new Signature(new ArrayList<>(), new ArrayList<>()); 
     private String _finalizedEncoded;
     private int _finalizedEncodedHash;
     private String _compression;
@@ -154,6 +156,19 @@ public class DUUIPipelineComponent {
         String value = _options.get(componentName);
         if(value==null) return defaultValue;
         return value;
+    }
+
+    public DUUIPipelineComponent withSignature(DependencyType firstOrLast) {
+        if(_finalizedEncoded!=null) {
+            throw new RuntimeException("DUUIPipelineComponent has already been finalized, it is immutable now!");
+        }
+
+        _signature = new Signature(firstOrLast);
+        return this;
+    }
+
+    public Signature getSignature() {
+        return _signature;
     }
 
     public DUUIPipelineComponent withEngine(AnalysisEngineDescription desc) throws IOException, SAXException {

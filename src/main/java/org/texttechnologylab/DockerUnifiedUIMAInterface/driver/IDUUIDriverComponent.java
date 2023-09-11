@@ -2,6 +2,7 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface.driver;
 
 import java.io.IOException;
 
+import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.Signature.DependencyType;
 import org.xml.sax.SAXException;
 
 public interface IDUUIDriverComponent<Component extends IDUUIDriverComponent<Component>> {
@@ -22,6 +23,11 @@ public interface IDUUIDriverComponent<Component extends IDUUIDriverComponent<Com
 
     public default Component withScale(int scale) {
         getPipelineComponent().withScale(scale);
+        return getComponent();
+    }
+
+    public default Component withSignature(DependencyType firstOrLast) {
+        getPipelineComponent().withSignature(firstOrLast);
         return getComponent();
     }
 
