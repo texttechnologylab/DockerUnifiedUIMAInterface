@@ -68,12 +68,12 @@ public class DUUIMongoDBStorageBackend implements IDUUIStorageBackend {
         MongoCollection<Document> documentPerformanceCollection = database.getCollection("pipeline_document_perf");
 
         documentCollection.insertOne(
-                new Document("documentSize", perf.getDocumentSize())
-                        .append("waitTime",  perf.getDocumentWaitTime())
-                        .append("totalTime", perf.getTotalTime())
-                        .append("document",  perf.getDocument())
+                new Document("documentSize",            perf.getDocumentSize())
+                        .append("waitTime",             perf.getDocumentWaitTime())
+                        .append("totalTime",            perf.getTotalTime())
+                        .append("document",             perf.getDocument())
+                        .append("annotationsTypeCount", perf.getAnnotationTypesCount())
         );
-
 
         for (DUUIPipelinePerformancePoint point : perf.getPerformancePoints()) {
             documentPerformanceCollection.insertOne(
@@ -91,8 +91,6 @@ public class DUUIMongoDBStorageBackend implements IDUUIStorageBackend {
                             .append("document",               point.getDocument())
             );
         }
-
-
     }
 
     /**
