@@ -41,7 +41,7 @@ public class BorlandExport extends JCasFileWriter_ImplBase {
         nodes.put("chatgpt", BorlandUtils.DATATYPE.String);
         nodes.put("xmi", BorlandUtils.DATATYPE.String);
         nodes.put("json", BorlandUtils.DATATYPE.String);
-//        nodes.put("ner", BorlandUtils.DATATYPE.StringList);
+
 
         try {
             BorlandUtils.writeHeader(nodes, edges, new File(output));
@@ -74,11 +74,14 @@ public class BorlandExport extends JCasFileWriter_ImplBase {
             rp.removeFromIndexes();
         });
 
-        ByteArrayOutputStream xmiOut = new ByteArrayOutputStream();
         ByteArrayOutputStream jsonOut = new ByteArrayOutputStream();
         try {
-            CasIOUtils.save(jCas.getCas(), xmiOut, SerialFormat.XMI);
-            objectMap.put("xmi", xmiOut.toString().replaceAll("\n", " "));
+            String sXML = XMLFormatter.getString(jCas.getCas());
+
+            while (sXML.contains("\n")){
+                sXML = sXML.replaceAll("\n", " ");
+            }
+            objectMap.put("xmi", sXML);
             JsonCasSerializer.jsonSerialize(jCas.getCas(), jsonOut);
             objectMap.put("json", jsonOut.toString().replaceAll("\n", " "));
         } catch (IOException e) {

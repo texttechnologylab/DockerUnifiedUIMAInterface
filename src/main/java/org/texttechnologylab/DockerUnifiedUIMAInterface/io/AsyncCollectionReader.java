@@ -174,7 +174,7 @@ public class AsyncCollectionReader {
             _filePaths = sortBySize(_filePaths);
         }
 
-        if (bSort && iRandom != 0) {
+        if (bSort && iRandom >0) {
             System.out.println("Sorting and Random Selection is active, using the " + (iRandom > 0 ? "largest " : "smallest ") + Math.abs(iRandom) + " documents.");
             _filePaths = takeFirstOrLast(_filePaths, iRandom);
         }
