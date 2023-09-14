@@ -1,7 +1,6 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface;
 
 import java.util.HashMap;
-import java.util.Map;
 
 import org.javatuples.Pair;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.ResourceManager.ResourceViews;
@@ -29,7 +28,7 @@ public interface IDUUIResource<T extends ResourceView> {
 
     }
 
-    static class DockerContainerView implements ResourceView {
+    public static class DockerContainerView implements ResourceView {
 
         public final String container_id;
         public final String image_id;
@@ -47,6 +46,38 @@ public interface IDUUIResource<T extends ResourceView> {
         public DockerContainerView(String container_id, String image_id) {
             this.container_id = container_id;
             this.image_id = image_id;
+        }
+
+        public String getContainerId() {
+            return container_id;
+        }
+
+        public String getImage() {
+            return image_id;
+        }
+
+        public String getState() {
+            return state;
+        }
+
+        public double getCpuUsage() {
+            return cpu_usage;
+        }
+
+        public long getMemoryPeakUsage() {
+            return memory_max_usage;
+        }
+
+        public long getMemoryUsage() {
+            return memory_usage;
+        }
+
+        public long getNetworkIn() {
+            return network_in;
+        }
+
+        public long getNetworkOut() {
+            return network_out;
         }
 
         public DockerContainerView stats(final DUUIDockerInterface docker) {

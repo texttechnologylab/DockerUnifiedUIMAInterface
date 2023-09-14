@@ -595,6 +595,8 @@ public class ResourceManager extends Thread {
 
         int getAvailableProcessors();
 
+        int getCASPoolSize();
+
         String getOSName();
 
         String getJVMVendor();
@@ -606,16 +608,25 @@ public class ResourceManager extends Thread {
 
         double getJvmCpuLoad();
 
+        long getJvmCpuTime();
+
         long getHostMemoryUsage();
 
         long getHeapMemoryUsage();
 
         long getHeapMemoryTotal();
 
+        Iterable<? extends HostThreadView> getThreadViews(); 
+
         // int calculateDynamicPoolsize();
     }
 
-    static interface HostThreadView extends ResourceView {
+    public static interface HostThreadView extends ResourceView {
+
+        String getName();
+        
+        String getState();
+
         long getWaitedTime();
 
         long getBlockedTime();
@@ -634,13 +645,23 @@ public class ResourceManager extends Thread {
             String state;
             long wait_time; // milliseconds
             long block_time; // milliseconds
-            long cpu_time; // nanoseconds
+            long cpu_time; // milliseconds
             long memory_usage; 
 
             ThreadView(Thread thread) {
                 this.id = thread.getId();
                 this.th = thread;
                 this.info = _threads.getThreadInfo(id);
+            }
+
+            @Override
+            public String getName() {
+                return name;
+            }
+
+            @Override
+            public String getState() {
+                return state;
             }
 
             @Override
@@ -689,7 +710,7 @@ public class ResourceManager extends Thread {
             final String os_name;
             final String jvm_vendor;
             final long jvm_max_memory;
-            final long system_memaory_total;
+            final long system_memory_total;
 
             SystemConfigView() {
                 processors = _os.getAvailableProcessors();
@@ -701,8 +722,8 @@ public class ResourceManager extends Thread {
 
                 if (_os instanceof com.sun.management.OperatingSystemMXBean) {
                     com.sun.management.OperatingSystemMXBean osSun = (com.sun.management.OperatingSystemMXBean) _os;
-                    system_memaory_total = osSun.getTotalPhysicalMemorySize();
-                } else system_memaory_total = -1;
+                    system_memory_total = osSun.getTotalPhysicalMemorySize();
+                } else system_memory_total = -1;
 
             }
 
@@ -717,13 +738,18 @@ public class ResourceManager extends Thread {
             }
 
             @Override
+            public int getCASPoolSize() {
+                return _casPool._maxPoolSize.get();
+            }
+
+            @Override
             public long getJVMMaxMemory() {
                 return jvm_max_memory;
             }
 
             @Override
             public long getHostMemoryTotal() {
-                return system_memaory_total;
+                return system_memory_total;
             }
 
             @Override
@@ -745,7 +771,7 @@ public class ResourceManager extends Thread {
         double cpu_load_average = -1.f;
         double system_cpu_load = -1.f; // percent [0.0, 1.0]
         double jvm_cpu_load = -1.f; // percent [0.0, 1.0]
-        long jvm_cpu_time = -1L; // nanoseconds
+        long jvm_cpu_time = -1L; // milliseconds
 
         long memory_used = -1L;
         long memory_total = -1L;
@@ -761,9 +787,19 @@ public class ResourceManager extends Thread {
             try {
                 _threads.setThreadContentionMonitoringEnabled(true);
                 _threads.setThreadCpuTimeEnabled(true);
+                if (_threads instanceof com.sun.management.ThreadMXBean) {
+                    final com.sun.management.ThreadMXBean threadsSun = 
+                        (com.sun.management.ThreadMXBean) _threads;
+        	        threadsSun.setThreadAllocatedMemoryEnabled(true);
+                }
             } catch (Exception e) {
                 System.out.println("[DUUIResourceManager] Thread monitoring limited.");
             }
+        }
+
+        @Override
+        public Iterable<? extends HostThreadView> getThreadViews() {
+            return _threadviewsSet;
         }
 
         @Override
@@ -774,6 +810,11 @@ public class ResourceManager extends Thread {
         @Override
         public double getJvmCpuLoad() {
             return jvm_cpu_load;
+        }
+
+        @Override
+        public long getJvmCpuTime() {
+            return jvm_cpu_time;
         }
 
         @Override
@@ -797,7 +838,7 @@ public class ResourceManager extends Thread {
                 com.sun.management.OperatingSystemMXBean osSun = (com.sun.management.OperatingSystemMXBean) _os;
                 cpu_load_average = osSun.getSystemLoadAverage();
                 system_cpu_load = osSun.getSystemCpuLoad();
-                jvm_cpu_time = osSun.getProcessCpuTime();
+                jvm_cpu_time = TimeUnit.NANOSECONDS.toMillis(osSun.getProcessCpuTime());
                 jvm_cpu_load = osSun.getProcessCpuLoad();
                 system_memaory_used = osSun.getTotalPhysicalMemorySize() - osSun.getFreePhysicalMemorySize();
             }

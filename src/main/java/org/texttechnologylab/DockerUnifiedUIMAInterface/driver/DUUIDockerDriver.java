@@ -64,7 +64,7 @@ public class DUUIDockerDriver implements IDUUIConnectedDriver, IDUUIResource {
     
     ArrayList<JSONObject> _resource_container = null; 
     final AtomicBoolean _isInstanstiated = new AtomicBoolean(false);
-    final DockerDriverView _stats = new DockerDriverView(); 
+    final DockerDriverView _stats; 
     Function<String, Boolean> _container_resumer = this::start; 
     Function<String, Boolean> _container_pauser = this::kill; 
     final JCas _basic; 
@@ -74,6 +74,7 @@ public class DUUIDockerDriver implements IDUUIConnectedDriver, IDUUIResource {
 
     public DUUIDockerDriver() throws IOException, UIMAException, SAXException {
         _interface = new DUUIDockerInterface();
+        _stats = new DockerDriverView(_active_components, _interface);
         _client = DUUIRestClient._client;
         // _client = HttpClient.newBuilder().build();
 
@@ -96,6 +97,7 @@ public class DUUIDockerDriver implements IDUUIConnectedDriver, IDUUIResource {
         _basic.setDocumentText("Hallo, Welt!");
 
         _interface = new DUUIDockerInterface();
+        _stats = new DockerDriverView(_active_components, _interface);
         _client = HttpClient.newBuilder()
             .executor(Runnable::run)    
             .connectTimeout(Duration.ofSeconds(timeout)).build();
@@ -405,27 +407,35 @@ public class DUUIDockerDriver implements IDUUIConnectedDriver, IDUUIResource {
             .sum();
     }
 
-    private class DockerDriverView implements ResourceView {
+    public static class DockerDriverView implements ResourceView {
 
         final Map<String, DockerContainerView> _views;
         final Collection<DockerContainerView> _viewsSet;
+        final Collection<IDUUIInstantiatedPipelineComponent> _comps;
+        final DUUIDockerInterface _interface;
         
         Map<String, AtomicInteger> crashes = new ConcurrentHashMap<>(20);
         Map<String, Duration> _avgStartUp = new ConcurrentHashMap<>();
 
-        DockerDriverView() {
+        DockerDriverView(Map<String, IDUUIInstantiatedPipelineComponent> comps, DUUIDockerInterface iinterface) {
             _views = new HashMap<>();
             _viewsSet = _views.values();
+            _comps = comps.values();
+            _interface = iinterface;
         }
 
         void init() {
-            _active_components.values().stream()
+            _comps.stream()
             .map(comp -> (InstantiatedComponent) comp)
             .flatMap(comp -> comp.getContainers().stream())
-            .filter(c -> !_views.containsKey(c))
+            .filter(c -> !_views.containsKey(c.getValue0()))
             .map(container -> 
                 new DockerContainerView(container.getValue0(), container.getValue1()))
             .forEach(cv -> _views.put(cv.container_id, cv));
+        }
+
+        public Collection<DockerContainerView> getContainerViews() {
+            return _viewsSet;
         }
 
         public void update() {
@@ -437,8 +447,6 @@ public class DUUIDockerDriver implements IDUUIConnectedDriver, IDUUIResource {
         final long extraPunishmentMillis = 2000;
         final AtomicInteger prevLevel = new AtomicInteger(-1);
         Map<Integer, Long> punishments = new HashMap<>(10);
-
-
         boolean shouldScale(long acceleration, double progress, String nextComponent, int size, int currLevel) {
             // Reset to initial values
             if (acceleration <= 0)
@@ -474,7 +482,7 @@ public class DUUIDockerDriver implements IDUUIConnectedDriver, IDUUIResource {
                 // final long sum = now.toNanos() + curr.toNanos();
                 // final long avg = (long) (((double) sum)/ 2f);
             };
-            _stats._avgStartUp.merge(uuid, startUp, average);
+            _avgStartUp.merge(uuid, startUp, average);
         } 
     }
 

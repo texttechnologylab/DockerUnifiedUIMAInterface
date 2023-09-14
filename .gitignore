@@ -3,7 +3,11 @@ target/*
 *.png
 *.pgf
 *.db
-.vscode/settings.json
-.vscode/launch.json
+.vscode/*
 .gitignore
 Evaluation.txt
+gerparcor_sample1000_SMALLEST.txt
+gerparcor_sample1000_SMALLEST__files.txt
+gerparcor_sample1000_smallest
+gerparcor_sample_smallest100
+gerparcor_sample_smallest1000
