@@ -19,12 +19,16 @@ import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.jcas.cas.TOP;
 import org.apache.uima.jcas.tcas.Annotation;
+import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.util.CasIOUtils;
 import org.apache.uima.util.XmlCasSerializer;
 import org.dkpro.core.io.xmi.XmiReader;
 import org.dkpro.core.io.xmi.XmiWriter;
 import org.hucompute.textimager.uima.type.GerVaderSentiment;
+import org.jetbrains.annotations.NotNull;
 import org.json.JSONArray;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.msgpack.core.MessageBufferPacker;
 import org.msgpack.core.MessagePack;
@@ -33,6 +37,7 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.AnnotationRemover;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIPipelineAnnotationComponent;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIPipelineDescription;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.data_reader.DUUIDropboxDataReader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIDockerDriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUISwarmDriver;
@@ -59,6 +64,7 @@ import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -69,6 +75,95 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 
 public class TestDUUI {
+
+    @Nested
+    @DisplayName("Dropbox")
+    public class DropboxTests {
+
+        @Test
+        public void TestDropboxDownloadAndUpload() {
+            String accessToken = System.getenv("dbx_access");
+            DUUIDropboxDataReader service = new DUUIDropboxDataReader("Cedric Test App", accessToken);
+            DUUIDropboxDataReader privateService = new DUUIDropboxDataReader("Cedric Test App");
+
+            String dbxSourceDirectory = "/sample";
+            String dbxTargetDirectory = "/sample";
+            String localOutputZipDirectory = "C:/Users/Cedric/OneDrive/out.zip";
+            String localOutputDirectory = localOutputZipDirectory.replace(".zip", "");
+
+
+            privateService.downloadFiles(dbxSourceDirectory, localOutputZipDirectory);
+            service.uploadFiles(String.valueOf(Paths.get(localOutputDirectory, dbxSourceDirectory)), dbxTargetDirectory);
+            service.listFiles(dbxTargetDirectory);
+
+            File temp = new File(localOutputDirectory);
+            temp.delete();
+        }
+
+
+        @Test
+        public void TestDropboxDownload() {
+            String accessToken = System.getenv("dbx_access");
+            DUUIDropboxDataReader service = new DUUIDropboxDataReader("Cedric Test App", accessToken);
+            service.downloadFile("/CV.pdf", "C:/Users/Cedric/CV2.pdf");
+        }
+
+        @Test
+        public void TestDropboxUpload() {
+            String accessToken = System.getenv("dbx_access");
+            DUUIDropboxDataReader service = new DUUIDropboxDataReader("Cedric Test App", accessToken);
+            service.uploadFile("C:/Users/Cedric/OneDrive/Dokumente/Logo_CB.png", "/images/Logo_CB.png");
+        }
+
+        @Test
+        public void TestDropboxListFiles() {
+            String accessToken = System.getenv("dbx_access");
+            DUUIDropboxDataReader service = new DUUIDropboxDataReader("Cedric Test App", accessToken);
+            service.listFiles("");
+        }
+
+        @Test
+        public void TestDropboxDownloadAsyncCollectionReader() throws Exception {
+            AsyncCollectionReader collectionReader = getAsyncCollectionReader();
+
+            DUUILuaContext ctx = new DUUILuaContext().withJsonLibrary();
+            DUUIComposer composer = new DUUIComposer()
+                    .withSkipVerification(true)
+                    .withLuaContext(ctx)
+                    .withWorkers(5);
+
+            composer.addDriver(new DUUIUIMADriver());
+
+            composer.add(new DUUIUIMADriver.Component(
+                    createEngineDescription(BreakIteratorSegmenter.class)
+            ));
+
+            composer.add(new DUUIUIMADriver.Component(
+                    createEngineDescription(XmiWriter.class,
+                            XmiWriter.PARAM_PRETTY_PRINT, true,
+                            XmiWriter.PARAM_OVERWRITE, true,
+                            XmiWriter.PARAM_VERSION, "1.1",
+                            XmiWriter.PARAM_COMPRESSION, "GZIP"
+                    )).build());
+
+            composer.run(collectionReader, "test");
+        }
+
+        @NotNull
+        private AsyncCollectionReader getAsyncCollectionReader() {
+            DUUIDropboxDataReader service = new DUUIDropboxDataReader("Cedric Test App");
+            String dbxSourceDirectory = "/sample_splitted";
+
+            String localOutputZipDirectory = "C:/Users/Cedric/OneDrive/sample_splitted.zip";
+            String localOutputDirectory = localOutputZipDirectory.replace(".zip", "");
+
+            service.downloadFiles(dbxSourceDirectory, localOutputZipDirectory);
+            AsyncCollectionReader collectionReader = new AsyncCollectionReader(
+                    localOutputDirectory, ".txt", true
+            );
+            return collectionReader;
+        }
+    }
 
     @Test
     public void creatingSample() throws IOException, UIMAException {
