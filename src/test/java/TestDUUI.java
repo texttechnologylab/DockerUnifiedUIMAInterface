@@ -1505,9 +1505,9 @@ public class TestDUUI {
     public void PraktikumExampleSatz() throws Exception {
 
         // Input- und Output-Pfade
-        String sInputPath = "/home/marko/Documents/DUUIInputs";
+        String sInputPath = "/home/stud_homes/s6185038/Documents/DockerInput";
 
-        String sOutputPath = "/home/marko/Documents/DUUIOutputs";
+        String sOutputPath = "/home/stud_homes/s6185038/Documents/DockerOutput";
         String sSuffix = "xmi.gz";
 
         // Asynchroner reader für die Input-Dateien
@@ -1544,11 +1544,11 @@ public class TestDUUI {
 
         // Hierfür wurde anscheinend der Docker Driver hinzugefügt.
         // Wird zum Attribut _Pipeline des Composers hinzugefügt.
-        DUUIPipelineComponent test = new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
+        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
                 .withImageFetching()
                 .withScale(iWorkers)
-                .build();
-        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
+                .build());
+        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/udepparser_cuda_1024:latest")
                 .withImageFetching()
                 .withScale(iWorkers)
                 .build());
@@ -1570,17 +1570,24 @@ public class TestDUUI {
 
     @Test
     public void kubernetesTest() throws Exception {
-        String sInputPath = "/home/marko/Documents/DUUIInputs";
+        String sInputPath = "/home/stud_homes/s6185038/Documents/neuerOrdner";
 
-        String sOutputPath = "/home/marko/Documents/DUUIOutputs/kubernetes";
+        String sOutputPath = "/home/stud_homes/s6185038/Documents/DockerOutput";
         String sSuffix = "xmi.gz";
+
+        /*
+        JCas jcas = JCasFactory.createJCas();
+        jcas.setDocumentText("Hallo. Dies ist ein Text. Nun kommt der dritte Satz in diesem Text. Insgesamt hat dieser Text vier Sätze.");
+        jcas.setDocumentLanguage("de");
+
+         */
 
         // Asynchroner reader für die Input-Dateien
         AsyncCollectionReader pCorpusReader = new AsyncCollectionReader(sInputPath, sSuffix, 10, false);
         new File(sOutputPath).mkdir();
 
         // Definition der Anzahl der Prozesse
-        int iWorkers = Integer.valueOf(4);
+        int iWorkers = Integer.valueOf(10);
 
         // Lua-Kontext für die Nutzung von Lua
         DUUILuaContext ctx = new DUUILuaContext().withJsonLibrary();
@@ -1603,19 +1610,25 @@ public class TestDUUI {
         composer.addDriver(kubernetes_driver, uima_driver);  // remote_driver und swarm_driver scheint nicht benötigt zu werden.
 
         // Hinzfügen einer Componente in den Docker-Driver; Skalierung wie im Composer; Achtung: Image ist nur lokal verfügbar, Namensraum beachten!
-        //        composer.add(new DUUIDockerDriver.Component("duui_simple_sentence:0.1").withScale(iWorkers).build());
+        //        composer.add(new DUUIDockerDriver.Component("duui_simple_sentence:0.1").withScakubectl le(iWorkers).build());
 
         // Hierfür wurde anscheinend der Docker Driver hinzugefügt.
         // Wird zum Attribut _Pipeline des Composers hinzugefügt.
         /*
-        Testen:
         docker.texttechnologylab.org/srl_cuda_1024:latest
         docker.texttechnologylab.org/udepparser_cuda_1024:latest
         docker.texttechnologylab.org/gercoref_cuda:latest
         docker.texttechnologylab.org/textimager-duui-transformers-summary-cuda:latest
-         */
+
+        docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4  // Das haben wir als erstes benutzt.
+
         composer.add(new DUUIKubernetesDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
                 .withScale(iWorkers)
+                .build());
+         */
+        composer.add(new DUUIKubernetesDriver.Component("docker.texttechnologylab.org/udepparser_cuda_1024:latest")
+                .withScale(iWorkers)
+                .withGPU()
                 .build());
 
         // Hinzufügen einer UIMA-Componente zum schreiben der Ergebnisse
@@ -1631,9 +1644,82 @@ public class TestDUUI {
         )).build());
 
 
-
         // Starten des Composers mit dem Reader und dem Namen des Jobs
         composer.run(pCorpusReader, "sentence");
+    }
+
+    @Test
+    public void MarkosTest() throws Exception {
+
+        String sOutputPath = "/home/stud_homes/s6185038/Documents/KubernetesOutput";
+
+        JCas jc = JCasFactory.createJCas();
+        jc.setDocumentText("Hallo. Dies ist ein Text. Nun kommt der dritte Satz in diesem Text. Insgesamt hat dieser Text vier Sätze.");
+        jc.setDocumentLanguage("de");
+
+
+        new File(sOutputPath).mkdir();
+
+        // Definition der Anzahl der Prozesse
+        int iWorkers = Integer.valueOf(1);
+
+        // Lua-Kontext für die Nutzung von Lua
+        DUUILuaContext ctx = new DUUILuaContext().withJsonLibrary();
+
+        // Instanziierung des Composers, mit einigen Parametern
+        DUUIComposer composer = new DUUIComposer()
+                .withSkipVerification(true)     // wir überspringen die Verifikation aller Componenten =)
+                .withLuaContext(ctx)            // wir setzen den definierten Kontext
+                .withWorkers(iWorkers);         // wir geben dem Composer eine Anzahl an Threads mit.
+
+
+        /**
+         * Definition verschiedener Driver
+         */
+        DUUIRemoteDriver remote_driver = new DUUIRemoteDriver();
+        DUUIDockerDriver docker_driver = new DUUIDockerDriver();
+        DUUISwarmDriver swarm_driver = new DUUISwarmDriver();
+        DUUIUIMADriver uima_driver = new DUUIUIMADriver()
+                .withDebug(true);
+
+        // Hinzufügen der einzelnen Driver zum Composer
+        composer.addDriver(swarm_driver, uima_driver, docker_driver, remote_driver);  // remote_driver und swarm_driver scheint nicht benötigt zu werden.
+
+        // Hinzfügen einer Componente in den Docker-Driver; Skalierung wie im Composer; Achtung: Image ist nur lokal verfügbar, Namensraum beachten!
+        //        composer.add(new DUUIDockerDriver.Component("duui_simple_sentence:0.1").withScale(iWorkers).build());
+
+        // Hierfür wurde anscheinend der Docker Driver hinzugefügt.
+        // Wird zum Attribut _Pipeline des Composers hinzugefügt.
+        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
+                .withImageFetching()
+                .withScale(iWorkers)
+                .build());
+
+        // Hinzufügen einer UIMA-Componente zum schreiben der Ergebnisse
+        // (Hierfür wurde anscheinend der UIMA Driver hinzugefügt)
+        // Wird zum Attribut _Pipeline des Composers hinzugefügt.
+        composer.add(new DUUIUIMADriver.Component(createEngineDescription(XmiWriter.class,
+                XmiWriter.PARAM_TARGET_LOCATION, sOutputPath,
+                XmiWriter.PARAM_PRETTY_PRINT, true,
+                XmiWriter.PARAM_OVERWRITE, true,
+                XmiWriter.PARAM_VERSION, "1.1",
+                XmiWriter.PARAM_COMPRESSION, "GZIP"
+        )).build());
+
+        DUUIPipelineDescription desc = DUUIPipelineDescription.fromJCas(jc);
+
+        for(DUUIPipelineAnnotationComponent comp : desc.getComponents()) {
+            if(comp.getComponent().asUIMADriverComponent().getAnnotatorName().equals(BreakIteratorSegmenter.class.getCanonicalName())) {
+                comp.getComponent()
+                        .asUIMADriverComponent()
+                        .setAnalysisEngineParameter(BreakIteratorSegmenter.PARAM_SPLIT_AT_APOSTROPHE,true);
+            }
+        }
+
+        composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class)).build());
+        composer.run(jc, "pipeline");
+        composer.shutdown();
+
     }
 
     @Test

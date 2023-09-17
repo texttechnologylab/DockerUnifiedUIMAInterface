@@ -43,7 +43,7 @@ import java.util.Map;
 
 public class DUUIKubernetesDriver implements IDUUIDriverInterface {
 
-    private KubernetesClient _kube_client;
+    private final KubernetesClient _kube_client;
 
     private HashMap<String, InstantiatedComponent> _active_components;
     private DUUILuaContext _luaContext;
@@ -54,14 +54,14 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
     private IDUUIConnectionHandler _wsclient;
 
     public DUUIKubernetesDriver() throws IOException {
+        _kube_client = new KubernetesClientBuilder().build();
+
         _interface = new DUUIDockerInterface();
 
         _container_timeout = 10000;
         _client = HttpClient.newHttpClient();
 
         _active_components = new HashMap<>();
-
-        //_kube_client = new DefaultKubernetesClient();
     }
 
     // Hier muss anscheinend nichts mehr gemacht werden
@@ -86,11 +86,13 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
         String dockerImage = comp.getImageName();  // Image der Komponente als String
         int scale = comp.getScale(); // Anzahl der Replicas in dieser Kubernetes-Komponente
 
-        KubernetesClient k8s = new KubernetesClientBuilder().build();
-
-        if(!isMasterNode(k8s)) {
+        // Kann False ausgeben, obwohl PC Master-Node ist!
+        /*
+        if(!isMasterNode(_kube_client)) {
             throw new InvalidParameterException("This node is not a Kubernetes Master Node, thus cannot create and schedule new services!");
         }
+
+         */
 
         Service service;
         try {
@@ -170,17 +172,11 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
                     .addNewContainer()
                     .withName("nginx")
                     .withImage(image)
-                    .withResources(
-                            useGPU ?
-                                    new ResourceRequirementsBuilder()
-                                            .addToLimits("nvidia.com/gpu", new Quantity("1"))
-                                            .build()
-                                    : null
-                    )
                     .addNewPort()
                     .withContainerPort(80)
                     .endPort()
                     .endContainer()
+                    .withNodeSelector(useGPU ? Collections.singletonMap("disktype", "gpu") : null)
                     .endSpec()
                     .endTemplate()
                     .withNewSelector()
@@ -455,8 +451,8 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
             _component.withDockerImageName(globalRegistryImageName);
         }
 
-        public DUUIKubernetesDriver.Component withGPU(boolean gpu) {
-            _component.withDockerGPU(gpu);
+        public DUUIKubernetesDriver.Component withGPU() {
+            _component.withDockerGPU(true);
             return this;
         }
 
