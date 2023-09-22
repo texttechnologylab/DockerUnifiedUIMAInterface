@@ -9,22 +9,24 @@ import com.dropbox.core.v2.files.Metadata;
 
 import java.io.*;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Enumeration;
+import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
-import java.util.zip.ZipInputStream;
 
 public class DUUIDropboxDataReader implements IDUUIDataReader {
 
-    private static final String ACCESS_TOKEN = System.getenv("dropbox_token");
+    private static final String ACCESS_TOKEN = System.getenv("dbx_personal_access_token");
     private final DbxRequestConfig config;
     private final DbxClientV2 client;
 
-    public DUUIDropboxDataReader(String appName)  {
+
+    public DUUIDropboxDataReader(String appName) {
         config = DbxRequestConfig.newBuilder(appName).build();
         client = new DbxClientV2(config, ACCESS_TOKEN);
-//        client.refreshAccessToken();
     }
 
     public DUUIDropboxDataReader(String appName, String userAccessToken) {
@@ -32,146 +34,87 @@ public class DUUIDropboxDataReader implements IDUUIDataReader {
         client = new DbxClientV2(config, userAccessToken);
     }
 
-    public DUUIDropboxDataReader(DbxRequestConfig requestConfig) {
-        config = requestConfig;
-        client = new DbxClientV2(config, ACCESS_TOKEN);
-    }
-
-    private ZipFile unzipDownloadResult(String zipFile) throws IOException {
-        try (ZipFile zip = new ZipFile(zipFile)) {
-            Enumeration<? extends ZipEntry> entries = zip.entries();
-
-            String targetDirectory = zipFile.replace(".zip", "");
-            File nestedOutputDirectory = new File(targetDirectory);
-
-            if (!nestedOutputDirectory.exists()) {
-                if (!nestedOutputDirectory.mkdirs()) {
-                    throw new RuntimeException("Folder not present.");
-                }
-            }
-
-            while (entries.hasMoreElements()) {
-                ZipEntry entry = entries.nextElement();
-                if (entry.isDirectory()) {
-                    System.out.println("Skipping directory.");
-                    continue;
-                }
-                String outputFile = Paths.get(nestedOutputDirectory.getPath(), entry.getName()).toString();
-
-                File parentDir = new File(outputFile).getParentFile();
-                if (!parentDir.exists()) {
-                    parentDir.mkdirs();
-                }
-
-                try (InputStream inputStream = zip.getInputStream(entry);
-                     FileOutputStream outputStream = new FileOutputStream(outputFile)) {
-
-                    byte[] buffer = new byte[1024];
-                    int bytesRead;
-
-                    while ((bytesRead = inputStream.read(buffer)) != -1) {
-                        outputStream.write(buffer, 0, bytesRead);
-                    }
-                }
-            }
-            return zip;
-        }
-    }
-
-//    @Override
-//    public String generateOAuthURL() {
-//        DbxPKCEWebAuth pkceWebAuth = new DbxPKCEWebAuth(config, new DbxAppInfo(key));
-//        DbxWebAuth.Request webAuthRequest = DbxWebAuth.newRequestBuilder()
-//                .withNoRedirect()
-//                .withTokenAccessType(TokenAccessType.OFFLINE)
-//                .build();
-//        return pkceWebAuth.authorize(webAuthRequest);
-//    }
-
-
     @Override
-    public void downloadFile(String sourceFile, String targetFolder) {
+    public void writeFile(ByteArrayInputStream source, String fileName, String target) {
         try {
-            DbxDownloader<FileMetadata> downloader = client.files().download(sourceFile);
-            FileOutputStream out = new FileOutputStream(targetFolder);
-            downloader.download(out);
-            out.close();
+
+            if (!target.startsWith("/") && !target.isEmpty()) {
+                target = "/" + target;
+            }
+
+            if (!target.endsWith("/")) {
+                target += "/";
+            }
+
+            client.files().uploadBuilder(target + fileName).uploadAndFinish(source);
         } catch (DbxException | IOException e) {
-            throw new RuntimeException(e);
+            System.out.println(e.getClass() + ": " + e.getMessage());
         }
     }
 
     @Override
-    public void downloadFiles(String sourcesFolder, String targetFolder) {
+    public void writeFiles(List<ByteArrayInputStream> source, List<String> fileNames, String target) {
+        for (int i = 0; i < source.size(); i++) {
+            writeFile(source.get(i), fileNames.get(i), target);
+        }
+    }
 
-        if (!Paths.get(targetFolder).getFileName().toString().endsWith(".zip")) {
-            throw new IllegalArgumentException("targetFolder must be a zip archive.");
+    public ByteArrayInputStream readFile(String dbxSource) {
+        ByteArrayOutputStream fileContentOutput = new ByteArrayOutputStream();
+        try {
+            DbxDownloader<FileMetadata> downloader = client.files().download(dbxSource);
+            System.out.println(downloader.getResult().getSize());
+            downloader.download(fileContentOutput);
+            fileContentOutput.close();
+            return new ByteArrayInputStream(fileContentOutput.toByteArray());
+        } catch (DbxException | IOException e) {
+            return null;
+        }
+    }
+
+    public List<ByteArrayInputStream> readFiles(String dbxSource, String fileExtension) throws IOException {
+        readProgress.set(0);
+        List<String> files = listFiles(dbxSource, fileExtension);
+        if (files.isEmpty()) {
+            return new ArrayList<>();
         }
 
-        DbxDownloader<DownloadZipResult> downloader = null;
-        try {
-            downloader = client.files().downloadZip(sourcesFolder);
-        } catch (DbxException e) {
-            throw new RuntimeException(e);
-        }
-        try {
-            FileOutputStream out = new FileOutputStream(targetFolder);
-            downloader.download(out);
-            out.close();
+        List<ByteArrayInputStream> inputStreams = new ArrayList<>();
 
-            ZipFile unzipDownloadResult = unzipDownloadResult(targetFolder);
-            File zipFile = new File(unzipDownloadResult.getName());
-            if (!zipFile.delete()) {
-                throw new RuntimeException("Zip file still there...");
+        for (String file : files) {
+            int progress = Math.round((float) readProgress.incrementAndGet() / files.size() * 100);
+            System.out.println("Progress " + progress + " % \r");
+            if (file.endsWith(fileExtension)) {
+                inputStreams.add(readFile(file));
             }
-
-        } catch (DbxException ex) {
-            System.out.println(ex.getMessage());
-        } catch (IOException e) {
-            throw new RuntimeException(e);
         }
+        return inputStreams;
+    }
+
+
+    @Override
+    public List<String> listFiles(String folderPath) throws IOException {
+        return listFiles(folderPath, "");
     }
 
     @Override
-    public void uploadFile(String sourceFile, String targetPath) {
-        try {
-            targetPath = targetPath.replace("\\", "/");
-            if (!targetPath.startsWith("/")) {
-                targetPath = "/" + targetPath;
-            }
-            client.files().uploadBuilder(targetPath).uploadAndFinish(new FileInputStream(sourceFile));
-        } catch (DbxException e) {
-            throw new RuntimeException(e);
-        } catch (IOException e) {
-            System.out.println("Failed. File not found.");
-        }
-    }
-
-    @Override
-    public void uploadFiles(String sourceFolder, String targetPath) {
-        File input = new File(sourceFolder);
-        if (!input.isDirectory()) {
-            throw new IllegalArgumentException("Input can only be a directory.");
-        }
-
-        for (File file : Objects.requireNonNull(input.listFiles())) {
-            if (!file.isFile()) continue;
-            uploadFile(Paths.get(sourceFolder, file.getName()).toString(), Paths.get(targetPath, file.getName()).toString());
-        }
-    }
-
-    @Override
-    public void listFiles(String folderPath) {
+    public List<String> listFiles(String folderPath, String fileExtension) throws IOException {
         ListFolderResult result = null;
+
         try {
             result = client.files().listFolder(folderPath);
         } catch (DbxException e) {
-            throw new RuntimeException(e);
+            System.out.println(e.getMessage());
+            throw new IOException("Dropbox could not get more files.");
         }
+
+        List<String> files = new ArrayList<>();
 
         while (true) {
             for (Metadata metadata : result.getEntries()) {
-                System.out.println(metadata.getPathLower());
+                if (metadata.getPathLower().endsWith(fileExtension)) {
+                    files.add(metadata.getPathLower());
+                }
             }
 
             if (!result.getHasMore()) {
@@ -181,8 +124,10 @@ public class DUUIDropboxDataReader implements IDUUIDataReader {
             try {
                 result = client.files().listFolderContinue(result.getCursor());
             } catch (DbxException e) {
-                throw new RuntimeException(e);
+                System.out.println(e.getMessage());
             }
         }
+
+        return files;
     }
 }

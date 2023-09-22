@@ -57,9 +57,7 @@ import org.texttechnologylab.utilities.helper.FileUtils;
 import org.xml.sax.SAXException;
 
 import javax.script.*;
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -81,50 +79,54 @@ public class TestDUUI {
     public class DropboxTests {
 
         @Test
-        public void TestDropboxDownloadAndUpload() {
-            String accessToken = System.getenv("dbx_access");
-            DUUIDropboxDataReader service = new DUUIDropboxDataReader("Cedric Test App", accessToken);
-            DUUIDropboxDataReader privateService = new DUUIDropboxDataReader("Cedric Test App");
-
-            String dbxSourceDirectory = "/sample";
-            String dbxTargetDirectory = "/sample";
-            String localOutputZipDirectory = "C:/Users/Cedric/OneDrive/out.zip";
-            String localOutputDirectory = localOutputZipDirectory.replace(".zip", "");
-
-
-            privateService.downloadFiles(dbxSourceDirectory, localOutputZipDirectory);
-            service.uploadFiles(String.valueOf(Paths.get(localOutputDirectory, dbxSourceDirectory)), dbxTargetDirectory);
-            service.listFiles(dbxTargetDirectory);
-
-            File temp = new File(localOutputDirectory);
-            temp.delete();
-        }
-
-
-        @Test
-        public void TestDropboxDownload() {
-            String accessToken = System.getenv("dbx_access");
-            DUUIDropboxDataReader service = new DUUIDropboxDataReader("Cedric Test App", accessToken);
-            service.downloadFile("/CV.pdf", "C:/Users/Cedric/CV2.pdf");
+        public void TestDropBoxReadFile() throws IOException {
+            String expectedText = "Der Deutsche Bundestag (Abkürzung BT) ist das Parlament und somit das gesetzgebende Organ der Bundesrepublik Deutschland mit Sitz in Berlin.";
+            DUUIDropboxDataReader service = new DUUIDropboxDataReader("Cedric Test App");
+            try (InputStream inputStream = service.readFile("/sample_splitted/sample_01_140.txt")) {
+                String text = new String(inputStream.readAllBytes(), StandardCharsets.UTF_8).trim();
+                System.out.println(text);
+                assertEquals(text, expectedText);
+            }
         }
 
         @Test
-        public void TestDropboxUpload() {
-            String accessToken = System.getenv("dbx_access");
-            DUUIDropboxDataReader service = new DUUIDropboxDataReader("Cedric Test App", accessToken);
-            service.uploadFile("C:/Users/Cedric/OneDrive/Dokumente/Logo_CB.png", "/images/Logo_CB.png");
+        public void TestDropBoxReadFilesFromFolder() throws IOException {
+            DUUIDropboxDataReader service = new DUUIDropboxDataReader("Cedric Test App");
+            assertEquals(service.readFiles("/sample_splitted", ".txt").size(), 17);
         }
 
         @Test
-        public void TestDropboxListFiles() {
-            String accessToken = System.getenv("dbx_access");
-            DUUIDropboxDataReader service = new DUUIDropboxDataReader("Cedric Test App", accessToken);
-            service.listFiles("");
+        public void TestDropBoxWriteFile() throws IOException {
+            DUUIDropboxDataReader service = new DUUIDropboxDataReader("Cedric Test App");
+            ByteArrayInputStream stream = service.readFile("/lul.txt");
+            service.writeFile(stream, "lul2.txt", "");
+            assert service.listFiles("").contains("/lul2.txt");
         }
 
         @Test
-        public void TestDropboxDownloadAsyncCollectionReader() throws Exception {
-            AsyncCollectionReader collectionReader = getAsyncCollectionReader();
+        public void TestDropBoxWriteFiles() throws IOException {
+            DUUIDropboxDataReader service = new DUUIDropboxDataReader("Cedric Test App");
+            List<String> fileNames = service.listFiles("/sample_splitted").stream().map(
+                    (path) -> {
+                        String[] parts = path.split("/");
+                        return parts[parts.length - 1];
+                    }
+            ).collect(Collectors.toList());
+
+            List<ByteArrayInputStream> streams = service.readFiles("/sample_splitted", ".txt");
+            service.writeFiles(streams, fileNames, "/sample_splitted_write_test");
+            assertEquals(service.listFiles("/sample_splitted_write_test").size(), 17);
+        }
+
+        @Test
+        public void TestDropboxAsyncCollectionReader() throws Exception {
+            DUUIDropboxDataReader dropboxDataReader = new DUUIDropboxDataReader("Cedric Test App");
+            AsyncCollectionReader collectionReader = new AsyncCollectionReader.Builder()
+                    .withSourceDirectory("/sample")
+                    .withFileExtension(".gz")
+                    .withAddMetadata(true)
+                    .withDataReader(dropboxDataReader)
+                    .build();
 
             DUUILuaContext ctx = new DUUILuaContext().withJsonLibrary();
             DUUIComposer composer = new DUUIComposer()
@@ -139,30 +141,31 @@ public class TestDUUI {
             ));
 
             composer.add(new DUUIUIMADriver.Component(
-                    createEngineDescription(XmiWriter.class,
+                    createEngineDescription(
+                            XmiWriter.class,
+                            XmiWriter.PARAM_TARGET_LOCATION, "sample",
                             XmiWriter.PARAM_PRETTY_PRINT, true,
                             XmiWriter.PARAM_OVERWRITE, true,
                             XmiWriter.PARAM_VERSION, "1.1",
                             XmiWriter.PARAM_COMPRESSION, "GZIP"
-                    )).build());
+                    )));
 
             composer.run(collectionReader, "test");
+
+            for (File file : Objects.requireNonNull(new File("sample/Bundestag/18").listFiles())) {
+                String fileName = Paths.get(file.getPath()).getFileName().toString();
+
+                dropboxDataReader.writeFile(
+                        new ByteArrayInputStream(
+                                Files.readAllBytes(Path.of(file.getAbsolutePath()))
+                        ),
+                        fileName,
+                        "AsyncCollectionReaderTest"
+                );
+            }
         }
 
-        @NotNull
-        private AsyncCollectionReader getAsyncCollectionReader() {
-            DUUIDropboxDataReader service = new DUUIDropboxDataReader("Cedric Test App");
-            String dbxSourceDirectory = "/sample_splitted";
 
-            String localOutputZipDirectory = "C:/Users/Cedric/OneDrive/sample_splitted.zip";
-            String localOutputDirectory = localOutputZipDirectory.replace(".zip", "");
-
-            service.downloadFiles(dbxSourceDirectory, localOutputZipDirectory);
-            AsyncCollectionReader collectionReader = new AsyncCollectionReader(
-                    localOutputDirectory, ".txt", true
-            );
-            return collectionReader;
-        }
     }
 
     @Test
@@ -189,14 +192,14 @@ public class TestDUUI {
         int iMaxLength = pCas.getDocumentText().length();
         int iMaxSplit = 10;
 
-        int iSplitIterator = iMaxLength/iMaxSplit;
+        int iSplitIterator = iMaxLength / iMaxSplit;
 
         Map<Integer, String> sMap = new HashMap<>();
 
-        for(int a=0; a<iMaxSplit; a++){
+        for (int a = 0; a < iMaxSplit; a++) {
 
             StringBuilder sb = new StringBuilder();
-            for (Sentence sentence : JCasUtil.selectCovered(pCas, Sentence.class, 0, iSplitIterator * (a+1))) {
+            for (Sentence sentence : JCasUtil.selectCovered(pCas, Sentence.class, 0, iSplitIterator * (a + 1))) {
                 sb.append(sentence.getCoveredText());
             }
             sMap.put(sb.toString().length(), sb.toString());
@@ -225,9 +228,9 @@ public class TestDUUI {
 
         System.out.println(sMap);
 
-        sMap.keySet().stream().forEach(k->{
+        sMap.keySet().stream().forEach(k -> {
             try {
-                FileUtils.writeContent(sMap.get(k), new File(sOutputPath+"/sample_"+k+".txt"));
+                FileUtils.writeContent(sMap.get(k), new File(sOutputPath + "/sample_" + k + ".txt"));
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -240,7 +243,7 @@ public class TestDUUI {
     public void SwarmTest() throws Exception {
 
         System.out.println("Running SwarmTest");
-CollectionReader();
+        CollectionReader();
         String sInputPath = TestDUUI.class.getClassLoader().getResource("sample").getPath();
         String sSuffix = "xmi.gz";
         String sOutputPath = "/tmp/";
@@ -259,24 +262,24 @@ CollectionReader();
         composer.addDriver(swarm_driver, uima_driver);
 
         composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/languagedetection:0.1")
-                        .withScale(iWorkers)
-                        .build());
+                .withScale(iWorkers)
+                .build());
 
         composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
-                        .withScale(iWorkers)
-                        .build());
+                .withScale(iWorkers)
+                .build());
 
         composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/gnfinder:latest")
-                        .withScale(iWorkers)
-                        .build());
+                .withScale(iWorkers)
+                .build());
 
         composer.add(new DUUIUIMADriver.Component(createEngineDescription(XmiWriter.class,
-                        XmiWriter.PARAM_TARGET_LOCATION, sOutputPath,
-                        XmiWriter.PARAM_PRETTY_PRINT, true,
-                        XmiWriter.PARAM_OVERWRITE, true,
-                        XmiWriter.PARAM_VERSION, "1.1",
-                        XmiWriter.PARAM_COMPRESSION, "GZIP"
-                )).build());
+                XmiWriter.PARAM_TARGET_LOCATION, sOutputPath,
+                XmiWriter.PARAM_PRETTY_PRINT, true,
+                XmiWriter.PARAM_OVERWRITE, true,
+                XmiWriter.PARAM_VERSION, "1.1",
+                XmiWriter.PARAM_COMPRESSION, "GZIP"
+        )).build());
 
 
         CollectionReaderDescription reader = null;
@@ -315,12 +318,12 @@ CollectionReader();
         composer.addDriver(docker_driver);
 
         composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/languagedetection:0.2")
-                        .withScale(1)
-                        .build());
+                .withScale(1)
+                .build());
 
         composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9716")
-                        .withScale(1)
-                        .build());
+                .withScale(1)
+                .build());
 
         composer.run(jc);
 
@@ -336,6 +339,7 @@ CollectionReader();
 
 
     }
+
     @Test
     public void TestHeidelTimeExt() throws Exception {
         JCas jc = JCasFactory.createJCas();
@@ -379,6 +383,7 @@ CollectionReader();
 
 
     }
+
     @Test
     public void TestCuda() throws Exception {
         JCas jc = JCasFactory.createJCas();
@@ -416,13 +421,13 @@ CollectionReader();
 //                .build());
 
         List<String> urls = new ArrayList<>(0);
-        for(int a=1; a<6; a++) {
-            urls.add("http://geltlin.hucompute.org:800"+a);
+        for (int a = 1; a < 6; a++) {
+            urls.add("http://geltlin.hucompute.org:800" + a);
         }
 
         composer.add(new DUUIRemoteDriver.Component(urls)
-                        .withScale(1)
-                        .build());
+                .withScale(1)
+                .build());
 
         composer.add(new DUUIUIMADriver.Component(
                 createEngineDescription(XmiWriter.class,
@@ -432,7 +437,6 @@ CollectionReader();
                         XmiWriter.PARAM_VERSION, "1.1",
                         XmiWriter.PARAM_COMPRESSION, "GZIP"
                 )).withScale(1).build());
-
 
 
         composer.run(testReader, "test");
@@ -492,7 +496,7 @@ CollectionReader();
                 .build());
 
         composer.run(pCas, "test");
-        JCasUtil.select(pCas, Annotation.class).forEach(pAnno->{
+        JCasUtil.select(pCas, Annotation.class).forEach(pAnno -> {
             System.out.println(pAnno.getType().getShortName());
         });
 
@@ -540,11 +544,11 @@ CollectionReader();
 //                .withScale(iScale).build());
 
         composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9715")
-                        .withScale(1)
-                        .build());
+                .withScale(1)
+                .build());
 
         composer.run(pCas, "test");
-        JCasUtil.select(pCas, Annotation.class).forEach(pAnno->{
+        JCasUtil.select(pCas, Annotation.class).forEach(pAnno -> {
             System.out.println(pAnno.getType().getShortName());
         });
 
@@ -640,8 +644,6 @@ CollectionReader();
         );
 
         //((TTLabXmiWriter)writerEngine).setAsyncCollectionCeader(testReader);
-
-
 
 
         composer.add(new DUUIUIMADriver.Component(
@@ -747,8 +749,8 @@ CollectionReader();
         composer.addDriver(swarm_driver);
 
         composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9715")
-                        .withScale(1)
-                        .build());
+                .withScale(1)
+                .build());
 
         composer.run(jc);
 
@@ -859,8 +861,8 @@ CollectionReader();
         composer.addDriver(dockerDriver, remoteDriver);
 
         composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/languagedetection:0.5")
-                        .withScale(1)
-                        .withImageFetching());
+                .withScale(1)
+                .withImageFetching());
 
 //        composer.add(new DUUIRemoteDriver.Component("http://localhost:9719")
 //                        .withScale(1)
@@ -950,19 +952,19 @@ CollectionReader();
         composer.addDriver(driver, remote_driver, uima_driver, swarm_driver);
 
         composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/languagedetection:0.1")
-                        .withImageFetching()
-                        .withScale(1)
-                        .build());
+                .withImageFetching()
+                .withScale(1)
+                .build());
 
         composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
-                        .withImageFetching()
-                        .withScale(1)
-                        .build());
+                .withImageFetching()
+                .withScale(1)
+                .build());
 
         composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/gnfinder:latest")
-                        .withImageFetching()
-                        .withScale(1)
-                        .build());
+                .withImageFetching()
+                .withScale(1)
+                .build());
 
 
         composer.run(jc);
@@ -1132,18 +1134,18 @@ CollectionReader();
         jc.setDocumentText("Hallo Welt! Wie geht es dir?");
         jc.setDocumentLanguage("de");
         AnalysisEngineDescription desc = AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class);
-        SimplePipeline.runPipeline(jc,desc);
-        for(Sentence i : JCasUtil.select(jc,Sentence.class)) {
+        SimplePipeline.runPipeline(jc, desc);
+        for (Sentence i : JCasUtil.select(jc, Sentence.class)) {
             System.out.println(JCasUtil.selectCovered(Token.class, i).stream().collect(Collectors.toList()));
         }
 
         String val = Files.readString(Path.of(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/select_covered.lua").toURI()));
         DUUILuaContext ctxt = new DUUILuaContext();
-        ctxt.withGlobalLibrary("json",DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/json.lua").toURI());
-        DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(val,"remote",ctxt);
+        ctxt.withGlobalLibrary("json", DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/json.lua").toURI());
+        DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(val, "remote", ctxt);
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         long start = System.currentTimeMillis();
-        lua.serialize(jc,out,null);
+        lua.serialize(jc, out, null);
         System.out.println(out.toString());
     }
 
@@ -1194,7 +1196,7 @@ CollectionReader();
         String val = Files.readString(Path.of(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/rust_communication_msgpack.lua").toURI()));
         DUUILuaContext ctxt = new DUUILuaContext();
         DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(val, "remote", ctxt);
-        for(int i = 0; i < 10; i++) {
+        for (int i = 0; i < 10; i++) {
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             long start = System.currentTimeMillis();
             lua.serialize(jc, out, null);
@@ -1427,18 +1429,18 @@ CollectionReader();
                 .withScale(4)
                 .withImageFetching()
                 .build());
-       composer.add(new DUUIUIMADriver.Component(
+        composer.add(new DUUIUIMADriver.Component(
                 AnalysisEngineFactory.createEngineDescription(XmiWriter.class,
                         XmiWriter.PARAM_TARGET_LOCATION, "/home/alexander/Documents/Corpora/German-Political-Speeches-Corpus/test_benchmark/",
                         XmiWriter.PARAM_PRETTY_PRINT, true,
                         XmiWriter.PARAM_OVERWRITE, true,
                         XmiWriter.PARAM_VERSION, "1.1"
-                        )
+                )
         ).withScale(4).build());
 
         composer.run(CollectionReaderFactory.createReaderDescription(TextReader.class,
-                TextReader.PARAM_LANGUAGE,"de",
-                TextReader.PARAM_SOURCE_LOCATION,"/home/alexander/Documents/Corpora/German-Political-Speeches-Corpus/output/*.txt"),"run2");
+                TextReader.PARAM_LANGUAGE, "de",
+                TextReader.PARAM_SOURCE_LOCATION, "/home/alexander/Documents/Corpora/German-Political-Speeches-Corpus/output/*.txt"), "run2");
         composer.shutdown();
     }
 
@@ -1456,11 +1458,11 @@ CollectionReader();
         composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9716").build());
 
         composer.run(CollectionReaderFactory.createReaderDescription(XmiReader.class,
-                XmiReader.PARAM_LANGUAGE,"de",
-                XmiReader.PARAM_ADD_DOCUMENT_METADATA,false,
-                XmiReader.PARAM_OVERRIDE_DOCUMENT_METADATA,false,
-                XmiReader.PARAM_LENIENT,true,
-                XmiReader.PARAM_SOURCE_LOCATION,"/home/alexander/Documents/Corpora/German-Political-Speeches-Corpus/processed/*.xmi"),"run_serialize_json");
+                XmiReader.PARAM_LANGUAGE, "de",
+                XmiReader.PARAM_ADD_DOCUMENT_METADATA, false,
+                XmiReader.PARAM_OVERRIDE_DOCUMENT_METADATA, false,
+                XmiReader.PARAM_LENIENT, true,
+                XmiReader.PARAM_SOURCE_LOCATION, "/home/alexander/Documents/Corpora/German-Political-Speeches-Corpus/processed/*.xmi"), "run_serialize_json");
         composer.shutdown();
     }
 
@@ -1482,8 +1484,8 @@ CollectionReader();
 
 
         composer.run(CollectionReaderFactory.createReaderDescription(TextReader.class,
-                TextReader.PARAM_LANGUAGE,"de",
-                TextReader.PARAM_SOURCE_LOCATION,"/home/alexander/Documents/Corpora/German-Political-Speeches-Corpus/output/*.txt"),"run_test");
+                TextReader.PARAM_LANGUAGE, "de",
+                TextReader.PARAM_SOURCE_LOCATION, "/home/alexander/Documents/Corpora/German-Political-Speeches-Corpus/output/*.txt"), "run_test");
         composer.shutdown();
     }
 
@@ -1496,15 +1498,15 @@ CollectionReader();
         DUUIComposer composer = new DUUIComposer();
         composer.addDriver(new DUUIUIMADriver());
         composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class)).build());
-        composer.run(jc,"pipeline");
+        composer.run(jc, "pipeline");
         composer.shutdown();
 
         DUUIPipelineDescription desc = DUUIPipelineDescription.fromJCas(jc);
-        assertEquals(desc.getComponents().size(),1);
+        assertEquals(desc.getComponents().size(), 1);
         DUUIPipelineAnnotationComponent comp = desc.getComponents().get(0);
 
-        assertEquals(comp.getComponent().getDriver(),DUUIUIMADriver.class.getCanonicalName());
-        assertEquals(comp.getComponent().asUIMADriverComponent().getAnnotatorName(),BreakIteratorSegmenter.class.getCanonicalName());
+        assertEquals(comp.getComponent().getDriver(), DUUIUIMADriver.class.getCanonicalName());
+        assertEquals(comp.getComponent().asUIMADriverComponent().getAnnotatorName(), BreakIteratorSegmenter.class.getCanonicalName());
     }
 
     @Test
@@ -1530,17 +1532,17 @@ CollectionReader();
 
         DUUIPipelineDescription desc = DUUIPipelineDescription.fromJCas(jc);
 
-        assertEquals(desc.getComponents().size(),2);
+        assertEquals(desc.getComponents().size(), 2);
         DUUIPipelineAnnotationComponent comp = desc.getComponents().get(0);
 
-        assertEquals(comp.getComponent().getDriver(),DUUIUIMADriver.class.getCanonicalName());
-        assertEquals(comp.getComponent().asUIMADriverComponent().getAnnotatorName(),BreakIteratorSegmenter.class.getCanonicalName());
+        assertEquals(comp.getComponent().getDriver(), DUUIUIMADriver.class.getCanonicalName());
+        assertEquals(comp.getComponent().asUIMADriverComponent().getAnnotatorName(), BreakIteratorSegmenter.class.getCanonicalName());
 //        assertEquals(comp.getAnnotation().getPipelineName(),"pipeline");
 
         DUUIPipelineAnnotationComponent comp2 = desc.getComponents().get(1);
 
-        assertEquals(comp2.getComponent().getDriver(),DUUIUIMADriver.class.getCanonicalName());
-        assertEquals(comp2.getComponent().asUIMADriverComponent().getAnnotatorName(),OpenNlpPosTagger.class.getCanonicalName());
+        assertEquals(comp2.getComponent().getDriver(), DUUIUIMADriver.class.getCanonicalName());
+        assertEquals(comp2.getComponent().asUIMADriverComponent().getAnnotatorName(), OpenNlpPosTagger.class.getCanonicalName());
 //        assertEquals(comp2.getAnnotation().getPipelineName(),"pos_tagger");
 
         JCas jc_dup = JCasFactory.createJCas();
@@ -1555,7 +1557,7 @@ CollectionReader();
             composer.shutdown();
         }
 
-        assertEquals(JCasUtil.select(jc_dup,TOP.class).size(), JCasUtil.select(jc,TOP.class).size());
+        assertEquals(JCasUtil.select(jc_dup, TOP.class).size(), JCasUtil.select(jc, TOP.class).size());
     }
 
     @Test
@@ -1574,11 +1576,11 @@ CollectionReader();
 
         DUUIPipelineDescription desc = DUUIPipelineDescription.fromJCas(jc);
 
-        for(DUUIPipelineAnnotationComponent comp : desc.getComponents()) {
-            if(comp.getComponent().asUIMADriverComponent().getAnnotatorName().equals(BreakIteratorSegmenter.class.getCanonicalName())) {
+        for (DUUIPipelineAnnotationComponent comp : desc.getComponents()) {
+            if (comp.getComponent().asUIMADriverComponent().getAnnotatorName().equals(BreakIteratorSegmenter.class.getCanonicalName())) {
                 comp.getComponent()
                         .asUIMADriverComponent()
-                        .setAnalysisEngineParameter(BreakIteratorSegmenter.PARAM_SPLIT_AT_APOSTROPHE,true);
+                        .setAnalysisEngineParameter(BreakIteratorSegmenter.PARAM_SPLIT_AT_APOSTROPHE, true);
             }
         }
 
@@ -1594,7 +1596,7 @@ CollectionReader();
             composer.shutdown();
         }
 
-        assertEquals(JCasUtil.select(jc_dup,TOP.class).size(), JCasUtil.select(jc,TOP.class).size()+1);
+        assertEquals(JCasUtil.select(jc_dup, TOP.class).size(), JCasUtil.select(jc, TOP.class).size() + 1);
     }
 
     @Test
@@ -1604,17 +1606,17 @@ CollectionReader();
                 "var util = Java.type(\"org.apache.uima.fit.util.JCasUtil\");\n" +
                 "var msgpack = Java.type(\"org.msgpack.core.MessagePack\");" +
                 "    var packer = msgpack.newDefaultPacker(outputStream);" +
-                        "packer.packArrayHeader(2);" +
-                        "packer.packString(inputCas.getDocumentText());\n" +
-                        "var size = util.select(inputCas,token.class).size();\n" +
-                        "packer.packArrayHeader(size*2);\n" +
-                        "var result = util.select(inputCas,token.class).iterator();\n" +
-                        "while(result.hasNext()) {\n" +
-                        "   var x = result.next();\n" +
-                        "    packer.packInt(x.getBegin());\n" +
-                        "    packer.packInt(x.getEnd());\n" +
-                        "}\n" +
-                        "  packer.close();" +
+                "packer.packArrayHeader(2);" +
+                "packer.packString(inputCas.getDocumentText());\n" +
+                "var size = util.select(inputCas,token.class).size();\n" +
+                "packer.packArrayHeader(size*2);\n" +
+                "var result = util.select(inputCas,token.class).iterator();\n" +
+                "while(result.hasNext()) {\n" +
+                "   var x = result.next();\n" +
+                "    packer.packInt(x.getBegin());\n" +
+                "    packer.packInt(x.getEnd());\n" +
+                "}\n" +
+                "  packer.close();" +
                 "");
 
 
@@ -1631,7 +1633,7 @@ CollectionReader();
         }
 
 
-        for(int i = 0; i < 10; i++) {
+        for (int i = 0; i < 10; i++) {
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             long start = System.currentTimeMillis();
             Bindings b = ee.createBindings();
@@ -1661,7 +1663,7 @@ CollectionReader();
                 .withWorkers(2);
         // Instantiate drivers with options
         DUUIDockerDriver docker_driver = new DUUIDockerDriver()
-            .withTimeout(10000);
+                .withTimeout(10000);
         DUUIRemoteDriver remote_driver = new DUUIRemoteDriver(10000);
         // Definition of the UIMA driver with the option of debugging output in the log.
         DUUIUIMADriver uima_driver = new DUUIUIMADriver().withDebug(true);
@@ -1673,24 +1675,24 @@ CollectionReader();
         // A new component for the composer is added
         composer.add(new DUUIDockerDriver
                 // The component is based on a Docker image stored in a remote repository.
-                        .Component("docker.texttechnologylab.org/gnfinder:latest")
-        // The image is reloaded and fetched, regardless of whether it already exists locally (optional)
-                        .withImageFetching()
-        // The scaling parameter is set
-        .withScale(1));
+                .Component("docker.texttechnologylab.org/gnfinder:latest")
+                // The image is reloaded and fetched, regardless of whether it already exists locally (optional)
+                .withImageFetching()
+                // The scaling parameter is set
+                .withScale(1));
         // Adding a UIMA annotator for writing the result of the pipeline as XMI files in compressed form.
         composer.add(new DUUIUIMADriver.Component(
                 createEngineDescription(XmiWriter.class,
-                XmiWriter.PARAM_TARGET_LOCATION, "output_temp_path",
-                XmiWriter.PARAM_COMPRESSION, "GZIP"
+                        XmiWriter.PARAM_TARGET_LOCATION, "output_temp_path",
+                        XmiWriter.PARAM_COMPRESSION, "GZIP"
                 )).withScale(1));
         // The document is processed through the pipeline.
         composer.run(CollectionReaderFactory.createReaderDescription(XmiReader.class,
-                XmiReader.PARAM_LANGUAGE,"de",
-                XmiReader.PARAM_ADD_DOCUMENT_METADATA,false,
-                XmiReader.PARAM_OVERRIDE_DOCUMENT_METADATA,false,
-                XmiReader.PARAM_LENIENT,true,
-                XmiReader.PARAM_SOURCE_LOCATION,"/home/alexander/Documents/Corpora/German-Political-Speeches-Corpus/processed_sample/*.xmi"),"run_python_token_annotator");
+                XmiReader.PARAM_LANGUAGE, "de",
+                XmiReader.PARAM_ADD_DOCUMENT_METADATA, false,
+                XmiReader.PARAM_OVERRIDE_DOCUMENT_METADATA, false,
+                XmiReader.PARAM_LENIENT, true,
+                XmiReader.PARAM_SOURCE_LOCATION, "/home/alexander/Documents/Corpora/German-Political-Speeches-Corpus/processed_sample/*.xmi"), "run_python_token_annotator");
     }
    /* @Test
     public void TestCasIoUtils() throws UIMAException, IOException {

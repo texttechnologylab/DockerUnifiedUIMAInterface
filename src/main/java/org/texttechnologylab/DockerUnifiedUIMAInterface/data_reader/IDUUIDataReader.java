@@ -1,13 +1,26 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.data_reader;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
+
 public interface IDUUIDataReader {
-    void downloadFile(String sourceFile, String targetFolder);
 
-    void downloadFiles(String sourcesFolder, String targetFolder);
+    AtomicInteger readProgress = new AtomicInteger(0);
 
-    void uploadFile(String sourceFile, String targetPath);
+    void writeFile(ByteArrayInputStream source, String fileName, String target);
 
-    void uploadFiles(String sourceFolder, String targetPath);
+    void writeFiles(List<ByteArrayInputStream> source, List<String> fileNames, String target);
 
-    void listFiles(String folderPath);
+    ByteArrayInputStream readFile(String source);
+
+    List<ByteArrayInputStream> readFiles(String source, String fileExtension) throws IOException;
+
+    List<String> listFiles(String folderPath) throws IOException;
+
+    List<String> listFiles(String folderPath, String fileExtension) throws IOException;
+
+
 }
