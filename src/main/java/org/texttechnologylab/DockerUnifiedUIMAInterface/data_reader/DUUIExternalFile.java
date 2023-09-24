@@ -16,22 +16,22 @@ public class DUUIExternalFile {
         _content = content;
     }
 
-    public String get_name() {
+    public String getName() {
         return _name;
     }
 
 
-    public String get_path() {
+    public String getPath() {
         return _path;
     }
 
 
-    public long get_sizeBytes() {
+    public long getSizeBytes() {
         return _sizeBytes;
     }
 
 
-    public ByteArrayInputStream get_content() {
+    public ByteArrayInputStream getContent() {
         return _content;
     }
 }

@@ -1,11 +1,13 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.data_reader;
 
 import com.dropbox.core.*;
+import com.dropbox.core.oauth.DbxCredential;
 import com.dropbox.core.v2.DbxClientV2;
 import com.dropbox.core.v2.files.DownloadZipResult;
 import com.dropbox.core.v2.files.FileMetadata;
 import com.dropbox.core.v2.files.ListFolderResult;
 import com.dropbox.core.v2.files.Metadata;
+import de.tudarmstadt.ukp.dkpro.core.api.syntax.type.dependency.REF;
 
 import java.io.*;
 import java.nio.file.Paths;
@@ -20,13 +22,31 @@ import java.util.zip.ZipFile;
 public class DUUIDropboxDataReader implements IDUUIDataReader {
 
     private static final String ACCESS_TOKEN = System.getenv("dbx_personal_access_token");
+    private static final String REFRESH_TOKEN = System.getenv("dbx_personal_refresh_token");
+    private static final String APP_KEY = System.getenv("dbx_app_key");
+    private static final String APP_SECRET = System.getenv("dbx_app_secret");
     private final DbxRequestConfig config;
     private final DbxClientV2 client;
 
+    private void authorize() throws IOException {
+
+        DbxPKCEWebAuth pkceWebAuth = new DbxPKCEWebAuth(config, new DbxAppInfo(APP_KEY));
+        DbxWebAuth.Request webAuthRequest = DbxWebAuth.newRequestBuilder()
+                .withNoRedirect()
+                .withTokenAccessType(TokenAccessType.OFFLINE)
+                .build();
+    }
 
     public DUUIDropboxDataReader(String appName) {
         config = DbxRequestConfig.newBuilder(appName).build();
-        client = new DbxClientV2(config, ACCESS_TOKEN);
+        DbxCredential credentials = new DbxCredential(ACCESS_TOKEN, 1L, REFRESH_TOKEN, APP_KEY, APP_SECRET);
+        System.out.println(REFRESH_TOKEN);
+        client = new DbxClientV2(config, credentials);
+        try {
+            client.refreshAccessToken();
+        } catch (DbxException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public DUUIDropboxDataReader(String appName, String userAccessToken) {
@@ -35,7 +55,7 @@ public class DUUIDropboxDataReader implements IDUUIDataReader {
     }
 
     @Override
-    public void writeFile(ByteArrayInputStream source, String fileName, String target) {
+    public void writeFile(DUUIExternalFile source, String fileName, String target) {
         try {
 
             if (!target.startsWith("/") && !target.isEmpty()) {
@@ -46,40 +66,45 @@ public class DUUIDropboxDataReader implements IDUUIDataReader {
                 target += "/";
             }
 
-            client.files().uploadBuilder(target + fileName).uploadAndFinish(source);
+            client.files().uploadBuilder(target + fileName).uploadAndFinish(source.getContent());
         } catch (DbxException | IOException e) {
             System.out.println(e.getClass() + ": " + e.getMessage());
         }
     }
 
     @Override
-    public void writeFiles(List<ByteArrayInputStream> source, List<String> fileNames, String target) {
+    public void writeFiles(List<DUUIExternalFile> source, List<String> fileNames, String target) {
         for (int i = 0; i < source.size(); i++) {
             writeFile(source.get(i), fileNames.get(i), target);
         }
     }
 
-    public ByteArrayInputStream readFile(String dbxSource) {
+    public DUUIExternalFile readFile(String dbxSource) {
         ByteArrayOutputStream fileContentOutput = new ByteArrayOutputStream();
         try {
             DbxDownloader<FileMetadata> downloader = client.files().download(dbxSource);
-            System.out.println(downloader.getResult().getSize());
             downloader.download(fileContentOutput);
             fileContentOutput.close();
-            return new ByteArrayInputStream(fileContentOutput.toByteArray());
+            FileMetadata metadata = downloader.getResult();
+            return new DUUIExternalFile(
+                    metadata.getName(),
+                    metadata.getPathLower(),
+                    metadata.getSize(),
+                    new ByteArrayInputStream(fileContentOutput.toByteArray())
+            );
         } catch (DbxException | IOException e) {
             return null;
         }
     }
 
-    public List<ByteArrayInputStream> readFiles(String dbxSource, String fileExtension) throws IOException {
+    public List<DUUIExternalFile> readFiles(String dbxSource, String fileExtension) throws IOException {
         readProgress.set(0);
         List<String> files = listFiles(dbxSource, fileExtension);
         if (files.isEmpty()) {
             return new ArrayList<>();
         }
 
-        List<ByteArrayInputStream> inputStreams = new ArrayList<>();
+        List<DUUIExternalFile> inputStreams = new ArrayList<>();
 
         for (String file : files) {
             int progress = Math.round((float) readProgress.incrementAndGet() / files.size() * 100);

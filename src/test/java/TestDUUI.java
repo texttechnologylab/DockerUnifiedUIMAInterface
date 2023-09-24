@@ -38,6 +38,7 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIPipelineAnnotationComponent;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIPipelineDescription;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.data_reader.DUUIDropboxDataReader;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.data_reader.DUUIExternalFile;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIDockerDriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUISwarmDriver;
@@ -62,7 +63,6 @@ import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -82,7 +82,8 @@ public class TestDUUI {
         public void TestDropBoxReadFile() throws IOException {
             String expectedText = "Der Deutsche Bundestag (Abkürzung BT) ist das Parlament und somit das gesetzgebende Organ der Bundesrepublik Deutschland mit Sitz in Berlin.";
             DUUIDropboxDataReader service = new DUUIDropboxDataReader("Cedric Test App");
-            try (InputStream inputStream = service.readFile("/sample_splitted/sample_01_140.txt")) {
+            DUUIExternalFile externalFile = service.readFile("/sample_splitted/sample_01_140.txt");
+            try (InputStream inputStream = externalFile.getContent()) {
                 String text = new String(inputStream.readAllBytes(), StandardCharsets.UTF_8).trim();
                 System.out.println(text);
                 assertEquals(text, expectedText);
@@ -98,23 +99,18 @@ public class TestDUUI {
         @Test
         public void TestDropBoxWriteFile() throws IOException {
             DUUIDropboxDataReader service = new DUUIDropboxDataReader("Cedric Test App");
-            ByteArrayInputStream stream = service.readFile("/lul.txt");
-            service.writeFile(stream, "lul2.txt", "");
+            DUUIExternalFile externalFile = service.readFile("/lul.txt");
+            service.writeFile(externalFile, externalFile.getName(), externalFile.getPath());
             assert service.listFiles("").contains("/lul2.txt");
         }
 
         @Test
         public void TestDropBoxWriteFiles() throws IOException {
             DUUIDropboxDataReader service = new DUUIDropboxDataReader("Cedric Test App");
-            List<String> fileNames = service.listFiles("/sample_splitted").stream().map(
-                    (path) -> {
-                        String[] parts = path.split("/");
-                        return parts[parts.length - 1];
-                    }
-            ).collect(Collectors.toList());
+            List<DUUIExternalFile> externalFiles = service.readFiles("/sample_splitted", ".txt");
+            List<String> fileNames = externalFiles.stream().map(DUUIExternalFile::getName).collect(Collectors.toList());
 
-            List<ByteArrayInputStream> streams = service.readFiles("/sample_splitted", ".txt");
-            service.writeFiles(streams, fileNames, "/sample_splitted_write_test");
+            service.writeFiles(externalFiles, fileNames, "/sample_splitted_write_test");
             assertEquals(service.listFiles("/sample_splitted_write_test").size(), 17);
         }
 
@@ -126,6 +122,7 @@ public class TestDUUI {
                     .withFileExtension(".gz")
                     .withAddMetadata(true)
                     .withDataReader(dropboxDataReader)
+                    .withDebugCount(9)
                     .build();
 
             DUUILuaContext ctx = new DUUILuaContext().withJsonLibrary();
@@ -151,18 +148,6 @@ public class TestDUUI {
                     )));
 
             composer.run(collectionReader, "test");
-
-            for (File file : Objects.requireNonNull(new File("sample/Bundestag/18").listFiles())) {
-                String fileName = Paths.get(file.getPath()).getFileName().toString();
-
-                dropboxDataReader.writeFile(
-                        new ByteArrayInputStream(
-                                Files.readAllBytes(Path.of(file.getAbsolutePath()))
-                        ),
-                        fileName,
-                        "AsyncCollectionReaderTest"
-                );
-            }
         }
 
 

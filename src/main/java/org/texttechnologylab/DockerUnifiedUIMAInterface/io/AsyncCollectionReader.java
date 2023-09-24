@@ -10,6 +10,7 @@ import org.apache.uima.cas.impl.XmiSerializationSharedData;
 import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.javaync.io.AsyncFiles;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.data_reader.DUUIExternalFile;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.data_reader.IDUUIDataReader;
 import org.texttechnologylab.annotation.SharedData;
 import org.texttechnologylab.utilities.helper.StringUtils;
@@ -371,7 +372,7 @@ public class AsyncCollectionReader {
             String path = _filePaths.poll();
             if (path == null) return CompletableFuture.completedFuture(1);
 
-            return CompletableFuture.supplyAsync(() -> _dataReader.readFile(path).readAllBytes()
+            return CompletableFuture.supplyAsync(() -> _dataReader.readFile(path).getContent().readAllBytes()
             ).thenApply(bytes -> {
                 _loadedFiles.add(new ByteReadFuture(path, bytes));
                 long factor = 1;
@@ -434,20 +435,25 @@ public class AsyncCollectionReader {
         progress.setDone(val);
         progress.setLeft(_initialSize - val);
 
-        if (_initialSize - progress.getCount() > debugCount) {
-            if (val % debugCount == 0 || val == 0) {
-                System.out.printf("%s: \t %s \t %s\n", progress, getSize(result), result);
-            }
-        } else {
-            System.out.printf("%s: \t %s \t %s\n", progress, getSize(result), result);
-        }
+        String sizeBytes = "0";
 
         if (file == null) {
             if (_dataReader != null) {
-                file = _dataReader.readFile(result).readAllBytes();
+                DUUIExternalFile externalFile = _dataReader.readFile(result);
+                file = externalFile.getContent().readAllBytes();
+                sizeBytes = FileUtils.byteCountToDisplaySize(externalFile.getSizeBytes());
             } else {
                 file = Files.readAllBytes(Path.of(result));
+                sizeBytes = getSize(result);
             }
+        }
+
+        if (_initialSize - progress.getCount() > debugCount) {
+            if (val % debugCount == 0 || val == 0) {
+                System.out.printf("%s: \t %s \t %s\n", progress, sizeBytes, result);
+            }
+        } else {
+            System.out.printf("%s: \t %s \t %s\n", progress, sizeBytes, result);
         }
 
 

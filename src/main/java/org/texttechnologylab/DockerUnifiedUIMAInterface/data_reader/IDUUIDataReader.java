@@ -10,17 +10,17 @@ public interface IDUUIDataReader {
 
     AtomicInteger readProgress = new AtomicInteger(0);
 
-    void writeFile(ByteArrayInputStream source, String fileName, String target);
+    void writeFile(DUUIExternalFile source, String fileName, String target);
 
-    void writeFiles(List<ByteArrayInputStream> source, List<String> fileNames, String target);
+    void writeFiles(List<DUUIExternalFile> source, List<String> fileNames, String target);
 
-    ByteArrayInputStream readFile(String source);
+    DUUIExternalFile readFile(String source);
 
-    List<ByteArrayInputStream> readFiles(String source, String fileExtension) throws IOException;
+    List<DUUIExternalFile> readFiles(String source, String fileExtension) throws IOException;
+
 
     List<String> listFiles(String folderPath) throws IOException;
 
     List<String> listFiles(String folderPath, String fileExtension) throws IOException;
-
 
 }
