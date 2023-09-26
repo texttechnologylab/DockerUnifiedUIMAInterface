@@ -10,12 +10,11 @@ import org.apache.uima.cas.impl.XmiSerializationSharedData;
 import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.javaync.io.AsyncFiles;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.data_reader.DUUIExternalFile;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.data_reader.DUUIInputStream;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.data_reader.IDUUIDataReader;
 import org.texttechnologylab.annotation.SharedData;
 import org.texttechnologylab.utilities.helper.StringUtils;
 import org.xml.sax.SAXException;
-import org.xml.sax.SAXParseException;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
@@ -28,6 +27,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 class ByteReadFuture {
     private String _path;
@@ -51,7 +51,7 @@ public class AsyncCollectionReader {
     private String _path;
     private ConcurrentLinkedQueue<String> _filePaths;
     private ConcurrentLinkedQueue<String> _filePathsBackup;
-    private ConcurrentLinkedQueue<ByteReadFuture> _loadedFiles;
+    private ConcurrentLinkedQueue<DUUIInputStream> _loadedFiles;
 
     private int _initialSize;
     private AtomicInteger _docNumber;
@@ -149,18 +149,18 @@ public class AsyncCollectionReader {
 
         public AsyncCollectionReader build() {
             return new AsyncCollectionReader(
-                    _sourceDirectory,
-                    _sourceFileExtension,
-                    _dataReader,
-                    _debugCount,
-                    _randomCount,
-                    _sortBySize,
-                    _savePath,
-                    _addMetadata,
-                    _language,
-                    _fileSizeBytes,
-                    _targetDirectory,
-                    _targetFileExtension
+                _sourceDirectory,
+                _sourceFileExtension,
+                _dataReader,
+                _debugCount,
+                _randomCount,
+                _sortBySize,
+                _savePath,
+                _addMetadata,
+                _language,
+                _fileSizeBytes,
+                _targetDirectory,
+                _targetFileExtension
             );
         }
     }
@@ -257,42 +257,62 @@ public class AsyncCollectionReader {
         _filePathsBackup = new ConcurrentLinkedQueue<>();
         _dataReader = dataReader;
 
-        if (new File(savePath).exists() && savePath.length() > 0) {
-            File sPath = new File(savePath);
-
-            String sContent = null;
-            try {
-                sContent = StringUtils.getContent(sPath);
-            } catch (IOException e) {
-                e.printStackTrace();
+        try {
+            if (!savePath.isEmpty()) {
+                _filePaths.addAll(_dataReader.listFiles(savePath));
             }
-            String[] sSplit = sContent.split("\n");
-
-            for (String s : sSplit) {
-                _filePaths.add(s);
-            }
-
-        } else {
-            if (_dataReader != null) {
-                try {
-                    _filePaths.addAll(_dataReader.listFiles(folder, ending));
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-            } else {
-                File fl = new File(folder);
-                if (!fl.isDirectory()) {
-                    throw new RuntimeException();
-                }
-                _path = folder;
-                addFilesToConcurrentList(fl, ending, _filePaths);
-
-                if (skipSmallerFiles > 0) {
-                    _filePaths = skipBySize(_filePaths, skipSmallerFiles);
-                }
-            }
-
+            _filePaths.addAll(_dataReader.listFiles(folder));
+        } catch (IOException e) {
+            System.out.println("Save path not found. Processing all documents.");
         }
+
+        if (skipSmallerFiles > 0) {
+            _filePaths = skipBySize(_filePaths, skipSmallerFiles);
+        }
+
+//        if (new File(savePath).exists() && !savePath.isEmpty()) {
+//            File sPath = new File(savePath);
+//
+//            String sContent = null;
+//            try {
+//                sContent = StringUtils.getContent(sPath);
+//            } catch (IOException e) {
+//                e.printStackTrace();
+//            }
+//            String[] sSplit = sContent.split("\n");
+//            _filePaths.addAll(Arrays.asList(sSplit));
+//
+//        } else {
+//            try {
+//                _filePaths.addAll(_dataReader.listFiles(folder, ending));
+//                if (skipSmallerFiles > 0) {
+//                    _filePaths = skipBySize(_filePaths, skipSmallerFiles);
+//                }
+//            } catch (IOException e) {
+//                throw new RuntimeException(e);
+//            }
+
+//            if (_dataReader != null) {
+//                try {
+//                    _filePaths.addAll(_dataReader.listFiles(folder, ending));
+//                } catch (IOException e) {
+//                    throw new RuntimeException(e);
+//                }
+//            } else {
+//                File fl = new File(folder);
+//                if (!fl.isDirectory()) {
+//                    throw new RuntimeException();
+//                }
+//                _path = folder;
+//                addFilesToConcurrentList(fl, ending, _filePaths);
+//
+//                if (skipSmallerFiles > 0) {
+//                    _filePaths = skipBySize(_filePaths, skipSmallerFiles);
+//                }
+//            }
+
+//        }
+
         if (bSort) {
             _filePaths = sortBySize(_filePaths);
         }
@@ -368,37 +388,56 @@ public class AsyncCollectionReader {
     }
 
     public CompletableFuture<Integer> getAsyncNextByteArray() throws IOException, CompressorException, SAXException {
-        if (_dataReader != null) {
-            String path = _filePaths.poll();
-            if (path == null) return CompletableFuture.completedFuture(1);
+        String path = _filePaths.poll();
+        if (path == null) return CompletableFuture.completedFuture(1);
 
-            return CompletableFuture.supplyAsync(() -> _dataReader.readFile(path).getContent().readAllBytes()
-            ).thenApply(bytes -> {
-                _loadedFiles.add(new ByteReadFuture(path, bytes));
-                long factor = 1;
-                if (path.endsWith(".gz") || path.endsWith(".xz")) {
-                    factor = 10;
-                }
-                _currentMemorySize.getAndAdd(factor * (long) bytes.length);
-                return 0;
-            });
-        } else {
-            String result = _filePaths.poll();
-            if (result == null) return CompletableFuture.completedFuture(1);
-            return AsyncFiles
-                    .readAllBytes(Paths.get(result), 1024 * 1024 * 5)
-                    .thenApply(bytes -> {
-                        _loadedFiles.add(new ByteReadFuture(result, bytes));
+        return CompletableFuture.supplyAsync(
+            () -> {
+                DUUIInputStream stream = _dataReader.readFile(path);
+                stream.getContent().readAllBytes();
+                return stream;
+            }
+        ).thenApply(stream -> {
+            _loadedFiles.add(stream);
+            long factor = 1;
+            if (path.endsWith(".gz") || path.endsWith(".xz")) {
+                factor = 10;
+            }
+            _currentMemorySize.getAndAdd(factor * (long) stream.getSizeBytes());
+            return 0;
+        });
 
-                        //Calculate estimated unpacked size by using a compression ratio of 0.1
-                        long factor = 1;
-                        if (result.endsWith(".gz") || result.endsWith(".xz")) {
-                            factor = 10;
-                        }
-                        _currentMemorySize.getAndAdd(factor * (long) bytes.length);
-                        return 0;
-                    });
-        }
+//        if (_dataReader != null) {
+//            String path = _filePaths.poll();
+//            if (path == null) return CompletableFuture.completedFuture(1);
+//
+//            return CompletableFuture.supplyAsync(() -> _dataReader.readFile(path).getContent().readAllBytes()
+//            ).thenApply(bytes -> {
+//                _loadedFiles.add(new ByteReadFuture(path, bytes));
+//                long factor = 1;
+//                if (path.endsWith(".gz") || path.endsWith(".xz")) {
+//                    factor = 10;
+//                }
+//                _currentMemorySize.getAndAdd(factor * (long) bytes.length);
+//                return 0;
+//            });
+//        } else {
+//            String result = _filePaths.poll();
+//            if (result == null) return CompletableFuture.completedFuture(1);
+//            return AsyncFiles
+//                .readAllBytes(Paths.get(result), 1024 * 1024 * 5)
+//                .thenApply(bytes -> {
+//                    _loadedFiles.add(new ByteReadFuture(result, bytes));
+//
+//                    //Calculate estimated unpacked size by using a compression ratio of 0.1
+//                    long factor = 1;
+//                    if (result.endsWith(".gz") || result.endsWith(".xz")) {
+//                        factor = 10;
+//                    }
+//                    _currentMemorySize.getAndAdd(factor * (long) bytes.length);
+//                    return 0;
+//                });
+//        }
     }
 
     public static XmiSerializationSharedData deserialize(JCas pCas) {
@@ -414,39 +453,30 @@ public class AsyncCollectionReader {
     }
 
     public boolean getNextCAS(JCas empty) throws IOException, CompressorException, SAXException {
-        ByteReadFuture future = _loadedFiles.poll();
+        DUUIInputStream stream = _loadedFiles.poll();
 
-        byte[] file = null;
         String result = null;
-        if (future == null) {
+        if (stream == null) {
             result = _filePaths.poll();
             if (result == null) return false;
         } else {
-            result = future.getPath();
-            file = future.getBytes();
+            result = stream.getName();
             long factor = 1;
             if (result.endsWith(".gz") || result.endsWith(".xz")) {
                 factor = 10;
             }
-            _currentMemorySize.getAndAdd(-factor * (long) file.length);
+            _currentMemorySize.getAndAdd(-factor * stream.getSizeBytes());
         }
         int val = _docNumber.addAndGet(1);
 
         progress.setDone(val);
         progress.setLeft(_initialSize - val);
 
-        String sizeBytes = "0";
-
-        if (file == null) {
-            if (_dataReader != null) {
-                DUUIExternalFile externalFile = _dataReader.readFile(result);
-                file = externalFile.getContent().readAllBytes();
-                sizeBytes = FileUtils.byteCountToDisplaySize(externalFile.getSizeBytes());
-            } else {
-                file = Files.readAllBytes(Path.of(result));
-                sizeBytes = getSize(result);
-            }
+        if (stream == null) {
+            stream = _dataReader.readFile(result);
         }
+
+        String sizeBytes = FileUtils.byteCountToDisplaySize(stream.getSizeBytes());
 
         if (_initialSize - progress.getCount() > debugCount) {
             if (val % debugCount == 0 || val == 0) {
@@ -456,54 +486,30 @@ public class AsyncCollectionReader {
             System.out.printf("%s: \t %s \t %s\n", progress, sizeBytes, result);
         }
 
-
         InputStream decodedFile;
         if (result.endsWith(".xz")) {
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.XZ, new ByteArrayInputStream(file));
+            decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.XZ, new ByteArrayInputStream(stream.getBytes()));
         } else if (result.endsWith(".gz")) {
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.GZIP, new ByteArrayInputStream(file));
+            decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.GZIP, new ByteArrayInputStream(stream.getBytes()));
         } else {
-            decodedFile = new ByteArrayInputStream(file);
-            try {
-                XmiCasDeserializer.deserialize(decodedFile, empty.getCas(), true);
-            } catch (Exception e) {
-                // TODO this should be configurable
-                System.out.println("WARNING: Could not deserialize file as XMI: " + result + " using plain text deserialization: " + e.getMessage());
-                if (_dataReader != null) {
-                    empty.setDocumentText(new String(file, StandardCharsets.UTF_8));
-                } else {
-                    empty.setDocumentText(StringUtils.getContent(new File(result)));
-                }
-            }
+            decodedFile = stream.getContent();
         }
-        XmiCasDeserializer.deserialize(decodedFile, empty.getCas());
 
-//        try {
-//            XmiSerializationSharedData sharedData = deserialize(empty.getCas().getJCas());
-//            XmiCasDeserializer.deserialize(decodedFile, empty.getCas(), true, sharedData);
-//        }
-//        catch (Exception e){
-//            empty.setDocumentText(StringUtils.getContent(new File(result)));
-//        }
+        try {
+            XmiCasDeserializer.deserialize(decodedFile, empty.getCas(), true);
+        } catch (Exception e) {
+            System.out.println("WARNING: Could not deserialize file as XMI: " + result + " using plain text deserialization.");
+            empty.setDocumentText(new String(stream.getBytes(), StandardCharsets.UTF_8));
+        }
+
 
         if (_addMetadata) {
             if (JCasUtil.select(empty, DocumentMetaData.class).isEmpty()) {
                 DocumentMetaData dmd = DocumentMetaData.create(empty);
-                if (_dataReader != null) {
-                    dmd.setDocumentId(result);
-                    dmd.setDocumentTitle(result);
-                    dmd.setDocumentUri(result);
-                    dmd.addToIndexes();
-                } else {
-                    File pFile = new File(result);
-                    dmd.setDocumentId(pFile.getName());
-                    dmd.setDocumentTitle(pFile.getName());
-                    dmd.setDocumentUri(pFile.getAbsolutePath());
-                    dmd.addToIndexes();
-                }
-
+                dmd.setDocumentId(stream.getName());
+                dmd.setDocumentTitle(stream.getName());
+                dmd.setDocumentUri(stream.getPath());
+                dmd.addToIndexes();
             }
         }
 
@@ -557,9 +563,9 @@ public class AsyncCollectionReader {
         System.out.println("  Number of files before skipping: " + paths.size());
 
         rQueue.addAll(paths
-                .stream()
-                .filter(s -> new File(s).length() >= skipSmallerFiles)
-                .collect(Collectors.toList())
+            .stream()
+            .filter(s -> new File(s).length() >= skipSmallerFiles)
+            .collect(Collectors.toList())
         );
 
         System.out.println("  Number of files after skipping: " + rQueue.size());
@@ -638,12 +644,12 @@ public class AsyncCollectionReader {
         if (!targetFilePaths.isEmpty()) {
             System.out.println("Checking against " + targetFilePaths.size() + " files in target location");
             Set<String> existingFiles = targetFilePaths.stream()
-                    .map(Paths::get)
-                    .filter(Files::isRegularFile)
-                    .map(f -> targetDir.toPath().relativize(f).toString())
-                    .map(f -> f.replaceAll(targetEnding, ""))
-                    .map(f -> f.replaceAll(sourceEnding, ""))
-                    .collect(Collectors.toSet());
+                .map(Paths::get)
+                .filter(Files::isRegularFile)
+                .map(f -> targetDir.toPath().relativize(f).toString())
+                .map(f -> f.replaceAll(targetEnding, ""))
+                .map(f -> f.replaceAll(sourceEnding, ""))
+                .collect(Collectors.toSet());
 
             Path sourceDir = Paths.get(sourceLocation);
             for (String f : paths) {
@@ -666,5 +672,23 @@ public class AsyncCollectionReader {
 
     public static String getSize(String sPath) {
         return FileUtils.byteCountToDisplaySize(new File(sPath).length());
+    }
+
+    public static List<DUUIInputStream> getFilesInDirectoryRecursive(String directory) throws IOException {
+        try (Stream<Path> stream = Files.walk(Paths.get(directory))) {
+            return stream.filter(Files::isRegularFile).map(
+                (path -> {
+                    try (InputStream inputStream = new FileInputStream(path.toFile())) {
+                        return new DUUIInputStream(
+                            path.getFileName().toString(),
+                            path.toString(),
+                            path.toFile().length(),
+                            new ByteArrayInputStream(inputStream.readAllBytes()));
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                })
+            ).collect(Collectors.toList());
+        }
     }
 }
