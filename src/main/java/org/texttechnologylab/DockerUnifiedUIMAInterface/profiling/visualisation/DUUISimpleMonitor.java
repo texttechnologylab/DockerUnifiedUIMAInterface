@@ -1,4 +1,4 @@
-package org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring;
+package org.texttechnologylab.DockerUnifiedUIMAInterface.profiling.visualisation;
 
 import static java.lang.String.format;
 
@@ -14,18 +14,23 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 import org.json.JSONObject;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIDockerInterface;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUIResource;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.ResourceManager.ResourceView;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.profiling.IDUUIResource;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.profiling.ResourceManager.ResourceView;
 
 import com.github.dockerjava.api.command.CreateContainerResponse;
 import com.github.dockerjava.api.command.InspectContainerResponse;
+import com.github.dockerjava.api.command.StatsCmd;
+import com.github.dockerjava.api.command.WaitContainerResultCallback;
 import com.github.dockerjava.api.command.InspectContainerResponse.ContainerState;
 import com.github.dockerjava.api.model.ExposedPort;
 import com.github.dockerjava.api.model.HostConfig;
 import com.github.dockerjava.api.model.Ports;
+import com.github.dockerjava.api.model.Statistics;
+import com.github.dockerjava.core.InvocationBuilder.AsyncResultCallback;
 
 public class DUUISimpleMonitor implements IDUUIMonitor, IDUUIResource {
     
@@ -135,12 +140,27 @@ public class DUUISimpleMonitor implements IDUUIMonitor, IDUUIResource {
         } else return null;
     }
 
-    public static void main(String[] args) throws UnknownHostException, InterruptedException, IOException {
-        // DUUISimpleMonitor monitor = new DUUISimpleMonitor();
-        // String containerId = monitor._docker.create("tokenizer:latest", false, false, 9714, false);
-        // // String containerId2 = monitor._docker.create("sentencizer:latest", false, true, 9714, false);
+    public static void main(String[] args) throws Exception {
+        DUUISimpleMonitor monitor = new DUUISimpleMonitor();
+        String containerId = monitor._docker.run("tokenizer:latest", false, false, 9714, false);
+        // String containerId2 = monitor._docker.run("sentencizer:latest", false, true, 9714, false);
 
-        // // int port = monitor._docker.extract_port_mapping(containerId);
+        // int port = monitor._docker.extract_port_mapping(containerId);
+        
+        StatsCmd cmd = monitor._docker.getDockerClient().statsCmd(containerId).withNoStream(true);
+        AsyncResultCallback<Statistics> statscall = new AsyncResultCallback<>();
+        do {
+            // TimeUnit.SECONDS.sleep(2);
+            cmd.exec(statscall);
+            long start = System.currentTimeMillis();
+            Statistics stats = statscall.awaitResult();
+            System.out.println(stats.getRead());
+            // statscall.close();
+            System.out.println("DOCKER DRIVER COLLECTION TIME: " + (System.currentTimeMillis() - start));
+            // System.out.println(stats);
+        } while (true);
+        // System.out.println(stats);
+
         // ContainerState state = monitor._docker.state(containerId);
         // // Thread.sleep(3000); 
         // monitor._docker.start_container(containerId);

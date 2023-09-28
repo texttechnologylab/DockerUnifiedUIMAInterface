@@ -1,6 +1,6 @@
-package org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage;
+package org.texttechnologylab.DockerUnifiedUIMAInterface.profiling;
 
-import org.texttechnologylab.DockerUnifiedUIMAInterface.ResourceManager.ResourceViews;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.profiling.ResourceManager.ResourceViews;
 
 public interface IDUUIResourceProfiler {
     

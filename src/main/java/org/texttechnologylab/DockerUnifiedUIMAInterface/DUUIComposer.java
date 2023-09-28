@@ -1,7 +1,8 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface;
 
 import static java.lang.String.format;
-import static org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineProfiler.pipelineUpdate;
+import static org.texttechnologylab.DockerUnifiedUIMAInterface.profiling.visualisation.DUUIPipelineVisualizer.formatns;
+
 
 import java.io.IOException;
 import java.net.URISyntaxException;
@@ -46,20 +47,23 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.Signature;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.AsyncCollectionReader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.AsyncCollectionReader.DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.DUUISimpleMonitor;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.IDUUIMonitor;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.AdaptiveStrategy;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.DUUILinearPipelineExecutor;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.DUUIParallelPipelineExecutor;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.DUUISemiParallelPipelineExecutor;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.DefaultStrategy;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.FixedStrategy;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.IDUUIPipelineExecutor;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.PoolStrategy;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.PipelinePart;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.strategy.AdaptiveStrategy;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.strategy.DefaultStrategy;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.strategy.FixedStrategy;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.strategy.PoolStrategy;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineProfiler;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.IDUUIStorageBackend;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.sqlite.DUUISqliteStorageBackend;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.profiling.IDUUIResource;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.profiling.ResourceManager;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.profiling.visualisation.DUUIConsoleMonitor;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.profiling.visualisation.DUUISimpleMonitor;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.profiling.visualisation.IDUUIMonitor;
 import org.xml.sax.SAXException;
 
 import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
@@ -93,7 +97,7 @@ public class DUUIComposer {
         }
 
         public static boolean isParallel() {
-            return _composer._withParallelPipeline.get();
+            return _composer._withParallelPipeline;
         }
 
         public static void write(JCas jc) {
@@ -133,10 +137,10 @@ public class DUUIComposer {
     private boolean _connection_open = false;
 
     private TypeSystemDescription _minimalTypesystem;
-    private AtomicBoolean _withParallelPipeline = new AtomicBoolean(false);
-    private AtomicBoolean _withSemiParallelPipeline = new AtomicBoolean(false);
-    private boolean _batchSynchronized = false;
-    private boolean _shared = true;
+    private boolean _withParallelPipeline = false;
+    private boolean _withSemiParallelPipeline = false;
+    private boolean _levelSynchronized = false;
+    private int _maxLevelWidth = Integer.MAX_VALUE;
     private JCasWriter _writer = jCas -> {};
 
     public static AtomicLong totalurlwait = new AtomicLong(0);
@@ -144,8 +148,9 @@ public class DUUIComposer {
     public static AtomicLong totalserializewait = new AtomicLong(0);
     public static AtomicLong totaldeserializewait = new AtomicLong(0);
     public static AtomicLong totalreadwait = new AtomicLong(0);
-    public static AtomicLong totalbytestreamwait = new AtomicLong(0);
     public static AtomicLong totalscalingwait = new AtomicLong(0);
+    public static AtomicLong totalafterworkerwait = new AtomicLong(0);
+    public static AtomicLong totalrm = new AtomicLong(0);
 
     public DUUIComposer() throws URISyntaxException {
         Config._composer = this; 
@@ -162,7 +167,6 @@ public class DUUIComposer {
         _shutdownAtomic = new AtomicBoolean(false);
         _instantiatedPipeline = new Vector<>();
         _rm = ResourceManager.getInstance();
-        ResourceManager.register(Thread.currentThread());
         _minimalTypesystem = TypeSystemDescriptionFactory.createTypeSystemDescriptionFromPath(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/types/reproducibleAnnotations.xml").toURI().toString());
         System.out.println("[Composer] Initialised LUA scripting layer with version "+ globals.get("_VERSION"));
 
@@ -197,7 +201,6 @@ public class DUUIComposer {
         _monitor.setup();
         if (_monitor instanceof IDUUIResource)
             ResourceManager.register((IDUUIResource)monitor);
-        _rm.withMonitor(_monitor);
         return this;
     }
 
@@ -239,36 +242,27 @@ public class DUUIComposer {
         return this;
     }
     
-    public DUUIComposer withParallelPipeline(PoolStrategy strategy, boolean batchSynchronized) {
+    public DUUIComposer withParallelPipeline(PoolStrategy strategy, boolean levelSynchronized, int maxLevelWidth) {
+        if (maxLevelWidth < 1)
+            throw new IllegalArgumentException("The level width has to be greater than 1.");
+        
         _strategy = strategy; 
-        _batchSynchronized = batchSynchronized;
-        _withParallelPipeline.set(true);
-        return this;
-    }
-    
-    public DUUIComposer withParallelPipeline(PoolStrategy strategy, boolean batchSynchronized, boolean shared) {
-        _strategy = strategy; 
-        _batchSynchronized = batchSynchronized;
-        _shared = shared;
-        _withParallelPipeline.set(true);
+        _levelSynchronized = levelSynchronized;
+        _withParallelPipeline = true;
+        _withSemiParallelPipeline = false;
+        _maxLevelWidth = maxLevelWidth;
         return this;
     }
     
     public DUUIComposer withParallelPipeline(PoolStrategy strategy) {
         _strategy = strategy; 
-        _withParallelPipeline.set(true);
+        _withParallelPipeline = true;
         return this;
     }
 
-    public DUUIComposer withSemiParallelPipeline(PoolStrategy strategy) {
-        _withSemiParallelPipeline.set(true);
-        return withParallelPipeline(strategy);
-    }
-    
-    public DUUIComposer withParallelPipeline() {
-        _withParallelPipeline.set(true);
-        _strategy = new DefaultStrategy(); 
-        return this;
+    public DUUIComposer withSemiParallelPipeline(int casPoolSize, int threadPoolSize) {
+        _withSemiParallelPipeline = true;
+        return withParallelPipeline(new AdaptiveStrategy(casPoolSize, threadPoolSize, threadPoolSize));
     }
 
     public DUUIComposer withWorkers(int workers) {
@@ -427,34 +421,29 @@ public class DUUIComposer {
             if(_storage!=null) {
                 _storage.addNewRun(name,this);
             }
-            if (_monitor != null)
-                new DUUIPipelineProfiler(name, _executionPipeline.getGraph(), (DUUISimpleMonitor) _monitor); 
 
             _rm.start();
-            
             Instant starttime = Instant.now();
             runPipeline.call();
             Instant duration = Instant.now().minusSeconds(starttime.getEpochSecond());
-
-            pipelineUpdate("duration", duration.getEpochSecond() + " s");
-            DUUIPipelineProfiler.statusUpdate("FINISHED", format("Run successfully finished: %s", name));
-            System.out.printf("FINISHED ANALYSIS: %d s %n", duration.getEpochSecond());
-            System.out.printf("URL WAIT %d ms%n", TimeUnit.SECONDS.convert(totalurlwait.get(), TimeUnit.NANOSECONDS));
-            System.out.printf("SERIALIZE WAIT %d s%n", TimeUnit.SECONDS.convert(totalserializewait.get(), TimeUnit.NANOSECONDS));
-            System.out.printf("ANNOTATOR WAIT %d s%n", TimeUnit.SECONDS.convert(totalannotatorwait.get(), TimeUnit.NANOSECONDS));
-            System.out.printf("DESERIALIZE WAIT %d s%n", TimeUnit.SECONDS.convert(totaldeserializewait.get(), TimeUnit.NANOSECONDS));
-            System.out.printf("BYTESTREAM WAIT %d s%n", TimeUnit.SECONDS.convert(totalbytestreamwait.get(), TimeUnit.NANOSECONDS));
-            System.out.printf("SCALING WAIT %d s%n", TimeUnit.SECONDS.convert(totalscalingwait.get(), TimeUnit.NANOSECONDS));
-            System.out.printf("READ WAIT %d s%n", TimeUnit.SECONDS.convert(totalreadwait.get(), TimeUnit.NANOSECONDS));
+            System.out.printf("FINISHED ANALYSIS: %d s %n", duration.getEpochSecond()); 
+            System.out.printf("URL WAIT %s%n", formatns(DUUIComposer.totalurlwait.getAndSet(0l)));
+            System.out.printf("SERIALIZE WAIT %s%n", formatns(DUUIComposer.totalserializewait.getAndSet(0l)));
+            System.out.printf("ANNOTATOR WAIT %s%n", formatns(DUUIComposer.totalannotatorwait.getAndSet(0l)));
+            System.out.printf("DESERIALIZE WAIT %s%n", formatns(DUUIComposer.totaldeserializewait.getAndSet(0l)));
+            System.out.printf("SCALING WAIT %s%n", formatns(DUUIComposer.totalscalingwait.getAndSet(0l)));
+            System.out.printf("AFTER WORKER WAIT %s%n", formatns(DUUIComposer.totalafterworkerwait.getAndSet(0l))); 
+            System.out.printf("READ WAIT %s%n", formatns(DUUIComposer.totalreadwait.getAndSet(0l))); 
+            System.out.printf("RESOURCE MANAGER TOTAL %s%n", formatns(DUUIComposer.totalrm.getAndSet(0l))); 
             if(_storage!=null) {
                 _storage.finalizeRun(name,starttime,Instant.now());
             }
         } catch (Exception e) {
             // e.printStackTrace();
             System.out.println("[Composer] Something went wrong, shutting down remaining components...");
-            DUUIPipelineProfiler.statusUpdate("FAILED", format("Fatal exception occured: %s", e));
             catched = e;
         } finally { 
+            _rm.interrupt();
             _rm.finishManager();
         }
 
@@ -524,11 +513,11 @@ public class DUUIComposer {
         }
 
         // Pipeline ordering. 
-        if (_withParallelPipeline.get() && _withSemiParallelPipeline.get()) {
+        if (_withParallelPipeline && _withSemiParallelPipeline) {
             _executionPipeline = new DUUISemiParallelPipelineExecutor(_instantiatedPipeline);
-        } else if (_withParallelPipeline.get()) {
-            _executionPipeline = new DUUIParallelPipelineExecutor(_instantiatedPipeline, _shared)
-                .withLevelSynchronization(_batchSynchronized);
+        } else if (_withParallelPipeline) {
+            _executionPipeline = new DUUIParallelPipelineExecutor(_instantiatedPipeline, _maxLevelWidth)
+                .withLevelSynchronization(_levelSynchronized);
         } else {
             _executionPipeline = new DUUILinearPipelineExecutor(_instantiatedPipeline);
 
@@ -546,11 +535,6 @@ public class DUUIComposer {
     }
 
     private void run_pipeline(String name, JCas jc) throws Exception {
-        
-        String _title = JCasUtil.select(jc, DocumentMetaData.class)
-                .stream().map(meta -> meta.getDocumentTitle()).findFirst().orElseGet(() -> "");
-
-        DUUIPipelineProfiler.documentMetaDataUpdate(name, _title, jc.size());
 
         DUUIPipelineDocumentPerformance perf = new DUUIPipelineDocumentPerformance(name, 0, jc);
 
@@ -566,6 +550,7 @@ public class DUUIComposer {
         throws Exception {
 
         _rm.initialiseCasPool(_strategy, desc);
+        // ToDo: Insert verfication step here to precompute optimal parameters
         AtomicInteger readCount = new AtomicInteger(1);
         while(!reader.isEmpty()) { 
             String currName = format("%s-%d", name, readCount.get()); 
@@ -581,8 +566,7 @@ public class DUUIComposer {
             DUUIPipelineDocumentPerformance perf =
                 new DUUIPipelineDocumentPerformance(currName, waitTimeEnd-waitTimeStart,jc);
 
-            _executionPipeline.run(currName, jc, perf);            
-            pipelineUpdate("document_count", readCount.get());
+            _executionPipeline.run(currName, jc, perf);
             readCount.incrementAndGet();
         }
 
@@ -607,8 +591,6 @@ public class DUUIComposer {
                 new DUUIPipelineDocumentPerformance(currName, waitTimeEnd-waitTimeStart,jc);
 
             _executionPipeline.run(currName, jc, perf);
-            
-            pipelineUpdate("document_count", readCount.get());
             readCount.incrementAndGet();
         }
 
@@ -695,14 +677,15 @@ public class DUUIComposer {
         
 
         DUUIComposer composer = new DUUIComposer()
-            // .withMonitor(new DUUISimpleMonitor())
+            // .withMonitor(new DUUIConsoleMonitor())
             .withStorageBackend(new DUUISqliteStorageBackend("gerparcor_sample1000_smallest"))
         // .withParallelPipeline()
             .withCasPoolMemoryThreshhold(500_000_000)
             // .withSemiParallelPipeline(new AdaptiveStrategy(3, 3))
-            .withParallelPipeline(new AdaptiveStrategy(50, 2, 6), 
+            .withParallelPipeline(
+                new AdaptiveStrategy(30, 4, 4), 
                 true, 
-                true
+                1
             )
             // .withParallelPipeline(new FixedStrategy(15), true)
             // .withParallelPipeline(new FixedStrategy(10), true)
@@ -712,225 +695,96 @@ public class DUUIComposer {
         composer.addDriver(new DUUIDockerDriver().withContainerPause());
         
         composer.add(  
-            // new DUUIDockerDriver.Component("docker.texttechnologylab.org/languagedetection:0.5"),
             new DUUIDockerDriver.Component("tokenizer:latest")//.withScale(2)
                 .withImageFetching(),
             new DUUIDockerDriver.Component("sentencizer:latest")//.withScale(2)
                 .withImageFetching(),
             new DUUIDockerDriver.Component("parser:latest")
+                .withImageFetching(),
+            new DUUIDockerDriver.Component("ner:latest")
+                .withImageFetching(),
+            new DUUIDockerDriver.Component("lemmatizer:latest")
+                .withImageFetching(),
+            new DUUIDockerDriver.Component("morphologizer:latest")
+                .withImageFetching(),
+            new DUUIDockerDriver.Component("tagger:latest")
                 .withImageFetching()
-            // new DUUIDockerDriver.Component("ner:latest")
-            //     .withImageFetching(),
-            // new DUUIDockerDriver.Component("lemmatizer:latest")
-            //     .withImageFetching(),
-            // new DUUIDockerDriver.Component("morphologizer:latest")
-            //     .withImageFetching(),
-            // new DUUIDockerDriver.Component("tagger:latest")
-            //     .withImageFetching()
         );
 
         AsyncCollectionReader rd = new AsyncCollectionReader(
             "gerparcor_sample_smallest1000", 
             ".xmi.gz",
             1,
-            100,
+            500,
             DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE.LARGEST,
             "gerparcor_sample_smallest1000",
             false,
             "de",
             100*1024);
 
-        // composer.run(rd, "gerparcor_sample1000_smallest_fixed3scale3");
-        // composer.run(rd, "gerparcor_sample1000_smallest_fixed3scale5");
-        // composer.run(rd, "gerparcor_sample1000_smallest_fixed5scale3");
-        // composer.run(rd, "gerparcor_sample1000_smallest_fixed5scale5");
-        // composer.run(rd, "gerparcor_sample1000_smallest_fixed10scale3");
-        // composer.run(rd, "gerparcor_sample1000_smallest_fixed10scale5");
-
         composer.run(rd, "gerparcor_sample1000_smallest_adaptive10scale3");
-        // FINISHED ANALYSIS: 188 s
-        // URL WAIT 4 ms
-        // SERIALIZE WAIT 3 s
-        // ANNOTATOR WAIT 231 s
-        // DESERIALIZE WAIT 125 s
+        System.out.printf("URL WAIT %d ms%n", TimeUnit.SECONDS.convert(totalurlwait.get(), TimeUnit.NANOSECONDS));
+        System.out.printf("SERIALIZE WAIT %d s%n", TimeUnit.SECONDS.convert(totalserializewait.get(), TimeUnit.NANOSECONDS));
+        System.out.printf("ANNOTATOR WAIT %d s%n", TimeUnit.SECONDS.convert(totalannotatorwait.get(), TimeUnit.NANOSECONDS));
+        System.out.printf("DESERIALIZE WAIT %d s%n", TimeUnit.SECONDS.convert(totaldeserializewait.get(), TimeUnit.NANOSECONDS));
+        System.out.printf("SCALING WAIT %d s%n", TimeUnit.SECONDS.convert(totalscalingwait.get(), TimeUnit.NANOSECONDS));
+        System.out.printf("READ WAIT %d s%n", TimeUnit.SECONDS.convert(totalreadwait.get(), TimeUnit.NANOSECONDS));
+        // 50, 4, 4, shared, synchronized, non-squished 
+        // FINISHED ANALYSIS: 2463 s
+        // URL WAIT 487 ms
+        // SERIALIZE WAIT 273 s
+        // ANNOTATOR WAIT 6320 s
+        // DESERIALIZE WAIT 2374 s
         // BYTESTREAM WAIT 0 s
         // SCALING WAIT 0 s
-        // READ WAIT 162 
-
-
-
-
-
-        // FINISHED ANALYSIS: 158 s 
-        // URL WAIT 551997 ms
-        // SERIALIZE WAIT 6 s
-        // ANNOTATOR WAIT 1050 s
-        // DESERIALIZE WAIT 241 s
-        // BYTESTREAM WAIT 0 s
-        // READ WAIT 138 s
-        // RUNNERS WAIT 0 s
-
-
-        // FINISHED ANALYSIS: 3127 s 
-        // URL WAIT 690104 ms
-        // SERIALIZE WAIT 643 s
-        // ANNOTATOR WAIT 17935 s
-        // DESERIALIZE WAIT 9297 s
-        // BYTESTREAM WAIT 0 s
-        // READ WAIT 3112 s
-        // RUNNERS WAIT 0 s
-
-        // FINISHED ANALYSIS: 507 s SHARED POOL
-        // URL WAIT 263737 ms
-        // SERIALIZE WAIT 97 s
-        // ANNOTATOR WAIT 2926 s
-        // DESERIALIZE WAIT 1308 s
-        // BYTESTREAM WAIT 0 s
-        // READ WAIT 455 s
-        // RUNNERS WAIT 0 s
+        // READ WAIT 2308 s
         
-        // FINISHED ANALYSIS: 3569 s POOL SIZE 3 SCALE 3 
-        // URL WAIT 24 ms
-        // SERIALIZE WAIT 589 s
-        // ANNOTATOR WAIT 6394 s
-        // DESERIALIZE WAIT 3475 s
+        // 50, 4, 4, shared, synchronized, squished-1 
+        // FINISHED ANALYSIS: 2347 s 
+        // URL WAIT 521 ms
+        // SERIALIZE WAIT 60 s
+        // ANNOTATOR WAIT 6087 s
+        // DESERIALIZE WAIT 2498 s
         // BYTESTREAM WAIT 0 s
-        // READ WAIT 3470 s
-        // RUNNERS WAIT 0 s
-
-        // FINISHED ANALYSIS: 2571 s  POOL SIZE 5 SCALE 3
-        // URL WAIT 53117 ms
-        // SERIALIZE WAIT 450 s
-        // ANNOTATOR WAIT 7370 s
-        // DESERIALIZE WAIT 4334 s
-        // BYTESTREAM WAIT 0 s
-        // READ WAIT 2561 s
-        // RUNNERS WAIT 0 s
-
-        // FINISHED ANALYSIS: 2151 s POOL SIZE 10 SCALE 3 
-        // URL WAIT 1028961 ms
-        // SERIALIZE WAIT 637 s
-        // ANNOTATOR WAIT 12094 s
-        // DESERIALIZE WAIT 5704 s
-        // BYTESTREAM WAIT 0 s
-        // READ WAIT 2080 s
-        // RUNNERS WAIT 0 s
-
-
-
-
-
-
-
+        // SCALING WAIT 0 s
+        // READ WAIT 2185 s
         
-
-        // FINISHED ANALYSIS: 531 s SPLIT POOLS 
-        // URL WAIT 277385 ms
-        // SERIALIZE WAIT 56 s
-        // ANNOTATOR WAIT 2582 s
-        // DESERIALIZE WAIT 1095 s
+        // 50, 1, 4, shared, synchronized, squished-1 
+        // FINISHED ANALYSIS: 2494 s 
+        // URL WAIT 1847 ms
+        // SERIALIZE WAIT 57 s
+        // ANNOTATOR WAIT 5547 s
+        // DESERIALIZE WAIT 2257 s
         // BYTESTREAM WAIT 0 s
-        // READ WAIT 429 s
-        // RUNNERS WAIT 0 s>
-
-
-        // composer.run(rd, "gerparcor_sample1000_smallest_adaptive3scale3");
-        // FINISHED ANALYSIS: 1700 s 
-        // URL WAIT 47 ms
-        // SERIALIZE WAIT 273 s
-        // ANNOTATOR WAIT 21386 s
-        // DESERIALIZE WAIT 4698 s
-        // BYTESTREAM WAIT 0 s
-        // READ WAIT 1686 s
-        // RUNNERS WAIT 0 s
-        // composer.run(rd, "gerparcor_sample1000_smallest_adaptive3scale5");
-        // composer.run(rd, "gerparcor_sample1000_smallest_adaptive5scale3");
-        // Scale 3, Max Pool 5, Cas Pool 50
-        // FINISHED ANALYSIS: 1821 s 
-        // URL WAIT 2521025 ms
-        // SERIALIZE WAIT 287 s
-        // ANNOTATOR WAIT 22863 s
-        // DESERIALIZE WAIT 4916 s
-        // BYTESTREAM WAIT 0 s
-        // READ WAIT 1793 s
-        // RUNNERS WAIT 0 s
-        // composer.run(rd, "gerparcor_sample1000_smallest_adaptive5scale5");
-        // Max Pool 10, Core Pool 1, Adaptive, Cas Pool 50
-        // FINISHED ANALYSIS: 3035 s 
-        // URL WAIT 725657 ms
-        // SERIALIZE WAIT 572 s
-        // ANNOTATOR WAIT 11189 s
-        // DESERIALIZE WAIT 5036 s
-        // BYTESTREAM WAIT 0 s
-        // READ WAIT 3000 s
-        // RUNNERS WAIT 1 s
-        // composer.run(rd, "gerparcor_sample1000_smallest_adaptive10scale3");
-        // Max Pool 15, Core Pool 1, Adaptive, Cas Pool 50
-        // FINISHED ANALYSIS: 1960 s 
-        // URL WAIT 10423675 ms
-        // SERIALIZE WAIT 255 s
-        // ANNOTATOR WAIT 10784 s
-        // DESERIALIZE WAIT 4307 s
-        // BYTESTREAM WAIT 0 s
-        // READ WAIT 1928 s
-        // RUNNERS WAIT 0 s
-        // composer.run(rd, "gerparcor_sample1000_smallest_adaptive10scale5");
-
-
+        // SCALING WAIT 0 s
+        // READ WAIT 2267 s
         
+        // 100, 1, 4, shared, synchronized, squished-1 
+        // FINISHED ANALYSIS: 2724 s 
+        // URL WAIT 677 ms
+        // SERIALIZE WAIT 62 s
+        // ANNOTATOR WAIT 7159 s
+        // DESERIALIZE WAIT 2860 s
+        // BYTESTREAM WAIT 0 s
+        // SCALING WAIT 0 s
+        // READ WAIT 2345 s
+        
+        // 30, 1, 4, shared, synchronized, squished-1 
+        // FINISHED ANALYSIS: 2723 s 
+        // URL WAIT 898 ms
+        // SERIALIZE WAIT 61 s
+        // ANNOTATOR WAIT 6810 s
+        // DESERIALIZE WAIT 2699 s
+        // BYTESTREAM WAIT 0 s
+        // SCALING WAIT 0 s
+        // READ WAIT 2641 s
+
         composer.shutdown();
-        // composer.add(  
-        //     new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-ner:latest")
-        //         .withImageFetching().withScale(3).withGPU(true),
-            
-        //     new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-lemmatizer:latest")
-        //         .withImageFetching().withScale(3).withGPU(true),
-            
-        //     new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-morphologizer:latest")
-        //         .withImageFetching().withScale(3).withGPU(true),
-            
-        //     new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-parser:latest")
-        //         .withImageFetching().withScale(3).withGPU(true),
-            
-        //     new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-sentencizer:latest")
-        //         .withImageFetching().withScale(3).withGPU(true),
-            
-        //     new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-tokenizer:latest")
-        //         .withImageFetching().withScale(3).withGPU(true)
-        // );
-
+        
         // String val = "Dies ist ein kleiner Test Text für Abies!";
         // JCas jc = JCasFactory.createJCas();
         // jc.setDocumentLanguage("de");
         // jc.setDocumentText(val);
-
-        // Iterable<Sentence> it = () -> JCasUtil.select(jc, Sentence.class).iterator();
-
-        // for (Sentence sentence : it) {
-        //     sentence.
-        // }
-
-        // JCas jc2 = JCasFactory.createJCas();
-        // jc2.setDocumentLanguage("de");
-        // jc2.setDocumentText(val);
-
-        // // Run single document
-        // composer.run(jc,"fuchs");
-        
-        // // composer.withWorkers(1);
-        // // composer.run(jc2,"fuchs");
-        // composer.shutdown();
-        
-
-        // System.out.println(
-        //     Objects.equals(JCasUtil.select(jc, TOP.class).stream().count(), JCasUtil.select(jc2, TOP.class).stream().count())
-        // );
-        // OutputStream out = new ByteArrayOutputStream();
-
-        // OutputStream out2 = new ByteArrayOutputStream();
-        // XmiCasSerializer.serialize(jc.getCas(),out);
-        // XmiCasSerializer.serialize(jc2.getCas(),out2);
-        // // System.out.println(out2.toString());
         
         // String wsText = out.toString()
         //     .replaceAll("<duui:ReproducibleAnnotation.*/>", "")

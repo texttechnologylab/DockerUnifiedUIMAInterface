@@ -1,18 +1,13 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation;
 
-import static java.util.function.Predicate.not;
-import static org.junit.jupiter.api.DynamicTest.stream;
-
-import java.time.Duration;
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.Vector;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
@@ -27,57 +22,45 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.RunnableFuture;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 import java.util.function.Predicate;
-import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.jcas.tcas.Annotation;
-import org.javatuples.Pair;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.AnnotatorUnreachableException;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer.Config;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUIResource;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.PipelinePart;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.ResourceManager;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.ResourceManager.PipelineProgress;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.ResourceManager.ResourceViews;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.IDUUIDriver;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.DUUIWorker.ComponentLock;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.Signature;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineProfiler;
-
-import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.profiling.IDUUIResource;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.profiling.ResourceManager;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.profiling.ResourceManager.PipelineProgress;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.profiling.ResourceManager.ResourceViews;
 
 public class DUUIParallelPipelineExecutor extends DUUILinearPipelineExecutor implements IDUUIResource {
 
-    /*  
+    /*
      * 
-     * Taken and adapted from: https://stackoverflow.com/questions/19528304/how-to-get-the-threadpoolexecutor-to-increase-threads-to-max-before-queueing
+     * Taken and adapted from:
+     * https://stackoverflow.com/questions/19528304/how-to-get-the-
+     * threadpoolexecutor-to-increase-threads-to-max-before-queueing
      */
-    class PipelineQueue extends PriorityBlockingQueue<Runnable> {
-
+    class PipelineQueue extends LinkedBlockingQueue<Runnable> { // PriorityBlockingQueue
         static final long serialVersionUID = -6903933921423432194L;
-
         @Override
         public boolean offer(Runnable e) {
-            int totalPoolSizes = _executors.stream()
-                .mapToInt(PipelineExecutor::getPoolSize)
-                .sum();
-            if (totalPoolSizes >= Config.strategy().getMaxPoolSize()) {
+            if (_executor.getPoolSize() >= Config.strategy().getMaxPoolSize()) {
                 return super.offer(e);
-            } else {
-                // System.out.printf("[ParallelPipeline] NEW THREAD Pool: %d | Max: %d%n", 
-                //     _executors.get(_component).getPoolSize(), Config.strategy().getMaxPoolSize());
-                return false;
             }
+
+            return false;
         }
     }
 
@@ -85,12 +68,11 @@ public class DUUIParallelPipelineExecutor extends DUUILinearPipelineExecutor imp
         final BlockingQueue<DUUIWorker> _backedUp = new LinkedBlockingQueue<>();
 
         public PipelineExecutor(int corePoolSize, int maximumPoolSize) {
-            super(corePoolSize, 
-                maximumPoolSize, 
-                DUUIComposer.Config.strategy().getTimeout(TimeUnit.MILLISECONDS), 
-                TimeUnit.MILLISECONDS, 
-                new PipelineQueue()
-            );
+            super(corePoolSize,
+                    maximumPoolSize,
+                    DUUIComposer.Config.strategy().getTimeout(TimeUnit.MILLISECONDS),
+                    TimeUnit.MILLISECONDS,
+                    new PipelineQueue());
 
             this.setRejectedExecutionHandler((Runnable r, ThreadPoolExecutor executor) -> {
                 executor.getQueue().add(r);
@@ -105,26 +87,49 @@ public class DUUIParallelPipelineExecutor extends DUUILinearPipelineExecutor imp
         }
 
         @Override
+        protected void beforeExecute(Thread t, Runnable r) {
+            if (r instanceof ComparableFutureTask) {
+                final ComparableFutureTask<?> c = (ComparableFutureTask<?>) r;
+                if (c.getPriority() > 0)
+                    _currentLevel.set(c.getPriority());
+            }
+        }
+
+        @Override
         protected void afterExecute(Runnable r, Throwable t) {
-            if (!(r instanceof Future<?>)) return;
+            long start = System.nanoTime();
+            if (!(r instanceof Future<?>))
+                return;
 
             Object result = null;
             try {
                 result = ((Future<?>) r).get();
-                if (result == null || ! (result instanceof DUUIWorker)) 
+                if (result == null || !(result instanceof DUUIWorker))
                     return;
 
-                DUUIWorker worker = (DUUIWorker) result; 
-                _components.get(worker.component()).complete(worker);
+                final DUUIWorker worker = (DUUIWorker) result;
                 _currentLevel.set(worker.getPriority());
+                final PipelineComponent cp = _components.get(worker.component());
+                // final String children = worker._childrenIds.stream()
+                //     .map(_pipeline::get)
+                //     .map(PipelinePart::getSignature)
+                //     .map(Signature::toString)
+                //     .collect(Collectors.joining("; "));
+
+                cp.complete(worker);
                 _view.acceleration();
 
+                // System.out.println("--------------------------------------------\n"
+                //     + String.format("%s: INIT %d SUBMIT %d COMPLETE %d \n", 
+                //         worker._signature, cp.initialized, cp.submitted.get(), cp.completed.get())
+                //     + String.format("BACKED-UP %d FAILED %d \n", _backedUp.size(), _failedWorkers.size())
+                //     + "CHILDREN: " + children + "\n"
+                //     + "--------------------------------------------\n");
+
                 tryFinalizeCas(worker);
-                worker._childrenIds.forEach(child -> 
-                {
+                worker._childrenIds.forEach(child -> {
                     final PipelineComponent component = _components.get(child);
-                    final PipelineExecutor executor = component._pipelineExecutor;
-                    executor.submit(worker._name, component);
+                    submit(worker._name, component);
                 });
             } catch (ExecutionException ee) {
                 t = ee.getCause();
@@ -134,13 +139,14 @@ public class DUUIParallelPipelineExecutor extends DUUILinearPipelineExecutor imp
                     final String workerId = e.failedWorker._name + e.failedWorker.component();
                     if (_failedWorkers.contains(workerId) || !e.resuable) {
                         try {
+                            _failedWorkers.remove(workerId);
                             _components.get(e.failedWorker.component()).complete(e.failedWorker);
                             tryFinalizeCas(e.failedWorker);
                         } catch (InterruptedException e1) {
                             Thread.currentThread().interrupt();
                             e1.printStackTrace();
                         }
-                    } else {
+                    } else { // Reschedule
                         submit(e.failedWorker);
                         _failedWorkers.add(workerId);
                     }
@@ -150,26 +156,25 @@ public class DUUIParallelPipelineExecutor extends DUUILinearPipelineExecutor imp
             } catch (RejectedExecutionException e) {
                 System.out.printf("[DUUIParallelPipeline] Worker rejected: %s %n", result);
                 e.printStackTrace();
-            }   
+            } finally {
+                DUUIComposer.totalafterworkerwait.getAndAdd(System.nanoTime() - start);
+            }
         }
 
         void tryFinalizeCas(DUUIWorker worker) throws InterruptedException {
             worker._jCasLock.countDown();
             final long count = worker._jCasLock.getCount();
             if (worker._jCasLock.await(1, TimeUnit.NANOSECONDS) && count == 0L) {
-                JCasCompletionWorker w  = 
-                    new JCasCompletionWorker(worker._jc, worker.getPriority());
+                JCasCompletionWorker w = new JCasCompletionWorker(worker._jc, worker.getPriority(), worker._perf);
                 if (_levelSynchronized) {
                     _backedUpJcas.add(w);
-                    final boolean completed = _comps.stream()
-                        .allMatch(PipelineComponent::isCompleted);
-                    if (completed) {
-                        while ((w = _backedUpJcas.poll()) !=  null) {
+                    if (isSubmitted.getAsBoolean()) {
+                        new ResetterWorker().call();
+                        while ((w = _backedUpJcas.poll()) != null) {
                             submit(w);
                         }
-                        submit(new ResetterWorker());
-                    }
-                } else w.call();
+                    } 
+                } else submit(w);
             }
         }
 
@@ -179,31 +184,33 @@ public class DUUIParallelPipelineExecutor extends DUUILinearPipelineExecutor imp
                 DUUIWorker worker = (DUUIWorker) task;
                 final String workerId = worker._name + worker.component();
                 final PipelineComponent component = _components.get(worker.component());
-                if (! _failedWorkers.contains(workerId)) component.submit();
+                if (!_failedWorkers.contains(workerId))
+                    component.submit();
             }
             return super.submit(task);
         }
 
         public void submit(String document, PipelineComponent component) {
-            final DUUIWorker worker = component.getTask(document);
+            DUUIWorker worker = component.getTask(document);
             if (worker == null) return;
-
             if (_levelSynchronized) {
-                _backedUp.add(worker);
-                if (getResourceManager().isBatchReadIn() && component.canSubmit()) {
-                    DUUIWorker w = null;
-                    while ((w = _backedUp.poll()) !=  null) {    
-                        submit(w);
-                    } 
-                }
+                if (component.canSubmit()) {
+                    submit(worker);
+                    while ((worker = _backedUp.poll()) != null) {
+                        submit(worker);
+                    }
+                } else _backedUp.add(worker);
             } else submit(worker);
         }
     }
-    
+
     final Map<String, PipelineComponent> _components;
-    final Set<PipelineExecutor> _executors;        
-    final Collection<PipelineComponent> _comps;
-    
+    final PipelineExecutor _executor;
+    final List<PipelineComponent> _comps;
+
+    final BooleanSupplier isComplete;
+    final BooleanSupplier isSubmitted;
+
     final AtomicInteger _registeredDocuments = new AtomicInteger(0);
     final BlockingQueue<JCasCompletionWorker> _backedUpJcas = new LinkedBlockingQueue<>();
     final HashSet<String> _failedWorkers = new HashSet<>();
@@ -212,265 +219,223 @@ public class DUUIParallelPipelineExecutor extends DUUILinearPipelineExecutor imp
 
     final AtomicInteger _currentLevel = new AtomicInteger(1);
     final Set<String> _topNodes = new HashSet<>();
+    final List<PipelineComponent> _lastLevel;
     final int _pipelineDepth;
 
     final PipelineProgressView _view;
 
     public DUUIParallelPipelineExecutor(Vector<PipelinePart> flow) {
-        this(flow, false);
+        this(flow, Integer.MAX_VALUE);
     }
 
-    public DUUIParallelPipelineExecutor(Vector<PipelinePart> flow, boolean shared) {
-        super(flow);
+    public DUUIParallelPipelineExecutor(Vector<PipelinePart> flow, int maxWidth) {
+        super(flow, maxWidth);
 
         ResourceManager.register(this);
 
-        _components = new ConcurrentHashMap<>(_pipeline.size()); 
+        _components = new ConcurrentHashMap<>((int) (_pipeline.size() * 1.25));
 
         final int corePoolSize = Config.strategy().getCorePoolSize();
         final int maxPoolSize = Config.strategy().getMaxPoolSize();
-        
-        final PipelineExecutor sharedExecutor = !shared ? null : new PipelineExecutor(corePoolSize, maxPoolSize);
+
+        _executor = new PipelineExecutor(corePoolSize, maxPoolSize);
 
         for (String node : _executionplan) {
-            final PipelineExecutor executor = !shared ? new PipelineExecutor(corePoolSize, maxPoolSize) : sharedExecutor;
-            _components.put(node, new PipelineComponent(node, executor, getHeight(node), getAncestors(node)));
-            
-            if (getAncestors(node).size() == 0) _topNodes.add(node);
+            _components.put(node, 
+                new PipelineComponent(
+                    node, 
+                    _pipeline.get(node).getDriver(), 
+                    _pipeline.get(node).getSignature(),
+                    getHeight(node), 
+                    getAncestors(node).stream()
+                    .filter(p -> getHeight(node) - 1 == getHeight(p))
+                    .collect(Collectors.toSet())
+                )
+            );
+
+            if (getAncestors(node).size() == 0)
+                _topNodes.add(node);
         }
         
-        _comps = _components.values();
-        _executors = _comps.stream()
-            .map(x -> x._pipelineExecutor)
-            .distinct()
-            .collect(Collectors.toSet());
-        
+        _comps = _components.values().stream().collect(Collectors.toUnmodifiableList());
+
         _pipelineDepth = _comps.stream()
-            .map(x -> x._height)
-            .max(Integer::compare)
-            .orElse(1);
+                .map(x -> x._height)
+                .max(Integer::compare)
+                .orElse(1);
+        _lastLevel = _comps.stream()
+            .filter(x -> x._height == _pipelineDepth)
+            .collect(Collectors.toUnmodifiableList());
+        isComplete = () -> {
+            for (PipelineComponent comp : _lastLevel) {
+                if (!comp.isCompleted()) return false;
+            }
+            return true;
+        };
+        
+        isSubmitted = () -> {
+            for (PipelineComponent comp : _lastLevel) {
+                if (!comp.isSubmitted()) return false;
+            }
+            return true;
+        };
 
         _view = new PipelineProgressView();
     }
 
-    public DUUIParallelPipelineExecutor withLevelSynchronization(boolean synchronize) { 
+    public DUUIParallelPipelineExecutor withLevelSynchronization(boolean synchronize) {
         _levelSynchronized = synchronize;
         return this;
     }
 
-    Integer updateLevel() {
-        return _executors.stream()
-            .map(PipelineExecutor::getQueue)
-            .map(BlockingQueue::peek)
-            .filter(Predicate.not(Predicate.isEqual(null)))
-            .map(ComparableFutureTask.class::cast)
-            .mapToInt(ComparableFutureTask::getPriority)
-            .max().orElse(1);
-    }
-
-    void remainingDuration() {
-        final int level = _currentLevel.get();
-
-        final long r = _comps.stream()
-            .filter(c -> c._height == level)
-            .map(c -> c.remainingDuration())
-            .max(Long::compare).orElse(0l);
-
-        _remainingDuration.set(r);
-    }
-
     @Override
     public void scale(ResourceViews statistics) {
-        _currentLevel.set(updateLevel());
-        // remainingDuration();
-        // System.out.printf("[LEVEL-%s] SCALE UP REMAINING TIME MS: %d \n", 
-        //     _currentLevel.get(), Duration.ofNanos(_remainingDuration.get()).toMillis());
-        // System.out.printf("[LEVEL-%s] READ IN DOCUMENTS: %d \n", 
-        //     _currentLevel.get(), _registeredDocuments.get());
+        if (!_levelSynchronized) return; 
+        _comps.forEach(component -> { // TODO: Speed
+            if (_executor._backedUp.size() > 0) {
+                if (_view.getNextLevel() != component._height) return;
+                if (!component.canSubmit()) return;
+                DUUIWorker w = null;
+                while ((w = _executor._backedUp.poll()) != null) {
+                    _executor.submit(w);
+                }
+            }
+        });
+        if (isSubmitted.getAsBoolean()) {
+            JCasCompletionWorker j = null;
+            while ((j = _backedUpJcas.poll()) != null) {
+                _executor.submit(j);
+            }
+        }
     }
 
     @Override
     public PipelineProgress collect() {
         return _view;
     }
-    
+
     public void run(String name, JCas jc, DUUIPipelineDocumentPerformance perf) {
-         
+        final long start = System.nanoTime();
         _registeredDocuments.incrementAndGet();
-        for (PipelineComponent component : _comps.stream().filter(p -> p._ancestors.size() == 0).collect(Collectors.toList())) {
-            // final PipelineComponent c = _components.get(component);
-            final DUUIWorker runner = getComponentRunner(name, component._uuid, jc, perf);
-            component._pipelineExecutor.submit(runner);
-        }
+        _comps.stream() // TODO: Speed
+        .filter(p -> p._ancestors.size() == 0)
+        .forEach(component -> {
+            final DUUIWorker runner = getTask(name, component._uuid, jc, perf);
+            _executor.submit(runner);
+        });
+        DUUIComposer.totalafterworkerwait.getAndAdd(System.nanoTime() - start);
     }
 
     public void shutdown() throws Exception {
-        if (_levelSynchronized) getResourceManager().setBatchReadIn(true);
+        if (_levelSynchronized)
+            getResourceManager().setBatchReadIn(true);
 
-        while (!_comps.stream().allMatch(PipelineComponent::isCompleted) || Thread.interrupted()) {
+        while (!isComplete.getAsBoolean() 
+            || _backedUpJcas.size() > 0 
+            || _executor.getQueue().size() > 0) {
             Thread.sleep(500);
-            // System.out.printf("Awaiting Threadpool! Queue size %d: | Completed Tasks: %d %n", 
-            //     _executor.getQueue().size(), _executor.getCompletedTaskCount());
         }
-
+        _executor.shutdown();
+        while (!_executor.awaitTermination(100, TimeUnit.MILLISECONDS)) {}
         destroy();
     }
 
     public void destroy() {
-        _executors.forEach(PipelineExecutor::shutdownNow);
+        _executor.shutdownNow();
     }
 
-    public DUUIWorker getComponentRunner(String name, String uuid, JCas jc, DUUIPipelineDocumentPerformance perf) {
+
+    public DUUIWorker getTask(String name, String uuid, JCas jc, DUUIPipelineDocumentPerformance perf) {
         DUUIWorker w = null;
         if ((w = _components.get(uuid).getTask(name)) != null)
-           return w;
+            return w;
 
-        initialiseComponentRunners(name, jc, perf);
+        initialiseTasks(name, jc, perf);
 
         return _components.get(uuid).getTask(name);
     }
 
-    public void initialiseComponentRunners(String name, JCas jc, DUUIPipelineDocumentPerformance perf) {
-        Map<String, Pair<Collection<ComponentLock>, Collection<ComponentLock>>> _locks = initialiseLocks(jc);
-        String _title = JCasUtil.select(jc, DocumentMetaData.class)
-                .stream().map(meta -> meta.getDocumentTitle()).findFirst().orElseGet(() -> name);
-
-        DUUIPipelineProfiler.documentMetaDataUpdate(name, _title, jc.size());
+    public void initialiseTasks(String name, JCas jc, DUUIPipelineDocumentPerformance perf) {
+        // TODO: create view of jcas to allow for non-blocking thread-safe read.
+        
+        // typeCheck(jc);
 
         final CountDownLatch jCasLock = new CountDownLatch(_pipeline.size());
-        _pipeline.forEach((uuid, comp) -> 
-            {
-                Collection<ComponentLock> selfLocks = _locks.get(uuid).getValue0();
-                Collection<ComponentLock> childLocks = _locks.get(uuid).getValue1();
-                Set<String> immediateChildren = getChildren(uuid).stream()
-                    .filter( child -> getHeight(child) == getHeight(uuid) + 1)
+        _comps.forEach(comp -> {
+            Set<String> immediateChildren = getChildren(comp._uuid).stream()
+                    .filter(child -> getHeight(child) == getHeight(comp._uuid) + 1)
                     .collect(Collectors.toSet());
 
-                _components.get(uuid)
-                    .addTask(name, new DUUIWorker(name, comp, jc, perf, selfLocks, childLocks, immediateChildren, getHeight(uuid), jCasLock));
-            });
+            comp.addTask(name, 
+                new DUUIWorker(name, 
+                    _pipeline.get(comp._uuid), 
+                    jc, 
+                    perf, 
+                    immediateChildren, 
+                    getHeight(comp._uuid), 
+                    jCasLock)
+            );
+        });
     }
-
-    private Map<String, Pair<Collection<ComponentLock>, Collection<ComponentLock>>> initialiseLocks(JCas jc) {
-        
-        Map<String, Map<Class<? extends Annotation>, ComponentLock>> 
-            latches = new ConcurrentHashMap<>(_pipeline.size()); 
-        Map<String, Map<Class<? extends Annotation>, AtomicInteger>> 
-            latchesCovered = new ConcurrentHashMap<>(_pipeline.size()); 
-        Map<String, List<ComponentLock>> childLatches = new HashMap<>(_pipeline.size()); 
-
-        // for every node save a lock for every dependency if not already in JCas 
-        for (PipelinePart part : _pipeline.values()) {
-            String self = part.getUUID();
-            List<Class<? extends Annotation>> dependencies = part.getSignature().getInputs();
-            Map<Class<? extends Annotation>, ComponentLock> selfLatches = new HashMap<>(dependencies.size());
-            Map<Class<? extends Annotation>, AtomicInteger> selfLatchesCovered = new HashMap<>(dependencies.size());
-
-            for (Class<? extends Annotation> dependency : dependencies) {
-                // TODO: Add customizable type-checking e.g. Feature language of DocumentMetaData Annotation
-                if (JCasUtil.select(jc, dependency).isEmpty()) { 
-                    selfLatches.put(dependency, new ComponentLock(1));
-                    selfLatchesCovered.put(dependency, new AtomicInteger(1));
-                }
-            }
-
-            latches.put(self, selfLatches);
-            latchesCovered.put(self, selfLatchesCovered);
-        }
-
-        // for every child save every lock which corresponds to a provided output
-        for (PipelinePart part : _pipeline.values()) {
-            String self = part.getUUID();
-            List<Class<? extends Annotation>> outputs = part.getSignature().getOutputs();
-            List<ComponentLock> childLocks =  new ArrayList<>();
-            for (String child : getChildren(self)) {
-                for (Class<? extends Annotation> dependency : latches.get(child).keySet()) {
-                    if (outputs.contains(dependency)) {
-                        childLocks.add(latches.get(child).get(dependency));
-                        latchesCovered.get(child).get(dependency).decrementAndGet();
-                    }
-                }
-            }
-            childLatches.put(self, childLocks);
-        }
-
-        // check that for every component every input is provided
-        if (!latchesCovered.values().stream()
-        .map(map -> map.values())
-        .filter(atomintlist -> atomintlist.size() > 0)
-        .map(atomintlist -> atomintlist.stream().mapToInt(atomint -> atomint.get()))
-        .allMatch(intlist -> intlist.max().getAsInt() < 1))
-            throw new RuntimeException(
-                "[ExecutionPipeline] There are pipeline components who will never get their inputs!");
-
-        return latches.entrySet().stream()
-            .map(entry -> 
-            {
-                String self = entry.getKey();
-                Collection<ComponentLock> selfLocks = entry.getValue().values(); 
-                Collection<ComponentLock> childLocks = childLatches.get(self);
-                return Pair.with(self, Pair.with(selfLocks, childLocks));
-            }).collect(Collectors.toMap(Pair::getValue0, Pair::getValue1));
-        
-    }
-
 
     class PipelineProgressView implements PipelineProgress {
         final Map<Integer, Set<PipelineComponent>> heightComponents;
 
         PipelineProgressView() {
             heightComponents = _comps.stream()
-            .collect(Collectors.groupingBy(p -> p._height, Collectors.toSet()));
+                    .collect(Collectors.groupingBy(p -> p._height, Collectors.toUnmodifiableSet()));
         }
 
-        final AtomicLong durationPerPercentageNanos = new AtomicLong(-1l);
-        long avgPerPercentageNanos = 500L;
-        long prevReadTime = -1L;
+        final ReentrantLock lock = new ReentrantLock(true);
+        final AtomicLong nanosPerPercentage = new AtomicLong(100L * 1_000_000L); // 100ms as reference value
+        long avgNanosPerPercentage = 100L * 1_000_000;
         double prevReadPercentage = 0.f;
-        int prevLevel = -1;
+        long prevReadTime = System.nanoTime();
 
-        public synchronized long acceleration() {
-            final double currReadPercentage = getLevelProgress();
-            final int currLevel = _currentLevel.get();
-
-            // Reset to initial values
-            if (prevLevel != currLevel) {
-                prevReadPercentage = currReadPercentage;
+        void reset() {
+            lock.lock();
+            try {
+                final double currReadPercentage = getLevelProgress();
+                prevReadPercentage = prevReadPercentage > currReadPercentage ? 0.f : currReadPercentage;
                 prevReadTime = System.nanoTime();
-                // durationPerPercentageNanos.set(-1L);
-                prevLevel = (currLevel);
-                return durationPerPercentageNanos.get();
+            } finally {
+                lock.unlock();
             }
-            
-            if (! (prevReadPercentage < currReadPercentage)) 
-                return durationPerPercentageNanos.get();
+        }
 
-            final long currReadTime = System.nanoTime();
-            final double deltaPercentage = (currReadPercentage - prevReadPercentage) * 100.f;
-            final long deltaTime = currReadTime - prevReadTime;
-            final long newPercentageDuration = (long) (((double) deltaTime) / ((double) deltaPercentage));
+        long acceleration() {
+            lock.lock();
+            try {
+                final double currReadPercentage = getLevelProgress();
+                final long currReadTime = System.nanoTime();
+                final double deltaPercentage = (currReadPercentage - prevReadPercentage) * 100.f;
+                final long deltaTime = currReadTime - prevReadTime;
+                final long newPercentageDuration = Long
+                        .max(100L * 1_000_000, (long) (deltaTime / (double) deltaPercentage));
 
-            prevReadPercentage = currReadPercentage;
-            prevReadTime = currReadTime;
-            if (durationPerPercentageNanos.get() > -1L) { // Already initialized
-                avgPerPercentageNanos = (long) (((double) (avgPerPercentageNanos + newPercentageDuration)) / 2.f);
-                durationPerPercentageNanos.set((long) 
-                    (((double) (durationPerPercentageNanos.get() + avgPerPercentageNanos)) / 2.f));
+                final long nanos = nanosPerPercentage.get();
+                avgNanosPerPercentage = (long) ((avgNanosPerPercentage + newPercentageDuration) / 2.f);
+                final long newNanos = Long
+                        .max(100L * 1_000_000, (long) ((nanos + avgNanosPerPercentage) / 2.f));
 
-            } 
-            else durationPerPercentageNanos.set(newPercentageDuration); // First initialization
+                prevReadPercentage = currReadPercentage;
+                prevReadTime = currReadTime;
 
-            return durationPerPercentageNanos.get();
+                nanosPerPercentage.set(newNanos);
+                return newNanos;
+            } finally {
+                lock.unlock();
+            }
         }
 
         public long getAcceleration() {
-            return durationPerPercentageNanos.get();
+            return nanosPerPercentage.get();
         }
 
         public double getLevelProgress() {
             return heightComponents.get(_currentLevel.get()).stream()
-                .mapToDouble(PipelineComponent::getProgress)
-                .min().orElse(0.0);
+                    .mapToDouble(PipelineComponent::getProgress)
+                    .average().orElse(0.0);
         }
 
         public double getComponentProgress(String uuid) {
@@ -478,11 +443,9 @@ public class DUUIParallelPipelineExecutor extends DUUILinearPipelineExecutor imp
         }
 
         public int getComponentPoolSize(String uuid) {
-            final int exs = _executors.size();
             final int height = _components.get(uuid)._height;
-            final int divisor = exs == 1 ? heightComponents.get(height).size() : 1;
-            final int psize = _components.get(uuid)._pipelineExecutor.getPoolSize();
-            return (int) Math.ceil(psize / (float) divisor);
+            final int psize = _executor.getPoolSize();
+            return (int) Math.ceil(psize / (float) heightComponents.get(height).size());
         }
 
         public boolean isCompleted(String uuid) {
@@ -506,73 +469,48 @@ public class DUUIParallelPipelineExecutor extends DUUILinearPipelineExecutor imp
             return heightComponents.get(level).size();
         }
 
-        public int getLevelSize(int level, Class<? extends IDUUIDriver> filter) {
+        public int getLevelSize(int level, Class<? extends IDUUIDriver> filter) { // TODO: Speed
             return (int) heightComponents.get(level).stream()
-                .map(pc -> pc._uuid)
-                .map(_pipeline::get)
-                .map(PipelinePart::getDriver)
-                .map(IDUUIDriver::getClass)
-                .filter(Predicate.isEqual(filter))
-                .count();
+                    .map(pc -> pc._uuid)
+                    .map(_pipeline::get)
+                    .map(PipelinePart::getDriver)
+                    .map(IDUUIDriver::getClass)
+                    .filter(Predicate.isEqual(filter))
+                    .count();
         }
 
-        public int getLevelSize(int level, Class<? extends IDUUIDriver> ...filters) {
+        public int getLevelSize(int level, Class<? extends IDUUIDriver>... filters) { // TODO: Speed
             return (int) heightComponents.get(level).stream()
-                .map(pc -> pc._uuid)
-                .map(_pipeline::get)
-                .map(PipelinePart::getDriver)
-                .map(IDUUIDriver::getClass)
-                .filter(driver -> Stream.of(filters).anyMatch(Predicate.isEqual(driver)))
-                .count();
+                    .map(pc -> pc._uuid)
+                    .map(_pipeline::get)
+                    .map(PipelinePart::getDriver)
+                    .map(IDUUIDriver::getClass)
+                    .filter(driver -> Stream.of(filters).anyMatch(Predicate.isEqual(driver)))
+                    .count();
         }
 
     }
 
     class PipelineComponent {
         final String _uuid;
-        final PipelineExecutor _pipelineExecutor;
+        final IDUUIDriver _driver;
+        final Signature _sig;
         final Map<String, DUUIWorker> _initializedWorkers = new ConcurrentHashMap<>();
         final int _height;
-        final Set<String> _ancestors;
-        Duration _avgExecution = Duration.ofNanos(Long.MAX_VALUE);
+        final List<PipelineComponent> _ancestors;
 
-        int initialized = 0;
+        final AtomicInteger initialized = new AtomicInteger(0);
         final AtomicInteger submitted = new AtomicInteger(0);
         final AtomicInteger completed = new AtomicInteger(0);
 
-        PipelineComponent(String uuid, PipelineExecutor executor, int height, Set<String> ancestors) {
+        PipelineComponent(String uuid, IDUUIDriver driver, Signature sig, int height, Set<String> ancestors) {
             _uuid = uuid;
-            _pipelineExecutor = executor;
+            _driver = driver; 
+            _sig = sig;
             _height = height;
-            _ancestors = ancestors;
-        }
-
-        void addExecTime(Duration execDuration) {
-            synchronized (_avgExecution) {
-                if (_avgExecution.equals(Duration.ofNanos(Long.MAX_VALUE))) {
-                    _avgExecution = execDuration;
-                    return;
-                }
-                final long sum = _avgExecution.toNanos() + execDuration.toNanos();
-                final long avg = (long) (sum / 2f);
-                _avgExecution = Duration.ofNanos(avg);
-            }
-        }
-
-        public Duration avgDuration() {
-            return _avgExecution;
-        }
-
-        long remainingDuration() {
-            synchronized (_avgExecution) {
-                final int poolSize = _pipelineExecutor.getPoolSize() == 0 ? 
-                    1 : _pipelineExecutor.getPoolSize();
-                final long avg = _avgExecution.toNanos();
-                final int remaining = submitted.get() - completed.get();
-                System.out.println("AVERAGE EXECUTION DURATION MS: " + _avgExecution.toMillis());
-                System.out.println("REMAINING COMPONENTS: " + remaining + ", POOL SIZE: " + poolSize);
-                return (long) ((remaining * avg) / poolSize);
-            }
+            _ancestors = ancestors.stream()
+                .map(_components::get)
+                .collect(Collectors.toUnmodifiableList());
         }
 
         DUUIWorker getTask(String document) {
@@ -581,7 +519,7 @@ public class DUUIParallelPipelineExecutor extends DUUILinearPipelineExecutor imp
 
         void addTask(String document, DUUIWorker worker) {
             _initializedWorkers.put(document, worker);
-            initialized++;
+            initialized.getAndIncrement();
         }
 
         void submit() {
@@ -589,22 +527,36 @@ public class DUUIParallelPipelineExecutor extends DUUILinearPipelineExecutor imp
         }
 
         void complete(DUUIWorker worker) {
-            addExecTime(worker._total);
             completed.incrementAndGet();
         }
 
         boolean canSubmit() {
-            return _ancestors.stream()
-                .map(_components::get)
-                .allMatch(PipelineComponent::isCompleted);
+            if (!getResourceManager().isBatchReadIn()) return false;
+            for (PipelineComponent parent : _ancestors) {
+                if (!parent.isSubmitted()) return false;
+            }
+            return true;
+        }
+
+        boolean isInitialized() {
+            final int i = initialized.get();
+            final int borrowed = getResourceManager().getBorrowedCASCount();
+            return i == borrowed;
         }
 
         boolean isSubmitted() {
-            return initialized == submitted.get();
+            final int i = initialized.get();
+            final int s = submitted.get();
+            final int borrowed = getResourceManager().getBorrowedCASCount();
+            System.out.printf("COMPONENT %s IS SUBMITTED INIT %d SUBMIT %d BORROWED %d \n", 
+                _sig, i, s, borrowed);
+            return i == borrowed && i == s;
         }
 
         boolean isCompleted() {
-            return submitted.get() == completed.get();
+            return _initializedWorkers.isEmpty() 
+                && initialized.get() == submitted.get() 
+                && submitted.get() == completed.get();
         }
 
         double getProgress() {
@@ -613,7 +565,7 @@ public class DUUIParallelPipelineExecutor extends DUUILinearPipelineExecutor imp
         }
 
         void reset() {
-            initialized = 0;
+            initialized.set(0);
             submitted.set(0);
             completed.set(0);
         }
@@ -627,28 +579,33 @@ public class DUUIParallelPipelineExecutor extends DUUILinearPipelineExecutor imp
 
         final JCas jc;
         final int parentLevel;
+        final DUUIPipelineDocumentPerformance perf;
 
-        public JCasCompletionWorker(JCas jc, int parentLevel) {
+        public JCasCompletionWorker(JCas jc, int parentLevel, DUUIPipelineDocumentPerformance _perf) {
             this.jc = jc;
             this.parentLevel = parentLevel;
+            this.perf = _perf;
         }
 
         public DUUIWorker call() {
+            if (DUUIComposer.Config.storage() != null)
+                DUUIComposer.Config.storage().addMetricsForDocument(perf);
             DUUIComposer.Config.write(jc);
             ResourceManager.getInstance().returnCas(this.jc);
-            return null; 
+            return null;
         }
 
         public int getPriority() {
             return Integer.MIN_VALUE;
-            // return _currentLevel.get() == parentLevel ? 
-            //     parentLevel + 1 : Integer.MIN_VALUE;
+            // return _currentLevel.get() == parentLevel ?
+            // parentLevel + 1 : Integer.MIN_VALUE;
         }
     }
 
     class ResetterWorker implements PipelineWorker, Callable<DUUIWorker> {
 
         public DUUIWorker call() {
+            _view.reset();
             _comps.forEach(PipelineComponent::reset);
             return null;
         }
@@ -662,17 +619,22 @@ public class DUUIParallelPipelineExecutor extends DUUILinearPipelineExecutor imp
      * 
      * Taken and adapted from: https://jvmaware.com/priority-queue-and-threadpool/
      */
-    static class ComparableFutureTask<T> extends FutureTask<T> implements Comparable<ComparableFutureTask<T>> {
+    class ComparableFutureTask<T> extends FutureTask<T> implements Comparable<ComparableFutureTask<T>> {
 
-        private final PipelineWorker _task;
+        final PipelineWorker _task;
+        final long _timestamp;
+
         public ComparableFutureTask(Callable<T> task) {
             super(task);
             _task = (PipelineWorker) task;
+            _timestamp = System.nanoTime();
         }
 
         @Override
         public int compareTo(ComparableFutureTask<T> that) {
-            return Integer.compare(_task.getPriority(), that._task.getPriority());
+            if (getPriority() == that.getPriority())
+                return Long.compare(_timestamp, that._timestamp);
+            return Integer.compare(getPriority(), that.getPriority());
         }
 
         public int getPriority() {
@@ -683,9 +645,9 @@ public class DUUIParallelPipelineExecutor extends DUUILinearPipelineExecutor imp
         public String toString() {
             if (_task instanceof DUUIWorker) {
                 DUUIWorker worker = (DUUIWorker) _task;
-                return "component="+worker._signature+", document="+worker._name;
-            }
-            else return super.toString();
+                return "component=" + worker._signature + ", document=" + worker._name;
+            } else
+                return super.toString();
         }
     }
 

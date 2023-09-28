@@ -1,20 +1,21 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.sqlite;
 
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUIResource;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUIResource.DockerContainerView;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.ResourceManager.HostConfig;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.ResourceManager.HostThreadView;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.ResourceManager.HostUsage;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.ResourceManager.ResourceView;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.ResourceManager.ResourceViews;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer.Config;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIPipelineComponent;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.IDUUIPipelineComponent;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIDockerDriver.DockerDriverView;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelinePerformancePoint;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.IDUUIResourceProfiler;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.IDUUIStorageBackend;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.profiling.IDUUIResource;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.profiling.IDUUIResourceProfiler;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.profiling.IDUUIResource.DockerContainerView;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.profiling.ResourceManager.HostConfig;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.profiling.ResourceManager.HostThreadView;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.profiling.ResourceManager.HostUsage;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.profiling.ResourceManager.ResourceView;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.profiling.ResourceManager.ResourceViews;
 
 import java.io.IOException;
 import java.net.UnknownHostException;
@@ -193,6 +194,7 @@ public class DUUISqliteStorageBackend implements IDUUIStorageBackend, IDUUIResou
     public IDUUIPipelineComponent loadComponent(String id) {
         return new IDUUIPipelineComponent();
     }
+    
     public void finalizeRun(String name, Instant start, Instant end) throws SQLException {
         Connection conn = null;
         while(conn == null) {
@@ -218,12 +220,12 @@ public class DUUISqliteStorageBackend implements IDUUIStorageBackend, IDUUIResou
             // Config INSERT
             if (pipelineStarted) {
                 HostConfig config = views.getHostConfig();
-                stmt = conn.prepareStatement("INSERT INTO host_config VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+                stmt = conn.prepareStatement("INSERT INTO host_config VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
                 stmt.setString(1, this.name);
                 stmt.setString(2, config.getOSName());
                 stmt.setString(3, config.getJVMVendor());
-                stmt.setInt(4, DUUIComposer.Config.strategy().getCorePoolSize());
-                stmt.setInt(5, DUUIComposer.Config.strategy().getMaxPoolSize());
+                stmt.setInt(4, Config.strategy().getCorePoolSize());
+                stmt.setInt(5, Config.strategy().getMaxPoolSize());
                 stmt.setInt(6, config.getCASPoolSize());
                 stmt.setLong(7, config.getHostMemoryTotal());
                 stmt.setInt(8, config.getAvailableProcessors());
@@ -267,9 +269,7 @@ public class DUUISqliteStorageBackend implements IDUUIStorageBackend, IDUUIResou
             }
     
             // Container INSERT
-            Map<Class<? extends IDUUIResource>, ResourceView> re_views = views.getResourceViews();
-            DockerDriverView driver = (DockerDriverView) re_views.get(DockerDriverView.class);
-    
+            DockerDriverView driver = (DockerDriverView) views.getDockerDriverView();
             for (DockerContainerView containerview : driver.getContainerViews()) {
                 stmt = conn.prepareStatement("INSERT INTO container_stats VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
                 stmt.setLong(1, time);

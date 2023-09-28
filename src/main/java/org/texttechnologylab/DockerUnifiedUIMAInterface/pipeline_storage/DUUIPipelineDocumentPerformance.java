@@ -2,8 +2,10 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage;
 
 import com.arangodb.entity.BaseDocument;
 import org.apache.uima.jcas.JCas;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.Signature;
 
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Vector;
 
@@ -45,13 +47,13 @@ public class DUUIPipelineDocumentPerformance {
         return _points;
     }
 
-    public void addData(long durationSerialize, long durationDeserialize, long durationAnnotator, long durationMutexWait, long durationComponentTotal, String componentKey, long serializeSize, JCas jc) {
+    public void addData(Signature sig, long durationSerialize, long durationDeserialize, long durationAnnotator, long durationMutexWait, long durationComponentTotal, String componentKey, long serializeSize, JCas jc) {
         _durationTotalDeserialize += durationDeserialize;
         _durationTotalSerialize += durationSerialize;
         _durationTotalAnnotator += durationAnnotator;
         _durationTotalMutexWait += durationMutexWait;
         _durationTotal += durationComponentTotal;
-        _points.add(new DUUIPipelinePerformancePoint(durationSerialize,durationDeserialize,durationAnnotator,durationMutexWait,durationComponentTotal,componentKey,serializeSize, jc));
+        _points.add(new DUUIPipelinePerformancePoint(durationSerialize, durationDeserialize, durationAnnotator, durationMutexWait, durationComponentTotal, componentKey, serializeSize, jc));
     }
 
     public long getDocumentWaitTime() {

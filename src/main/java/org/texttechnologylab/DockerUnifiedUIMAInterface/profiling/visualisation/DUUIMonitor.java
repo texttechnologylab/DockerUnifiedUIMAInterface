@@ -1,4 +1,4 @@
-package org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring;
+package org.texttechnologylab.DockerUnifiedUIMAInterface.profiling.visualisation;
 
 import com.github.dockerjava.api.command.CreateContainerResponse;
 import com.github.dockerjava.api.command.InspectContainerResponse;

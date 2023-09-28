@@ -6,12 +6,12 @@ import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.jcas.JCas;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIDockerInterface;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUIResource;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.ResourceManager;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.DUUIWebsocketAlt;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.IDUUIConnectionHandler;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.IDUUICommunicationLayer;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.profiling.IDUUIResource;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.profiling.ResourceManager;
 
 import java.io.IOException;
 import java.net.URISyntaxException;

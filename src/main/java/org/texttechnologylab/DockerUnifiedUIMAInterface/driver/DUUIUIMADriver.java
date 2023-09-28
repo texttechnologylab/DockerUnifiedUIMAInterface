@@ -23,7 +23,11 @@ import org.xml.sax.SAXException;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.security.InvalidParameterException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeoutException;
 
@@ -250,7 +254,7 @@ public class DUUIUIMADriver implements IDUUIDriver {
             ann.setTimestamp(System.nanoTime());
             ann.setPipelineName(perf.getRunKey());
             ann.addToIndexes();
-            perf.addData(0,0,annotatorEnd-annotatorStart,mutexEnd-mutexStart,annotatorEnd-mutexStart, String.valueOf(component.getPipelineComponent().getFinalizedRepresentationHash()),0, jc);
+            perf.addData(component.getSignature(), 0, 0, annotatorEnd-annotatorStart,mutexEnd-mutexStart,annotatorEnd-mutexStart, String.valueOf(component.getPipelineComponent().getFinalizedRepresentationHash()),0, jc);
             component.add(engine);
         }
         catch(Exception e) {

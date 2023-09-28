@@ -1,78 +1,61 @@
-package org.texttechnologylab.DockerUnifiedUIMAInterface;
+package org.texttechnologylab.DockerUnifiedUIMAInterface.profiling;
+
+import static org.texttechnologylab.DockerUnifiedUIMAInterface.profiling.visualisation.DUUIPipelineVisualizer.formatb;
 
 import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
-import java.lang.management.MemoryUsage;
 import java.lang.management.OperatingSystemMXBean;
 import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
-import java.time.Duration;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.Map.Entry;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.DelayQueue;
+import java.util.concurrent.Delayed;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
-import java.util.stream.Collector;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.apache.uima.UIMAException;
 import org.apache.uima.cas.CASException;
 import org.apache.uima.cas.TypeSystem;
-import org.apache.uima.cas.impl.Serialization;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.apache.uima.util.CasCreationUtils;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.ResourceManager.HostUsage;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.ResourceManager.ResourceView;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.ResourceManager.SystemView;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer.Config;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIDockerDriver.DockerDriverView;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.IDUUIDriver;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.DUUISimpleMonitor;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.IDUUIMonitor;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.DUUIParallelPipelineExecutor;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.PoolStrategy;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.strategy.PoolStrategy;
 
 public class ResourceManager extends Thread {
 
-    static final List<IDUUIResource> _resources = new ArrayList<>(); 
     static final AtomicBoolean _finished = new AtomicBoolean(false);
-    static final Set<Thread> _activeThreads = ConcurrentHashMap.newKeySet(20);
-    static final Map<Long, Thread> _workerThreads = new ConcurrentHashMap<>(20);
     static final CountDownLatch finishLock = new CountDownLatch(1);
 
     CasPool _casPool;     
 
-    SystemResourceStatistics _system; 
+    SystemResourceViews _system; 
     boolean memoryCritical = false;
     final ReentrantLock memoryLock = new ReentrantLock();
     final Condition unpaused = memoryLock.newCondition();
     final AtomicBoolean _batchRead = new AtomicBoolean(false);
 
-    static final ConcurrentLinkedQueue<Runnable> _tasks = new ConcurrentLinkedQueue<>(); 
-    public DUUISimpleMonitor _monitor = null; 
     static ResourceManager _rm = new ResourceManager();
     
 
@@ -80,13 +63,13 @@ public class ResourceManager extends Thread {
         super("DUUIResourceManager");
         // this.setDaemon(true);
         
-        _system = new SystemResourceStatistics(0.2, -1L);
+        _system = new SystemResourceViews(0.2, -1L);
     }
 
     public ResourceManager(double memoryThreshholPercentage, long memoryThreshholdBytes) {
         super("DUUIResourceManager");
 
-        _system = new SystemResourceStatistics(memoryThreshholPercentage, memoryThreshholdBytes);
+        _system = new SystemResourceViews(memoryThreshholPercentage, memoryThreshholdBytes);
         _rm = this;
     }
 
@@ -94,49 +77,63 @@ public class ResourceManager extends Thread {
         return _rm; 
     };
 
-    public void withMonitor(IDUUIMonitor monitor) {
-        _monitor = (DUUISimpleMonitor) monitor;
-    }
-
     public void start() {
-        _activeThreads.add(this);
+        if (this.getState() != Thread.State.NEW) 
+            throw new RuntimeException("ResourceManager can only be started once!");
+        register(Thread.currentThread());
         super.start();
     }
 
     public synchronized static void register(Thread thread, boolean worker) {
-        _activeThreads.add(thread);
-        if (worker) _workerThreads.put(thread.getId(), thread);
+        _rm._system.register(thread, worker);
     }
    
-    public synchronized static void register(Thread thread) {
-        _activeThreads.add(thread);
+    public static void register(Thread thread) {
+        register(thread, false);
     }
 
     public synchronized static void register(IDUUIResource resource) {
-        _resources.add(resource);
+        _rm._system.register(resource);
     }
 
     @Override
     public void run() {
+        register(this);
+        final DelayQueue<DelayedViews> q = new DelayQueue<>(); 
+        DelayedViews update = null;
+        DelayedViews memcheck = null;
+        DelayedViews scale = null;
+        Runnable ex = () -> {
+            resumeWhenMemoryFree();
+            dispatch(false);
+            _system.scale();
+        };
         try {
             // Collection phase
-            dispatchResourceViews();
-            
+            _system.collect();
+            q.add(new DelayedViews(ex, 600));
             while (! _finished.get()) {
-                dispatchHostView();
-
-                Thread.sleep(1000);
+                long start = System.nanoTime();
                 
-                //Main thread memory lock
-                resumeWhenMemoryFree();            
+                // Update
+                if ((update = q.poll()) != null) {
+                    update.viewsCollector.run();
+                }
 
+                // //Main thread memory lock
+                // resumeWhenMemoryFree();
+                
                 // Scaling phase
-                scale();
+                // _system.scale();
                 
+                if (update != null)     
+                    q.add(new DelayedViews(ex, 500));
+                    // q.add(new DelayedViews(() -> dispatch(false), 1000));
+            
+                DUUIComposer.totalrm.getAndAdd(System.nanoTime() - start);
             }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        // } catch (Exception e) {
+        } catch (Exception e) {
+            e.printStackTrace();
         } finally {
             finishLock.countDown();
         }
@@ -148,66 +145,15 @@ public class ResourceManager extends Thread {
             finishLock.await();
     }
 
-    void scale() {
-        _resources.forEach(r ->
-        {
-            try {
-                r.scale(_system);
-            } catch (Exception e) {
-                System.out.printf(
-                    "[DUUIResourceManager] Error scaling resource %s%n"
-                    , r
-                );
-                e.printStackTrace();
-            }
-        });
-    }
-
-    public boolean isBatchReadIn() {
-        return _batchRead.get() || _casPool._casPool.size() == 0;
-    }
-
-    public void setBatchReadIn(boolean batchRead) {
-        _batchRead.set(batchRead);
-    }
-    
-    public void waitIfMemoryCritical() {
-        if (!_system.isMemoryCritical()) 
-            return;
-
-        memoryLock.lock();
-        try {
-            memoryCritical = true;
-        } finally {
-            memoryLock.unlock();
+    void dispatch(final boolean started) {   
+        final ResourceViews data = _system.update(); 
+        if (Config.monitor() != null && Config.monitor() instanceof IDUUIResourceProfiler) {
+            final IDUUIResourceProfiler monitor = (IDUUIResourceProfiler) Config.monitor();
+            monitor.addMeasurements(data, started);
         }
-        long used = _system._usedBytes;
-        long thresholdBytes = _system._thresholdBytes;
-        System.out.printf(
-            "MEMORY CRITICAL! Used: %d | Threshhold: %d %n", used, thresholdBytes);
-        
-        memoryLock.lock();
-        try {
-            while (memoryCritical) unpaused.await();
-        } catch (InterruptedException ie) {
-            Thread.currentThread().interrupt();
-        } finally {
-            memoryLock.unlock();
-        }
-    }
-
-    public void resumeWhenMemoryFree() {
-        memoryLock.lock();
-        try {
-            if (!_system.isMemoryCritical()) {
-                // System.out.printf(
-                //     "MEMORY SAFE! Used: %d | Threshhold: %d %n", 
-                //     used, thresholdBytes);
-                memoryCritical = false;
-                unpaused.signalAll();
-            }
-        } finally {
-            memoryLock.unlock();
+        if (Config.storage() != null && Config.storage() instanceof IDUUIResourceProfiler) {
+            final IDUUIResourceProfiler storage = (IDUUIResourceProfiler) Config.storage();
+            storage.addMeasurements(data, started);
         }
     }
 
@@ -220,8 +166,6 @@ public class ResourceManager extends Thread {
             throw new RuntimeException(
                 "[DUUIResourceManager] JCas-Pool was not initialized.");
 
-        if (_casPool.poolFullAndLimited())
-            _batchRead.set(true);
         waitIfMemoryCritical();
         JCas jc = _casPool.takeCas();
         _batchRead.set(false);
@@ -231,7 +175,12 @@ public class ResourceManager extends Thread {
     public void returnCas(JCas jc) {
         if (_casPool == null)
             throw new RuntimeException(
-                "[DUUIResourceManager] JCas-Pool was not initialized.");
+                "[DUUIResourceManager] CAS-Pool was not initialized.");
+
+        final long used = _system._usedBytes;
+        final long thresholdBytes = _system._thresholdBytes;
+        System.out.printf(
+            "CAS returned! Used: %s | Threshhold: %s %n", formatb(used), formatb(thresholdBytes));
         jc.reset();
         _casPool.returnCas(jc);
     }
@@ -249,37 +198,64 @@ public class ResourceManager extends Thread {
         bs.reset();
         _casPool.returnByteStream(bs);
     }
-
-    private void dispatchResourceViews() {
-        final Map<Class<? extends IDUUIResource>, ResourceView> data = 
-            _system.collectResourcesData();
-        // dispatch(,
-        //     DUUISimpleMonitor.V1_MONITOR_RESOURCE_INFO);
+    
+    public int getBorrowedCASCount() {
+        if (_casPool == null) return 0;
+        return _casPool.borrowedCount();
     }
 
-    private void dispatchHostView() {
-        final ResourceViews data = _system.collect();
-        // dispatch(_system.collect(), 
-        //     DUUISimpleMonitor.V1_MONITOR_SYSTEM_DYNAMIC_INFO);
+    public boolean isBatchReadIn() {
+        if (_casPool == null) return false;
+        return _casPool.isEmpty();
     }
 
-    void dispatch(Map<String, Object> resourceData, String type) {    
-        if (_monitor == null)
-            return;  
+    public void setBatchReadIn(boolean batchRead) {
+        _batchRead.set(batchRead);
+    }
+
+    public void waitIfMemoryCritical() throws InterruptedException {
+        if (!_system.isMemoryCritical()) 
+            return;
+
+        memoryLock.lock();
         try {
-            _monitor.sendUpdate(resourceData, type);
-        } catch (IOException e) {
-            System.out.println(
-                "[DUUIResourceManager] Error sending stats to monitor.");
+            memoryCritical = true;
+        } finally {
+            memoryLock.unlock();
+        }
+        final long used = _system._usedBytes;
+        final long thresholdBytes = _system._thresholdBytes;
+        System.out.printf(
+            "MEMORY CRITICAL! Used: %s | Threshhold: %s %n", formatb(used), formatb(thresholdBytes));
+        
+        memoryLock.lock();
+        try {
+            while (memoryCritical) unpaused.await();
+        } finally {
+            memoryLock.unlock();
+        }
+    }
+
+    public void resumeWhenMemoryFree() {
+        memoryLock.lock();
+        try {
+            if (!_system.isMemoryCritical()) {
+                memoryCritical = false;
+                unpaused.signalAll();
+            } else {
+                _casPool.reduceExcessResources();
+            }
+        } catch (Exception e) {
+            _finished.set(true);
             e.printStackTrace();
-        } catch (InterruptedException e) {
-            this.interrupt();
+        } finally {
+            memoryLock.unlock();
         }
     }
 
     class CasPool {
         final BlockingQueue<JCas> _casPool;
-        final List<JCas> _casMonitorPool; 
+        final Collection<JCas> _casMonitorPool; 
         final BlockingQueue<ByteArrayOutputStream> _bytestreams;
         final Supplier<JCas> _casSupplier; 
         final Supplier<ByteArrayOutputStream> _streamSupplier; 
@@ -294,10 +270,10 @@ public class ResourceManager extends Thread {
             _strategy = strategy;
             _casPool = _strategy.instantiate(JCas.class);
             _bytestreams = _strategy.instantiate(ByteArrayOutputStream.class);
-            _casMonitorPool = new ArrayList<>(_strategy.getCorePoolSize());
+            _casMonitorPool = ConcurrentHashMap.newKeySet(_strategy.getCorePoolSize());
             _maxPoolSize = new AtomicInteger(_casPool.remainingCapacity());
             
-            JCas exJcas = JCasFactory.createJCas(desc); 
+            final JCas exJcas = JCasFactory.createJCas(desc); 
             TypeSystem ts = exJcas.getTypeSystem();
             _casSupplier = () -> 
                 {
@@ -311,7 +287,7 @@ public class ResourceManager extends Thread {
                 }; 
            
             int initialPoolSize = _casPool.remainingCapacity() == Integer.MAX_VALUE ?
-                _strategy.getCorePoolSize() : _casPool.remainingCapacity();
+                _strategy.getMaxPoolSize() : _casPool.remainingCapacity();
             boolean casCreationFailed = Stream.generate(_casSupplier)
                 .limit(initialPoolSize)
                 .peek(_casMonitorPool::add)
@@ -329,43 +305,66 @@ public class ResourceManager extends Thread {
             _currStreamPoolSize = new AtomicInteger(initialPoolSize);
             
             System.out.printf(
-                "JCAS QUEUE CAPACITY: %d | #JCAS: %d | #RESERVED: %d \nMEMORY USED:      %d \nMEMORY THRESHOLD: %d %n", 
-                _maxPoolSize.get(), initialPoolSize, _casPool.size(), _system._usedBytes, _system._thresholdBytes);
+                "JCAS QUEUE CAPACITY: %d | #JCAS: %d | #RESERVED: %d \nMEMORY USED:      %s \nMEMORY THRESHOLD: %s %n", 
+                _maxPoolSize.get(), initialPoolSize, _casPool.size(), formatb(_system._usedBytes), formatb(_system._thresholdBytes));
         }
 
-        boolean poolFullAndLimited() {
-            return (_maxPoolSize.get() < Integer.MAX_VALUE) && _casPool.size() == 0;
+        int borrowedCount() {
+            return _currCasPoolSize.get() - _casPool.size();
+        }
+
+        boolean isEmpty() {
+            return _maxPoolSize.get() >= _currCasPoolSize.get() - _casPool.size() || _casPool.size() == 0;
         }
 
         void resetMaxPoolSize() {
-            if (_casPool.remainingCapacity() == Integer.MAX_VALUE)
-                _maxPoolSize.set(Integer.MAX_VALUE);
+            _maxPoolSize.set(_strategy.getInitialQueueSize()); 
         }
 
         void setMaxPoolSize() {
-            _maxPoolSize.set(_casMonitorPool.size()); 
+            _maxPoolSize.set(_currCasPoolSize.get() - _casPool.size()); 
+        }
+
+        void reduceExcessResources() throws InterruptedException {
+            while (_casPool.size() > 0 && _system.isMemoryCritical()) {
+                JCas jc = _casPool.poll();
+                if (jc == null) break;
+                _casMonitorPool.remove(jc);
+                jc = null;
+                _bytestreams.poll();
+                _currCasPoolSize.decrementAndGet();
+                _currStreamPoolSize.decrementAndGet();
+                System.gc();
+            }
+            
+            if (_casMonitorPool.size() == 0) {
+                // TODO: destroy resources? 
+                _rm.finishManager();
+                unpaused.signalAll();
+                throw new RuntimeException("[DUUIResourceManager] Memory threshold still crossed after freeing all CAS-Objects.");
+            }
         }
         
         void returnCas(JCas jc) {
-            // System.out.printf("JCAS QUEUE CAPACITY: %d | #JCAS: %d | #RESERVED: %d %n", _maxPoolSize.get(), _currCasPoolSize.get(), _casPool.size());
+            System.out.printf(
+                "JCAS QUEUE CAPACITY: %d | #JCAS: %d | #RESERVED: %d \nMEMORY USED (CAS-Pool/JVM):      %s / %s \nMEMORY THRESHOLD: %s %n", 
+                _maxPoolSize.get(), _currCasPoolSize.get(), _casPool.size(), formatb(_system._usedBytes), formatb(_system._systemView.memory_used), formatb(_system._thresholdBytes));
             _casPool.offer(jc);
 
         }
 
         void returnByteStream(ByteArrayOutputStream bs) {
-            // System.out.printf("BYTESTREAM QUEUE CAPACITY: %d | #BYTESTREAM: %d | #RESERVED: %d %n", _maxPoolSize.get(), _currStreamPoolSize.get(), _bytestreams.size());
             _bytestreams.offer(bs);
         }
 
         JCas takeCas () throws InterruptedException {
             System.out.printf(
-                "JCAS QUEUE CAPACITY: %d | #JCAS: %d | #RESERVED: %d \nMEMORY USED:      %d \nMEMORY THRESHOLD: %d %n", 
-                _maxPoolSize.get(), _currCasPoolSize.get(), _casPool.size(), _system._usedBytes, _system._thresholdBytes);
+                "JCAS QUEUE CAPACITY: %d | #JCAS: %d | #RESERVED: %d \nMEMORY USED (CAS-Pool/JVM):      %s / %s \nMEMORY THRESHOLD: %s %n", 
+                _maxPoolSize.get(), _currCasPoolSize.get(), _casPool.size(), formatb(_system._usedBytes), formatb(_system._systemView.memory_used), formatb(_system._thresholdBytes));
             return take(_casPool, _casSupplier, _currCasPoolSize);
         }
 
         ByteArrayOutputStream takeStream() throws InterruptedException {
-            // System.out.printf("BYTESTREAM QUEUE CAPACITY: %d | #BYTESTREAM: %d | #RESERVED: %d %n", _maxPoolSize.get(), _currStreamPoolSize.get(), _bytestreams.size());
             return take(_bytestreams, _streamSupplier, _currStreamPoolSize);
         }
 
@@ -387,9 +386,6 @@ public class ResourceManager extends Thread {
                     if (t instanceof JCas) {
                         JCas jc = (JCas) t;
                         _casMonitorPool.add(jc);
-                        // System.out.printf("JCAS NEW ELEMENT ADDED: QUEUE CAPACITY: %d | #JCAS: %d | #RESERVED: %d %n", _maxPoolSize.get(), poolSize.get(), _casPool.size());
-                    } else {
-                        // System.out.printf("BYTESTREAM NEW ELEMENT ADDED: QUEUE CAPACITY: %d | #BYTESTREAM: %d | #RESERVED: %d %n", _maxPoolSize.get(), poolSize.get(), _bytestreams.size());
                     }
                 }
             }
@@ -398,28 +394,31 @@ public class ResourceManager extends Thread {
         }
 
         long getJCasMemoryConsumption() {
-            return _casMonitorPool.stream()
-                    .mapToInt(JCas::size)
-                    .sum();
+            long sum = 0l;
+            for (JCas jc : _casMonitorPool) {
+                sum += jc.size();
+            } 
+            return sum;
         }
 
     }
 
-    class SystemResourceStatistics implements ResourceViews {
+    class SystemResourceViews implements ResourceViews {
 
         final Runtime _runtime = Runtime.getRuntime();
 
         // Resoucre Views
         PipelineProgress _pipelineProgress = null;
-        final SystemView _systemView = new SystemView(_activeThreads);
+        DockerDriverView _dockerDriverView = null;
+        final SystemView _systemView = new SystemView();
+        final List<IDUUIResource> _resources = new ArrayList<>(); 
         final Map<Class<? extends IDUUIResource>, ResourceView> _resourceStats = new IdentityHashMap<>(_resources.size());
-        final Set<IDUUIResource<ResourceView>> _skipCollection = new HashSet<>(16);
 
         final long _thresholdBytes;
         long _usedBytes = 0L; 
         AtomicBoolean _poolSizeSet = new AtomicBoolean(false);
         
-        public SystemResourceStatistics(double memoryThreshhold, long thresholdBytes) {
+        public SystemResourceViews(double memoryThreshhold, long thresholdBytes) {
             if (memoryThreshhold == -1 && thresholdBytes == -1) 
                 _thresholdBytes = _runtime.totalMemory();
             else if (memoryThreshhold != -1)
@@ -427,7 +426,15 @@ public class ResourceManager extends Thread {
             else 
                 _thresholdBytes = thresholdBytes;
 
-            System.out.printf("[DUUIResourceManager] MEMORY THRESHOLD SET: %d%n", _thresholdBytes);
+            System.out.printf("[DUUIResourceManager] MEMORY THRESHOLD SET: %s%n", formatb(_thresholdBytes));
+        }
+
+        public void register(IDUUIResource resource) {
+            _resources.add(resource);
+        }
+
+        public void register(Thread thread, boolean worker) {
+            _systemView.register(thread, worker);
         }
 
         boolean isMemoryCritical() {
@@ -435,34 +442,74 @@ public class ResourceManager extends Thread {
                 return false; 
 
             _usedBytes = _casPool.getJCasMemoryConsumption();
-            boolean critical = _usedBytes > _thresholdBytes;
+            boolean critical = _usedBytes > (_thresholdBytes + 25*1024*1024) || _systemView.isMemoryCritical();
 
             // If threshhold has been set once, but is back below again.
             if (!critical) {
-                _poolSizeSet.set(false);
                 _casPool.resetMaxPoolSize();
-            }
-
-            // if threshhold has been set, and is still critical. 
-            if (_poolSizeSet.get())
-                return false;
-
-            // set threshhold
-            if (critical) {
+            }else if (critical) {
                 _casPool.setMaxPoolSize();
-                _poolSizeSet.set(true);
-                _batchRead.set(true);
             }
                 
             return critical;
         }
-
-        // RESOURCE VIEWS
+        
+        public void scale() {
+            _resources.forEach(r ->
+            {
+                try {
+                    r.scale(_system);
+                } catch (Exception e) {
+                    System.out.printf("[DUUIResourceManager] Error scaling resource %s%n", r);
+                    e.printStackTrace();
+                }
+            });
+        }
 
         @Override
-        public void update() {
+        public ResourceViews update() {
             _systemView.update();
-            _pipelineProgress.update();
+            if (_pipelineProgress != null) _pipelineProgress.update();
+            // _dockerDriverView.update(); TODO: Too slow to do in a loop. Maybe for verification.
+            
+            return this;
+        }
+
+        // COLLECTION METHODS
+        ResourceViews collect() {
+            collectResourcesData();
+            _systemView.update();
+            return this; 
+        }
+
+        Map<Class<? extends IDUUIResource>, ResourceView> collectResourcesData() {
+            for (IDUUIResource resource : _resources) {
+                try {
+                    ResourceView resourceView = resource.collect();
+                    if (resourceView == null) continue; 
+
+                    if (resourceView instanceof PipelineProgress) {
+                        _pipelineProgress = (PipelineProgress) resourceView; 
+                    } else if (resourceView instanceof DockerDriverView) {
+                        _dockerDriverView = (DockerDriverView) resourceView;
+                    } else {
+                        _resourceStats.put(resource.getClass(), resourceView);
+                    }
+                } catch (Exception e) {
+                    System.out.printf(
+                        "[DUUIResourceManager] Error collecting resource stats: %s%n%s%n",
+                        e, e.getMessage());
+                }
+            }
+
+            return _resourceStats; 
+        }
+
+        // RESOURCE VIEWS
+                
+        @Override
+        public DockerDriverView getDockerDriverView() {
+            return _dockerDriverView;
         }
         
         @Override
@@ -484,37 +531,7 @@ public class ResourceManager extends Thread {
         public Map<Class<? extends IDUUIResource>, ResourceView> getResourceViews() {
             return _resourceStats;
         }
-        // COLLECTION METHODS
 
-        ResourceViews collect() {
-            update();
-            return this; 
-        }
-
-        Map<Class<? extends IDUUIResource>, ResourceView> collectResourcesData() {
-            for (IDUUIResource resource : _resources) {
-                if (_skipCollection.contains(resource)) continue;
-                    
-                try {
-                    ResourceView resourceView = resource.collect();
-                    if (resourceView == null) continue; 
-
-                    if (resourceView instanceof PipelineProgress) {
-                        _pipelineProgress = (PipelineProgress) resourceView; 
-                    } else {
-                        _resourceStats.put(resource.getClass(), resourceView);
-                    }
-                    _skipCollection.add(resource);
-                } catch (Exception e) {
-                    System.out.printf(
-                        "[DUUIResourceManager] Error collecting resource stats: %s%n%s%n",
-                        e, e.getMessage());
-                }
-            }
-
-            return _resourceStats; 
-        }
-        
         // public int calculateDynamicPoolsize() {
         //     long[] cumulatedCpuTime = {0L};
         //     long[] cumulatedWaitTime = {0L};
@@ -547,9 +564,13 @@ public class ResourceManager extends Thread {
         default void update() {};
     }
 
-    public static interface ResourceViews extends ResourceView {
+    public static interface ResourceViews {
+
+        ResourceViews update();
 
         PipelineProgress getComponentProgress();
+
+        DockerDriverView getDockerDriverView();
 
         HostConfig getHostConfig();
 
@@ -641,6 +662,7 @@ public class ResourceManager extends Thread {
             final Thread th;
             final ThreadInfo info;
             final long id;
+            final boolean worker;
             String name;
             String state;
             long wait_time; // milliseconds
@@ -648,10 +670,11 @@ public class ResourceManager extends Thread {
             long cpu_time; // milliseconds
             long memory_usage; 
 
-            ThreadView(Thread thread) {
+            ThreadView(Thread thread, boolean worker) {
                 this.id = thread.getId();
                 this.th = thread;
                 this.info = _threads.getThreadInfo(id);
+                this.worker = worker;
             }
 
             @Override
@@ -682,6 +705,10 @@ public class ResourceManager extends Thread {
             @Override
             public long getMemoryUsage() {
                 return memory_usage;
+            }
+
+            boolean isDead() {
+                return info.getThreadState().equals(Thread.State.TERMINATED);
             }
 
             @Override
@@ -739,7 +766,9 @@ public class ResourceManager extends Thread {
 
             @Override
             public int getCASPoolSize() {
-                return _casPool._maxPoolSize.get();
+                if (_casPool == null)
+                    return Config.strategy().getInitialQueueSize();
+                return _casPool._maxPoolSize.get(); // Can change for memory control.
             }
 
             @Override
@@ -764,9 +793,7 @@ public class ResourceManager extends Thread {
         final Runtime _runtime = Runtime.getRuntime();
 
         final SystemConfigView _config = new SystemConfigView();
-        final Map<Long, ThreadView> _threadviews;
-        final Collection<ThreadView> _threadviewsSet;
-        final Set<Thread> _th; 
+        final ConcurrentHashMap<Long, ThreadView> _tvs;
 
         double cpu_load_average = -1.f;
         double system_cpu_load = -1.f; // percent [0.0, 1.0]
@@ -777,16 +804,13 @@ public class ResourceManager extends Thread {
         long memory_total = -1L;
         long system_memaory_used = -1L;
 
-        public SystemView (Set<Thread> activeThreads){
-            _th = activeThreads;
-            _threadviews = _th.stream()
-                .map(ThreadView::new)
-                .collect(Collectors.toMap(tv-> tv.id, Function.identity()));
-            _threadviewsSet = _threadviews.values();
+        public SystemView (){
+            _tvs = new ConcurrentHashMap<>(Config.strategy().getMaxPoolSize() * 2);
 
             try {
                 _threads.setThreadContentionMonitoringEnabled(true);
                 _threads.setThreadCpuTimeEnabled(true);
+
                 if (_threads instanceof com.sun.management.ThreadMXBean) {
                     final com.sun.management.ThreadMXBean threadsSun = 
                         (com.sun.management.ThreadMXBean) _threads;
@@ -797,9 +821,35 @@ public class ResourceManager extends Thread {
             }
         }
 
+        public void register(Thread thread, boolean worker) {
+            if (!_tvs.containsKey(thread.getId()))
+                _tvs.putIfAbsent(thread.getId(), new ThreadView(thread, worker));
+        }
+
+        public boolean isMemoryCritical() {
+            return _config.jvm_max_memory * 0.8 < memory_used;
+        }
+
+        @Override
+        public void update() {
+            if (_os instanceof com.sun.management.OperatingSystemMXBean) {
+                com.sun.management.OperatingSystemMXBean osSun = (com.sun.management.OperatingSystemMXBean) _os;
+                cpu_load_average = osSun.getSystemLoadAverage();
+                system_cpu_load = osSun.getSystemCpuLoad();
+                jvm_cpu_time = TimeUnit.NANOSECONDS.toMillis(osSun.getProcessCpuTime());
+                jvm_cpu_load = osSun.getProcessCpuLoad();
+                system_memaory_used = osSun.getTotalPhysicalMemorySize() - osSun.getFreePhysicalMemorySize();
+            }
+            memory_used = _runtime.totalMemory() - _runtime.freeMemory();
+            memory_total = _runtime.totalMemory();
+
+            // _tvs.entrySet().removeIf(e -> e.getValue().isDead());
+            _tvs.values().forEach(ThreadView::update);
+        }
+
         @Override
         public Iterable<? extends HostThreadView> getThreadViews() {
-            return _threadviewsSet;
+            return _tvs.values();
         }
 
         @Override
@@ -831,27 +881,27 @@ public class ResourceManager extends Thread {
         public long getHeapMemoryTotal() {
             return memory_total;
         }
-
-        @Override
-        public void update() {
-            if (_os instanceof com.sun.management.OperatingSystemMXBean) {
-                com.sun.management.OperatingSystemMXBean osSun = (com.sun.management.OperatingSystemMXBean) _os;
-                cpu_load_average = osSun.getSystemLoadAverage();
-                system_cpu_load = osSun.getSystemCpuLoad();
-                jvm_cpu_time = TimeUnit.NANOSECONDS.toMillis(osSun.getProcessCpuTime());
-                jvm_cpu_load = osSun.getProcessCpuLoad();
-                system_memaory_used = osSun.getTotalPhysicalMemorySize() - osSun.getFreePhysicalMemorySize();
-            }
-            
-            memory_used = _runtime.totalMemory() - _runtime.freeMemory();
-            memory_total = _runtime.totalMemory();
-
-            _th.stream()
-                .filter(t -> !_threadviews.containsKey(t.getId()))
-                .map(ThreadView::new)
-                .forEach(tv -> _threadviews.putIfAbsent(tv.id, tv));
-            _threadviewsSet.forEach(ThreadView::update);
-        }
     }
 
+    class DelayedViews implements Delayed {
+        public final Runnable viewsCollector;
+        public final long delay;
+
+        DelayedViews(Runnable collector, long delayMS) {
+            viewsCollector = collector;
+            delay = System.currentTimeMillis() + delayMS;
+        }
+
+        @Override
+        public long getDelay(TimeUnit unit) {
+            long diff = delay - System.currentTimeMillis();
+            return unit.convert(diff, TimeUnit.MILLISECONDS);
+        }
+
+        @Override
+        public int compareTo(Delayed o) {
+            return Long.compare(delay, ((DelayedViews) o).delay);
+        }   
+
+    }
 }

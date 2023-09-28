@@ -13,11 +13,15 @@ import com.github.dockerjava.core.DockerClientBuilder;
 import com.github.dockerjava.core.DockerClientConfig;
 import com.github.dockerjava.core.InvocationBuilder.AsyncResultCallback;
 import com.github.dockerjava.core.command.LogContainerResultCallback;
+import com.github.dockerjava.httpclient5.ApacheDockerHttpClient;
 import com.github.dockerjava.jaxrs.JerseyDockerHttpClient;
+import com.github.dockerjava.okhttp.OkDockerHttpClient;
+import com.github.dockerjava.transport.DockerHttpClient;
 import com.google.common.collect.ImmutableList;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URI;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.InvalidParameterException;
@@ -160,8 +164,15 @@ public class DUUIDockerInterface {
         if (!System.getProperty("os.name").contains("Windows")) {
             _docker = DockerClientBuilder.getInstance().build();
         } else {
-            DockerClientConfig config = DefaultDockerClientConfig.createDefaultConfigBuilder().withDockerHost("tcp://localhost:2375").build();
-            _docker = DockerClientBuilder.getInstance(config).build();
+            // Windows
+            final DockerHttpClient http = new ApacheDockerHttpClient.Builder()
+                // .dockerHost(URI.create("npipe:////./pipe/docker_engine")) 
+                .dockerHost(URI.create("tcp://localhost:2375")) // if npipe doesn't work.
+                .build();
+            _docker = DockerClientBuilder.getInstance()
+                .withDockerHttpClient(http)
+                .build();
+            
         }
     }
 
@@ -222,16 +233,16 @@ public class DUUIDockerInterface {
     }
 
     /**
-     * Retrieves the resource-usage-statistics of a container.
+     * Retrieves the resource-usage-statistics of a container. Is slow!
      * 
      * @param containder_id Id of container.
      * @return Statistics info.
      * @throws Exception
      */
     public Statistics get_stats(String containder_id) throws Exception {
-        AsyncResultCallback<Statistics> callback = new AsyncResultCallback<>();
-        _docker.statsCmd(containder_id).exec(callback);
-        try {
+        final AsyncResultCallback<Statistics> callback = new AsyncResultCallback<>();
+        _docker.statsCmd(containder_id).withNoStream(true).exec(callback);
+        try { 
             Statistics stats = callback.awaitResult();
             callback.close();
             return stats;

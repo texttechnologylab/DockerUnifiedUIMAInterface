@@ -1,4 +1,4 @@
-package org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation;
+package org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.strategy;
 
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -20,7 +20,7 @@ public class AdaptiveStrategy extends AbstractStrategy {
         }
         if (casPoolSize < 1) {
             throw new IllegalArgumentException(
-                String.format("Cas pool size must be greater than 1: %d", 
+                String.format("Cas pool size must be greater than or equal 1: %d", 
                 casPoolSize));
         }
 
@@ -37,6 +37,11 @@ public class AdaptiveStrategy extends AbstractStrategy {
     @Override
     public <T> BlockingQueue<T> instantiate(Class<T> t) {
         return new LinkedBlockingQueue<T>(_casPoolSize);
+    }
+
+    @Override
+    public int getInitialQueueSize() {
+        return _casPoolSize;
     }
 
     public void setMaxPoolSize(int newMaxPoolSize) {

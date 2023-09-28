@@ -1,14 +1,14 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage;
 
-import org.apache.uima.fit.util.JCasUtil;
-import org.apache.uima.jcas.JCas;
-import org.apache.uima.jcas.cas.TOP;
-
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.uima.fit.util.JCasUtil;
+import org.apache.uima.jcas.JCas;
+
 public class DUUIPipelinePerformancePoint {
     private String _componentKey;
+    private Long _durationParentWait;
     private Long _durationSerialize;
     private Long _durationDeserialize;
     private Long _durationAnnotator;
@@ -16,19 +16,20 @@ public class DUUIPipelinePerformancePoint {
     private Long _durationComponentTotal;
     private Long _numberAnnotations;
     private Long _documentSize;
-    private Long _serializedSize;
+    private Long _serializedSize; // TODO
 
-    public DUUIPipelinePerformancePoint(long durationSerialize, long durationDeserialize, long durationAnnotator, long durationMutexWait, long durationComponentTotal,
-                                        String componentKey, long serializedSize, JCas jc) {
+    public DUUIPipelinePerformancePoint(long durationSerialize, 
+        long durationDeserialize, long durationAnnotator, long durationMutexWait, 
+        long durationComponentTotal, String componentKey, long serializedSize, JCas jc) {
+
         _componentKey = componentKey;
-
         _durationAnnotator = durationAnnotator;
         _durationComponentTotal = durationComponentTotal;
         _durationSerialize = durationSerialize;
         _durationDeserialize = durationDeserialize;
         _durationMutexWait = durationMutexWait;
         synchronized(jc) {
-            _numberAnnotations = JCasUtil.select(jc, TOP.class).stream().count();
+            _numberAnnotations = (long) JCasUtil.selectAll(jc).size();
         }
         try {
             _documentSize = Long.valueOf(jc.getDocumentText().length());
@@ -41,6 +42,10 @@ public class DUUIPipelinePerformancePoint {
 
     public String getKey() {
         return _componentKey;
+    }
+
+    public Long getDurationParentWait() {
+        return _durationParentWait;
     }
 
     public Long getDurationAnnotator() {

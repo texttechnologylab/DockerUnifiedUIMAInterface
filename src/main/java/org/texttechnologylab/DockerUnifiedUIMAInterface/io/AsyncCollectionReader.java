@@ -9,6 +9,7 @@ import org.apache.uima.cas.impl.XmiCasDeserializer;
 import org.apache.uima.cas.impl.XmiSerializationSharedData;
 import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
+import org.apache.uima.jcas.cas.TOP;
 import org.javaync.io.AsyncFiles;
 // import org.texttechnologylab.annotation.SharedData;
 import org.texttechnologylab.utilities.helper.StringUtils;
@@ -327,6 +328,9 @@ public class AsyncCollectionReader {
         }
 
         XmiCasDeserializer.deserialize(decodedFile, empty.getCas());
+        final DocumentMetaData d = JCasUtil.selectSingle(empty, DocumentMetaData.class);
+        empty.removeAllIncludingSubtypes(TOP.type);
+        empty.addFsToIndexes(d);
 
 //        try {
 //            XmiSerializationSharedData sharedData = deserialize(empty.getCas().getJCas());
@@ -350,6 +354,8 @@ public class AsyncCollectionReader {
         if (_language != null && !_language.isEmpty()) {
             empty.setDocumentLanguage(_language);
         }
+
+
 
         return true;
     }
