@@ -1573,7 +1573,7 @@ public class TestDUUI {
     public void kubernetesTest() throws Exception {
         String sInputPath = "/inputpath";
 
-        String sOutputPath = "/outputpath";
+        String sOutputPath = "outputpath";
         String sSuffix = "xmi.gz";
 
         // Asynchroner reader für die Input-Dateien
@@ -1601,7 +1601,7 @@ public class TestDUUI {
 
         composer.add(new DUUIKubernetesDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
                 .withScale(iWorkers)
-                  // specify one label. Warogast has the label "gpu".
+                .withGPU("gpu")  // specify one label. Warogast has the label "gpu".
                 .build());
 
         composer.add(new DUUIUIMADriver.Component(createEngineDescription(XmiWriter.class,
