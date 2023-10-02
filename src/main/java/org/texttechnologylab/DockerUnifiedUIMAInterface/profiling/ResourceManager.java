@@ -60,10 +60,7 @@ public class ResourceManager extends Thread {
     
 
     ResourceManager() {
-        super("DUUIResourceManager");
-        // this.setDaemon(true);
-        
-        _system = new SystemResourceViews(0.2, -1L);
+        this(-1, Runtime.getRuntime().maxMemory());
     }
 
     public ResourceManager(double memoryThreshholPercentage, long memoryThreshholdBytes) {
@@ -220,6 +217,7 @@ public class ResourceManager extends Thread {
         memoryLock.lock();
         try {
             memoryCritical = true;
+            _batchRead.set(memoryCritical);
         } finally {
             memoryLock.unlock();
         }
@@ -583,7 +581,7 @@ public class ResourceManager extends Thread {
 
         int getComponentPoolSize(String uuid);
 
-        long getAcceleration();
+        long getRemainingNanos();
 
         double getLevelProgress();
 
@@ -660,7 +658,6 @@ public class ResourceManager extends Thread {
     class SystemView implements HostUsage {
         class ThreadView implements HostThreadView {
             final Thread th;
-            final ThreadInfo info;
             final long id;
             final boolean worker;
             String name;
@@ -673,7 +670,6 @@ public class ResourceManager extends Thread {
             ThreadView(Thread thread, boolean worker) {
                 this.id = thread.getId();
                 this.th = thread;
-                this.info = _threads.getThreadInfo(id);
                 this.worker = worker;
             }
 
@@ -708,13 +704,11 @@ public class ResourceManager extends Thread {
             }
 
             boolean isDead() {
-                return info.getThreadState().equals(Thread.State.TERMINATED);
+                return th.getState().equals(Thread.State.TERMINATED);
             }
 
             @Override
             public void update() {
-                long id = th.getId();
-
                 long memoryUsage = -1L;
                 if (_threads instanceof com.sun.management.ThreadMXBean) {
                     com.sun.management.ThreadMXBean threadsSun = 
@@ -722,6 +716,7 @@ public class ResourceManager extends Thread {
                     memoryUsage = threadsSun.getThreadAllocatedBytes(id);
                 }
                 this.name = th.getName();
+                ThreadInfo info = _threads.getThreadInfo(id);
                 this.state = info.getThreadState().toString();
                 this.wait_time = info.getWaitedTime();
                 this.block_time = info.getBlockedTime();
@@ -843,7 +838,7 @@ public class ResourceManager extends Thread {
             memory_used = _runtime.totalMemory() - _runtime.freeMemory();
             memory_total = _runtime.totalMemory();
 
-            // _tvs.entrySet().removeIf(e -> e.getValue().isDead());
+            _tvs.entrySet().removeIf(e -> e.getValue().isDead());
             _tvs.values().forEach(ThreadView::update);
         }
 

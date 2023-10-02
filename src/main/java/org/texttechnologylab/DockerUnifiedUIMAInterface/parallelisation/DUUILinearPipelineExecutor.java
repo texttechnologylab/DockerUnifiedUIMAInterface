@@ -71,11 +71,19 @@ public class DUUILinearPipelineExecutor extends DirectedAcyclicGraph<String, Cus
 
     public void run(String name, JCas jc, DUUIPipelineDocumentPerformance perf) throws Exception {
 
-        typeCheck(jc);
+        try {
+            typeCheck(jc);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
 
         for (String component : _executionplan) {
             PipelinePart part = _pipeline.get(component);
-            part.run(name, jc, perf);
+            try {
+                part.run(name, jc, perf);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         }
         
         if (DUUIComposer.Config.storage() != null) 

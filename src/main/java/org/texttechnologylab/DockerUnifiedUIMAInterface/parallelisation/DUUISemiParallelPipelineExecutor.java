@@ -48,34 +48,6 @@ public class DUUISemiParallelPipelineExecutor extends DUUILinearPipelineExecutor
             }
         });
     }
-
-    // @Override
-    // public void run(String name, JCas jc, DUUIPipelineDocumentPerformance perf) throws Exception {
-
-    //     typeCheck(jc);
-
-    //     for (String component : _executionplan) {
-    //         final Callable<Void> w = () -> {
-    //             _pipeline.get(component).run(name, jc, perf);
-    //             return null;
-    //         };
-
-    //         long start = System.nanoTime();
-    //         _executor.submit(w);
-    //         DUUIComposer.totalafterworkerwait.getAndAdd(System.nanoTime() - start);
-    //     }
-        
-    //     final Runnable after = () -> {
-    //         if (DUUIComposer.Config.storage() != null)
-    //             DUUIComposer.Config.storage().addMetricsForDocument(perf);
-    //         DUUIComposer.Config.write(jc);
-    //         ResourceManager.getInstance().returnCas(jc);
-    //     };
-
-    //     long start = System.nanoTime();
-    //     _executor.submit(after);
-    //     DUUIComposer.totalafterworkerwait.getAndAdd(System.nanoTime() - start);
-    // }
     
     @Override
     public void run(String name, JCas jc, DUUIPipelineDocumentPerformance perf) {

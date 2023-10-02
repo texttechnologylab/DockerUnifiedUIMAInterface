@@ -55,7 +55,7 @@ public class DUUIWorker implements Callable<DUUIWorker>, PipelineWorker {
         try {
             // System.out.printf("[%s] starting analysis.%n", _threadName);
             _component.run(_name, _jc, _perf); 
-            System.out.printf("[%s] finished analysis.%n", _threadName);
+            // System.out.printf("[%s] finished analysis.%n", _threadName);
                  
         } catch (AnnotatorUnreachableException e) { 
             e.setFailedWorker(this); // Task might be rescheduled

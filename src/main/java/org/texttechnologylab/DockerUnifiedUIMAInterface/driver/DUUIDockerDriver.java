@@ -232,29 +232,35 @@ public class DUUIDockerDriver implements IDUUIConnectedDriver, IDUUIResource {
             final IDUUICommunicationLayer layer = _layers.get(uuid).copy();
             final ComponentInstance instance = new ComponentInstance(containerid, 0, layer);
             if (_withPause) {
-                scaleUp(instance);
+                scaleUp(instance, true);
                 _container_pauser.apply(containerid);
             }
             comp.addInstance(instance);
         }
     }
 
-    public boolean scaleUp(ComponentInstance instance) {
-        boolean started = _container_resumer.apply(instance.getContainerId());
-        try {
-            instance._port = _interface.extract_port_mapping(instance.getContainerId());
-            String url = "http://127.0.0.1:" + String.valueOf(instance._port);
-            final HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(url + DUUIComposer.V1_COMPONENT_ENDPOINT_COMMUNICATION_LAYER))
-                .version(HttpClient.Version.HTTP_1_1)
-                .timeout(Duration.ofSeconds(_container_timeout))
-                .GET()
-                .build();
+    boolean scaleUp(ComponentInstance instance) {
+        return scaleUp(instance, !_withPause);
+    }
 
-            while (!ping(url, _client, request, 1)) {
+    boolean scaleUp(ComponentInstance instance, boolean verify) {
+        boolean started = _container_resumer.apply(instance.getContainerId());
+        if (verify) {
+            try {
+                instance._port = _interface.extract_port_mapping(instance.getContainerId());
+                String url = "http://127.0.0.1:" + String.valueOf(instance._port);
+                final HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(url + DUUIComposer.V1_COMPONENT_ENDPOINT_COMMUNICATION_LAYER))
+                    .version(HttpClient.Version.HTTP_1_1)
+                    .timeout(Duration.ofSeconds(_container_timeout))
+                    .GET()
+                    .build();
+    
+                while (!ping(url, _client, request, 1)) {
+                }
+            } catch (Exception e) {
+                started = false;
             }
-        } catch (Exception e) {
-            started = false;
         }
 
         if (!started) {
@@ -375,9 +381,9 @@ public class DUUIDockerDriver implements IDUUIConnectedDriver, IDUUIResource {
                 continue;
             } else if (isNext && pipeline.isBatchReadIn()) { // Preemptive Up-Scaling
                 final double progress = pipeline.getLevelProgress();
-                final long acceleration = pipeline.getAcceleration();
+                final long remainingNanos = pipeline.getRemainingNanos();
                 final int backupsize = component.getScale() - Config.strategy().getCorePoolSize();
-                final boolean shouldScale = _stats.shouldScale(acceleration, progress, uuid, backupsize, pipeline.getCurrentLevel());
+                final boolean shouldScale = _stats.shouldScale(remainingNanos, progress, uuid, backupsize, pipeline.getCurrentLevel());
                 final int used = component.getUsedSize();
                 if (shouldScale && used <= Config.strategy().getCorePoolSize() && progress > 0.7) { // Avoid entering if-Block if already preemptively scaled.
                     final long s = System.nanoTime();
@@ -452,7 +458,7 @@ public class DUUIDockerDriver implements IDUUIConnectedDriver, IDUUIResource {
         boolean prevScaleUp = false;
         final Map<Integer, Long> punishments = new HashMap<>();
         final Map<String, Duration> avgStartUp = new ConcurrentHashMap<>();
-        boolean shouldScale(long acceleration, double progress, String nextComponent, int size, int currLevel) {
+        boolean shouldScale(long remainingNanos, double progress, String nextComponent, int size, int currLevel) {
             if (prevProgress == progress) return prevScaleUp; // Reduce number of iterations
             prevLevel.set(currLevel);
             prevProgress = progress;
@@ -464,9 +470,7 @@ public class DUUIDockerDriver implements IDUUIConnectedDriver, IDUUIResource {
             final long fillUpTimeMs = fillUpTime.toMillis() * size + punishment;
             
             // Remaining time in pipeline for current component
-            final long durationMS = TimeUnit.NANOSECONDS.toMillis(acceleration);
-            final double remainingPercentage = 100.f - progress * 100.f;
-            final long remainingDurationMS = (long) remainingPercentage * durationMS;
+            final long remainingDurationMS = TimeUnit.NANOSECONDS.toMillis(remainingNanos);
             
             final boolean scaleUp = remainingDurationMS <= fillUpTimeMs + 500L; 
             prevScaleUp = scaleUp;

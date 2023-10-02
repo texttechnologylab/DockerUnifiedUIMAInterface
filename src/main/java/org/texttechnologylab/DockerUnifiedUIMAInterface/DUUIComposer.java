@@ -219,20 +219,8 @@ public class DUUIComposer {
         return this;
     }
 
-    public DUUIComposer withResourceManager(double jCasMemoryThreshholdPercentage) {
-        if (jCasMemoryThreshholdPercentage <= 0.0 || jCasMemoryThreshholdPercentage >= 100.0) {
-            throw new IllegalArgumentException(
-                format("A valid percentage must be supplied as a memory threshold: %s", 
-                jCasMemoryThreshholdPercentage)
-            );
-        }
-
-        _rm = new ResourceManager(jCasMemoryThreshholdPercentage, -1L);
-        return this;
-    }
-
     public DUUIComposer withCasPoolMemoryThreshhold(long jCasMemoryThreshholdBytes) {
-        if (jCasMemoryThreshholdBytes <= 0 || jCasMemoryThreshholdBytes >= Runtime.getRuntime().maxMemory()) {
+        if (jCasMemoryThreshholdBytes <= 0 || jCasMemoryThreshholdBytes > Runtime.getRuntime().maxMemory()) {
             throw new IllegalArgumentException(
                 format("A valid number must be supplied as a memory threshold in bytes: %s", 
                 jCasMemoryThreshholdBytes)

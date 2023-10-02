@@ -166,8 +166,8 @@ public class DUUIDockerInterface {
         } else {
             // Windows
             final DockerHttpClient http = new ApacheDockerHttpClient.Builder()
-                // .dockerHost(URI.create("npipe:////./pipe/docker_engine")) 
-                .dockerHost(URI.create("tcp://localhost:2375")) // if npipe doesn't work.
+                .dockerHost(URI.create("npipe:////./pipe/docker_engine")) 
+                // .dockerHost(URI.create("tcp://localhost:2375")) // if npipe doesn't work.
                 .build();
             _docker = DockerClientBuilder.getInstance()
                 .withDockerHttpClient(http)

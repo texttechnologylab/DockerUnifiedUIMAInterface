@@ -32,9 +32,9 @@ public class DUUIConsoleMonitor implements IDUUIMonitor, IDUUIResourceProfiler {
         final PipelineProgress progress = views.getComponentProgress();
         String leftAlignFormat = "| %-18s | %-13s | %-10s | %-12s |%n";
         System.out.format("+--------------------+---------------+------------+--------------+%n");
-        System.out.format("| Pipeline: Progress | Current Level | Next Level | Acceleration |%n");
+        System.out.format("| Pipeline: Progress | Current Level | Next Level | Remaining |%n");
         System.out.format(leftAlignFormat, 
-            progress.getLevelProgress(), progress.getCurrentLevel(), progress.getNextLevel(), formatns(progress.getAcceleration()));
+            progress.getLevelProgress(), progress.getCurrentLevel(), progress.getNextLevel(), formatns(progress.getRemainingNanos()));
         System.out.format("+--------------------+---------------+------------+--------------+%n");
         System.out.println();
 
