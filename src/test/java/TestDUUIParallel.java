@@ -16,6 +16,7 @@ public class TestDUUIParallel {
     static void SemiParallel(AsyncCollectionReader sample, DUUIComposer composer, String name, int cas_pool_size, int max_pool_size) throws Exception {
         composer.withSemiParallelPipeline(cas_pool_size, max_pool_size);
         composer.run(sample, name + "_semiparallel");
+        composer.shutdown();
     }
 
     static void ParallelScaledNarrow(AsyncCollectionReader sample, DUUIComposer composer, String name, int cas_pool_size, int max_pool_size) throws Exception {
@@ -27,6 +28,7 @@ public class TestDUUIParallel {
             
 
         composer.run(sample, name + "_width_" + 1 + "_scaled");
+        composer.shutdown();
     }
 
     static void ParallelUnScaledNarrow(AsyncCollectionReader sample, DUUIComposer composer, String name, int cas_pool_size, int max_pool_size) throws Exception {
@@ -38,6 +40,7 @@ public class TestDUUIParallel {
             
 
         composer.run(sample, name + "_width_" + 1 + "_unscaled");
+        composer.shutdown();
     }
 
     static void ParallelScaledWide(AsyncCollectionReader sample, DUUIComposer composer, String name, int cas_pool_size, int max_pool_size) throws Exception {
@@ -49,6 +52,7 @@ public class TestDUUIParallel {
             
 
         composer.run(sample, name + "_width_" + 4 + "_scaled");
+        composer.shutdown();
     }
 
     static void ParallelUnScaledWide(AsyncCollectionReader sample, DUUIComposer composer, String name, int cas_pool_size, int max_pool_size) throws Exception {
@@ -60,6 +64,7 @@ public class TestDUUIParallel {
             
 
         composer.run(sample, name + "_width_" + 4 + "_scaled");
+        composer.shutdown();
     }
 
     @Test
@@ -73,7 +78,7 @@ public class TestDUUIParallel {
         final String gerparcor_sample = samples + "gerparcor_" + sample_variant + "_" + sample_size + "_" + formatb(sample_skip_size);
         final int cas_pool_size = 30; // 100 
         final int max_pool_size = 10;
-        final String run_key = gerparcor_sample.replace(samples, "") + "_pool_" + max_pool_size + "_cas_" + cas_pool_size;
+        final String run_key = gerparcor_sample.replace(samples, "") + "_pool_" + max_pool_size + "_repl_";
 
         AsyncCollectionReader sample = new AsyncCollectionReader(
             "C:\\Users\\davet\\projects\\gerparcor", 
@@ -114,36 +119,11 @@ public class TestDUUIParallel {
                 .withImageFetching()
         );
 
+        SemiParallel(sample, composer, run_key, cas_pool_size, max_pool_size);
         ParallelScaledNarrow(sample, composer, run_key, cas_pool_size, max_pool_size);
-
-        // FINISHED ANALYSIS: 3567 s scaled, 6, sync
-        // URL WAIT 14min 46s 594ms
-        // SERIALIZE WAIT 2min 37s 558ms
-        // ANNOTATOR WAIT 227min 47s 226ms
-        // DESERIALIZE WAIT 98min 17s 274ms
-        // SCALING WAIT 0ns
-        // AFTER WORKER WAIT 2s 403ms
-        // READ WAIT 58min 58s 955ms
-        // RESOURCE MANAGER TOTAL 36min 11s 24ms
-
-        // SemiParallel(sample, composer, run_key, cas_pool_size, max_pool_size);
-
-        // FINISHED ANALYSIS: 4127 s
-        // URL WAIT 37s 627ms
-        // SERIALIZE WAIT 2min 31s 413ms
-        // ANNOTATOR WAIT 308min 18s 809ms
-        // DESERIALIZE WAIT 99min 12s 352ms
-        // SCALING WAIT 0ns
-        // AFTER WORKER WAIT 10ms
-        // READ WAIT 67min 7s 260ms
-        // RESOURCE MANAGER TOTAL 44min 23s 146ms
-        
-        // ParallelScaledNarrow(sample, composer, run_key, cas_pool_size, max_pool_size);
-        // ParallelScaledWide(sample, composer, run_key, cas_pool_size, max_pool_size);
-        // ParallelUnScaledNarrow(sample, composer, run_key, cas_pool_size, max_pool_size);
-        // ParallelUnScaledWide(sample, composer, run_key, cas_pool_size, max_pool_size);
-        
-        composer.shutdown();
+        ParallelScaledWide(sample, composer, run_key, cas_pool_size, max_pool_size);
+        ParallelUnScaledNarrow(sample, composer, run_key, cas_pool_size, max_pool_size);
+        ParallelUnScaledWide(sample, composer, run_key, cas_pool_size, max_pool_size);
     }
 
     public static void main(String[] args) throws Exception {
