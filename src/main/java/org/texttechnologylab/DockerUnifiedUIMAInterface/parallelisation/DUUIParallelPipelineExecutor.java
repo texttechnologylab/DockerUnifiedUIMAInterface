@@ -102,18 +102,19 @@ public class DUUIParallelPipelineExecutor extends DUUILinearPipelineExecutor imp
                 final PipelineComponent cp = _components.get(worker.component());
                 cp.complete(worker);
                 _view.acceleration();
-                // final String children = worker._childrenIds.stream()
-                //     .map(_pipeline::get)
-                //     .map(PipelinePart::getSignature)
-                //     .map(Signature::toString)
-                //     .collect(Collectors.joining("; "));
+                final String children = worker._childrenIds.stream()
+                    .map(_pipeline::get)
+                    .map(PipelinePart::getSignature)
+                    .map(Signature::toString)
+                    .collect(Collectors.joining("; "));
 
-                // System.out.println("--------------------------------------------\n"
-                //     + String.format("%s: INIT %d SUBMIT %d COMPLETE %d \n", 
-                //         worker._signature, cp.initialized.get(), cp.submitted.get(), cp.completed.get())
-                //     + String.format("BACKED-UP %d FAILED %d \n", _backedUp.size(), _failedWorkers.size())
-                //     + "CHILDREN: " + children + "\n"
-                //     + "--------------------------------------------\n");
+                System.out.println("--------------------------------------------\n"
+                    + String.format("COMPONENT %s PROGRESS %.2f \n", cp._sig, cp.getProgress()*100.f) 
+                    + String.format("%s: INIT %d SUBMIT %d COMPLETE %d \n", 
+                        worker._signature, cp.initialized.get(), cp.submitted.get(), cp.completed.get())
+                    + String.format("BACKED-UP %d FAILED %d \n", _backedUp.size(), _failedWorkers.size())
+                    + "CHILDREN: " + children + "\n"
+                    + "--------------------------------------------\n");
                 tryFinalizeCas(worker);
                 worker._childrenIds.forEach(child -> {
                     final PipelineComponent component = _components.get(child);
@@ -218,6 +219,7 @@ public class DUUIParallelPipelineExecutor extends DUUILinearPipelineExecutor imp
 
     boolean _levelSynchronized = false;
     boolean _reschedule = false;
+    boolean _shutdown = false;
 
     final AtomicInteger _currentLevel = new AtomicInteger(1);
     final List<PipelineComponent> _lastLevel;
@@ -333,6 +335,7 @@ public class DUUIParallelPipelineExecutor extends DUUILinearPipelineExecutor imp
     }
 
     public void shutdown() throws Exception {
+        _shutdown = true;
         if (_levelSynchronized)
             getResourceManager().setBatchReadIn(true);
 
@@ -477,6 +480,10 @@ public class DUUIParallelPipelineExecutor extends DUUILinearPipelineExecutor imp
             return n == _pipelineDepth + 1 ? 1 : n;
         }
 
+        public boolean hasShutdown() {
+            return _shutdown;
+        }
+
         public int getLevelSize(int level) {
             return heightComponents.get(level).size();
         }
@@ -562,9 +569,9 @@ public class DUUIParallelPipelineExecutor extends DUUILinearPipelineExecutor imp
         boolean isSubmitted() {
             final int i = initialized.get();
             final int s = submitted.get();
-            final int borrowed = getResourceManager().getBorrowedCASCount();
-            System.out.printf("COMPONENT %s IS SUBMITTED INIT %d SUBMIT %d BORROWED %d \n", 
-                _sig, i, s, borrowed);
+            // final int borrowed = getResourceManager().getBorrowedCASCount();
+            // System.out.printf("COMPONENT %s IS SUBMITTED INIT %d SUBMIT %d BORROWED %d \n", 
+            //     _sig, i, s, borrowed);
             return i == s;
         }
 

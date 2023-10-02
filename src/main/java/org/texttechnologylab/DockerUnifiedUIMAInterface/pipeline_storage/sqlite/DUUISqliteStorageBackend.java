@@ -1,5 +1,6 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.sqlite;
 
+import org.luaj.vm2.lib.PackageLib.require;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer.Config;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIPipelineComponent;
@@ -88,7 +89,7 @@ public class DUUISqliteStorageBackend implements IDUUIStorageBackend, IDUUIResou
     }
 
     public DUUISqliteStorageBackend withConnectionPoolSize(int poolsize) throws SQLException {
-        for(int i = 1; i < poolsize; i++) {
+        for(int i = 1; i <= poolsize; i++) {
             _client = new ConcurrentLinkedQueue<>();
             _client.add(DriverManager.getConnection(_sqliteUrl));
             System.out.printf("[DUUISqliteStorageBackend] Populated connection pool %d/%d\n",i,poolsize);
@@ -270,6 +271,8 @@ public class DUUISqliteStorageBackend implements IDUUIStorageBackend, IDUUIResou
     
             // Container INSERT
             DockerDriverView driver = (DockerDriverView) views.getDockerDriverView();
+            if (driver == null) return;
+            if (driver.getContainerViews().isEmpty()) return;
             for (DockerContainerView containerview : driver.getContainerViews()) {
                 stmt = conn.prepareStatement("INSERT INTO container_stats VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
                 stmt.setLong(1, time);

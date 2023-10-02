@@ -140,6 +140,7 @@ public class DUUIComposer {
     private boolean _withParallelPipeline = false;
     private boolean _withSemiParallelPipeline = false;
     private boolean _levelSynchronized = false;
+    private boolean _reschedule = false;
     private int _maxLevelWidth = Integer.MAX_VALUE;
     private JCasWriter _writer = jCas -> {};
 
@@ -239,6 +240,19 @@ public class DUUIComposer {
         _withParallelPipeline = true;
         _withSemiParallelPipeline = false;
         _maxLevelWidth = maxLevelWidth;
+        return this;
+    }
+    
+    public DUUIComposer withParallelPipeline(PoolStrategy strategy, boolean levelSynchronized, int maxLevelWidth, boolean rescheduleFailedWorkers) {
+        if (maxLevelWidth < 1)
+            throw new IllegalArgumentException("The level width has to be greater than 1.");
+        
+        _strategy = strategy; 
+        _levelSynchronized = levelSynchronized;
+        _withParallelPipeline = true;
+        _withSemiParallelPipeline = false;
+        _maxLevelWidth = maxLevelWidth;
+        _reschedule = rescheduleFailedWorkers;
         return this;
     }
     
@@ -467,7 +481,7 @@ public class DUUIComposer {
             for (IDUUIDriver driver : _drivers.values()) {
                 driver.shutdown();
             }
-
+            _rm = _rm.clone();
             _hasShutdown = true;
         }
         else {
@@ -505,6 +519,7 @@ public class DUUIComposer {
             _executionPipeline = new DUUISemiParallelPipelineExecutor(_instantiatedPipeline);
         } else if (_withParallelPipeline) {
             _executionPipeline = new DUUIParallelPipelineExecutor(_instantiatedPipeline, _maxLevelWidth)
+                .withFailedWorkerRescheduling(_reschedule)
                 .withLevelSynchronization(_levelSynchronized);
         } else {
             _executionPipeline = new DUUILinearPipelineExecutor(_instantiatedPipeline);

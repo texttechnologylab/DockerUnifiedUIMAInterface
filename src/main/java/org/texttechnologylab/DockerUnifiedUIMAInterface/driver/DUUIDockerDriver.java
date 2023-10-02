@@ -352,7 +352,8 @@ public class DUUIDockerDriver implements IDUUIConnectedDriver, IDUUIResource {
             final BooleanSupplier downScalable = () -> {
                 final int idleInstances = component._instances.size();
                 final int coreSize = Config.strategy().getCorePoolSize();
-                return idleInstances > coreSize;
+                final boolean beforeEnd = pipeline.getLevelProgress() >= 0.7 && pipeline.hasShutdown();
+                return idleInstances > coreSize && !beforeEnd;
             };
 
             final String uuid = component.getUniqueComponentKey();

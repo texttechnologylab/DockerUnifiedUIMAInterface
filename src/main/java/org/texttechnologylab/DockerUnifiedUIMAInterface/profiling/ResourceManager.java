@@ -45,8 +45,8 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.strategy
 
 public class ResourceManager extends Thread {
 
-    static final AtomicBoolean _finished = new AtomicBoolean(false);
-    static final CountDownLatch finishLock = new CountDownLatch(1);
+    final AtomicBoolean _finished = new AtomicBoolean(false);
+    final CountDownLatch finishLock = new CountDownLatch(1);
 
     CasPool _casPool;     
 
@@ -74,9 +74,14 @@ public class ResourceManager extends Thread {
         return _rm; 
     };
 
+    public ResourceManager clone() {
+        _system.reset();
+        final ResourceManager rm =  new ResourceManager();
+        rm._system = this._system;
+        return rm;
+    }
+
     public void start() {
-        if (this.getState() != Thread.State.NEW) 
-            throw new RuntimeException("ResourceManager can only be started once!");
         register(Thread.currentThread());
         super.start();
     }
@@ -125,7 +130,6 @@ public class ResourceManager extends Thread {
                 
                 if (update != null)     
                     q.add(new DelayedViews(ex, 500));
-                    // q.add(new DelayedViews(() -> dispatch(false), 1000));
             
                 DUUIComposer.totalrm.getAndAdd(System.nanoTime() - start);
             }
@@ -203,7 +207,7 @@ public class ResourceManager extends Thread {
 
     public boolean isBatchReadIn() {
         if (_casPool == null) return false;
-        return _casPool.isEmpty();
+        return _batchRead.get() || _casPool.isEmpty();
     }
 
     public void setBatchReadIn(boolean batchRead) {
@@ -302,9 +306,9 @@ public class ResourceManager extends Thread {
                 .forEach(_bytestreams::add);
             _currStreamPoolSize = new AtomicInteger(initialPoolSize);
             
-            System.out.printf(
-                "JCAS QUEUE CAPACITY: %d | #JCAS: %d | #RESERVED: %d \nMEMORY USED:      %s \nMEMORY THRESHOLD: %s %n", 
-                _maxPoolSize.get(), initialPoolSize, _casPool.size(), formatb(_system._usedBytes), formatb(_system._thresholdBytes));
+            // System.out.printf(
+            //     "JCAS QUEUE CAPACITY: %d | #JCAS: %d | #RESERVED: %d \nMEMORY USED:      %s \nMEMORY THRESHOLD: %s %n", 
+            //     _maxPoolSize.get(), initialPoolSize, _casPool.size(), formatb(_system._usedBytes), formatb(_system._thresholdBytes));
         }
 
         int borrowedCount() {
@@ -312,7 +316,7 @@ public class ResourceManager extends Thread {
         }
 
         boolean isEmpty() {
-            return _maxPoolSize.get() >= _currCasPoolSize.get() - _casPool.size() || _casPool.size() == 0;
+            return _maxPoolSize.get() <= _currCasPoolSize.get() - _casPool.size();
         }
 
         void resetMaxPoolSize() {
@@ -344,9 +348,9 @@ public class ResourceManager extends Thread {
         }
         
         void returnCas(JCas jc) {
-            System.out.printf(
-                "JCAS QUEUE CAPACITY: %d | #JCAS: %d | #RESERVED: %d \nMEMORY USED (CAS-Pool/JVM):      %s / %s \nMEMORY THRESHOLD: %s %n", 
-                _maxPoolSize.get(), _currCasPoolSize.get(), _casPool.size(), formatb(_system._usedBytes), formatb(_system._systemView.memory_used), formatb(_system._thresholdBytes));
+            // System.out.printf(
+            //     "JCAS QUEUE CAPACITY: %d | #JCAS: %d | #RESERVED: %d \nMEMORY USED (CAS-Pool/JVM):      %s / %s \nMEMORY THRESHOLD: %s %n", 
+            //     _maxPoolSize.get(), _currCasPoolSize.get(), _casPool.size(), formatb(_system._usedBytes), formatb(_system._systemView.memory_used), formatb(_system._thresholdBytes));
             _casPool.offer(jc);
 
         }
@@ -356,9 +360,9 @@ public class ResourceManager extends Thread {
         }
 
         JCas takeCas () throws InterruptedException {
-            System.out.printf(
-                "JCAS QUEUE CAPACITY: %d | #JCAS: %d | #RESERVED: %d \nMEMORY USED (CAS-Pool/JVM):      %s / %s \nMEMORY THRESHOLD: %s %n", 
-                _maxPoolSize.get(), _currCasPoolSize.get(), _casPool.size(), formatb(_system._usedBytes), formatb(_system._systemView.memory_used), formatb(_system._thresholdBytes));
+            // System.out.printf(
+            //     "JCAS QUEUE CAPACITY: %d | #JCAS: %d | #RESERVED: %d \nMEMORY USED (CAS-Pool/JVM):      %s / %s \nMEMORY THRESHOLD: %s %n", 
+            //     _maxPoolSize.get(), _currCasPoolSize.get(), _casPool.size(), formatb(_system._usedBytes), formatb(_system._systemView.memory_used), formatb(_system._thresholdBytes));
             return take(_casPool, _casSupplier, _currCasPoolSize);
         }
 
@@ -433,6 +437,15 @@ public class ResourceManager extends Thread {
 
         public void register(Thread thread, boolean worker) {
             _systemView.register(thread, worker);
+        }
+
+        void reset() {
+            _pipelineProgress = null; 
+            _dockerDriverView = null;
+            _resources.clear();
+            _resourceStats.clear();
+            _poolSizeSet.set(false);
+            _systemView._tvs.clear();
         }
 
         boolean isMemoryCritical() {
@@ -588,6 +601,8 @@ public class ResourceManager extends Thread {
         double getComponentProgress(String uuid);
 
         boolean isCompleted(String uuid);
+        
+        boolean hasShutdown();
 
         default boolean isBatchReadIn() {
             return _rm.isBatchReadIn();

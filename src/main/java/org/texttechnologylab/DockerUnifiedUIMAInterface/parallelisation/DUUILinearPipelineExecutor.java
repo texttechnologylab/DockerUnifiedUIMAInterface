@@ -81,6 +81,7 @@ public class DUUILinearPipelineExecutor extends DirectedAcyclicGraph<String, Cus
             PipelinePart part = _pipeline.get(component);
             try {
                 part.run(name, jc, perf);
+                System.out.printf("[%s] finished analysis.%n", name + "-" + part.getSignature());
             } catch (Exception e) {
                 e.printStackTrace();
             }
