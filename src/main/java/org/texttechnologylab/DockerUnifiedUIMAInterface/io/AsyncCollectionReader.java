@@ -21,6 +21,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -58,6 +59,8 @@ public class AsyncCollectionReader {
 
     private boolean _addMetadata = true;
 
+    private String _targetPath = null;
+
     private String _language = null;
 
     private ProgressMeter progress = null;
@@ -65,31 +68,35 @@ public class AsyncCollectionReader {
     private int debugCount = 25;
 
     public AsyncCollectionReader(String folder, String ending) {
-        this(folder, ending, 25, -1, false, "", false, null);
+        this(folder, ending, 25, -1, false, "", false, null, null);
     }
 
     public AsyncCollectionReader(String folder, String ending, boolean bAddMetadata) {
-        this(folder, ending, 25, -1, false, "", bAddMetadata, null);
+        this(folder, ending, 25, -1, false, "", bAddMetadata, null, null);
     }
 
     public AsyncCollectionReader(String folder, String ending, boolean bAddMetadata, String language) {
-        this(folder, ending, 25, -1, false, "", bAddMetadata, language);
+        this(folder, ending, 25, -1, false, "", bAddMetadata, language, null);
     }
 
     public AsyncCollectionReader(String folder, String ending, String language) {
-        this(folder, ending, 25, -1, false, "", false, language);
+        this(folder, ending, 25, -1, false, "", false, language, null);
     }
 
     public AsyncCollectionReader(String folder, String ending, int debugCount, boolean bSort) {
-        this(folder, ending, debugCount, -1, bSort, "", false, null);
+        this(folder, ending, debugCount, -1, bSort, "", false, null, null);
+    }
+
+    public AsyncCollectionReader(String folder, String ending, int debugCount, boolean bSort, String sTargetPath) {
+        this(folder, ending, debugCount, -1, bSort, "", false, null, sTargetPath);
     }
 
     public AsyncCollectionReader(String folder, String ending, int debugCount, int iRandom, boolean bSort, String savePath){
-        this(folder, ending, debugCount, iRandom, bSort, savePath, false, null);
+        this(folder, ending, debugCount, iRandom, bSort, savePath, false, null, null);
     }
 
     public AsyncCollectionReader(String folder, String ending, int debugCount, int iRandom, boolean bSort, String savePath, boolean bAddMetadata) {
-        this(folder, ending, debugCount, iRandom, bSort, savePath, bAddMetadata, null);
+        this(folder, ending, debugCount, iRandom, bSort, savePath, bAddMetadata, null, null);
     }
 
     public enum DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE {
@@ -113,11 +120,14 @@ public class AsyncCollectionReader {
     }
 
     public AsyncCollectionReader(String folder, String ending, int debugCount, int sampleSize, DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE sampleMode, String savePath, boolean bAddMetadata, String language, int skipSmallerFiles) {
-        this(folder, ending, debugCount, getRandomFromMode(sampleMode, sampleSize), getSortFromMode(sampleMode), savePath, bAddMetadata, language, skipSmallerFiles);
+        this(folder, ending, debugCount, getRandomFromMode(sampleMode, sampleSize), getSortFromMode(sampleMode), savePath, bAddMetadata, language, skipSmallerFiles, null);
     }
 
+    public AsyncCollectionReader(String folder, String ending, int debugCount, int iRandom, boolean bSort, String savePath, boolean bAddMetadata, String language, String sTargetPath) {
+            this(folder, ending, debugCount, iRandom, bSort, savePath, bAddMetadata, language, 0, sTargetPath);
+    }
     public AsyncCollectionReader(String folder, String ending, int debugCount, int iRandom, boolean bSort, String savePath, boolean bAddMetadata, String language) {
-            this(folder, ending, debugCount, iRandom, bSort, savePath, bAddMetadata, language, 0);
+            this(folder, ending, debugCount, iRandom, bSort, savePath, bAddMetadata, language, 0, null);
     }
 
     /***
@@ -132,8 +142,9 @@ public class AsyncCollectionReader {
      * @param language Add language to the documents
      * @param skipSmallerFiles Skip files smaller than this value in bytes
      */
-    public AsyncCollectionReader(String folder, String ending, int debugCount, int iRandom, boolean bSort, String savePath, boolean bAddMetadata, String language, int skipSmallerFiles) {
+    public AsyncCollectionReader(String folder, String ending, int debugCount, int iRandom, boolean bSort, String savePath, boolean bAddMetadata, String language, int skipSmallerFiles, String sTargetPath) {
 
+        _targetPath = sTargetPath;
         _addMetadata = bAddMetadata;
         _language = language;
         _filePaths = new ConcurrentLinkedQueue<>();
@@ -170,6 +181,7 @@ public class AsyncCollectionReader {
                 _filePaths = skipBySize(_filePaths, skipSmallerFiles);
             }
         }
+
         if(bSort) {
             _filePaths = sortBySize(_filePaths);
         }
@@ -318,53 +330,75 @@ public class AsyncCollectionReader {
     }
 
     public boolean getNextCAS(JCas empty) throws IOException, CompressorException, SAXException {
-        ByteReadFuture future = _loadedFiles.poll();
 
         byte []file = null;
         String result = null;
-        if(future==null) {
-            result = _filePaths.poll();
-            if (result == null) return false;
-        }
-        else {
-            result = future.getPath();
-            file = future.getBytes();
-            long factor = 1;
-            if(result.endsWith(".gz")||result.endsWith(".xz")) {
-                factor = 10;
+
+        boolean bExists = true;
+
+        while(bExists) {
+            ByteReadFuture future = _loadedFiles.poll();
+
+            if (future == null) {
+                result = _filePaths.poll();
+                if (result == null) return false;
+            } else {
+                result = future.getPath();
+                file = future.getBytes();
+                long factor = 1;
+                if (result.endsWith(".gz") || result.endsWith(".xz")) {
+                    factor = 10;
+                }
+                _currentMemorySize.getAndAdd(-factor * (long) file.length);
             }
-            _currentMemorySize.getAndAdd(-factor*(long)file.length);
-        }
-        int val = _docNumber.addAndGet(1);
+            int val = _docNumber.addAndGet(1);
 
-        progress.setDone(val);
-        progress.setLeft(_initialSize-val);
+            progress.setDone(val);
+            progress.setLeft(_initialSize - val);
 
-        if(_initialSize-progress.getCount()>debugCount) {
-            if (val % debugCount == 0 || val == 0) {
+            if (_initialSize - progress.getCount() > debugCount) {
+                if (val % debugCount == 0 || val == 0) {
+                    System.out.printf("%s: \t %s \t %s\n", progress, getSize(result), result);
+                }
+            } else {
                 System.out.printf("%s: \t %s \t %s\n", progress, getSize(result), result);
-           }
-        }
-        else{
-            System.out.printf("%s: \t %s \t %s\n", progress, getSize(result), result);
-        }
+            }
 
-        if(file==null) {
-            file = Files.readAllBytes(Path.of(result));
-        }
+            if (file == null) {
+                file = Files.readAllBytes(Path.of(result));
+            }
 
-        InputStream decodedFile;
-        if(result.endsWith(".xz")) {
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.XZ,new ByteArrayInputStream(file));
-        } else if (result.endsWith(".gz")) {
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.GZIP, new ByteArrayInputStream(file));
-        } else {
-            decodedFile = new ByteArrayInputStream(file);
-        }
+            InputStream decodedFile;
+            if (result.endsWith(".xz")) {
+                ByteArrayOutputStream out = new ByteArrayOutputStream();
+                decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.XZ, new ByteArrayInputStream(file));
+            } else if (result.endsWith(".gz")) {
+                ByteArrayOutputStream out = new ByteArrayOutputStream();
+                decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.GZIP, new ByteArrayInputStream(file));
+            } else {
+                decodedFile = new ByteArrayInputStream(file);
+            }
 
-        XmiCasDeserializer.deserialize(decodedFile, empty.getCas(), true);
+            XmiCasDeserializer.deserialize(decodedFile, empty.getCas(), true);
+
+            if(this._targetPath!=null) {
+                try {
+                    DocumentMetaData checkPath = DocumentMetaData.get(empty);
+                    String sURI = checkPath.getDocumentUri().replace(checkPath.getDocumentBaseUri(), "");
+
+                    File tFile = new File(this._targetPath+"/"+sURI+".xmi.gz");
+                    bExists = tFile.exists();
+                    if(bExists){
+                        System.out.println("Skip: "+sURI);
+                    }
+
+                } catch (Exception e) {
+                    bExists=false;
+                }
+            }
+            else{
+                bExists=false;
+            }
 
 //        try {
 //            XmiSerializationSharedData sharedData = deserialize(empty.getCas().getJCas());
@@ -374,19 +408,20 @@ public class AsyncCollectionReader {
 //            empty.setDocumentText(StringUtils.getContent(new File(result)));
 //        }
 
-        if (_addMetadata) {
-            if (JCasUtil.select(empty, DocumentMetaData.class).size() == 0) {
-                DocumentMetaData dmd = DocumentMetaData.create(empty);
-                File pFile = new File(result);
-                dmd.setDocumentId(pFile.getName());
-                dmd.setDocumentTitle(pFile.getName());
-                dmd.setDocumentUri(pFile.getAbsolutePath());
-                dmd.addToIndexes();
+            if (_addMetadata) {
+                if (JCasUtil.select(empty, DocumentMetaData.class).size() == 0) {
+                    DocumentMetaData dmd = DocumentMetaData.create(empty);
+                    File pFile = new File(result);
+                    dmd.setDocumentId(pFile.getName());
+                    dmd.setDocumentTitle(pFile.getName());
+                    dmd.setDocumentUri(pFile.getAbsolutePath());
+                    dmd.addToIndexes();
+                }
             }
-        }
 
-        if (_language != null && !_language.isEmpty()) {
-            empty.setDocumentLanguage(_language);
+            if (_language != null && !_language.isEmpty()) {
+                empty.setDocumentLanguage(_language);
+            }
         }
 
         return true;

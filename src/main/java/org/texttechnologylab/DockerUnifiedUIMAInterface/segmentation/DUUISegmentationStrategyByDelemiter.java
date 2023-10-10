@@ -1,0 +1,128 @@
+package org.texttechnologylab.DockerUnifiedUIMAInterface.segmentation;
+
+import org.apache.uima.UIMAException;
+import org.apache.uima.fit.factory.JCasFactory;
+import org.apache.uima.fit.util.JCasUtil;
+import org.apache.uima.jcas.JCas;
+import org.apache.uima.jcas.tcas.Annotation;
+import org.apache.uima.util.CasCopier;
+import org.texttechnologylab.annotation.AnnotationComment;
+
+import java.util.HashSet;
+import java.util.Set;
+
+public class DUUISegmentationStrategyByDelemiter extends DUUISegmentationStrategy {
+
+    private int iLength;
+    private String sDelemiter;
+
+    private Set<String> currentOffset = new HashSet<>();
+
+    private JCas emptyCas = null;
+
+    public DUUISegmentationStrategyByDelemiter() {
+        super();
+    }
+
+    public DUUISegmentationStrategyByDelemiter withLength(int iLength){
+        this.iLength=iLength;
+        return this;
+    }
+
+    public int getSegments(){
+        return this.currentOffset.size();
+    }
+
+    public DUUISegmentationStrategyByDelemiter withDelemiter(String sValue){
+        this.sDelemiter=sValue;
+        return this;
+    }
+
+
+    @Override
+    public JCas getNextSegment() {
+        emptyCas.reset();
+
+        if(currentOffset.size()==0){
+            return null;
+        }
+
+        String sOffset = currentOffset.stream().findFirst().get();
+        String[] sSplit = sOffset.split("-");
+        int iStart = Integer.valueOf(sSplit[0]);
+        int iEnde = Integer.valueOf(sSplit[1]);
+
+        emptyCas.setDocumentText(jCasInput.getDocumentText().substring(iStart, iEnde));
+        emptyCas.setDocumentLanguage(jCasInput.getDocumentLanguage());
+        AnnotationComment da = new AnnotationComment(emptyCas);
+        da.setKey("offset");
+        da.setValue(""+iStart);
+        da.addToIndexes();
+
+        currentOffset.remove(sOffset);
+
+        return emptyCas;
+    }
+
+    @Override
+    protected void initialize() throws UIMAException {
+        this.emptyCas = JCasFactory.createJCas();
+
+        String sText = this.jCasInput.getDocumentText();
+
+        int tLength = sText.length();
+
+        int iCount = 0;
+
+        while((iCount+iLength)<tLength){
+
+            String sSubText = "";
+            if(tLength>(int) (iCount+this.iLength)) {
+                sSubText = sText.substring(iCount, (int) (iCount + this.iLength));
+            }
+            else{
+                sSubText = sText;
+            }
+            int iLastPoint = sSubText.lastIndexOf(this.sDelemiter);
+//            System.out.println(iLastPoint);
+            sSubText = sSubText.substring(0, iLastPoint>0 ? (iLastPoint+1) : sSubText.length());
+//            System.out.println(sSubText);
+            currentOffset.add(iCount+"-"+(sSubText.length()+iCount));
+
+//            System.out.println(iCount+"\t"+sSubText.length());
+            iCount = iCount+sSubText.length();
+
+        }
+        if(iCount<tLength){
+            currentOffset.add(iCount+"-"+tLength);
+        }
+    }
+
+    @Override
+    public void merge(JCas jCasSegment) {
+        int iOffset;
+        AnnotationComment offset = JCasUtil.select(jCasSegment, AnnotationComment.class).stream().filter(ac->{
+            return ac.getKey().equalsIgnoreCase("offset");
+        }).findFirst().get();
+
+        if(offset!=null){
+            iOffset = Integer.valueOf(offset.getValue());
+        } else {
+            iOffset = 0;
+        }
+
+        if(iOffset>0) {
+//            System.out.println("Offset: "+iOffset);
+            JCasUtil.select(jCasSegment, Annotation.class).stream().forEach(a -> {
+                a.setBegin(a.getBegin() + iOffset);
+                a.setEnd(a.getEnd() + iOffset);
+            });
+        }
+        CasCopier.copyCas(jCasSegment.getCas(), jCasInput.getCas(), false);
+    }
+
+    @Override
+    public void finalize(JCas jCas) {
+//        System.out.println("Finish");
+    }
+}

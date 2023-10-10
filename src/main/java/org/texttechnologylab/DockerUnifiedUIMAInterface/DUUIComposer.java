@@ -1,5 +1,6 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface;
 
+import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.commons.lang3.SerializationUtils;
 import org.apache.uima.analysis_engine.AnalysisEngineProcessException;
@@ -10,6 +11,7 @@ import org.apache.uima.collection.CollectionReaderDescription;
 import org.apache.uima.fit.factory.CollectionReaderFactory;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.fit.factory.TypeSystemDescriptionFactory;
+import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.apache.uima.util.CasCreationUtils;
@@ -24,6 +26,7 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.DUUIMonitor;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.IDUUIStorageBackend;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.segmentation.DUUISegmentationStrategy;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.segmentation.DUUISegmentationStrategyByDelemiter;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.segmentation.DUUISegmentationStrategyNone;
 import org.xml.sax.SAXException;
 
@@ -262,14 +265,21 @@ class DUUIWorkerAsyncReader extends Thread {
                         i.getDriver().run(i.getUUID(), _jc, perf);
                     } else {
                         segmentationStrategy.initialize(_jc);
-
                         JCas jCasSegmented = segmentationStrategy.getNextSegment();
+
                         while (jCasSegmented != null) {
                             // Process each cas sequentially
                             // TODO add parallel variant later
+
+                            if(segmentationStrategy instanceof DUUISegmentationStrategyByDelemiter){
+                                int iLeft = ((DUUISegmentationStrategyByDelemiter)segmentationStrategy).getSegments();
+                                DocumentMetaData dmd = DocumentMetaData.get(_jc);
+                                System.out.println(dmd.getDocumentId()+" Left: "+iLeft);
+                            }
                             i.getDriver().run(i.getUUID(), jCasSegmented, perf);
 
                             segmentationStrategy.merge(jCasSegmented);
+
                             jCasSegmented = segmentationStrategy.getNextSegment();
                         }
 

@@ -23,10 +23,7 @@ import java.net.URISyntaxException;
 import java.net.http.HttpClient;
 import java.security.InvalidParameterException;
 import java.time.Duration;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class DUUIRemoteDriver implements IDUUIDriverInterface {
@@ -42,6 +39,15 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         public Component(String url) throws URISyntaxException, IOException {
             component = new DUUIPipelineComponent();
             component.withUrl(url);
+        }
+
+        public Component(String... url) throws URISyntaxException, IOException {
+            component = new DUUIPipelineComponent();
+            List<String> pList = new ArrayList<>();
+            for (String s : url) {
+                pList.add(s);
+            }
+            component.withUrls(pList);
         }
 
         public Component(List<String> urls) throws URISyntaxException, IOException {
