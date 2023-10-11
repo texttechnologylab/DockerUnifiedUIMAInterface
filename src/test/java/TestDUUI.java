@@ -4,6 +4,8 @@ import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
 import de.tudarmstadt.ukp.dkpro.core.io.text.TextReader;
 import de.tudarmstadt.ukp.dkpro.core.opennlp.OpenNlpPosTagger;
 import de.tudarmstadt.ukp.dkpro.core.tokit.BreakIteratorSegmenter;
+import eu.clarin.weblicht.wlfxb.md.xb.Services;
+import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.UIMAException;
 import org.apache.uima.analysis_engine.AnalysisEngineDescription;
@@ -19,7 +21,9 @@ import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.jcas.cas.TOP;
 import org.apache.uima.jcas.tcas.Annotation;
+import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.util.CasIOUtils;
+import org.apache.uima.util.InvalidXMLException;
 import org.apache.uima.util.XmlCasSerializer;
 import org.dkpro.core.io.xmi.XmiReader;
 import org.dkpro.core.io.xmi.XmiWriter;
@@ -33,10 +37,7 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.AnnotationRemover;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIPipelineAnnotationComponent;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIPipelineDescription;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIDockerDriver;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUISwarmDriver;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIUIMADriver;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.*;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.AsyncCollectionReader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.TTLabXmiWriter;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaCommunicationLayer;
@@ -52,9 +53,7 @@ import org.texttechnologylab.utilities.helper.FileUtils;
 import org.xml.sax.SAXException;
 
 import javax.script.*;
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -66,6 +65,14 @@ import static org.apache.uima.fit.factory.AnalysisEngineFactory.createEngineDesc
 import static org.apache.uima.fit.factory.CollectionReaderFactory.createReaderDescription;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIKubernetesDriver.*;
+
+import io.kubernetes.client.openapi.ApiClient;
+import io.kubernetes.client.openapi.ApiException;
+import io.kubernetes.client.openapi.Configuration;
+import io.kubernetes.client.openapi.apis.CoreV1Api;
+import io.kubernetes.client.openapi.models.V1Namespace;
+import io.kubernetes.client.util.Config;
 
 
 public class TestDUUI {
@@ -145,12 +152,16 @@ public class TestDUUI {
     public void SwarmTest() throws Exception {
 
         System.out.println("Running SwarmTest");
-CollectionReader();
+        CollectionReader();
+
+        //String sInputPath = "/home/marko/DUUIInputs";
+        //String sOutputPath = "/home/marko/DUUIOutputs";
+
         String sInputPath = TestDUUI.class.getClassLoader().getResource("sample").getPath();
         String sSuffix = "xmi.gz";
         String sOutputPath = "/tmp/";
 
-        int iWorkers = Integer.valueOf(2);
+        int iWorkers = Integer.valueOf(1);
 
         DUUILuaContext ctx = LuaConsts.getJSON();
 
@@ -1654,5 +1665,226 @@ CollectionReader();
 //        }
 //
 //    }
+
+    @Test
+    public void PraktikumExampleSatz() throws Exception {
+
+        // Input- und Output-Pfade
+        String sInputPath = "/home/stud_homes/s6185038/Documents/DockerInput";
+
+        String sOutputPath = "/home/stud_homes/s6185038/Documents/DockerOutput";
+        String sSuffix = "xmi.gz";
+
+        // Asynchroner reader für die Input-Dateien
+        AsyncCollectionReader pCorpusReader = new AsyncCollectionReader(sInputPath, sSuffix, 10, false);
+        new File(sOutputPath).mkdir();
+
+        // Definition der Anzahl der Prozesse
+        int iWorkers = Integer.valueOf(1);
+
+        // Lua-Kontext für die Nutzung von Lua
+        DUUILuaContext ctx = new DUUILuaContext().withJsonLibrary();
+
+        // Instanziierung des Composers, mit einigen Parametern
+        DUUIComposer composer = new DUUIComposer()
+                .withSkipVerification(true)     // wir überspringen die Verifikation aller Componenten =)
+                .withLuaContext(ctx)            // wir setzen den definierten Kontext
+                .withWorkers(iWorkers);         // wir geben dem Composer eine Anzahl an Threads mit.
+
+
+        /**
+         * Definition verschiedener Driver
+         */
+        DUUIRemoteDriver remote_driver = new DUUIRemoteDriver();
+        DUUIDockerDriver docker_driver = new DUUIDockerDriver();
+        DUUISwarmDriver swarm_driver = new DUUISwarmDriver();
+        DUUIUIMADriver uima_driver = new DUUIUIMADriver()
+                .withDebug(true);
+
+        // Hinzufügen der einzelnen Driver zum Composer
+        composer.addDriver(swarm_driver, uima_driver, docker_driver, remote_driver);  // remote_driver und swarm_driver scheint nicht benötigt zu werden.
+
+        // Hinzfügen einer Componente in den Docker-Driver; Skalierung wie im Composer; Achtung: Image ist nur lokal verfügbar, Namensraum beachten!
+        //        composer.add(new DUUIDockerDriver.Component("duui_simple_sentence:0.1").withScale(iWorkers).build());
+
+        // Hierfür wurde anscheinend der Docker Driver hinzugefügt.
+        // Wird zum Attribut _Pipeline des Composers hinzugefügt.
+        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
+                .withImageFetching()
+                .withScale(iWorkers)
+                .build());
+
+        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/flair/pos:latest")
+                .withImageFetching()
+                .withScale(iWorkers)
+                .build());
+
+        // Hinzufügen einer UIMA-Componente zum schreiben der Ergebnisse
+        // (Hierfür wurde anscheinend der UIMA Driver hinzugefügt)
+        // Wird zum Attribut _Pipeline des Composers hinzugefügt.
+        composer.add(new DUUIUIMADriver.Component(createEngineDescription(XmiWriter.class,
+                XmiWriter.PARAM_TARGET_LOCATION, sOutputPath,
+                XmiWriter.PARAM_PRETTY_PRINT, true,
+                XmiWriter.PARAM_OVERWRITE, true,
+                XmiWriter.PARAM_VERSION, "1.1",
+                XmiWriter.PARAM_COMPRESSION, "GZIP"
+        )).build());
+
+        // Starten des Composers mit dem Reader und dem Namen des Jobs
+        composer.run(pCorpusReader, "sentence");
+    }
+
+    @Test
+    public void kubernetesTest() throws Exception {
+        String sInputPath = "/inputpath";
+
+        String sOutputPath = "outputpath";
+        String sSuffix = "xmi.gz";
+
+        // Asynchroner reader für die Input-Dateien
+        AsyncCollectionReader pCorpusReader = new AsyncCollectionReader(sInputPath, sSuffix, 10, false);
+        new File(sOutputPath).mkdir();
+
+        // Definition der Anzahl der Prozesse
+        int iWorkers = Integer.valueOf(10);
+
+        DUUILuaContext ctx = new DUUILuaContext().withJsonLibrary();
+
+        // Instanziierung des Composers, mit einigen Parametern
+        DUUIComposer composer = new DUUIComposer()
+                .withSkipVerification(true)     // wir überspringen die Verifikation aller Componenten =)
+                .withLuaContext(ctx)            // wir setzen den definierten Kontext
+                .withWorkers(iWorkers);         // wir geben dem Composer eine Anzahl an Threads mit.
+
+        DUUIKubernetesDriver kubernetes_driver = new DUUIKubernetesDriver();
+        DUUIUIMADriver uima_driver = new DUUIUIMADriver()
+                .withDebug(true);
+
+        // Hinzufügen der einzelnen Driver zum Composer
+        composer.addDriver(kubernetes_driver, uima_driver);  // remote_driver und swarm_driver scheint nicht benötigt zu werden.
+
+
+        composer.add(new DUUIKubernetesDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
+                .withScale(iWorkers)
+                .withGPU("gpu")  // specify one label. Warogast has the label "gpu".
+                .build());
+
+        composer.add(new DUUIUIMADriver.Component(createEngineDescription(XmiWriter.class,
+                XmiWriter.PARAM_TARGET_LOCATION, sOutputPath,
+                XmiWriter.PARAM_PRETTY_PRINT, true,
+                XmiWriter.PARAM_OVERWRITE, true,
+                XmiWriter.PARAM_VERSION, "1.1",
+                XmiWriter.PARAM_COMPRESSION, "GZIP"
+        )).build());
+
+        composer.run(pCorpusReader, "sentence");
+    }
+
+    @Test
+    public void dockerTest() throws Exception {
+        String sInputPath = "/home/marko/Documents/DUUIInputs";
+
+        String sOutputPath = "/home/marko/Documents/DUUIOutputs/docker";
+        String sSuffix = "xmi.gz";
+
+        // Asynchroner reader für die Input-Dateien
+        AsyncCollectionReader pCorpusReader = new AsyncCollectionReader(sInputPath, sSuffix, 10, false);
+        new File(sOutputPath).mkdir();
+
+        // Definition der Anzahl der Prozesse
+        int iWorkers = Integer.valueOf(1);
+
+        // Lua-Kontext für die Nutzung von Lua
+        DUUILuaContext ctx = new DUUILuaContext().withJsonLibrary();
+
+        // Instanziierung des Composers, mit einigen Parametern
+        DUUIComposer composer = new DUUIComposer()
+                .withSkipVerification(true)     // wir überspringen die Verifikation aller Componenten =)
+                .withLuaContext(ctx)            // wir setzen den definierten Kontext
+                .withWorkers(iWorkers);         // wir geben dem Composer eine Anzahl an Threads mit.
+
+
+        /**
+         * Definition verschiedener Driver
+         */
+        DUUIDockerDriver docker_driver = new DUUIDockerDriver();
+        DUUIUIMADriver uima_driver = new DUUIUIMADriver()
+                .withDebug(true);
+
+        // Hinzufügen der einzelnen Driver zum Composer
+        composer.addDriver(docker_driver, uima_driver);  // remote_driver und swarm_driver scheint nicht benötigt zu werden.
+
+        // Hinzfügen einer Componente in den Docker-Driver; Skalierung wie im Composer; Achtung: Image ist nur lokal verfügbar, Namensraum beachten!
+        //        composer.add(new DUUIDockerDriver.Component("duui_simple_sentence:0.1").withScale(iWorkers).build());
+
+        // Hierfür wurde anscheinend der Docker Driver hinzugefügt.
+        // Wird zum Attribut _Pipeline des Composers hinzugefügt.
+//        composer.add(new DUUIKubernetesDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
+//                .withScale(iWorkers)
+//                .build());
+
+        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
+                .withScale(iWorkers)
+                .withImageFetching()
+                .build());
+
+        // Hinzufügen einer UIMA-Componente zum schreiben der Ergebnisse
+        // (Hierfür wurde anscheinend der UIMA Driver hinzugefügt)
+        // Wird zum Attribut _Pipeline des Composers hinzugefügt.
+
+        composer.add(new DUUIUIMADriver.Component(createEngineDescription(XmiWriter.class,
+                XmiWriter.PARAM_TARGET_LOCATION, sOutputPath,
+                XmiWriter.PARAM_PRETTY_PRINT, true,
+                XmiWriter.PARAM_OVERWRITE, true,
+                XmiWriter.PARAM_VERSION, "1.1",
+                XmiWriter.PARAM_COMPRESSION, "GZIP"
+        )).build());
+
+
+
+        // Starten des Composers mit dem Reader und dem Namen des Jobs
+        composer.run(pCorpusReader, "sentence");
+    }
+
+    @Test
+    public void testEqual() throws IOException, UIMAException {
+        String pathAlpha = "/home/stud_homes/s6185038/Documents/DockerOutput";
+        String pathBeta = "/home/stud_homes/s6185038/Documents/DockerOutput2";
+
+        Set<File> fSetAlpha = FileUtils.getFiles(pathAlpha, "xmi.gz");
+        Set<File> fSetBeta = FileUtils.getFiles(pathBeta, "xmi.gz");
+
+        assertEquals(fSetAlpha.size(), fSetBeta.size());
+
+        JCas casAlpha = JCasFactory.createJCas();
+        JCas casBeta = JCasFactory.createJCas();
+
+        fSetAlpha.forEach(f->{
+            casAlpha.reset();
+            casBeta.reset();
+
+            fSetBeta.stream().filter(fBeta->{
+                return fBeta.getName().equals(f.getName());
+            }).forEach(fBeta->{
+                try {
+                    CasIOUtils.load(new FileInputStream(f), casAlpha.getCas());
+                    CasIOUtils.load(new FileInputStream(fBeta), casBeta.getCas());
+
+                    int alphaCount = JCasUtil.selectAll(casAlpha).size();
+                    int betaCount = JCasUtil.selectAll(casBeta).size();
+
+                    assertEquals(alphaCount, betaCount);
+                } catch (FileNotFoundException e) {
+                    throw new RuntimeException(e);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            });
+
+        });
+
+
+    }
+
 
 }
