@@ -125,6 +125,12 @@ public class DUUIPostgresSQLStorageBackend implements IDUUIStorageBackend {
         System.out.printf("[DUUIArangoDBStorageBackend] To inspect the metrics visit ArangoDB at %s\n",generateURL());
     }
 
+    @Override
+    public boolean shouldTrackErrorDocs() {
+        System.err.println("WARNING: Postgres storage backend does not support error document tracking!");
+        return false;
+    }
+
     public void addNewRun(String name, DUUIComposer composer) throws SQLException {
     }
 

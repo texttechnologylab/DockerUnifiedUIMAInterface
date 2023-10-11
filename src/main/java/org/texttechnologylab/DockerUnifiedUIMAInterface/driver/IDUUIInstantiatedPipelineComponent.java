@@ -2,13 +2,10 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface.driver;
 
 
 import org.apache.commons.compress.compressors.CompressorException;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.uima.cas.CASException;
-import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.fit.factory.TypeSystemDescriptionFactory;
-import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
-import org.apache.uima.jcas.cas.AnnotationBase_Type;
-import org.apache.uima.jcas.cas.TOP;
 import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.javatuples.Triplet;
@@ -21,7 +18,6 @@ import org.texttechnologylab.duui.ReproducibleAnnotation;
 import org.xml.sax.SAXException;
 
 import java.io.*;
-import java.lang.annotation.Annotation;
 import java.net.ProxySelector;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -158,6 +154,12 @@ public interface IDUUIInstantiatedPipelineComponent {
             }
             catch(Exception e) {
                 System.err.printf("Caught exception printing response %s\n",new String(resp.body(), StandardCharsets.UTF_8));
+
+                // TODO better error handleing flow?
+                comp.addComponent(queue.getValue0());
+
+                // TODO handle error docs for db here too?
+
                 throw e;
             }
             long deserializeEnd = System.nanoTime();
@@ -168,7 +170,7 @@ public interface IDUUIInstantiatedPipelineComponent {
             ann.setTimestamp(System.nanoTime());
             ann.setPipelineName(perf.getRunKey());
             ann.addToIndexes();
-            perf.addData(serializeEnd-serializeStart,deserializeEnd-deserializeStart,annotatorEnd-annotatorStart,queue.getValue2()-queue.getValue1(),deserializeEnd-queue.getValue1(), String.valueOf(comp.getPipelineComponent().getFinalizedRepresentationHash()), sizeArray, jc);
+            perf.addData(serializeEnd-serializeStart,deserializeEnd-deserializeStart,annotatorEnd-annotatorStart,queue.getValue2()-queue.getValue1(),deserializeEnd-queue.getValue1(), String.valueOf(comp.getPipelineComponent().getFinalizedRepresentationHash()), sizeArray, jc, null);
 
             comp.addComponent(queue.getValue0());
         } else {
@@ -176,7 +178,23 @@ public interface IDUUIInstantiatedPipelineComponent {
             ByteArrayInputStream st = new ByteArrayInputStream(resp.body());
             String responseBody = new String(st.readAllBytes(), StandardCharsets.UTF_8);
             st.close();
-            throw new InvalidObjectException(String.format("Expected response 200, got %d: %s", resp.statusCode(), responseBody));
+
+            // track "performance" of error documents if not explicitly disabled
+            if (perf.shouldTrackErrorDocs()) {
+                long annotatorEnd = System.nanoTime();
+                long deserializeStart = annotatorEnd;
+                long deserializeEnd = System.nanoTime();
+
+                String error = "Expected response 200, got " + resp.statusCode() + ": " + responseBody;
+
+                perf.addData(serializeEnd - serializeStart, deserializeEnd - deserializeStart, annotatorEnd - annotatorStart, queue.getValue2() - queue.getValue1(), deserializeEnd - queue.getValue1(), String.valueOf(comp.getPipelineComponent().getFinalizedRepresentationHash()), sizeArray, jc, error);
+            }
+
+            if (!pipelineComponent.getIgnoringHTTP200Error()) {
+                throw new InvalidObjectException(String.format("Expected response 200, got %d: %s", resp.statusCode(), responseBody));
+            } else {
+                System.err.println(String.format("Expected response 200, got %d: %s", resp.statusCode(), responseBody));
+            }
         }
     }
 
@@ -232,6 +250,8 @@ public interface IDUUIInstantiatedPipelineComponent {
         IDUUIConnectionHandler handler = accessible.getHandler();
 
         if (handler.getClass() == DUUIWebsocketAlt.class){
+            String error = null;
+
             JCas finalViewJc = viewJc;
 
             List<ByteArrayInputStream> results = handler.send(ok);
@@ -253,6 +273,9 @@ public interface IDUUIInstantiatedPipelineComponent {
             catch(Exception e) {
                 e.printStackTrace();
                 System.err.printf("Caught exception printing response %s\n",new String(result.readAllBytes(), StandardCharsets.UTF_8));
+
+                // TODO more error handling needed?
+                error = ExceptionUtils.getStackTrace(e);
             }
 
             long deserializeEnd = System.nanoTime();
@@ -265,7 +288,7 @@ public interface IDUUIInstantiatedPipelineComponent {
             ann.setTimestamp(System.nanoTime());
             ann.setPipelineName(perf.getRunKey());
             ann.addToIndexes();
-            perf.addData(serializeEnd-serializeStart,deserializeEnd-deserializeStart,annotatorEnd-annotatorStart,queue.getValue2()-queue.getValue1(),deserializeEnd-queue.getValue1(), String.valueOf(comp.getPipelineComponent().getFinalizedRepresentationHash()), sizeArray, jc);
+            perf.addData(serializeEnd-serializeStart,deserializeEnd-deserializeStart,annotatorEnd-annotatorStart,queue.getValue2()-queue.getValue1(),deserializeEnd-queue.getValue1(), String.valueOf(comp.getPipelineComponent().getFinalizedRepresentationHash()), sizeArray, jc, error);
             comp.addComponent(accessible);
         }
     }

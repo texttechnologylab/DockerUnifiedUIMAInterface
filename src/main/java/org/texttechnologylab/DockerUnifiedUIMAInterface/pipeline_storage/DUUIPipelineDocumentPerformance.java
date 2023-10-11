@@ -1,6 +1,7 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage;
 
 import com.arangodb.entity.BaseDocument;
+import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import org.apache.uima.jcas.JCas;
 
 import java.util.HashMap;
@@ -17,8 +18,16 @@ public class DUUIPipelineDocumentPerformance {
     private Long _durationTotal;
     private Integer _documentSize;
     private Long _documentWaitTime;
+    private String document;
 
-    public DUUIPipelineDocumentPerformance(String runKey, long waitDocumentTime, JCas jc) {
+    /**
+     * Whether to track error documents in the database or not
+     */
+    private final boolean trackErrorDocs;
+
+    public DUUIPipelineDocumentPerformance(String runKey, long waitDocumentTime, JCas jc, boolean trackErrorDocs) {
+        this.trackErrorDocs = trackErrorDocs;
+
         _points = new Vector<>();
         _runKey = runKey;
 
@@ -35,6 +44,28 @@ public class DUUIPipelineDocumentPerformance {
             _documentSize = -1;
         }
 
+        try {
+            DocumentMetaData meta = DocumentMetaData.get(jc);
+            document = meta.getDocumentUri();
+            if (document == null) {
+                document = meta.getDocumentId();
+            }
+            if (document == null) {
+                document = meta.getDocumentTitle();
+            }
+        }
+        catch (Exception e){
+            document = null;
+        }
+
+    }
+
+    /**
+     * Whether to track error documents in the database or not
+     * @return true if error documents should be tracked, false otherwise
+     */
+    public boolean shouldTrackErrorDocs() {
+        return trackErrorDocs;
     }
 
     public String getRunKey() {
@@ -45,13 +76,13 @@ public class DUUIPipelineDocumentPerformance {
         return _points;
     }
 
-    public void addData(long durationSerialize, long durationDeserialize, long durationAnnotator, long durationMutexWait, long durationComponentTotal, String componentKey, long serializeSize, JCas jc) {
+    public void addData(long durationSerialize, long durationDeserialize, long durationAnnotator, long durationMutexWait, long durationComponentTotal, String componentKey, long serializeSize, JCas jc, String error) {
         _durationTotalDeserialize += durationDeserialize;
         _durationTotalSerialize += durationSerialize;
         _durationTotalAnnotator += durationAnnotator;
         _durationTotalMutexWait += durationMutexWait;
         _durationTotal += durationComponentTotal;
-        _points.add(new DUUIPipelinePerformancePoint(durationSerialize,durationDeserialize,durationAnnotator,durationMutexWait,durationComponentTotal,componentKey,serializeSize, jc));
+        _points.add(new DUUIPipelinePerformancePoint(durationSerialize,durationDeserialize,durationAnnotator,durationMutexWait,durationComponentTotal,componentKey,serializeSize, jc, error, document));
     }
 
     public long getDocumentWaitTime() {
@@ -95,5 +126,9 @@ public class DUUIPipelineDocumentPerformance {
         props.put("docsize",_documentSize);
         doc.setProperties(props);
         return doc;
+    }
+
+    public String getDocument() {
+        return document;
     }
 }

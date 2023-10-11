@@ -6,9 +6,11 @@ import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.commons.compress.compressors.CompressorStreamFactory;
 import org.apache.commons.io.FileUtils;
 import org.apache.uima.cas.impl.XmiCasDeserializer;
+import org.apache.uima.cas.impl.XmiSerializationSharedData;
 import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.javaync.io.AsyncFiles;
+import org.texttechnologylab.annotation.SharedData;
 import org.texttechnologylab.utilities.helper.StringUtils;
 import org.xml.sax.SAXException;
 
@@ -16,9 +18,7 @@ import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Random;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -48,6 +48,7 @@ public class AsyncCollectionReader {
     private ConcurrentLinkedQueue<String> _filePaths;
     private ConcurrentLinkedQueue<String> _filePathsBackup;
     private ConcurrentLinkedQueue<ByteReadFuture> _loadedFiles;
+
     private int _initialSize;
     private AtomicInteger _docNumber;
     private long _maxMemory;
@@ -60,6 +61,11 @@ public class AsyncCollectionReader {
     private ProgressMeter progress = null;
 
     private int debugCount = 25;
+
+    /**
+     * If a target location is specified, documents in the source directory that already exist in the target are skipped automatically
+     */
+    private String targetLocation = null;
 
     public AsyncCollectionReader(String folder, String ending) {
         this(folder, ending, 25, -1, false, "", false, null);
@@ -89,8 +95,57 @@ public class AsyncCollectionReader {
         this(folder, ending, debugCount, iRandom, bSort, savePath, bAddMetadata, null);
     }
 
-    public AsyncCollectionReader(String folder, String ending, int debugCount, int iRandom, boolean bSort, String savePath, boolean bAddMetadata, String language) {
+    public enum DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE {
+        RANDOM,
+        SMALLEST,
+        LARGEST
+    }
 
+    private static int getRandomFromMode(DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE sampleMode, int sampleSize) {
+        if (sampleMode == DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE.SMALLEST) {
+            return sampleSize * -1;
+        }
+        return sampleSize;
+    }
+
+    private static boolean getSortFromMode(DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE mode) {
+        if (mode == DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE.RANDOM) {
+            return false;
+        }
+        return true;
+    }
+
+    public AsyncCollectionReader(String folder, String ending, int debugCount, int sampleSize, DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE sampleMode, String savePath, boolean bAddMetadata, String language) {
+        this(folder, ending, debugCount, getRandomFromMode(sampleMode, sampleSize), getSortFromMode(sampleMode), savePath, bAddMetadata, language);
+    }
+
+    public AsyncCollectionReader(String folder, String ending, int debugCount, int sampleSize, DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE sampleMode, String savePath, boolean bAddMetadata, String language, int skipSmallerFiles) {
+        this(folder, ending, debugCount, getRandomFromMode(sampleMode, sampleSize), getSortFromMode(sampleMode), savePath, bAddMetadata, language, skipSmallerFiles, null, "");
+    }
+
+    public AsyncCollectionReader(String folder, String ending, int debugCount, int iRandom, boolean bSort, String savePath, boolean bAddMetadata, String language) {
+        this(folder, ending, debugCount, iRandom, bSort, savePath, bAddMetadata, language, 0, null, "");
+    }
+
+    public AsyncCollectionReader(String folder, String ending, int debugCount, int iRandom, boolean bSort, String savePath, boolean bAddMetadata, String language, String targetLocation, String targetEnding) {
+            this(folder, ending, debugCount, iRandom, bSort, savePath, bAddMetadata, language, 0, targetLocation, targetEnding);
+    }
+
+    /***
+     * Constructor for the AsyncCollectionReader
+     * @param folder Input folder
+     * @param ending File ending
+     * @param debugCount Number of documents to print out
+     * @param iRandom Number of documents to select either randomly of from beginning or end depending on whether bSort is true or false
+     * @param bSort Sort the documents by size from largest to smallest, if true and iRandom is not 0, the first (= largest) iRandom documents are selected, if iRandom is negative, the last (= smallest) iRandom documents are selected
+     * @param savePath Path to a file where the paths of the selected documents are saved and loaded from, if the file exists
+     * @param bAddMetadata Add metadata to the documents
+     * @param language Add language to the documents
+     * @param skipSmallerFiles Skip files smaller than this value in bytes
+     * @param targetLocation If a target location is specified, documents in the source directory that already exist in the target are skipped automatically
+     */
+    public AsyncCollectionReader(String folder, String ending, int debugCount, int iRandom, boolean bSort, String savePath, boolean bAddMetadata, String language, int skipSmallerFiles, String targetLocation, String targetEnding) {
+        this.targetLocation = targetLocation;
         _addMetadata = bAddMetadata;
         _language = language;
         _filePaths = new ConcurrentLinkedQueue<>();
@@ -122,12 +177,20 @@ public class AsyncCollectionReader {
 
             _path = folder;
             addFilesToConcurrentList(fl, ending, _filePaths);
+
+            if (skipSmallerFiles > 0) {
+                _filePaths = skipBySize(_filePaths, skipSmallerFiles);
+            }
         }
         if(bSort) {
             _filePaths = sortBySize(_filePaths);
         }
 
-        if(iRandom>0){
+        if (bSort && iRandom != 0) {
+            System.out.println("Sorting and Random Selection is active, using the " + (iRandom > 0 ? "largest " : "smallest ") + Math.abs(iRandom) + " documents.");
+            _filePaths = takeFirstOrLast(_filePaths, iRandom);
+        }
+        else if(iRandom>0){
             _filePaths = random(_filePaths, iRandom);
         }
 
@@ -148,6 +211,12 @@ public class AsyncCollectionReader {
                     e.printStackTrace();
                 }
             }
+        }
+
+        // remove files that are already in the target location
+        // NOTE we do this after saving the file list, as we do not want to change anything but only avoid processing files multiple times
+        if (this.targetLocation != null) {
+            _filePaths = removeIfInTarget(_filePaths, this.targetLocation, targetEnding, this._path, ending);
         }
 
         _filePathsBackup.addAll(_filePaths);
@@ -207,6 +276,18 @@ public class AsyncCollectionReader {
         return val;
     }
 
+    public static XmiSerializationSharedData deserialize(JCas pCas){
+
+        XmiSerializationSharedData sharedData = null;
+        SharedData result = JCasUtil.selectSingle(pCas, SharedData.class);
+
+        if(result != null) {
+            sharedData = XmiSerializationSharedData.deserialize(result.getValue());
+        }
+        return sharedData;
+
+    }
+
     public boolean getNextCAS(JCas empty) throws IOException, CompressorException, SAXException {
         ByteReadFuture future = _loadedFiles.poll();
 
@@ -247,23 +328,24 @@ public class AsyncCollectionReader {
         if(result.endsWith(".xz")) {
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.XZ,new ByteArrayInputStream(file));
-        }
-        else if(result.endsWith(".gz")) {
+        } else if (result.endsWith(".gz")) {
             ByteArrayOutputStream out = new ByteArrayOutputStream();
-            decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.GZIP,new ByteArrayInputStream(file));
-        }
-        else {
+            decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.GZIP, new ByteArrayInputStream(file));
+        } else {
             decodedFile = new ByteArrayInputStream(file);
         }
 
-        try {
-            XmiCasDeserializer.deserialize(decodedFile, empty.getCas(), true);
-        }
-        catch (Exception e){
-            empty.setDocumentText(StringUtils.getContent(new File(result)));
-        }
+        XmiCasDeserializer.deserialize(decodedFile, empty.getCas());
 
-        if(_addMetadata) {
+//        try {
+//            XmiSerializationSharedData sharedData = deserialize(empty.getCas().getJCas());
+//            XmiCasDeserializer.deserialize(decodedFile, empty.getCas(), true, sharedData);
+//        }
+//        catch (Exception e){
+//            empty.setDocumentText(StringUtils.getContent(new File(result)));
+//        }
+
+        if (_addMetadata) {
             if (JCasUtil.select(empty, DocumentMetaData.class).size() == 0) {
                 DocumentMetaData dmd = DocumentMetaData.create(empty);
                 File pFile = new File(result);
@@ -310,6 +392,29 @@ public class AsyncCollectionReader {
 
     }
 
+    /**
+     * Skips files smaller than skipSmallerFiles
+     * @param paths paths to files
+     * @param skipSmallerFiles skip files smaller than this value in bytes
+     * @return filtered paths to files
+     */
+    public static ConcurrentLinkedQueue<String> skipBySize(ConcurrentLinkedQueue<String> paths, int skipSmallerFiles) {
+        ConcurrentLinkedQueue<String> rQueue = new ConcurrentLinkedQueue<>();
+
+        System.out.println("Skip files smaller than " + skipSmallerFiles + " bytes");
+        System.out.println("  Number of files before skipping: " + paths.size());
+
+        rQueue.addAll(paths
+                        .stream()
+                        .filter(s -> new File(s).length() >= skipSmallerFiles)
+                        .collect(Collectors.toList())
+        );
+
+        System.out.println("  Number of files after skipping: " + rQueue.size());
+
+        return rQueue;
+    }
+
     public static ConcurrentLinkedQueue<String> random(ConcurrentLinkedQueue<String> paths, int iRandom){
 
         ConcurrentLinkedQueue<String> rQueue = new ConcurrentLinkedQueue<String>();
@@ -332,6 +437,86 @@ public class AsyncCollectionReader {
 
         return rQueue;
 
+    }
+
+    /***
+     * Takes the first n or last n elements of the queue
+     * @param paths List of paths
+     * @param n Number of elements to take, if n is positive, the first n elements are taken, if n is negative, the last n elements are taken, if n is 0, an IllegalArgumentException is thrown
+     * @return A new queue with the first or last n elements
+     */
+    public static ConcurrentLinkedQueue<String> takeFirstOrLast(ConcurrentLinkedQueue<String> paths, int n){
+        ConcurrentLinkedQueue<String> rQueue = new ConcurrentLinkedQueue<>();
+        ArrayList<String> sList = new ArrayList<>(paths);
+
+        System.out.println("Take first or last " + n + " files");
+        System.out.println("  Number of files before taking: " + paths.size());
+
+        if(n > 0){
+            rQueue.addAll(sList.subList(0, n));
+        }
+        else if (n < 0){
+            // NOTE using "+n" because the value is already negative
+            rQueue.addAll(sList.subList(sList.size()+n, sList.size()));
+        }
+        else {
+            throw new IllegalArgumentException("n must not be 0");
+        }
+
+        return rQueue;
+    }
+
+    /***
+     * Removes files that are present in the target location
+     * @param paths List of paths
+     * @param targetLocation Target location where to check for files
+     * @return A new queue without files that are present in the target location
+     */
+    public static ConcurrentLinkedQueue<String> removeIfInTarget(ConcurrentLinkedQueue<String> paths, String targetLocation, String targetEnding, String sourceLocation, String sourceEnding){
+        System.out.println("Chacking target location for files: " + targetLocation);
+        ConcurrentLinkedQueue<String> targetFilePaths = new ConcurrentLinkedQueue<>();
+        File targetDir = new File(targetLocation);
+        if (!targetDir.exists()) {
+            // This might not be an error, e.g. if it is the first run
+            System.err.println("The targetLocation " + targetFilePaths + " does not exist! Continuing without removing files from target location.");
+        }
+        else if (targetDir.exists() && !targetDir.isDirectory()) {
+            throw new RuntimeException("The targetLocation " + targetFilePaths + " is not a directory!");
+        }
+        else {
+            addFilesToConcurrentList(targetDir, targetEnding, targetFilePaths);
+        }
+        System.out.println("Found " + targetFilePaths.size() + " files in target location");
+
+        List<String> cleanList = new ArrayList<>();
+        if (!targetFilePaths.isEmpty()) {
+            System.out.println("Checking against " + targetFilePaths.size() + " files in target location");
+            Set<String> existingFiles = targetFilePaths.stream()
+                    .map(Paths::get)
+                    .filter(Files::isRegularFile)
+                    .map(f -> targetDir.toPath().relativize(f).toString())
+                    .map(f -> f.replaceAll(targetEnding, ""))
+                    .map(f -> f.replaceAll(sourceEnding, ""))
+                    .collect(Collectors.toSet());
+
+            Path sourceDir = Paths.get(sourceLocation);
+            for (String f : paths) {
+                Path p = Paths.get(f);
+                String fn = sourceDir.relativize(p).toString();
+                fn = fn.replaceAll(sourceEnding, "");
+                boolean found = existingFiles.contains(fn);
+                if (!found) {
+                    cleanList.add(f);
+                }
+            }
+        }
+        else {
+            System.out.println("No files in target location found, keeping all files from source location");
+            cleanList.addAll(paths);
+        }
+        System.out.println("Removed " + (paths.size() - cleanList.size()) + " files from source location that are already present in target location, keeping " + cleanList.size() + " files");
+
+        return new ConcurrentLinkedQueue<>(cleanList);
     }
 
     public static String getSize(String sPath){

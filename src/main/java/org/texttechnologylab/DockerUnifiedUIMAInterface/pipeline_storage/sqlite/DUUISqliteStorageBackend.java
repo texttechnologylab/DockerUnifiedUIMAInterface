@@ -20,7 +20,27 @@ public class DUUISqliteStorageBackend implements IDUUIStorageBackend {
     private ConcurrentLinkedQueue<Connection> _client;
     private String _sqliteUrl;
 
-    public DUUISqliteStorageBackend(String sqliteurl) throws IOException, SQLException, InterruptedException {
+    /**
+     * Whether to track error documents in the database or not
+     */
+    private final boolean trackErrorDocs;
+
+    /**
+     * Should error documents be tracked in the database?
+     * @return true if error documents should be tracked, false otherwise
+     */
+    @Override
+    public boolean shouldTrackErrorDocs() {
+        return trackErrorDocs;
+    }
+
+    public DUUISqliteStorageBackend(String sqliteurl) throws SQLException, IOException, InterruptedException {
+        this(sqliteurl, true);
+    }
+
+    public DUUISqliteStorageBackend(String sqliteurl, boolean trackErrorDocs) throws IOException, SQLException, InterruptedException {
+        this.trackErrorDocs = trackErrorDocs;
+
         _client = null;
         _sqliteUrl = "jdbc:sqlite:"+sqliteurl;
 
@@ -37,12 +57,14 @@ public class DUUISqliteStorageBackend implements IDUUIStorageBackend {
         stmt.execute("CREATE TABLE IF NOT EXISTS pipeline(name TEXT PRIMARY KEY, workers INT)");
         stmt.execute("CREATE TABLE IF NOT EXISTS pipeline_perf(name TEXT, startTime INT, endTime INT)");
         stmt.execute("CREATE TABLE IF NOT EXISTS pipeline_component(hash INT, name TEXT, description TEXT)");
-        stmt.execute("CREATE TABLE IF NOT EXISTS pipeline_document(documentSize INT, waitTime INT, totalTime INT)");
+        stmt.execute("CREATE TABLE IF NOT EXISTS pipeline_document(documentSize INT, waitTime INT, totalTime INT, document TEXT)");
         stmt.execute("CREATE TABLE IF NOT EXISTS pipeline_document_perf(pipelinename TEXT, componenthash INT, durationSerialize INT,\n" +
                 "durationDeserialize INT," +
                 "durationAnnotator INT," +
                 "durationMutexWait INT," +
-                "durationComponentTotal INT,totalAnnotations INT, documentSize INT, serializedSize INT)");
+                "durationComponentTotal INT,totalAnnotations INT, documentSize INT, serializedSize INT," +
+                "error TEXT," +
+                "document TEXT)");
 
 
         _client.add(conn);
@@ -93,8 +115,11 @@ public class DUUISqliteStorageBackend implements IDUUIStorageBackend {
         for(DUUIPipelineComponent comp : composer.getPipeline()) {
             String value = comp.toJson();
 
+            // Note switched from "value.hashCode()" to the "finalized" hash to be able to match the value to table "pipeline_document_perf"
+            long hash = comp.getFinalizedRepresentationHash();
+
             PreparedStatement stmt2 = conn.prepareStatement("INSERT INTO pipeline_component (hash,name,description) VALUES (?,?,?)");
-            stmt2.setLong(1,value.hashCode());
+            stmt2.setLong(1,hash);
             stmt2.setString(2,name);
             stmt2.setString(3,value);
             stmt2.executeUpdate();
@@ -110,10 +135,11 @@ public class DUUISqliteStorageBackend implements IDUUIStorageBackend {
         }
         try {
             PreparedStatement stmt = null;
-            stmt = conn.prepareStatement("INSERT INTO pipeline_document(documentSize, waitTime, totalTime) VALUES (?,?,?)");
+            stmt = conn.prepareStatement("INSERT INTO pipeline_document(documentSize, waitTime, totalTime, document) VALUES (?,?,?,?)");
             stmt.setLong(1, perf.getDocumentSize());
             stmt.setLong(2, perf.getDocumentWaitTime());
             stmt.setLong(3, perf.getTotalTime());
+            stmt.setString(4,perf.getDocument());
             stmt.executeUpdate();
         }
         catch(SQLException e) {
@@ -123,7 +149,7 @@ public class DUUISqliteStorageBackend implements IDUUIStorageBackend {
         for(DUUIPipelinePerformancePoint points : perf.getPerformancePoints()) {
             PreparedStatement stmt2 = null;
             try {
-                stmt2 = conn.prepareStatement("INSERT INTO pipeline_document_perf(pipelinename,componenthash,durationSerialize,durationDeserialize,durationAnnotator,durationMutexWait,durationComponentTotal,totalAnnotations, documentSize, serializedSize) VALUES (?,?,?,?,?,?,?,?,?,?)");
+                stmt2 = conn.prepareStatement("INSERT INTO pipeline_document_perf(pipelinename,componenthash,durationSerialize,durationDeserialize,durationAnnotator,durationMutexWait,durationComponentTotal,totalAnnotations, documentSize, serializedSize, error,document) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)");
 
                 stmt2.setString(1,perf.getRunKey());
                 stmt2.setLong(2,Long.parseLong(points.getKey()));
@@ -135,6 +161,8 @@ public class DUUISqliteStorageBackend implements IDUUIStorageBackend {
                 stmt2.setLong(8,points.getNumberOfAnnotations());
                 stmt2.setLong(9,points.getDocumentSize());
                 stmt2.setLong(10,points.getSerializedSize());
+                stmt2.setString(11,points.getError());
+                stmt2.setString(12,points.getDocument());
                 stmt2.executeUpdate();
             } catch (SQLException e) {
                 e.printStackTrace();

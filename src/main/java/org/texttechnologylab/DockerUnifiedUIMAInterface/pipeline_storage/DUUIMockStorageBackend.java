@@ -53,4 +53,10 @@ public class DUUIMockStorageBackend implements IDUUIStorageBackend {
     public void shutdown() throws UnknownHostException {
 
     }
+
+    @Override
+    public boolean shouldTrackErrorDocs() {
+        System.err.println("WARNING: Mock storage backend does not support error document tracking!");
+        return false;
+    }
 }
