@@ -443,6 +443,7 @@ public class DUUIComposer {
                 throw new InvalidParameterException(format("[DUUIComposer] The driver %s cannot accept %s as input!", object.getDriver(), object.getClass().getCanonicalName()));
             }
         }
+
         System.out.println("[DUUIComposer] Compressing and finalizing pipeline component...");
         object.finalizeComponent();
         _pipeline.add(object);
@@ -547,6 +548,7 @@ public class DUUIComposer {
                 if(breakit) break;
             }
 
+            // Wartet, bis die Dokumente fertig verarbeitet wurden.
             while(emptyCasDocuments.size() != _cas_poolsize && !collectionReader.isEmpty()) {
                 System.out.println("[Composer] Waiting for threads to finish document processing...");
                 Thread.sleep(1000*_workers); // to fast or in relation with threads?
