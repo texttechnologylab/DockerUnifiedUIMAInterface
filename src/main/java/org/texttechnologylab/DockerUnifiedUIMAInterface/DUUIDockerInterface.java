@@ -9,10 +9,12 @@ import com.github.dockerjava.api.exception.NotModifiedException;
 import com.github.dockerjava.api.model.*;
 import com.github.dockerjava.core.DockerClientBuilder;
 import com.github.dockerjava.core.command.LogContainerResultCallback;
+import com.github.dockerjava.httpclient5.ApacheDockerHttpClient;
 import com.google.common.collect.ImmutableList;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URI;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.InvalidParameterException;
@@ -146,11 +148,23 @@ public class DUUIDockerInterface {
 
     /**
      * Creates a default object which connects to the local docker daemon, may need admin rights depending on the docker installation
+     * Depending on the Operating System a different connection URI is used to build the DockerClient. On Windows the npipe protocol
+     * is required to establish a connection with the docker daemon.
      *
      * @throws IOException
      */
     public DUUIDockerInterface() throws IOException {
-        _docker = DockerClientBuilder.getInstance().build();
+        URI dockerClientURI;
+        if (System.getProperty("os.name").toLowerCase().contains("windows")) {
+            dockerClientURI = URI.create("npipe:////./pipe/docker_engine");
+        } else {
+            dockerClientURI = URI.create("tcp://localhost:2375");
+        }
+
+        _docker = DockerClientBuilder.getInstance()
+                .withDockerHttpClient(new ApacheDockerHttpClient.Builder()
+                        .dockerHost(dockerClientURI).build()).build();
+
 
 //        DockerClientConfig config = DefaultDockerClientConfig.createDefaultConfigBuilder().withDockerHost("tcp://localhost:2375").build();
 //        _docker = DockerClientBuilder.getInstance(config).build();
@@ -198,6 +212,16 @@ public class DUUIDockerInterface {
         }
 
         return innerport;
+    }
+
+    public int extract_service_port_mapping(String service) throws InterruptedException {
+        Thread.sleep(1000);
+        Service cmd = _docker.inspectServiceCmd(service).exec();
+        Endpoint end = cmd.getEndpoint();
+        for (PortConfig p : end.getPorts()) {
+            return p.getPublishedPort();
+        }
+        return -1;
     }
 
     /**
@@ -357,16 +381,6 @@ public class DUUIDockerInterface {
 
         CreateServiceResponse cmd = _docker.createServiceCmd(spec).exec();
         return cmd.getId();
-    }
-
-    public int extract_service_port_mapping(String service) throws InterruptedException {
-        Thread.sleep(1000);
-        Service cmd = _docker.inspectServiceCmd(service).exec();
-        Endpoint end = cmd.getEndpoint();
-        for (PortConfig p : end.getPorts()) {
-            return p.getPublishedPort();
-        }
-        return -1;
     }
 
     public boolean hasLocalImage(String imageName) {

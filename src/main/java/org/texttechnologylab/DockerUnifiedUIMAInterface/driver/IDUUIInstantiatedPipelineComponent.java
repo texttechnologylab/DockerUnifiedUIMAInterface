@@ -29,6 +29,9 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 
+import static org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIKubernetesDriver.deleteDeployment;
+import static org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIKubernetesDriver.deleteService;
+
 public interface IDUUIInstantiatedPipelineComponent {
     public static HttpClient _client = HttpClient.newBuilder()
             .version(HttpClient.Version.HTTP_1_1)
