@@ -2,11 +2,14 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage;
 
 import com.arangodb.entity.BaseDocument;
 import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
+import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
+import org.apache.uima.jcas.tcas.Annotation;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Vector;
+
 
 public class DUUIPipelineDocumentPerformance {
     private Vector<DUUIPipelinePerformancePoint> _points;
@@ -19,6 +22,11 @@ public class DUUIPipelineDocumentPerformance {
     private Integer _documentSize;
     private Long _documentWaitTime;
     private String document;
+
+    /**
+     * Stores the types of annotations and how many were made.
+     */
+    private Map<String, Integer> annotationTypesCount;
 
     /**
      * Whether to track error documents in the database or not
@@ -57,7 +65,7 @@ public class DUUIPipelineDocumentPerformance {
         catch (Exception e){
             document = null;
         }
-
+        annotationTypesCount = new HashMap<>();
     }
 
     /**
@@ -82,6 +90,14 @@ public class DUUIPipelineDocumentPerformance {
         _durationTotalAnnotator += durationAnnotator;
         _durationTotalMutexWait += durationMutexWait;
         _durationTotal += durationComponentTotal;
+
+        for (Annotation annotation : jc.getAnnotationIndex()) {
+            annotationTypesCount.put(
+                    annotation.getClass().getCanonicalName(),
+                    JCasUtil.select(jc, annotation.getClass()).size()
+            );
+        }
+
         _points.add(new DUUIPipelinePerformancePoint(durationSerialize,durationDeserialize,durationAnnotator,durationMutexWait,durationComponentTotal,componentKey,serializeSize, jc, error, document));
     }
 
@@ -130,5 +146,9 @@ public class DUUIPipelineDocumentPerformance {
 
     public String getDocument() {
         return document;
+    }
+
+    public Map<String, Integer> getAnnotationTypesCount() {
+        return annotationTypesCount;
     }
 }
