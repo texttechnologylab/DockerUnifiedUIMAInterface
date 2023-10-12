@@ -1,7 +1,7 @@
 [![](https://jitpack.io/v/texttechnologylab/DockerUnifiedUIMAInterface.svg)](https://jitpack.io/#texttechnologylab/DockerUnifiedUIMAInterface)
 [![version](https://img.shields.io/github/license/texttechnologylab/DockerUnifiedUIMAInterface)]()
 [![latest](https://img.shields.io/github/v/release/texttechnologylab/DockerUnifiedUIMAInterface)]()
-[![Conference](http://img.shields.io/badge/conference-Findings-emnlp--2023-4b44ce.svg)]([https://lrec2022.lrec-conf.org/](https://2023.emnlp.org/))
+[![Conference](http://img.shields.io/badge/conference-FindingsEMNLP--2023-4b44ce.svg)]([https://lrec2022.lrec-conf.org/](https://2023.emnlp.org/))
 
 # DockerUnifiedUIMAInterface (DUUI)
 Automatic analysis of large text corpora is a complex task. This complexity particularly concerns the question of time efficiency. Furthermore, efficient, flexible, and extensible textanalysis requires the continuous integration of every new text analysis tools. Since there are currently, in the area of NLP and especially in the application context of UIMA, only very few to no adequate frameworks for these purposes, which are not simultaneously outdated or can no longer be used for security reasons, this work will present a new approach to fill this gap. To this end, we present Docker Unified UIMA Interface (DUUI), a scalable, flexible, lightweight, and featurerich framework for automated and distributed analysis of text corpora that leverages experience in Big Data analytics and virtualization with Docker.
