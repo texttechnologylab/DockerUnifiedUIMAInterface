@@ -12,7 +12,7 @@ Using DUUI, NLP preprocessing on texts can be performed using the following feat
 * Capturing heterogeneous implementation landscapes
 * Reproducible & reusable annotations
 * Monitoring and error-reporting
-* Easy to use
+* Lightweight usability
 
 ## Functions
 DUUI has different components which are distinguished into Drivers and Components. 
