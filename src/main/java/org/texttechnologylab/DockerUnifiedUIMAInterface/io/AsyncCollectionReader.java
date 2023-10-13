@@ -9,6 +9,7 @@ import org.apache.uima.cas.impl.XmiCasDeserializer;
 import org.apache.uima.cas.impl.XmiSerializationSharedData;
 import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
+import org.javaync.io.AsyncFiles;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.data_reader.DUUIInputStream;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.data_reader.IDUUIDataReader;
 import org.texttechnologylab.annotation.SharedData;
@@ -16,7 +17,6 @@ import org.texttechnologylab.utilities.helper.StringUtils;
 import org.xml.sax.SAXException;
 
 import java.io.*;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -50,7 +50,9 @@ public class AsyncCollectionReader {
     private String _path;
     private ConcurrentLinkedQueue<String> _filePaths;
     private ConcurrentLinkedQueue<String> _filePathsBackup;
-    private ConcurrentLinkedQueue<DUUIInputStream> _loadedFiles;
+    private ConcurrentLinkedQueue<DUUIInputStream> _loadedFilesStream;
+
+    private ConcurrentLinkedQueue<ByteReadFuture> _loadedFiles;
 
     private int _initialSize;
     private AtomicInteger _docNumber;
@@ -241,13 +243,46 @@ public class AsyncCollectionReader {
         _filePathsBackup = new ConcurrentLinkedQueue<>();
         _dataReader = dataReader;
 
-        try {
-            if (!savePath.isEmpty()) {
-                _filePaths.addAll(_dataReader.listFiles(savePath));
+        if (_dataReader != null) {
+            try {
+                if (!savePath.isEmpty()) {
+                    _filePaths.addAll(_dataReader.listFiles(savePath));
+                }
+                _filePaths.addAll(_dataReader.listFiles(folder));
+            } catch (IOException e) {
+                System.out.println("Save path not found. Processing all documents.");
             }
-            _filePaths.addAll(_dataReader.listFiles(folder));
-        } catch (IOException e) {
-            System.out.println("Save path not found. Processing all documents.");
+
+        } else {
+            if (new File(savePath).exists() && savePath.length() > 0) {
+                File sPath = new File(savePath);
+
+                String sContent = null;
+                try {
+                    sContent = StringUtils.getContent(sPath);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                String[] sSplit = sContent.split("\n");
+
+                for (String s : sSplit) {
+                    _filePaths.add(s);
+                }
+
+            } else {
+                File fl = new File(folder);
+                if (!fl.isDirectory()) {
+                    throw new RuntimeException("The folder is not a directory!");
+                }
+
+
+                _path = folder;
+                addFilesToConcurrentList(fl, ending, _filePaths);
+
+                if (skipSmallerFiles > 0) {
+                    _filePaths = skipBySize(_filePaths, skipSmallerFiles);
+                }
+            }
         }
 
         if (skipSmallerFiles > 0) {
@@ -400,25 +435,43 @@ public class AsyncCollectionReader {
     }
 
     public CompletableFuture<Integer> getAsyncNextByteArray() throws IOException, CompressorException, SAXException {
-        String path = _filePaths.poll();
-        if (path == null) return CompletableFuture.completedFuture(1);
+        String result = _filePaths.poll();
+        if (result == null) return CompletableFuture.completedFuture(1);
+        CompletableFuture<Integer> val = AsyncFiles
+                .readAllBytes(Paths.get(result), 1024 * 1024 * 5)
+                .thenApply(bytes -> {
+                    _loadedFiles.add(new ByteReadFuture(result, bytes));
 
-        return CompletableFuture.supplyAsync(
-            () -> {
-                DUUIInputStream stream = _dataReader.readFile(path);
-                stream.getContent().readAllBytes();
-                return stream;
-            }
-        ).thenApply(stream -> {
-            _loadedFiles.add(stream);
-            long factor = 1;
-            if (path.endsWith(".gz") || path.endsWith(".xz")) {
-                factor = 10;
-            }
-            _currentMemorySize.getAndAdd(factor * (long) stream.getSizeBytes());
-            return 0;
-        });
-
+                    //Calculate estimated unpacked size by using a compression ratio of 0.1
+                    long factor = 1;
+                    if (result.endsWith(".gz") || result.endsWith(".xz")) {
+                        factor = 10;
+                    }
+                    _currentMemorySize.getAndAdd(factor * (long) bytes.length);
+                    return 0;
+                });
+        return val;
+    }
+//    public CompletableFuture<Integer> getAsyncNextByteArray() throws IOException, CompressorException, SAXException {
+//        String path = _filePaths.poll();
+//        if (path == null) return CompletableFuture.completedFuture(1);
+//
+////        return CompletableFuture.supplyAsync(
+////            () -> {
+////                DUUIInputStream stream = _dataReader.readFile(path);
+////                stream.getContent().readAllBytes();
+////                return stream;
+////            }
+////        ).thenApply(stream -> {
+////            _loadedFiles.add(stream);
+////            long factor = 1;
+////            if (path.endsWith(".gz") || path.endsWith(".xz")) {
+////                factor = 10;
+////            }
+////            _currentMemorySize.getAndAdd(factor * (long) stream.getSizeBytes());
+////            return 0;
+////        });
+//
 //        if (_dataReader != null) {
 //            String path = _filePaths.poll();
 //            if (path == null) return CompletableFuture.completedFuture(1);
@@ -450,7 +503,7 @@ public class AsyncCollectionReader {
 //                    return 0;
 //                });
 //        }
-    }
+//    }
 
     public static XmiSerializationSharedData deserialize(JCas pCas) {
 
@@ -464,56 +517,131 @@ public class AsyncCollectionReader {
 
     }
 
-    public boolean getNextCAS(JCas empty) throws IOException, CompressorException, SAXException {
-        DUUIInputStream stream = _loadedFiles.poll();
+//    public boolean getNextCAS(JCas empty) throws IOException, CompressorException, SAXException {
+//        DUUIInputStream stream = _loadedFiles.poll();
+//
+//        byte []file = null;
+//        String result = null;
+//        if (stream == null) {
+//            result = _filePaths.poll();
+//            if (result == null) return false;
+//        } else {
+//            result = stream.getName();
+//            long factor = 1;
+//            if (result.endsWith(".gz") || result.endsWith(".xz")) {
+//                factor = 10;
+//            }
+//            _currentMemorySize.getAndAdd(-factor * stream.getSizeBytes());
+//        }
+//        int val = _docNumber.addAndGet(1);
+//
+//        progress.setDone(val);
+//        progress.setLeft(_initialSize - val);
+//
+//        if (stream == null && _dataReader!=null) {
+//            stream = _dataReader.readFile(result);
+//        }
+//        else{
+//
+//        }
+//
+//        String sizeBytes = FileUtils.byteCountToDisplaySize(stream.getSizeBytes());
+//
+//        if (_initialSize - progress.getCount() > debugCount) {
+//            if (val % debugCount == 0 || val == 0) {
+//                System.out.printf("%s: \t %s \t %s\n", progress, sizeBytes, result);
+//            }
+//        } else {
+//            System.out.printf("%s: \t %s \t %s\n", progress, sizeBytes, result);
+//        }
+//
+//        InputStream decodedFile;
+//        if (result.endsWith(".xz")) {
+//            decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.XZ, new ByteArrayInputStream(stream.getBytes()));
+//        } else if (result.endsWith(".gz")) {
+//            decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.GZIP, new ByteArrayInputStream(stream.getBytes()));
+//        } else {
+//            decodedFile = stream.getContent();
+//        }
+//
+//        try {
+//            XmiCasDeserializer.deserialize(decodedFile, empty.getCas(), true);
+//        } catch (Exception e) {
+//            System.out.println("WARNING: Could not deserialize file as XMI: " + result + " using plain text deserialization.");
+//            empty.setDocumentText(new String(stream.getBytes(), StandardCharsets.UTF_8));
+//        }
+//
+////        try {
+////            XmiSerializationSharedData sharedData = deserialize(empty.getCas().getJCas());
+////            XmiCasDeserializer.deserialize(decodedFile, empty.getCas(), true, sharedData);
+////        }
+////        catch (Exception e){
+////            empty.setDocumentText(StringUtils.getContent(new File(result)));
+////        }
+//
+//        if (_addMetadata) {
+//            if (JCasUtil.select(empty, DocumentMetaData.class).isEmpty()) {
+//                DocumentMetaData dmd = DocumentMetaData.create(empty);
+//                dmd.setDocumentId(stream.getName());
+//                dmd.setDocumentTitle(stream.getName());
+//                dmd.setDocumentUri(stream.getPath());
+//                dmd.addToIndexes();
+//            }
+//        }
+//
+//        if (_language != null && !_language.isEmpty()) {
+//            empty.setDocumentLanguage(_language);
+//        }
+//
+//        return true;
+//    }
 
-        byte []file = null;
+    public boolean getNextCAS(JCas empty) throws IOException, CompressorException, SAXException {
+        ByteReadFuture future = _loadedFiles.poll();
+
+        byte[] file = null;
         String result = null;
-        if (stream == null) {
+        if (future == null) {
             result = _filePaths.poll();
             if (result == null) return false;
         } else {
-            result = stream.getName();
+            result = future.getPath();
+            file = future.getBytes();
             long factor = 1;
             if (result.endsWith(".gz") || result.endsWith(".xz")) {
                 factor = 10;
             }
-            _currentMemorySize.getAndAdd(-factor * stream.getSizeBytes());
+            _currentMemorySize.getAndAdd(-factor * (long) file.length);
         }
         int val = _docNumber.addAndGet(1);
 
         progress.setDone(val);
         progress.setLeft(_initialSize - val);
 
-        if (stream == null) {
-            stream = _dataReader.readFile(result);
-        }
-
-        String sizeBytes = FileUtils.byteCountToDisplaySize(stream.getSizeBytes());
-
         if (_initialSize - progress.getCount() > debugCount) {
             if (val % debugCount == 0 || val == 0) {
-                System.out.printf("%s: \t %s \t %s\n", progress, sizeBytes, result);
+                System.out.printf("%s: \t %s \t %s\n", progress, getSize(result), result);
             }
         } else {
-            System.out.printf("%s: \t %s \t %s\n", progress, sizeBytes, result);
+            System.out.printf("%s: \t %s \t %s\n", progress, getSize(result), result);
+        }
+
+        if (file == null) {
+            file = Files.readAllBytes(Path.of(result));
         }
 
         InputStream decodedFile;
         if (result.endsWith(".xz")) {
-            decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.XZ, new ByteArrayInputStream(stream.getBytes()));
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.XZ, new ByteArrayInputStream(file));
         } else if (result.endsWith(".gz")) {
-            decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.GZIP, new ByteArrayInputStream(stream.getBytes()));
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.GZIP, new ByteArrayInputStream(file));
         } else {
-            decodedFile = stream.getContent();
+            decodedFile = new ByteArrayInputStream(file);
         }
 
-        try {
-            XmiCasDeserializer.deserialize(decodedFile, empty.getCas(), true);
-        } catch (Exception e) {
-            System.out.println("WARNING: Could not deserialize file as XMI: " + result + " using plain text deserialization.");
-            empty.setDocumentText(new String(stream.getBytes(), StandardCharsets.UTF_8));
-        }
+        XmiCasDeserializer.deserialize(decodedFile, empty.getCas(), true);
 
 //        try {
 //            XmiSerializationSharedData sharedData = deserialize(empty.getCas().getJCas());
@@ -524,11 +652,12 @@ public class AsyncCollectionReader {
 //        }
 
         if (_addMetadata) {
-            if (JCasUtil.select(empty, DocumentMetaData.class).isEmpty()) {
+            if (JCasUtil.select(empty, DocumentMetaData.class).size() == 0) {
                 DocumentMetaData dmd = DocumentMetaData.create(empty);
-                dmd.setDocumentId(stream.getName());
-                dmd.setDocumentTitle(stream.getName());
-                dmd.setDocumentUri(stream.getPath());
+                File pFile = new File(result);
+                dmd.setDocumentId(pFile.getName());
+                dmd.setDocumentTitle(pFile.getName());
+                dmd.setDocumentUri(pFile.getAbsolutePath());
                 dmd.addToIndexes();
             }
         }
@@ -539,7 +668,6 @@ public class AsyncCollectionReader {
 
         return true;
     }
-
     public static void addFilesToConcurrentList(File folder, String ending, ConcurrentLinkedQueue<String> paths) {
         File[] listOfFiles = folder.listFiles();
 

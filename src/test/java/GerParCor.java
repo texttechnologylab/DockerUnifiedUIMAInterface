@@ -364,7 +364,7 @@ public class GerParCor {
         int iScale = 1;
         String sInput = "/storage/projects/baumartz/duui_segmentation_data/paper_data/samples/gerparcor_sample1000_SMALLEST_100";
 //        String sInput = "/storage/projects/baumartz/duui_segmentation_data/paper_data/samples/gerparcor_sample1000_RANDOM_100";
-        String sOuptut = "/tmp/duui/sentenceTest_small";
+        String sOuptut = "/tmp/test";
 
         setContainer.keySet().stream().forEach(k -> {
             String v = setContainer.get(k);
