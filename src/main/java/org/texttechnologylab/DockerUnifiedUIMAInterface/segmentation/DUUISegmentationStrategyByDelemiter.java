@@ -13,12 +13,16 @@ import java.util.Set;
 
 public class DUUISegmentationStrategyByDelemiter extends DUUISegmentationStrategy {
 
-    private int iLength;
+    private int iLength = 500000;
     private String sDelemiter;
 
     private Set<String> currentOffset = new HashSet<>();
 
     private JCas emptyCas = null;
+
+    private int iOverlap = 0;
+
+    private boolean bDebug = false;
 
     public DUUISegmentationStrategyByDelemiter() {
         super();
@@ -26,6 +30,20 @@ public class DUUISegmentationStrategyByDelemiter extends DUUISegmentationStrateg
 
     public DUUISegmentationStrategyByDelemiter withLength(int iLength){
         this.iLength=iLength;
+        return this;
+    }
+
+    public DUUISegmentationStrategyByDelemiter withDebug() {
+        this.bDebug = true;
+        return this;
+    }
+
+    public boolean hasDebug() {
+        return this.bDebug;
+    }
+
+    public DUUISegmentationStrategyByDelemiter withOverlap(int iOverlap) {
+        this.iOverlap = iOverlap;
         return this;
     }
 
@@ -68,6 +86,10 @@ public class DUUISegmentationStrategyByDelemiter extends DUUISegmentationStrateg
     protected void initialize() throws UIMAException {
         this.emptyCas = JCasFactory.createJCas();
 
+        if (iOverlap > iLength) {
+            System.err.println("Overlap: " + iOverlap + " is > Segmenting-Length: " + iLength);
+        }
+
         String sText = this.jCasInput.getDocumentText();
 
         int tLength = sText.length();
@@ -92,10 +114,29 @@ public class DUUISegmentationStrategyByDelemiter extends DUUISegmentationStrateg
 //            System.out.println(iCount+"\t"+sSubText.length());
             iCount = iCount+sSubText.length();
 
+            if (iOverlap > 0) {
+                if (iCount + iOverlap < tLength) {
+                    int iStartOverlap = iCount - iOverlap;
+                    int iEndOverlap = iCount + iOverlap;
+
+                    String overlabSubString = sText.substring(iStartOverlap, iEndOverlap);
+                    int iOStart = overlabSubString.indexOf(".") + 1;
+                    int iOEnd = overlabSubString.lastIndexOf(".") + 1;
+                    overlabSubString = overlabSubString.substring(iOStart, iOEnd);
+                    currentOffset.add((iStartOverlap + iOStart) + "-" + (iStartOverlap + iOEnd));
+//                    System.out.println(overlabSubString);
+                }
+            }
+
+
         }
         if(iCount<tLength){
             currentOffset.add(iCount+"-"+tLength);
         }
+
+//        currentOffset.stream().forEach(co->{
+//            System.out.println(co);
+//        });
     }
 
     @Override

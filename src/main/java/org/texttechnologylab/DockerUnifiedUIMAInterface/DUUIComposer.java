@@ -11,7 +11,6 @@ import org.apache.uima.collection.CollectionReaderDescription;
 import org.apache.uima.fit.factory.CollectionReaderFactory;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.fit.factory.TypeSystemDescriptionFactory;
-import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.apache.uima.util.CasCreationUtils;
@@ -272,9 +271,15 @@ class DUUIWorkerAsyncReader extends Thread {
                             // TODO add parallel variant later
 
                             if(segmentationStrategy instanceof DUUISegmentationStrategyByDelemiter){
-                                int iLeft = ((DUUISegmentationStrategyByDelemiter)segmentationStrategy).getSegments();
-                                DocumentMetaData dmd = DocumentMetaData.get(_jc);
-                                System.out.println(dmd.getDocumentId()+" Left: "+iLeft);
+                                DUUISegmentationStrategyByDelemiter pStrategie = ((DUUISegmentationStrategyByDelemiter) segmentationStrategy);
+
+                                if (pStrategie.hasDebug()) {
+                                    int iLeft = pStrategie.getSegments();
+                                    DocumentMetaData dmd = DocumentMetaData.get(_jc);
+                                    System.out.println(dmd.getDocumentId() + " Left: " + iLeft);
+                                }
+
+
                             }
                             i.getDriver().run(i.getUUID(), jCasSegmented, perf);
 
@@ -556,9 +561,14 @@ public class DUUIComposer {
                 if(breakit) break;
             }
 
+            AtomicInteger waitCount = new AtomicInteger();
+            waitCount.set(0);
             while(emptyCasDocuments.size() != _cas_poolsize && !collectionReader.isEmpty()) {
-                System.out.println("[Composer] Waiting for threads to finish document processing...");
+                if (waitCount.incrementAndGet() % 500 == 0) {
+                    System.out.println("[Composer] Waiting for threads to finish document processing...");
+                }
                 Thread.sleep(1000*_workers); // to fast or in relation with threads?
+
             }
             System.out.println("[Composer] All documents have been processed. Signaling threads to shut down now...");
             _shutdownAtomic.set(true);
@@ -627,9 +637,12 @@ public class DUUIComposer {
                 collectionReader.getNext(jc.getCas());
                 loadedCasDocuments.add(jc);
             }
-
+            AtomicInteger waitCount = new AtomicInteger();
+            waitCount.set(0);
             while(emptyCasDocuments.size() != _cas_poolsize) {
-                System.out.println("[Composer] Waiting for threads to finish document processing...");
+                if (waitCount.getAndIncrement() % 500 == 0) {
+                    System.out.println("[Composer] Waiting for threads to finish document processing...");
+                }
                 Thread.sleep(1000);
             }
             System.out.println("[Composer] All documents have been processed. Signaling threads to shut down now...");

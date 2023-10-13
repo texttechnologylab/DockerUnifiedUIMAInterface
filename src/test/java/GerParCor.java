@@ -1,3 +1,4 @@
+import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Sentence;
 import org.apache.uima.analysis_engine.AnalysisEngineDescription;
 import org.dkpro.core.io.xmi.XmiWriter;
 import org.junit.jupiter.api.Test;
@@ -11,16 +12,205 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.sqlite.
 import org.texttechnologylab.DockerUnifiedUIMAInterface.segmentation.DUUISegmentationStrategy;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.segmentation.DUUISegmentationStrategyByDelemiter;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.tools.AnnotationCommentsRemover;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.tools.RemoveOverlappingAnnotations;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.tools.SetLanguage;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.tools.SimpleSegmenter;
+
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.util.HashMap;
+import java.util.Map;
 
 import static org.apache.uima.fit.factory.AnalysisEngineFactory.createEngineDescription;
 
 public class GerParCor {
 
+    public static void runTest(int iScale, String sName, String sImage, String sInput, String sOutput, DUUISqliteStorageBackend sqlite) throws Exception {
+
+        DUUIComposer composer = new DUUIComposer()
+                .withSkipVerification(true)
+                .withWorkers(iScale)
+                .withLuaContext(new DUUILuaContext().withJsonLibrary());
+
+
+        composer.withStorageBackend(sqlite);
+        sqlite.addNewRun(sName, composer);
+
+        DUUIDockerDriver dockerDriver = new DUUIDockerDriver();
+        DUUIUIMADriver uimaDriver = new DUUIUIMADriver();
+        DUUIRemoteDriver remoteDriver = new DUUIRemoteDriver();
+        composer.addDriver(dockerDriver, remoteDriver, uimaDriver);
+
+        DUUIDockerDriver.Component component = new DUUIDockerDriver.Component(sImage).withScale(iScale).withImageFetching();
+
+//        DUUISegmentationStrategy pStrategy = new DUUISegmentationStrategyByDelemiter()
+//                .withDelemiter(".")
+//                .withLength(10000)
+//                .withOverlap(500);
+
+//        composer.add(componentSentence);
+        DUUIUIMADriver.Component language = new DUUIUIMADriver.Component(createEngineDescription(SetLanguage.class, SetLanguage.PARAM_LANGUAGE, "de")).withScale(iScale);
+
+        DUUIUIMADriver.Component removeOverlappingSentences = new DUUIUIMADriver.Component(
+                createEngineDescription(RemoveOverlappingAnnotations.class,
+                        RemoveOverlappingAnnotations.PARAM_TYPE_LIST, Sentence.class.getName())
+        ).withScale(iScale);
+
+        composer.add(language);
+
+        composer.add(component);
+//        composer.add(component.withSegmentationStrategy(pStrategy));
+        composer.add(removeOverlappingSentences);
+
+        AnalysisEngineDescription writerEngine = createEngineDescription(XmiWriter.class,
+                XmiWriter.PARAM_TARGET_LOCATION, sOutput + "/" + sName,
+                XmiWriter.PARAM_PRETTY_PRINT, true,
+                XmiWriter.PARAM_OVERWRITE, true,
+                XmiWriter.PARAM_VERSION, "1.1",
+                XmiWriter.PARAM_COMPRESSION, "GZIP"
+        );
+
+        composer.add(new DUUIUIMADriver.Component(writerEngine).withScale(iScale).build());
+
+//        AsyncCollectionReader dataReader = new AsyncCollectionReader("/home/gabrami/Downloads/GerParCorTest/sentence", "xmi.gz", 1, true);
+        AsyncCollectionReader dataReader = new AsyncCollectionReader(sInput, "xmi.gz", 1, true, sOutput + "/" + sName);
+
+        composer.run(dataReader, sName);
+
+        composer.shutdown();
+
+
+    }
+
+    public static void runTestGPU(int iScale, String sName, String sURL, String sInput, String sOutput, DUUISqliteStorageBackend sqlite) throws Exception {
+
+        DUUIComposer composer = new DUUIComposer()
+                .withSkipVerification(true)
+                .withWorkers(iScale)
+                .withLuaContext(new DUUILuaContext().withJsonLibrary());
+
+        composer.withStorageBackend(sqlite);
+        sqlite.addNewRun(sName, composer);
+
+        DUUIUIMADriver uimaDriver = new DUUIUIMADriver();
+        DUUIRemoteDriver remoteDriver = new DUUIRemoteDriver();
+        composer.addDriver(remoteDriver, uimaDriver);
+
+        DUUIUIMADriver.Component language = new DUUIUIMADriver.Component(createEngineDescription(SetLanguage.class, SetLanguage.PARAM_LANGUAGE, "de")).withScale(iScale);
+        DUUIRemoteDriver.Component component = new DUUIRemoteDriver.Component(sURL).withScale(iScale);
+
+        DUUISegmentationStrategy pStrategy = new DUUISegmentationStrategyByDelemiter()
+                .withDelemiter(".")
+                .withLength(10000)
+                .withOverlap(500);
+
+//        composer.add(componentSentence);
+
+        DUUIUIMADriver.Component removeOverlappingSentences = new DUUIUIMADriver.Component(
+                createEngineDescription(RemoveOverlappingAnnotations.class,
+                        RemoveOverlappingAnnotations.PARAM_TYPE_LIST, Sentence.class.getName())
+        ).withScale(iScale);
+
+        composer.add(language);
+        composer.add(component);
+//        composer.add(component.withSegmentationStrategy(pStrategy));
+        composer.add(removeOverlappingSentences);
+
+        AnalysisEngineDescription writerEngine = createEngineDescription(XmiWriter.class,
+                XmiWriter.PARAM_TARGET_LOCATION, sOutput + "/" + sName,
+                XmiWriter.PARAM_PRETTY_PRINT, true,
+                XmiWriter.PARAM_OVERWRITE, true,
+                XmiWriter.PARAM_VERSION, "1.1",
+                XmiWriter.PARAM_COMPRESSION, "GZIP"
+        );
+
+        composer.add(new DUUIUIMADriver.Component(writerEngine).withScale(iScale).build());
+
+//        AsyncCollectionReader dataReader = new AsyncCollectionReader("/home/gabrami/Downloads/GerParCorTest/sentence", "xmi.gz", 1, true);
+        AsyncCollectionReader dataReader = new AsyncCollectionReader(sInput, "xmi.gz", 1, true, sOutput + "/" + sName);
+
+        composer.run(dataReader, sName);
+
+        composer.shutdown();
+
+
+    }
+
+    public static void startGPUContainer(String sImage, String sName, int iPort) throws IOException {
+
+        ProcessBuilder pProcess = new ProcessBuilder("docker", "run", "-d", "--rm", "--gpus", "all", "-p", "" + iPort + ":9714", "--name", sName, sImage);
+        pProcess.directory(new File("/tmp/"));
+
+        Process p = null;
+        try {
+            p = pProcess.start();
+
+            try {
+                // Create a new reader from the InputStream
+                BufferedReader br = new BufferedReader(new InputStreamReader(p.getInputStream()));
+                BufferedReader br2 = new BufferedReader(new InputStreamReader(p.getErrorStream()));
+
+                // Take in the input
+                String input;
+                while ((input = br.readLine()) != null) {
+                    // Print the input
+                    System.out.println(input);
+                }
+                while ((input = br2.readLine()) != null) {
+                    // Print the input
+                    System.err.println(input);
+                }
+            } catch (IOException io) {
+                io.printStackTrace();
+            }
+
+            p.waitFor();
+        } catch (IOException | InterruptedException ex) {
+            ex.printStackTrace();
+        }
+
+        //docker run --gpus all nvidia/cuda:11.0-base nvidia-smi
+    }
+
+    public static void stopContainer(String sName) throws IOException {
+
+        ProcessBuilder pProcess = new ProcessBuilder("docker", "stop", sName);
+
+        Process p = null;
+        try {
+            p = pProcess.start();
+
+            try {
+                // Create a new reader from the InputStream
+                BufferedReader br = new BufferedReader(new InputStreamReader(p.getInputStream()));
+                BufferedReader br2 = new BufferedReader(new InputStreamReader(p.getErrorStream()));
+
+                // Take in the input
+                String input;
+                while ((input = br.readLine()) != null) {
+                    // Print the input
+                    System.out.println(input);
+                }
+                while ((input = br2.readLine()) != null) {
+                    // Print the input
+                    System.err.println(input);
+                }
+            } catch (IOException io) {
+                io.printStackTrace();
+            }
+
+            p.waitFor();
+        } catch (IOException | InterruptedException ex) {
+            ex.printStackTrace();
+        }
+    }
+
     @Test
     public void process() throws Exception {
 
-        int iScale = 4;
+        int iScale = 1;
 
         DUUIComposer composer = new DUUIComposer()
                 .withSkipVerification(true)
@@ -47,16 +237,26 @@ public class GerParCor {
                         AnnotationCommentsRemover.PARAM_ANNOTATION_KEY, "PSEUDOSENTENCE")
         ).withScale(iScale);
 
-        DUUIDockerDriver.Component component = new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4").withScale(iScale).withImageFetching();
+//        DUUIDockerDriver.Component component = new DUUIDockerDriver.Component("docker.texttechnologylab.org/duui-sentencizer-stanza:0.0.1").withScale(iScale).withImageFetching();
+        DUUIRemoteDriver.Component component = new DUUIRemoteDriver.Component("http://localhost:9999").withScale(iScale);
+//        DUUIDockerDriver.Component component = new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4").withScale(iScale).withImageFetching();
 
 //        DUUISegmentationStrategy pStrategy = null;
         DUUISegmentationStrategy pStrategy = new DUUISegmentationStrategyByDelemiter()
                 .withDelemiter(".")
-                .withLength(300000);
+                .withLength(800000)
+                .withOverlap(500);
 
 //        composer.add(componentSentence);
 
+        DUUIUIMADriver.Component removeOverlappingSentences = new DUUIUIMADriver.Component(
+                createEngineDescription(RemoveOverlappingAnnotations.class,
+                        RemoveOverlappingAnnotations.PARAM_TYPE_LIST, Sentence.class.getName())
+        ).withScale(iScale);
+
         composer.add(component.withSegmentationStrategy(pStrategy));
+        composer.add(removeOverlappingSentences);
+
 
 //        composer.add(pseudoremover);
 
@@ -87,11 +287,99 @@ public class GerParCor {
         composer.add(new DUUIUIMADriver.Component(writerEngine).withScale(iScale).build());
 
 //        AsyncCollectionReader dataReader = new AsyncCollectionReader("/home/gabrami/Downloads/GerParCorTest/sentence", "xmi.gz", 1, true);
-        AsyncCollectionReader dataReader = new AsyncCollectionReader("/storage/projects/abrami/GerParCor/xmi", "xmi.gz", 1, false, "/tmp/GerParCor/xmi");
+        AsyncCollectionReader dataReader = new AsyncCollectionReader("/storage/projects/abrami/GerParCor/xmi", "xmi.gz", 1, true, "/tmp/GerParCor/xmi");
 
         composer.run(dataReader, "reloaded");
 
         composer.shutdown();
+
+    }
+
+    @Test
+    public void testDanielCPU() throws Exception {
+
+        Map<String, String> setContainer = new HashMap<>(0);
+        setContainer.put("Trankit", "docker.texttechnologylab.org/duui-sentencizer-trankit-cuda1:0.2");
+        setContainer.put("Stanza", "docker.texttechnologylab.org/duui-sentencizer-stanza:0.0.1");
+        setContainer.put("CoreNLP", "docker.texttechnologylab.org/duui-sentencizer-corenlp:0.0.1");
+        setContainer.put("Segtok", "docker.texttechnologylab.org/duui-sentencizer-segtok:0.0.1");
+        setContainer.put("Syntok", "docker.texttechnologylab.org/duui-sentencizer-syntok:0.0.1");
+        setContainer.put("spacy-senter-lg", "docker.texttechnologylab.org/duui-sentencizer-spacy-senter-lg:0.0.1");
+        setContainer.put("spacy-senter-md", "docker.texttechnologylab.org/duui-sentencizer-spacy-senter-md:0.0.1");
+        setContainer.put("spacy-senter-sm", "docker.texttechnologylab.org/duui-sentencizer-spacy-senter-sm:0.0.1");
+        setContainer.put("spacy-senter-ruler", "docker.texttechnologylab.org/duui-sentencizer-spacy-ruler:0.0.1");
+        setContainer.put("spacy-senter-trf", "docker.texttechnologylab.org/duui-sentencizer-spacy-trf:0.0.1");
+        setContainer.put("spacy-parser-lg", "docker.texttechnologylab.org/duui-sentencizer-spacy-parser-lg:0.0.1");
+        setContainer.put("spacy-parser-md", "docker.texttechnologylab.org/duui-sentencizer-spacy-parser-md:0.0.1");
+        setContainer.put("spacy-parser-sm", "docker.texttechnologylab.org/duui-sentencizer-spacy-parser-sm:0.0.1");
+
+
+//        DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend("testSegmenting.db")
+        DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend("testSegmenting_small.db")
+                .withConnectionPoolSize(setContainer.size());
+
+        int iScale = 1;
+//        String sInput = "/storage/projects/baumartz/duui_segmentation_data/paper_data/samples/gerparcor_sample1000_RANDOM_100";
+        String sInput = "/storage/projects/baumartz/duui_segmentation_data/paper_data/samples/gerparcor_sample1000_SMALLEST_100";
+
+        String sOuptut = "/tmp/duui/sentenceTest_small";
+
+        setContainer.keySet().stream().forEach(k -> {
+            String v = setContainer.get(k);
+            try {
+                runTest(iScale, k, v, sInput, sOuptut, sqlite);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        });
+
+    }
+
+    @Test
+    public void testDanielGPU() throws Exception {
+
+        Map<String, String> setContainer = new HashMap<>(0);
+        setContainer.put("Trankit", "docker.texttechnologylab.org/duui-sentencizer-trankit-cuda1:0.2");
+        setContainer.put("Stanza", "docker.texttechnologylab.org/duui-sentencizer-stanza:0.0.1");
+        setContainer.put("CoreNLP", "docker.texttechnologylab.org/duui-sentencizer-corenlp:0.0.1");
+        setContainer.put("Segtok", "docker.texttechnologylab.org/duui-sentencizer-segtok:0.0.1");
+        setContainer.put("Syntok", "docker.texttechnologylab.org/duui-sentencizer-syntok:0.0.1");
+        setContainer.put("spacy-senter-lg", "docker.texttechnologylab.org/duui-sentencizer-spacy-senter-lg:0.0.1");
+        setContainer.put("spacy-senter-md", "docker.texttechnologylab.org/duui-sentencizer-spacy-senter-md:0.0.1");
+        setContainer.put("spacy-senter-sm", "docker.texttechnologylab.org/duui-sentencizer-spacy-senter-sm:0.0.1");
+        setContainer.put("spacy-senter-ruler", "docker.texttechnologylab.org/duui-sentencizer-spacy-ruler:0.0.1");
+        setContainer.put("spacy-senter-trf", "docker.texttechnologylab.org/duui-sentencizer-spacy-trf:0.0.1");
+        setContainer.put("spacy-parser-lg", "docker.texttechnologylab.org/duui-sentencizer-spacy-parser-lg:0.0.1");
+        setContainer.put("spacy-parser-md", "docker.texttechnologylab.org/duui-sentencizer-spacy-parser-md:0.0.1");
+        setContainer.put("spacy-parser-sm", "docker.texttechnologylab.org/duui-sentencizer-spacy-parser-sm:0.0.1");
+
+
+        DUUISqliteStorageBackend sqliteGPU = new DUUISqliteStorageBackend("testSegmenting_small_GPU.db")
+                .withConnectionPoolSize(setContainer.size());
+//        DUUISqliteStorageBackend sqliteGPU = new DUUISqliteStorageBackend("testSegmenting_GPU.db")
+//                .withConnectionPoolSize(setContainer.size());
+
+        int iScale = 1;
+        String sInput = "/storage/projects/baumartz/duui_segmentation_data/paper_data/samples/gerparcor_sample1000_SMALLEST_100";
+//        String sInput = "/storage/projects/baumartz/duui_segmentation_data/paper_data/samples/gerparcor_sample1000_RANDOM_100";
+        String sOuptut = "/tmp/duui/sentenceTest_small";
+
+        setContainer.keySet().stream().forEach(k -> {
+            String v = setContainer.get(k);
+            try {
+                startGPUContainer(v, k, 9999);
+                runTestGPU(iScale, k + "_GPU", "http://localhost:9999", sInput, sOuptut + "/GPU", sqliteGPU);
+                stopContainer(k);
+            } catch (Exception e) {
+                e.printStackTrace();
+            } finally {
+                try {
+                    stopContainer(k);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        });
 
     }
 
