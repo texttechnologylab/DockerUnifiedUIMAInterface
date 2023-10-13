@@ -84,6 +84,7 @@ public class GerParCor {
 
     }
 
+
     public static void runTestGPU(int iScale, String sName, String sURL, String sInput, String sOutput, DUUISqliteStorageBackend sqlite) throws Exception {
 
         DUUIComposer composer = new DUUIComposer()
@@ -137,6 +138,7 @@ public class GerParCor {
 
 
     }
+
 
     public static void startGPUContainer(String sImage, String sName, int iPort) throws IOException {
 

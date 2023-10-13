@@ -6,11 +6,8 @@ import de.tudarmstadt.ukp.dkpro.core.io.text.TextReader;
 import de.tudarmstadt.ukp.dkpro.core.io.text.TextWriter;
 import de.tudarmstadt.ukp.dkpro.core.opennlp.OpenNlpPosTagger;
 import de.tudarmstadt.ukp.dkpro.core.tokit.BreakIteratorSegmenter;
-import eu.clarin.weblicht.wlfxb.md.xb.Services;
-import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.UIMAException;
-import org.jetbrains.annotations.NotNull;
 import org.apache.uima.analysis_engine.AnalysisEngineDescription;
 import org.apache.uima.cas.SerialFormat;
 import org.apache.uima.cas.impl.XmiCasSerializer;
@@ -24,9 +21,7 @@ import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.jcas.cas.TOP;
 import org.apache.uima.jcas.tcas.Annotation;
-import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.util.CasIOUtils;
-import org.apache.uima.util.InvalidXMLException;
 import org.apache.uima.util.XmlCasSerializer;
 import org.dkpro.core.io.xmi.XmiReader;
 import org.dkpro.core.io.xmi.XmiWriter;
@@ -43,15 +38,9 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.AnnotationRemover;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIPipelineAnnotationComponent;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIPipelineDescription;
-
 import org.texttechnologylab.DockerUnifiedUIMAInterface.data_reader.DUUIDropboxDataReader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.data_reader.DUUIInputStream;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.data_reader.IDUUIDataReader;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIDockerDriver;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUISwarmDriver;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIUIMADriver;
-
+import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.*;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.AsyncCollectionReader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.TTLabXmiWriter;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaCommunicationLayer;
@@ -79,16 +68,7 @@ import static org.apache.uima.fit.factory.AnalysisEngineFactory.createEngineDesc
 import static org.apache.uima.fit.factory.CollectionReaderFactory.createReaderDescription;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-
 import static org.texttechnologylab.DockerUnifiedUIMAInterface.io.AsyncCollectionReader.getFilesInDirectoryRecursive;
-import static org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIKubernetesDriver.*;
-
-import io.kubernetes.client.openapi.ApiClient;
-import io.kubernetes.client.openapi.ApiException;
-import io.kubernetes.client.openapi.Configuration;
-import io.kubernetes.client.openapi.apis.CoreV1Api;
-import io.kubernetes.client.openapi.models.V1Namespace;
-import io.kubernetes.client.util.Config;
 
 
 public class TestDUUI {

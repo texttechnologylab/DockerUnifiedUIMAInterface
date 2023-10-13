@@ -9,7 +9,6 @@ import org.apache.uima.cas.impl.XmiCasDeserializer;
 import org.apache.uima.cas.impl.XmiSerializationSharedData;
 import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
-import org.javaync.io.AsyncFiles;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.data_reader.DUUIInputStream;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.data_reader.IDUUIDataReader;
 import org.texttechnologylab.annotation.SharedData;
@@ -21,10 +20,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Random;
-import java.util.Set;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -172,82 +167,55 @@ public class AsyncCollectionReader {
     }
 
     public AsyncCollectionReader(String folder, String ending) {
-        this(folder, ending, 25, -1, false, "", false, null, null);
+        this(folder, ending, 25, -1, null, "", false, null, 0);
     }
 
     public AsyncCollectionReader(String folder, String ending, boolean bAddMetadata) {
-        this(folder, ending, 25, -1, false, "", bAddMetadata, null, null);
+        this(folder, ending, 25, -1, null, "", bAddMetadata, null, 0);
     }
 
     public AsyncCollectionReader(String folder, String ending, boolean bAddMetadata, String language) {
-        this(folder, ending, 25, -1, false, "", bAddMetadata, language, null);
+        this(folder, ending, 25, -1, null, "", bAddMetadata, language, 0);
     }
 
+
+
     public AsyncCollectionReader(String folder, String ending, String language) {
-        this(folder, ending, 25, -1, false, "", false, language, null);
+        this(folder, ending, 25, -1, null, "", false, language, 0);
     }
 
     public AsyncCollectionReader(String folder, String ending, int debugCount, boolean bSort) {
-        this(folder, ending, debugCount, -1, bSort, "", false, null, null);
+        this(folder, ending, debugCount, -1, null, "", false, null, 0);
     }
 
     public AsyncCollectionReader(String folder, String ending, int debugCount, boolean bSort, String sTargetPath) {
-        this(folder, ending, debugCount, -1, bSort, "", false, null, sTargetPath);
+        this(folder, ending, debugCount, -1, bSort, "", false, null, sTargetPath, "xmi.gz");
+
     }
 
     public AsyncCollectionReader(String folder, String ending, int debugCount, int iRandom, boolean bSort, String savePath) {
-        this(folder, ending, debugCount, iRandom, bSort, savePath, false, null, null);
+        this(folder, ending, debugCount, iRandom, savePath, false, null, 0);
+    }
+
+    public AsyncCollectionReader(String folder, String ending, int debugCount, int sampleSize, DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE sampleMode, String savePath, boolean bAddMetadata, String language, int skipSmallerFiles) {
+        this(folder, ending, debugCount, getRandomFromMode(sampleMode, sampleSize), getSortFromMode(sampleMode), savePath, bAddMetadata, language, skipSmallerFiles, savePath, null);
+    }
+
+    public AsyncCollectionReader(String folder, String ending, int debugCount, int sampleSize, String savePath, boolean bAddMetadata, String language, int skipSmallerFiles) {
+        this(folder, ending, debugCount, sampleSize, null, savePath, bAddMetadata, language, skipSmallerFiles);
+    }
+
+    public AsyncCollectionReader(String folder, String ending, int debugCount, int iRandom, boolean bSort, String savePath, boolean bAddMetadata, String language) {
+        this(folder, ending, debugCount, iRandom, bSort, savePath, bAddMetadata, language, null, null);
     }
 
     public AsyncCollectionReader(String folder, String ending, int debugCount, int iRandom, boolean bSort, String savePath, boolean bAddMetadata) {
         this(folder, ending, debugCount, iRandom, bSort, savePath, bAddMetadata, null);
     }
 
-    public enum DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE {
-        RANDOM,
-        SMALLEST,
-        LARGEST
-    }
-
-    private static int getRandomFromMode(DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE sampleMode, int sampleSize) {
-        if (sampleMode == DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE.SMALLEST) {
-            return sampleSize * -1;
-        }
-        return sampleSize;
-    }
-
-    private static boolean getSortFromMode(DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE mode) {
-        if (mode == DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE.RANDOM) {
-            return false;
-        }
-        return true;
-    }
-
 
     public AsyncCollectionReader(String folder, String ending, int debugCount, int sampleSize, DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE sampleMode, String savePath, boolean bAddMetadata, String language) {
         this(folder, ending, debugCount, getRandomFromMode(sampleMode, sampleSize), getSortFromMode(sampleMode), savePath, bAddMetadata, language);
-    }
-    public AsyncCollectionReader(String folder, String ending, int debugCount, int sampleSize, DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE sampleMode, String savePath, boolean bAddMetadata, String language, int skipSmallerFiles) {
-        this(folder, ending, debugCount, getRandomFromMode(sampleMode, sampleSize), getSortFromMode(sampleMode), savePath, bAddMetadata, language, skipSmallerFiles, null);
-    }
-
-    public AsyncCollectionReader(String folder, String ending, int debugCount, int iRandom, boolean bSort, String savePath, boolean bAddMetadata, String language, String sTargetPath) {
-            this(folder, ending, debugCount, iRandom, bSort, savePath, bAddMetadata, language, 0, sTargetPath);
-    }
-    public AsyncCollectionReader(String folder, String ending, int debugCount, int sampleSize, DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE sampleMode, String savePath, boolean bAddMetadata, String language, int skipSmallerFiles) {
-        this(folder, ending, null, debugCount, getRandomFromMode(sampleMode, sampleSize), getSortFromMode(sampleMode), savePath, bAddMetadata, language, skipSmallerFiles, null, "");
-    }
-
-    public AsyncCollectionReader(String folder, String ending, int debugCount, int iRandom, boolean bSort, String savePath, boolean bAddMetadata, String language) {
-        this(folder, ending, debugCount, iRandom, bSort, savePath, bAddMetadata, language, 0, null);
-    }
-
-    public AsyncCollectionReader(String folder, String ending, int debugCount, int iRandom, boolean bSort, String savePath, boolean bAddMetadata, String language, String targetLocation, String targetEnding) {
-        this(folder, ending, null, debugCount, iRandom, bSort, savePath, bAddMetadata, language, 0, targetLocation, targetEnding);
-    }
-
-    public AsyncCollectionReader(String folder, String ending, int debugCount, int iRandom, boolean bSort, String savePath, boolean bAddMetadata, String language, int skipSmallerFiles, String targetLocation, String targetEnding) {
-        this(folder, ending, null, debugCount, iRandom, bSort, savePath, bAddMetadata, language, skipSmallerFiles, targetLocation, targetEnding);
     }
 
     /***
@@ -263,6 +231,7 @@ public class AsyncCollectionReader {
      * @param language Add language to the documents
      * @param skipSmallerFiles Skip files smaller than this value in bytes
      */
+
     public AsyncCollectionReader(String folder, String ending, IDUUIDataReader dataReader, int debugCount, int iRandom, boolean bSort, String savePath, boolean bAddMetadata, String language, int skipSmallerFiles, String targetLocation, String targetEnding) {
         this.targetLocation = targetLocation;
         _addMetadata = bAddMetadata;
@@ -377,6 +346,34 @@ public class AsyncCollectionReader {
 
         progress = new ProgressMeter(_initialSize);
 
+    }
+
+    private static int getRandomFromMode(DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE sampleMode, int sampleSize) {
+        if (sampleMode == DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE.SMALLEST) {
+            return sampleSize * -1;
+        }
+        return sampleSize;
+    }
+
+    private static boolean getSortFromMode(DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE mode) {
+        if (mode == DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE.RANDOM) {
+            return false;
+        }
+        return true;
+    }
+
+    public AsyncCollectionReader(String folder, String ending, int debugCount, int iRandom, boolean bSort, String savePath, boolean bAddMetadata, String language, String targetLocation, String targetEnding) {
+        this(folder, ending, null, debugCount, iRandom, bSort, savePath, bAddMetadata, language, 0, targetLocation, targetEnding);
+    }
+
+    public AsyncCollectionReader(String folder, String ending, int debugCount, int iRandom, boolean bSort, String savePath, boolean bAddMetadata, String language, int skipSmallerFiles, String targetLocation, String targetEnding) {
+        this(folder, ending, null, debugCount, iRandom, bSort, savePath, bAddMetadata, language, skipSmallerFiles, targetLocation, targetEnding);
+    }
+
+    public enum DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE {
+        RANDOM,
+        SMALLEST,
+        LARGEST
     }
 
     public void reset() {
