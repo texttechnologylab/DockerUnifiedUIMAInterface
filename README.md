@@ -1,8 +1,11 @@
 [![](https://jitpack.io/v/texttechnologylab/DockerUnifiedUIMAInterface.svg)](https://jitpack.io/#texttechnologylab/DockerUnifiedUIMAInterface)
 [![version](https://img.shields.io/github/license/texttechnologylab/DockerUnifiedUIMAInterface)]()
 [![latest](https://img.shields.io/github/v/release/texttechnologylab/DockerUnifiedUIMAInterface)]()
+[![Conference](http://img.shields.io/badge/conference-FindingsEMNLP--2023-4b44ce.svg)](https://2023.emnlp.org/)
 
 # DockerUnifiedUIMAInterface (DUUI)
+![img|320x271](https://github.com/texttechnologylab/DockerUnifiedUIMAInterface/blob/main/DUUI_Logo.png)
+
 Automatic analysis of large text corpora is a complex task. This complexity particularly concerns the question of time efficiency. Furthermore, efficient, flexible, and extensible textanalysis requires the continuous integration of every new text analysis tools. Since there are currently, in the area of NLP and especially in the application context of UIMA, only very few to no adequate frameworks for these purposes, which are not simultaneously outdated or can no longer be used for security reasons, this work will present a new approach to fill this gap. To this end, we present Docker Unified UIMA Interface (DUUI), a scalable, flexible, lightweight, and featurerich framework for automated and distributed analysis of text corpora that leverages experience in Big Data analytics and virtualization with Docker.
 
 ## Features
@@ -12,7 +15,7 @@ Using DUUI, NLP preprocessing on texts can be performed using the following feat
 * Capturing heterogeneous implementation landscapes
 * Reproducible & reusable annotations
 * Monitoring and error-reporting
-* Easy to use
+* Lightweight usability
 
 ## Functions
 DUUI has different components which are distinguished into Drivers and Components. 
@@ -142,20 +145,17 @@ After the build, the image can be used / tried locally and after pushing it to t
 # Cite
 If you want to use the project please quote this as follows:
 
-A. Leonhardt, G. Abrami, D. Baumartz and A. Mehler, “Unlocking the Heterogeneous Landscape of Big Data NLP with DUUI” in Proceedings of ... 2022 ![[Link]]() ![[PDF]]()
+A. Leonhardt, G. Abrami, D. Baumartz, and A. Mehler, “Unlocking the Heterogeneous Landscape of Big Data NLP with DUUI,” in Findings of the Association for Computational Linguistics: EMNLP 2023, 2023, pp. 1-15 (accepted)
 
 ## BibTeX
 ```
-@InProceedings{Leonhardt:Abrami:Baumartz:Mehler:2022,
-  author         = {Leonhardt, Alexander and Abrami, Giuseppe and Baumartz, Daniel and Mehler, Alexander},
-  title          = {Unlocking the Heterogeneous Landscape of Big Data NLP with DUUI},
-  booktitle      = {},
-  month          = {},
-  year           = {2022},
-  address        = {},
-  publisher      = {},
-  pages          = {},
-  url            = {},
-  note           = {submitted}
+@inproceedings{Leonhardt:et:al:2023,
+  title = {Unlocking the Heterogeneous Landscape of Big Data {NLP} with {DUUI}},
+  author = {Leonhardt, Alexander and Abrami, Giuseppe and Baumartz, Daniel and Mehler, Alexander},
+  year = {2023},
+  booktitle = {Findings of the Association for Computational Linguistics: EMNLP 2023},
+  publisher = {Association for Computational Linguistics},
+  pages = {1--15},
+  note = {accepted}
 }
 ```

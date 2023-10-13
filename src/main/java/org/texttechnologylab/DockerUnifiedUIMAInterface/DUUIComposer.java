@@ -264,6 +264,7 @@ class DUUIWorkerAsyncReader extends Thread {
                         i.getDriver().run(i.getUUID(), _jc, perf);
                     } else {
                         segmentationStrategy.initialize(_jc);
+
                         JCas jCasSegmented = segmentationStrategy.getNextSegment();
 
                         while (jCasSegmented != null) {
@@ -295,7 +296,8 @@ class DUUIWorkerAsyncReader extends Thread {
                     //Ignore errors at the moment
                     //e.printStackTrace();
                     System.err.println(e.getMessage());
-                    System.out.println("Thread continues work!");
+                    System.out.println("Thread continues work with next document!");
+                    break;
                 }
             }
 
@@ -457,6 +459,7 @@ public class DUUIComposer {
                 throw new InvalidParameterException(format("[DUUIComposer] The driver %s cannot accept %s as input!", object.getDriver(), object.getClass().getCanonicalName()));
             }
         }
+
         System.out.println("[DUUIComposer] Compressing and finalizing pipeline component...");
         object.finalizeComponent();
         _pipeline.add(object);
@@ -563,6 +566,7 @@ public class DUUIComposer {
 
             AtomicInteger waitCount = new AtomicInteger();
             waitCount.set(0);
+            // Wartet, bis die Dokumente fertig verarbeitet wurden.
             while(emptyCasDocuments.size() != _cas_poolsize && !collectionReader.isEmpty()) {
                 if (waitCount.incrementAndGet() % 500 == 0) {
                     System.out.println("[Composer] Waiting for threads to finish document processing...");
@@ -907,7 +911,6 @@ public class DUUIComposer {
             if (_instantiatedPipeline == null || _instantiatedPipeline.isEmpty()) {
                 instantiate_pipeline();
             }
-            instantiate_pipeline();
             JCas start = run_pipeline(name,jc,0,_instantiatedPipeline);
 
             if(_storage!=null) {
