@@ -1,5 +1,6 @@
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Sentence;
 import org.apache.uima.analysis_engine.AnalysisEngineDescription;
+import org.apache.uima.collection.CollectionReaderDescription;
 import org.dkpro.core.io.xmi.XmiWriter;
 import org.junit.jupiter.api.Test;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
@@ -7,14 +8,13 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIDockerDriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIUIMADriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.AsyncCollectionReader;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.io.GerParCorReader;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.io.GerParCorWriter;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.sqlite.DUUISqliteStorageBackend;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.segmentation.DUUISegmentationStrategy;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.segmentation.DUUISegmentationStrategyByDelemiter;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.tools.AnnotationCommentsRemover;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.tools.RemoveOverlappingAnnotations;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.tools.SetLanguage;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.tools.SimpleSegmenter;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.tools.*;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -24,6 +24,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static org.apache.uima.fit.factory.AnalysisEngineFactory.createEngineDescription;
+import static org.apache.uima.fit.factory.CollectionReaderFactory.createReaderDescription;
 
 public class GerParCor {
 
@@ -45,10 +46,14 @@ public class GerParCor {
 
         DUUIDockerDriver.Component component = new DUUIDockerDriver.Component(sImage).withScale(iScale).withImageFetching();
 
-//        DUUISegmentationStrategy pStrategy = new DUUISegmentationStrategyByDelemiter()
-//                .withDelemiter(".")
-//                .withLength(10000)
-//                .withOverlap(500);
+//        DUUISegmentationStrategy pStrategy = new DUUISegmentationStrategyByAnnotation()
+//                .withSegmentationClass(Sentence.class)
+//                .withMaxCharsPerSegment(1000000)
+//                .withMaxAnnotationsPerSegment(10);
+        DUUISegmentationStrategy pStrategy = new DUUISegmentationStrategyByDelemiter()
+                .withDelemiter(".")
+                .withLength(10000)
+                .withOverlap(500);
 
 //        composer.add(componentSentence);
         DUUIUIMADriver.Component language = new DUUIUIMADriver.Component(createEngineDescription(SetLanguage.class, SetLanguage.PARAM_LANGUAGE, "de")).withScale(iScale);
@@ -60,8 +65,8 @@ public class GerParCor {
 
         composer.add(language);
 
-        composer.add(component);
-//        composer.add(component.withSegmentationStrategy(pStrategy));
+//        composer.add(component);
+        composer.add(component.withSegmentationStrategy(pStrategy));
         composer.add(removeOverlappingSentences);
 
         AnalysisEngineDescription writerEngine = createEngineDescription(XmiWriter.class,
@@ -115,8 +120,8 @@ public class GerParCor {
         ).withScale(iScale);
 
         composer.add(language);
-        composer.add(component);
-//        composer.add(component.withSegmentationStrategy(pStrategy));
+//        composer.add(component);
+        composer.add(component.withSegmentationStrategy(pStrategy));
         composer.add(removeOverlappingSentences);
 
         AnalysisEngineDescription writerEngine = createEngineDescription(XmiWriter.class,
@@ -301,30 +306,33 @@ public class GerParCor {
     public void testDanielCPU() throws Exception {
 
         Map<String, String> setContainer = new HashMap<>(0);
-        setContainer.put("Trankit", "docker.texttechnologylab.org/duui-sentencizer-trankit-cuda1:0.2");
+//        setContainer.put("Trankit", "docker.texttechnologylab.org/duui-sentencizer-trankit-cuda1:0.2");
         setContainer.put("Stanza", "docker.texttechnologylab.org/duui-sentencizer-stanza:0.0.1");
-        setContainer.put("CoreNLP", "docker.texttechnologylab.org/duui-sentencizer-corenlp:0.0.1");
-        setContainer.put("Segtok", "docker.texttechnologylab.org/duui-sentencizer-segtok:0.0.1");
-        setContainer.put("Syntok", "docker.texttechnologylab.org/duui-sentencizer-syntok:0.0.1");
-        setContainer.put("spacy-senter-lg", "docker.texttechnologylab.org/duui-sentencizer-spacy-senter-lg:0.0.1");
-        setContainer.put("spacy-senter-md", "docker.texttechnologylab.org/duui-sentencizer-spacy-senter-md:0.0.1");
-        setContainer.put("spacy-senter-sm", "docker.texttechnologylab.org/duui-sentencizer-spacy-senter-sm:0.0.1");
-        setContainer.put("spacy-senter-ruler", "docker.texttechnologylab.org/duui-sentencizer-spacy-ruler:0.0.1");
-        setContainer.put("spacy-senter-trf", "docker.texttechnologylab.org/duui-sentencizer-spacy-trf:0.0.1");
-        setContainer.put("spacy-parser-lg", "docker.texttechnologylab.org/duui-sentencizer-spacy-parser-lg:0.0.1");
-        setContainer.put("spacy-parser-md", "docker.texttechnologylab.org/duui-sentencizer-spacy-parser-md:0.0.1");
-        setContainer.put("spacy-parser-sm", "docker.texttechnologylab.org/duui-sentencizer-spacy-parser-sm:0.0.1");
+//        setContainer.put("CoreNLP", "docker.texttechnologylab.org/duui-sentencizer-corenlp:0.0.1");
+//        setContainer.put("Segtok", "docker.texttechnologylab.org/duui-sentencizer-segtok:0.0.1");
+//        setContainer.put("Syntok", "docker.texttechnologylab.org/duui-sentencizer-syntok:0.0.1");
+//        setContainer.put("spacy-senter-lg", "docker.texttechnologylab.org/duui-sentencizer-spacy-senter-lg:0.0.1");
+//        setContainer.put("spacy-senter-md", "docker.texttechnologylab.org/duui-sentencizer-spacy-senter-md:0.0.1");
+//        setContainer.put("spacy-senter-sm", "docker.texttechnologylab.org/duui-sentencizer-spacy-senter-sm:0.0.1");
+//        setContainer.put("spacy-senter-ruler", "docker.texttechnologylab.org/duui-sentencizer-spacy-ruler:0.0.1");
+//        setContainer.put("spacy-senter-trf", "docker.texttechnologylab.org/duui-sentencizer-spacy-trf:0.0.1");
+//        setContainer.put("spacy-parser-lg", "docker.texttechnologylab.org/duui-sentencizer-spacy-parser-lg:0.0.1");
+//        setContainer.put("spacy-parser-md", "docker.texttechnologylab.org/duui-sentencizer-spacy-parser-md:0.0.1");
+//        setContainer.put("spacy-parser-sm", "docker.texttechnologylab.org/duui-sentencizer-spacy-parser-sm:0.0.1");
 
 
 //        DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend("testSegmenting.db")
-        DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend("testSegmenting_small.db")
+        DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend("testNewStanza.db")
                 .withConnectionPoolSize(setContainer.size());
 
         int iScale = 1;
+        String sInput = "/storage/projects/baumartz/duui_segmentation_data/paper_data/samples/gerparcor_out/isengart_workers1_gerparcor_sample1000_RANDOM_100_segmentedFalse_02_sentence";
 //        String sInput = "/storage/projects/baumartz/duui_segmentation_data/paper_data/samples/gerparcor_sample1000_RANDOM_100";
-        String sInput = "/storage/projects/baumartz/duui_segmentation_data/paper_data/samples/gerparcor_sample1000_SMALLEST_100";
+//        String sInput = "/storage/projects/baumartz/duui_segmentation_data/paper_data/samples/gerparcor_sample1000_SMALLEST_100";
+//	  String sInput = "/storage/projects/baumartz/duui_segmentation_data/paper_data/samples/conll2003/xmi_empty";
 
-        String sOuptut = "/tmp/duui/sentenceTest_small";
+
+        String sOuptut = "/tmp/duui/testNewStanza";
 
         setContainer.keySet().stream().forEach(k -> {
             String v = setContainer.get(k);
@@ -356,15 +364,24 @@ public class GerParCor {
         setContainer.put("spacy-parser-sm", "docker.texttechnologylab.org/duui-sentencizer-spacy-parser-sm:0.0.1");
 
 
-        DUUISqliteStorageBackend sqliteGPU = new DUUISqliteStorageBackend("testSegmenting_small_GPU.db")
-                .withConnectionPoolSize(setContainer.size());
+        //.withConnectionPoolSize(setContainer.size());
 //        DUUISqliteStorageBackend sqliteGPU = new DUUISqliteStorageBackend("testSegmenting_GPU.db")
 //                .withConnectionPoolSize(setContainer.size());
 
         int iScale = 1;
-        String sInput = "/storage/projects/baumartz/duui_segmentation_data/paper_data/samples/gerparcor_sample1000_SMALLEST_100";
+//        String sInput = "/storage/projects/baumartz/duui_segmentation_data/paper_data/samples/gerparcor_sample1000_SMALLEST_100";
 //        String sInput = "/storage/projects/baumartz/duui_segmentation_data/paper_data/samples/gerparcor_sample1000_RANDOM_100";
-        String sOuptut = "/tmp/test";
+
+        DUUISqliteStorageBackend sqliteGPU = new DUUISqliteStorageBackend("testSegmenting_conll2023_GPU_seg.db")
+                .withConnectionPoolSize(setContainer.size());
+
+//        String sInput = "/storage/projects/baumartz/duui_segmentation_data/paper_data/samples/gerparcor_sample1000_RANDOM_100";
+//        String sInput = "/storage/projects/baumartz/duui_segmentation_data/paper_data/samples/gerparcor_sample1000_SMALLEST_100";
+        String sInput = "/storage/projects/baumartz/duui_segmentation_data/paper_data/samples/conll2003/xmi_empty";
+
+
+        String sOuptut = "/tmp/duui/sentenceTest_conll2023_seg";
+
 
         setContainer.keySet().stream().forEach(k -> {
             String v = setContainer.get(k);
@@ -382,6 +399,107 @@ public class GerParCor {
                 }
             }
         });
+
+    }
+
+    @Test
+    public void renameGerParCor() throws Exception {
+
+        int iScale = 4;
+
+        String sOutput = "/storage/xmi/GerParCorDownload/Germany/National/Bundestag/";
+
+//        String sInput = "/tmp/Bundestag/15";
+        String sInput = "/storage/xmi/GerParCorDownload/Germany/National/";
+
+        DUUIComposer composer = new DUUIComposer()
+                .withSkipVerification(true)
+                .withWorkers(iScale)
+                .withLuaContext(new DUUILuaContext().withJsonLibrary());
+
+        DUUIUIMADriver uimaDriver = new DUUIUIMADriver();
+        DUUIDockerDriver dockerDriver = new DUUIDockerDriver();
+        DUUIRemoteDriver remoteDriver = new DUUIRemoteDriver();
+        composer.addDriver(remoteDriver, uimaDriver, dockerDriver);
+
+        DUUIUIMADriver.Component component = new DUUIUIMADriver.Component(
+                createEngineDescription(RenameMetaDataGerParCor.class,
+                        RenameMetaDataGerParCor.PARAM_OUTPUT, sOutput
+                )
+        ).withScale(iScale);
+
+        DUUIDockerDriver.Component spacy = new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
+                .withScale(iScale).withImageFetching();
+
+        DUUISegmentationStrategy pStrategy = new DUUISegmentationStrategyByDelemiter()
+                .withDelemiter(".")
+                .withLength(10000)
+                .withOverlap(500);
+
+        composer.add(spacy.withSegmentationStrategy(pStrategy));
+
+        composer.add(component);
+
+        AnalysisEngineDescription writerEngine = createEngineDescription(XmiWriter.class,
+                XmiWriter.PARAM_TARGET_LOCATION, sOutput,
+                XmiWriter.PARAM_PRETTY_PRINT, true,
+                XmiWriter.PARAM_OVERWRITE, true,
+                XmiWriter.PARAM_VERSION, "1.1",
+                XmiWriter.PARAM_COMPRESSION, "GZIP"
+        );
+
+        composer.add(new DUUIUIMADriver.Component(writerEngine).withScale(iScale).build());
+
+//        AsyncCollectionReader dataReader = new AsyncCollectionReader("/home/gabrami/Downloads/GerParCorTest/sentence", "xmi.gz", 1, true);
+        AsyncCollectionReader dataReader = new AsyncCollectionReader(sInput, "xmi", 1, false, sOutput);
+
+        composer.run(dataReader, "rename");
+
+        composer.shutdown();
+
+    }
+
+    @Test
+    public void DBTest() throws Exception {
+
+        int iScale = 1;
+
+        DUUIComposer composer = new DUUIComposer()
+                .withSkipVerification(true)
+                .withWorkers(iScale)
+                .withLuaContext(new DUUILuaContext().withJsonLibrary());
+
+        DUUIUIMADriver uimaDriver = new DUUIUIMADriver();
+        DUUIDockerDriver dockerDriver = new DUUIDockerDriver();
+        DUUIRemoteDriver remoteDriver = new DUUIRemoteDriver();
+        composer.addDriver(remoteDriver, uimaDriver, dockerDriver);
+
+
+        DUUIDockerDriver.Component spacy = new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
+                .withScale(iScale).withImageFetching();
+
+        DUUISegmentationStrategy pStrategy = new DUUISegmentationStrategyByDelemiter()
+                .withDelemiter(".")
+                .withLength(10000)
+                .withOverlap(500);
+
+        composer.add(spacy.withSegmentationStrategy(pStrategy));
+
+//        composer.add(component);
+
+
+        AnalysisEngineDescription writerEngine = createEngineDescription(GerParCorWriter.class,
+                GerParCorWriter.PARAM_DBConnection, "/home/staff_homes/abrami/Projects/GitHub/abrami/DockerUnifiedUIMAInterface/src/main/resources/rw"
+        );
+        composer.add(new DUUIUIMADriver.Component(writerEngine).withScale(iScale).build());
+
+        CollectionReaderDescription reader = createReaderDescription(GerParCorReader.class,
+                GerParCorReader.PARAM_DBConnection, "/home/staff_homes/abrami/Projects/GitHub/abrami/DockerUnifiedUIMAInterface/src/main/resources/rw",
+                GerParCorReader.PARAM_Query, "{\"annotations.Token\": { $exists: 0 }}"
+        );
+
+        composer.run(reader);
+
 
     }
 

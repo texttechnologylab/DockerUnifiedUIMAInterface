@@ -9,12 +9,10 @@ import com.github.dockerjava.api.exception.NotModifiedException;
 import com.github.dockerjava.api.model.*;
 import com.github.dockerjava.core.DockerClientBuilder;
 import com.github.dockerjava.core.command.LogContainerResultCallback;
-import com.github.dockerjava.httpclient5.ApacheDockerHttpClient;
 import com.google.common.collect.ImmutableList;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.URI;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.InvalidParameterException;
@@ -154,16 +152,19 @@ public class DUUIDockerInterface {
      * @throws IOException
      */
     public DUUIDockerInterface() throws IOException {
-        URI dockerClientURI;
-        if (System.getProperty("os.name").toLowerCase().contains("windows")) {
-            dockerClientURI = URI.create("npipe:////./pipe/docker_engine");
-        } else {
-            dockerClientURI = URI.create("tcp://localhost:2375");
-        }
 
-        _docker = DockerClientBuilder.getInstance()
-                .withDockerHttpClient(new ApacheDockerHttpClient.Builder()
-                        .dockerHost(dockerClientURI).build()).build();
+        // GREAT TODO!!!
+//        URI dockerClientURI;
+//        if (System.getProperty("os.name").toLowerCase().contains("windows")) {
+//            dockerClientURI = URI.create("npipe:////./pipe/docker_engine");
+//        } else {
+//            dockerClientURI = URI.create("tcp://localhost:2375");
+//        }
+//
+//        _docker = DockerClientBuilder.getInstance()
+//                .withDockerHttpClient(new ApacheDockerHttpClient.Builder()
+//                        .dockerHost(dockerClientURI).build()).build();
+        _docker = DockerClientBuilder.getInstance().build();
 
 
 //        DockerClientConfig config = DefaultDockerClientConfig.createDefaultConfigBuilder().withDockerHost("tcp://localhost:2375").build();
