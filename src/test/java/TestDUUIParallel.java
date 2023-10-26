@@ -101,8 +101,8 @@ public class TestDUUIParallel {
     }
 
     @Test
-    static void TestInitializer(int pool, String variant, boolean limitReplicas) throws Exception {
-        final String root = "duui_parallel_benchmarks/";
+    static void TestInitializer(int pool, String variant) throws Exception {
+        final String root = "./duui_parallel_benchmarks/";
         final String samples = root + "samples/";
         final int sample_size = 1000;
         final String sample_variant = variant; // "random" "smallest"
@@ -126,18 +126,15 @@ public class TestDUUIParallel {
 
         composer.addDriver(new DUUIDockerDriver());
 
-        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/terefe-ba-textimager-spacy-tokenizer:1.0"));
+        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/terefe-ba-textimager-spacy-tokenizer:1.0").withImageFetching());
         if (mode != DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE.RANDOM) {
-            composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/terefe-ba-textimager-spacy-ner:1.0"));
-            composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/terefe-ba-textimager-spacy-lemmatizer:1.0"));
+            composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/terefe-ba-textimager-spacy-ner:1.0").withImageFetching());
+            composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/terefe-ba-textimager-spacy-lemmatizer:1.0").withImageFetching());
         }
-        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/terefe-ba-textimager-spacy-tagger:1.0"));
-        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/terefe-ba-textimager-spacy-sentencizer:1.0"));
-        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/terefe-ba-textimager-spacy-morphologizer:1.0"));
-        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/terefe-ba-textimager-spacy-parser:1.0"));
-
-
-        composer.withParallelPipeline(new DefaultStrategy(), false, 1, false);
+        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/terefe-ba-textimager-spacy-tagger:1.0").withImageFetching());
+        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/terefe-ba-textimager-spacy-sentencizer:1.0").withImageFetching());
+        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/terefe-ba-textimager-spacy-morphologizer:1.0").withImageFetching());
+        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/terefe-ba-textimager-spacy-parser:1.0").withImageFetching());
 
         ParallelScaledNarrow(gerparcor_sample + ".txt",sample_size, sample_skip_size,mode, composer, run_key,sample_variant.equals("smallest") ? 100 : 50, max_pool_size);
         ParallelScaledWide(gerparcor_sample + ".txt", sample_size,sample_skip_size, mode, composer, run_key, sample_variant.equals("smallest") ? 100 : 50,max_pool_size);

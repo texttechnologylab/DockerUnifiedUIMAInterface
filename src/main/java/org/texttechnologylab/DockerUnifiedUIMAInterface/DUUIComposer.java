@@ -313,14 +313,14 @@ public class DUUIComposer {
     }
     
     public DUUIComposer withComponentParallelPipeline(PoolStrategy strategy) {
-        return withParallelPipeline(strategy, false, Integer.MAX_VALUE, true);
+        return withComponentParallelPipeline(strategy, false, Integer.MAX_VALUE, true);
     }
 
     public DUUIComposer withComponentParallelPipeline(PoolStrategy strategy, boolean levelSynchronized, int maxLevelWidth) {
-        return withParallelPipeline(strategy, levelSynchronized, maxLevelWidth, true);
+        return withComponentParallelPipeline(strategy, levelSynchronized, maxLevelWidth, true);
     }
     
-    public DUUIComposer withParallelPipeline(PoolStrategy strategy, boolean levelSynchronized, int maxLevelWidth, boolean rescheduleFailedWorkers) {
+    public DUUIComposer withComponentParallelPipeline(PoolStrategy strategy, boolean levelSynchronized, int maxLevelWidth, boolean rescheduleFailedWorkers) {
         if (maxLevelWidth < 1)
             throw new IllegalArgumentException("The level width has to be greater than 1.");
         
