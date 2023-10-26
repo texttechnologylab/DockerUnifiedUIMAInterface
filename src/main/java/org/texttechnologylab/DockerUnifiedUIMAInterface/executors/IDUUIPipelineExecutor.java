@@ -1,4 +1,4 @@
-package org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation;
+package org.texttechnologylab.DockerUnifiedUIMAInterface.executors;
 
 import java.util.Map;
 import java.util.Set;

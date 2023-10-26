@@ -1,11 +1,8 @@
-package org.texttechnologylab.DockerUnifiedUIMAInterface;
+package org.texttechnologylab.DockerUnifiedUIMAInterface.profiling;
 
-import java.util.HashMap;
-import java.util.Map;
-
-import org.javatuples.Pair;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.ResourceManager.ResourceViews;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.ResourceManager.ResourceView;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIDockerInterface;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.profiling.ResourceManager.ResourceView;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.profiling.ResourceManager.ResourceViews;
 
 import com.github.dockerjava.api.command.InspectContainerResponse.ContainerState;
 import com.github.dockerjava.api.model.StatisticNetworksConfig;
@@ -13,8 +10,6 @@ import com.github.dockerjava.api.model.Statistics;
 
 
 public interface IDUUIResource<T extends ResourceView> {
-
-    static HashMap<String, Pair<Float, Float>> preCPUStats = new HashMap<>();
 
     public default ResourceManager getResourceManager() {
         return ResourceManager.getInstance();
@@ -29,7 +24,7 @@ public interface IDUUIResource<T extends ResourceView> {
 
     }
 
-    static class DockerContainerView implements ResourceView {
+    public static class DockerContainerView implements ResourceView {
 
         public final String container_id;
         public final String image_id;
@@ -49,13 +44,47 @@ public interface IDUUIResource<T extends ResourceView> {
             this.image_id = image_id;
         }
 
+        public String getContainerId() {
+            return container_id;
+        }
+
+        public String getImage() {
+            return image_id;
+        }
+
+        public String getState() {
+            return state;
+        }
+
+        public double getCpuUsage() {
+            return cpu_usage;
+        }
+
+        public long getMemoryPeakUsage() {
+            return memory_max_usage;
+        }
+
+        public long getMemoryUsage() {
+            return memory_usage;
+        }
+
+        public long getNetworkIn() {
+            return network_in;
+        }
+
+        public long getNetworkOut() {
+            return network_out;
+        }
+
         public DockerContainerView stats(final DUUIDockerInterface docker) {
             try {   
+                final long start = System.currentTimeMillis();
                 ContainerState state = docker.getDockerClient().inspectContainerCmd(container_id).exec().getState();
                 final String stateStr = state.getStatus();
+                System.out.println("DOCKER STATS COLLECTION TIME: " + (System.currentTimeMillis() - start));
                 
                 final Statistics stats = docker.get_stats(container_id);
-                
+
                 long network_i = -1L;
                 long network_o = -1L;
                 if (! stats.getNetworks().isEmpty()) {

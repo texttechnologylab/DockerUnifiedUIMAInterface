@@ -1,5 +1,6 @@
-package org.texttechnologylab.DockerUnifiedUIMAInterface;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.parallelisation.DUUIWorker;
+package org.texttechnologylab.DockerUnifiedUIMAInterface.executors;
+
+import org.texttechnologylab.DockerUnifiedUIMAInterface.executors.DUUIParallelPipelineExecutor.DUUIWorker;
 
 public class AnnotatorUnreachableException extends RuntimeException{
 

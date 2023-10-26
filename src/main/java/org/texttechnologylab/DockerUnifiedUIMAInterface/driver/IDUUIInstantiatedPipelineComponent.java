@@ -1,7 +1,6 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.driver;
 
 import static java.lang.String.format;
-import static org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineProfiler.documentUpdate;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -45,16 +44,16 @@ import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.apache.uima.util.CasIOUtils;
 import org.dkpro.core.io.bincas.BinaryCasWriter;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.AnnotatorUnreachableException;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUIResource;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.ResourceManager;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.ResourceManager.ResourceView;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.DUUIRestClient;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.DUUIWebsocketAlt;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.IDUUIConnectionHandler;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.executors.AnnotatorUnreachableException;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.IDUUICommunicationLayer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.profiling.IDUUIResource;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.profiling.ResourceManager;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.profiling.ResourceManager.ResourceView;
 import org.texttechnologylab.duui.ReproducibleAnnotation;
 import org.xml.sax.SAXException;
 
@@ -218,12 +217,12 @@ public interface IDUUIInstantiatedPipelineComponent extends IDUUIResource<Resour
 
     public static void process(JCas jc, IDUUIInstantiatedPipelineComponent comp, DUUIPipelineDocumentPerformance perf) throws CompressorException, IOException, SAXException, CASException, InterruptedException {
         
-        DUUIRestClient _handler = DUUIRestClient.getInstance(); 
+        DUUIRestClient handler = DUUIRestClient.getInstance(); 
+
         long mutexStart = System.nanoTime();
         IDUUIUrlAccessible accessible = comp.takeInstance(); 
         long mutexEnd = System.nanoTime();
         long durationMutexWait = mutexEnd - mutexStart;
-        documentUpdate(perf.getRunKey(), comp.getSignature(), "urlwait", durationMutexWait);
         DUUIComposer.totalurlwait.addAndGet(durationMutexWait);
 
         // Serialization
@@ -254,13 +253,10 @@ public interface IDUUIInstantiatedPipelineComponent extends IDUUIResource<Resour
         byte[] ok;
         {
             ByteArrayOutputStream out;
-            long start = System.nanoTime();
             out = comp.getResourceManager().takeByteStream();
-            DUUIComposer.totalbytestreamwait.addAndGet(System.nanoTime() - start);
             try {
                 synchronized (viewJc) {
                     layer.serialize(viewJc,out,comp.getParameters());
-
                 }
                 ok = out.toByteArray();
             } finally {
@@ -270,8 +266,8 @@ public interface IDUUIInstantiatedPipelineComponent extends IDUUIResource<Resour
         long serializeSize = ok.length;
         long serializeEnd = System.nanoTime();
         long durationSerialize = serializeEnd - serializeStart;
-        documentUpdate(perf.getRunKey(), comp.getSignature(), "serialization", durationSerialize);
         DUUIComposer.totalserializewait.addAndGet(durationSerialize);
+
         // Annotator
         long annotatorStart = serializeEnd;
         HttpRequest request = HttpRequest.newBuilder()
@@ -282,7 +278,7 @@ public interface IDUUIInstantiatedPipelineComponent extends IDUUIResource<Resour
 
         HttpResponse<byte[]> resp = null;
         try {
-            resp = _handler.send(request, 5)
+            resp = handler.send(request, 5)
                 .orElseThrow(() -> 
                     new AnnotatorUnreachableException(format("[%s] %s-Could not reach endpoint after 5 tries!",
                         Thread.currentThread().getName(), perf.getRunKey())
@@ -293,37 +289,30 @@ public interface IDUUIInstantiatedPipelineComponent extends IDUUIResource<Resour
         }
     
         if (resp.statusCode() != 200) {
-            throw new InvalidObjectException(
-                String.format("Expected response 200, got %d: %s", resp.statusCode(), 
-                new String(resp.body(), StandardCharsets.UTF_8)));
+            // throw new InvalidObjectException(
+            //     String.format("Expected response 200, got %d: %s", resp.statusCode(), 
+            //     new String(resp.body(), StandardCharsets.UTF_8)));
         }
-
         ByteArrayInputStream st = new ByteArrayInputStream(resp.body());
         long annotatorEnd = System.nanoTime();
         long durationAnnotator = annotatorEnd - annotatorStart;
         DUUIComposer.totalannotatorwait.addAndGet(durationAnnotator);
-        documentUpdate(perf.getRunKey(), comp.getSignature(), "annotator", durationAnnotator);
+
         // Deserialization
         long deserializeStart = annotatorEnd;
-        long jcSize = 0;
         try {
             synchronized(viewJc) {
                 layer.deserialize(viewJc, st);
-                // ByteArrayOutputStream siz = new ByteArrayOutputStream(viewJc.size());
-                // org.apache.uima.cas.impl.Serialization.serializeCAS(viewJc.getCas(), siz);
-                jcSize = viewJc.size();
             }
         }
         catch(Exception e) {
-            System.err.printf("[%s] Caught exception deserializing, printing response %s\n",
-                Thread.currentThread().getName(), new String(resp.body(), StandardCharsets.UTF_8));
+            System.err.printf("[%s] Caught exception deserializing, printing response: %s\n",
+                Thread.currentThread().getName(), e.getMessage());
             throw e;
         }
         long deserializeEnd = System.nanoTime();
         long durationDeserialize = deserializeEnd - deserializeStart;
         DUUIComposer.totaldeserializewait.addAndGet(durationDeserialize);
-        documentUpdate(perf.getRunKey(), comp.getSignature(), "deserialization", durationDeserialize);
-        documentUpdate(perf.getRunKey(), comp.getSignature(), "document_size", jcSize);
 
         String componentKey = String.valueOf(comp.getPipelineComponent().getFinalizedRepresentationHash());
         ReproducibleAnnotation ann = new ReproducibleAnnotation(jc);
@@ -332,89 +321,87 @@ public interface IDUUIInstantiatedPipelineComponent extends IDUUIResource<Resour
         ann.setTimestamp(System.nanoTime());
         ann.setPipelineName(perf.getRunKey());
         ann.addToIndexes();
-        perf.addData(durationSerialize, durationDeserialize, durationAnnotator, durationMutexWait, deserializeEnd-mutexStart, componentKey, serializeSize, jc);
-        documentUpdate(perf.getRunKey(), comp.getSignature(), "component_total", deserializeEnd-mutexStart);
-    
+        perf.addData(comp.getSignature(), durationSerialize, durationDeserialize, durationAnnotator, durationMutexWait, deserializeEnd-mutexStart, componentKey, serializeSize, jc);
     }
 
     public static void process_handler(JCas jc,
                                        IDUUIInstantiatedPipelineComponent comp,
                                        DUUIPipelineDocumentPerformance perf) throws CompressorException, IOException, SAXException, CASException, InterruptedException {
         
-        long mutexStart = System.nanoTime();
-        IDUUIUrlAccessible accessible = comp.takeInstance(); 
-        long mutexEnd = System.nanoTime();
+        // long mutexStart = System.nanoTime();
+        // IDUUIUrlAccessible accessible = comp.takeInstance(); 
+        // long mutexEnd = System.nanoTime();
 
-        IDUUICommunicationLayer layer = accessible.getCommunicationLayer();
-        long serializeStart = System.nanoTime();
+        // IDUUICommunicationLayer layer = accessible.getCommunicationLayer();
+        // long serializeStart = System.nanoTime();
 
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        // ByteArrayOutputStream out = new ByteArrayOutputStream();
 
-        DUUIPipelineComponent pipelineComponent = comp.getPipelineComponent();
+        // DUUIPipelineComponent pipelineComponent = comp.getPipelineComponent();
 
-        String viewName = pipelineComponent.getViewName();
-        JCas viewJc;
-        if(viewName == null) {
-            viewJc = jc;
-        }
-        else {
-            try {
-                viewJc = jc.getView(viewName);
-            }
-            catch(CASException e) {
-                if(pipelineComponent.getCreateViewFromInitialView()) {
-                    viewJc = jc.createView(viewName);
-                    viewJc.setDocumentText(jc.getDocumentText());
-                    viewJc.setDocumentLanguage(jc.getDocumentLanguage());
-                }
-                else {
-                    throw e;
-                }
-            }
-        }
-        // lua serialize call()
-        layer.serialize(viewJc,out,comp.getParameters());
+        // String viewName = pipelineComponent.getViewName();
+        // JCas viewJc;
+        // if(viewName == null) {
+        //     viewJc = jc;
+        // }
+        // else {
+        //     try {
+        //         viewJc = jc.getView(viewName);
+        //     }
+        //     catch(CASException e) {
+        //         if(pipelineComponent.getCreateViewFromInitialView()) {
+        //             viewJc = jc.createView(viewName);
+        //             viewJc.setDocumentText(jc.getDocumentText());
+        //             viewJc.setDocumentLanguage(jc.getDocumentLanguage());
+        //         }
+        //         else {
+        //             throw e;
+        //         }
+        //     }
+        // }
+        // // lua serialize call()
+        // layer.serialize(viewJc,out,comp.getParameters());
 
-        // ok is the message.
-        byte[] ok = out.toByteArray();
-        long sizeArray = ok.length;
-        long serializeEnd = System.nanoTime();
+        // // ok is the message.
+        // byte[] ok = out.toByteArray();
+        // long sizeArray = ok.length;
+        // long serializeEnd = System.nanoTime();
 
-        long annotatorStart = serializeEnd;
+        // long annotatorStart = serializeEnd;
 
-        IDUUIConnectionHandler handler = accessible.getHandler();
+        // IDUUIConnectionHandler handler = accessible.getHandler();
 
-        if (handler.getClass() == DUUIWebsocketAlt.class){
-            JCas finalViewJc = viewJc;
+        // if (handler.getClass() == DUUIWebsocketAlt.class){
+        //     JCas finalViewJc = viewJc;
 
-            List<ByteArrayInputStream> results = handler.send(ok);
+        //     List<ByteArrayInputStream> results = handler.send(ok);
 
-            long annotatorEnd = System.nanoTime();
-            long deserializeStart = annotatorEnd;
+        //     long annotatorEnd = System.nanoTime();
+        //     long deserializeStart = annotatorEnd;
 
-            ByteArrayInputStream result = null;
-            try {
+        //     ByteArrayInputStream result = null;
+        //     try {
                 
-                result = layer.merge(results);
-                synchronized(jc) {
-                    layer.deserialize(finalViewJc, result);
-                }       
-            }
-            catch(Exception e) {
-                e.printStackTrace();
-                System.err.printf("Caught exception printing response %s\n",new String(result.readAllBytes(), StandardCharsets.UTF_8));
-            }
+        //         result = layer.merge(results);
+        //         synchronized(jc) {
+        //             layer.deserialize(finalViewJc, result);
+        //         }       
+        //     }
+        //     catch(Exception e) {
+        //         e.printStackTrace();
+        //         System.err.printf("Caught exception printing response %s\n",new String(result.readAllBytes(), StandardCharsets.UTF_8));
+        //     }
 
-            long deserializeEnd = System.nanoTime();
+        //     long deserializeEnd = System.nanoTime();
 
-            comp.returnInstance(accessible);
-            ReproducibleAnnotation ann = new ReproducibleAnnotation(jc);
-            ann.setDescription(comp.getPipelineComponent().getFinalizedRepresentation());
-            ann.setCompression(DUUIPipelineComponent.compressionMethod);
-            ann.setTimestamp(System.nanoTime());
-            ann.setPipelineName(perf.getRunKey());
-            ann.addToIndexes();
-            perf.addData(serializeEnd-serializeStart,deserializeEnd-deserializeStart,annotatorEnd-annotatorStart,mutexEnd-mutexStart,deserializeEnd-mutexStart, String.valueOf(comp.getPipelineComponent().getFinalizedRepresentationHash()), sizeArray, jc);
-        }
+        //     comp.returnInstance(accessible);
+        //     ReproducibleAnnotation ann = new ReproducibleAnnotation(jc);
+        //     ann.setDescription(comp.getPipelineComponent().getFinalizedRepresentation());
+        //     ann.setCompression(DUUIPipelineComponent.compressionMethod);
+        //     ann.setTimestamp(System.nanoTime());
+        //     ann.setPipelineName(perf.getRunKey());
+        //     ann.addToIndexes();
+        //     perf.addData(serializeEnd-serializeStart,deserializeEnd-deserializeStart,annotatorEnd-annotatorStart,mutexEnd-mutexStart,deserializeEnd-mutexStart, String.valueOf(comp.getPipelineComponent().getFinalizedRepresentationHash()), sizeArray, jc);
+        // }
     }
 }

@@ -13,14 +13,19 @@ import com.github.dockerjava.core.DockerClientBuilder;
 import com.github.dockerjava.core.DockerClientConfig;
 import com.github.dockerjava.core.InvocationBuilder.AsyncResultCallback;
 import com.github.dockerjava.core.command.LogContainerResultCallback;
+import com.github.dockerjava.httpclient5.ApacheDockerHttpClient;
 import com.github.dockerjava.jaxrs.JerseyDockerHttpClient;
+import com.github.dockerjava.okhttp.OkDockerHttpClient;
+import com.github.dockerjava.transport.DockerHttpClient;
 import com.google.common.collect.ImmutableList;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URI;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.InvalidParameterException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
@@ -160,8 +165,17 @@ public class DUUIDockerInterface {
         if (!System.getProperty("os.name").contains("Windows")) {
             _docker = DockerClientBuilder.getInstance().build();
         } else {
-            DockerClientConfig config = DefaultDockerClientConfig.createDefaultConfigBuilder().withDockerHost("tcp://localhost:2375").build();
-            _docker = DockerClientBuilder.getInstance(config).build();
+            // Windows
+            final DockerHttpClient http = new ApacheDockerHttpClient.Builder()
+                .connectionTimeout(Duration.ofSeconds(5))
+                .responseTimeout(Duration.ofMinutes(10))
+                .dockerHost(URI.create("npipe:////./pipe/docker_engine")) 
+                // .dockerHost(URI.create("tcp://127.0.0.1:2375")) // if npipe doesn't work.
+                .build();
+            _docker = DockerClientBuilder.getInstance()
+                .withDockerHttpClient(http)
+                .build();
+            
         }
     }
 
@@ -222,16 +236,16 @@ public class DUUIDockerInterface {
     }
 
     /**
-     * Retrieves the resource-usage-statistics of a container.
+     * Retrieves the resource-usage-statistics of a container. Is slow!
      * 
      * @param containder_id Id of container.
      * @return Statistics info.
      * @throws Exception
      */
     public Statistics get_stats(String containder_id) throws Exception {
-        AsyncResultCallback<Statistics> callback = new AsyncResultCallback<>();
-        _docker.statsCmd(containder_id).exec(callback);
-        try {
+        final AsyncResultCallback<Statistics> callback = new AsyncResultCallback<>();
+        _docker.statsCmd(containder_id).withNoStream(true).exec(callback);
+        try { 
             Statistics stats = callback.awaitResult();
             callback.close();
             return stats;
@@ -287,16 +301,13 @@ public class DUUIDockerInterface {
      */
     public void stop_container(String id) {
         try{
-            if (is_container_running(id))
-                _docker.killContainerCmd(id).exec();
-            if (is_container_alive(id))
-                _docker.removeContainerCmd(id).exec();
-        } catch (NotModifiedException e) {
-            System.out.printf("Could not stop container: %s%n", id);
-            System.out.println(e.getMessage());
+            _docker.killContainerCmd(id).exec();
         } catch (Exception e) {
-            System.out.printf("Could not stop container: %s%n", id);
-            System.out.println(e.getMessage());
+        }
+        try{
+            _docker.removeContainerCmd(id).exec();
+        } catch (Exception e) {
+            System.out.println("[DOCKER-INSTANCE] Error on remove: " + e.getMessage());
         }
     }
 
@@ -596,16 +607,12 @@ public class DUUIDockerInterface {
     }
 
     public void start_container(String containerId) {
-        if (is_container_alive(containerId)) {
-            _docker.startContainerCmd(Objects.requireNonNull(containerId))
-            .exec();
-        }
+        _docker.startContainerCmd(Objects.requireNonNull(containerId))
+        .exec();
     }
 
     public void kill_container(String containerId) {
-        if (is_container_running(containerId)) {
-            _docker.killContainerCmd(containerId).exec();
-        }
+        _docker.killContainerCmd(Objects.requireNonNull(containerId)).exec();
     }
 
     /*
@@ -614,17 +621,8 @@ public class DUUIDockerInterface {
      * @param containerId Id of container to be started.
      */
     public void unpause_container(String containerId) {
-        ContainerState state = _docker.inspectContainerCmd(containerId).exec().getState();
-        
-        if (state.getStatus().equalsIgnoreCase("created")) {
-            start_container(containerId);
-            return;
-        }
-
-        if (state.getPaused()) {
-            _docker.unpauseContainerCmd(Objects.requireNonNull(containerId))
-            .exec();
-        }
+        _docker.unpauseContainerCmd(Objects.requireNonNull(containerId))
+        .exec();
     }
 
     /*
@@ -633,11 +631,8 @@ public class DUUIDockerInterface {
      * @param containerId Id of container to be paused.
      */
     public void pause_container(String containerId) {
-        ContainerState state = _docker.inspectContainerCmd(containerId).exec().getState();
-        if (state.getRunning()) {
-            _docker.pauseContainerCmd(Objects.requireNonNull(containerId))
-            .exec();
-        }
+        _docker.pauseContainerCmd(Objects.requireNonNull(containerId))
+        .exec();
     }
 
     public boolean is_container_running(String containerId){
@@ -645,7 +640,7 @@ public class DUUIDockerInterface {
             ContainerState state = _docker.inspectContainerCmd(containerId).exec().getState();
             return state.getStatus().equalsIgnoreCase("running");
         } catch (Exception e) {
-            e.printStackTrace();
+            // e.printStackTrace();
             return false;
         }
     }
@@ -657,7 +652,7 @@ public class DUUIDockerInterface {
                 || state.getStatus().equalsIgnoreCase("running")
                 || state.getStatus().equalsIgnoreCase("created");
         } catch (Exception e) {
-            e.printStackTrace();
+            // e.printStackTrace();
             return false;
         }
     }

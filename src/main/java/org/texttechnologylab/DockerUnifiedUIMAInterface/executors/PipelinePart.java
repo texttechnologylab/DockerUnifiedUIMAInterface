@@ -1,4 +1,4 @@
-package org.texttechnologylab.DockerUnifiedUIMAInterface;
+package org.texttechnologylab.DockerUnifiedUIMAInterface.executors;
 
 import java.io.IOException;
 import java.io.Serializable;
@@ -12,7 +12,6 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIPipelineCompo
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.IDUUIDriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.Signature;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineProfiler;
 import org.xml.sax.SAXException;
 
 public class PipelinePart implements Serializable {
@@ -29,7 +28,6 @@ public class PipelinePart implements Serializable {
     }
 
     public void run(String name, JCas jc, DUUIPipelineDocumentPerformance perf) throws AnalysisEngineProcessException, CASException, InterruptedException, IOException, SAXException, CompressorException {
-        DUUIPipelineProfiler.add(name, _signature, getScale());
         _driver.run(_uuid, jc, perf);
     }
 
