@@ -18,8 +18,13 @@ import org.dkpro.core.api.io.JCasFileWriter_ImplBase;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.mongodb.MongoDBConfig;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.mongodb.MongoDBConnectionHandler;
 import org.texttechnologylab.annotation.AnnotationComment;
+import org.texttechnologylab.utilities.helper.ArchiveUtils;
+import org.texttechnologylab.utilities.helper.TempFileHandler;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -29,6 +34,12 @@ public class GerParCorWriter extends JCasFileWriter_ImplBase {
     private final String GRIDID = "gridid";
     @ConfigurationParameter(name = PARAM_DBConnection, mandatory = true)
     protected String dbconnection;
+
+    public static final String PARAM_compress = "sCompress";
+    @ConfigurationParameter(name = PARAM_compress, mandatory = false, defaultValue = "true")
+    protected String sCompress;
+
+    private boolean bCompress = true;
 
     MongoDBConnectionHandler dbConnectionHandler = null;
     GridFSBucket gridFS = null;
@@ -44,6 +55,9 @@ public class GerParCorWriter extends JCasFileWriter_ImplBase {
             this.gridFS = GridFSBuckets.create(dbConnectionHandler.getDatabase(), "grid");
         } catch (IOException e) {
             throw new RuntimeException(e);
+        }
+        if (sCompress.equalsIgnoreCase("false")) {
+            bCompress = false;
         }
 
     }
@@ -84,11 +98,24 @@ public class GerParCorWriter extends JCasFileWriter_ImplBase {
             GridFSUploadOptions options = new GridFSUploadOptions()
                     .chunkSizeBytes(358400)
                     .metadata(new Document("type", "uima"))
+                    .metadata(new Document("compressed", bCompress))
                     .metadata(new Document(GRIDID, sGridId));
 
             GridFSUploadStream uploadStream = gridFS.openUploadStream(sGridId, options);
             try {
-                CasIOUtils.save(aJCas.getCas(), uploadStream, SerialFormat.XMI_1_1);
+
+                if (bCompress) {
+                    File pTempFile = TempFileHandler.getTempFile("aaa", ".temp");
+                    CasIOUtils.save(aJCas.getCas(), new FileOutputStream(pTempFile), SerialFormat.XMI_1_1);
+                    File compressedFile = ArchiveUtils.compressGZ(pTempFile);
+                    byte[] data = Files.readAllBytes(compressedFile.toPath());
+                    uploadStream.write(data);
+                    uploadStream.flush();
+                    pTempFile.delete();
+                    compressedFile.delete();
+                } else {
+                    CasIOUtils.save(aJCas.getCas(), uploadStream, SerialFormat.XMI_1_1);
+                }
 
                 Document pDocument = this.dbConnectionHandler.getObject(sDocumentId);
                 pDocument.put("annotations", countAnnotations(aJCas));

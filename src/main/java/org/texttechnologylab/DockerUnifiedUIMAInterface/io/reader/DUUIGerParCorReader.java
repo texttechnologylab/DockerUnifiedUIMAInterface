@@ -15,7 +15,12 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.mongodb.Mongo
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.mongodb.MongoDBConnectionHandler;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.DUUICollectionReader;
 import org.texttechnologylab.annotation.AnnotationComment;
+import org.texttechnologylab.utilities.helper.ArchiveUtils;
+import org.texttechnologylab.utilities.helper.TempFileHandler;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -149,7 +154,26 @@ public class DUUIGerParCorReader implements DUUICollectionReader {
 
 
         try (GridFSDownloadStream downloadStream = gridFS.openDownloadStream(gridID)) {
-            CasIOUtils.load(downloadStream, pEmpty.getCas());
+            Document pMeta = downloadStream.getGridFSFile().getMetadata();
+            boolean bCompressed = true;
+            if (pMeta.containsKey("compressed")) {
+                bCompressed = pMeta.getBoolean("compressed");
+            } else {
+                bCompressed = false;
+            }
+
+            if (bCompressed) {
+                File tempFile = TempFileHandler.getTempFile("aaa", ".temp");
+                gridFS.downloadToStream(gridID, new FileOutputStream(tempFile));
+                File nFile = ArchiveUtils.decompressGZ(tempFile);
+                CasIOUtils.load(new FileInputStream(nFile), pEmpty.getCas());
+                tempFile.delete();
+                nFile.delete();
+            } else {
+                CasIOUtils.load(downloadStream, pEmpty.getCas());
+            }
+
+
 
             try {
                 AnnotationComment id = JCasUtil.select(pEmpty, AnnotationComment.class).stream().filter(ac -> ac.getKey().equals("mongoid")).findFirst().get();

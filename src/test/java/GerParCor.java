@@ -524,7 +524,7 @@ public class GerParCor {
     @Test
     public void GerParCorFullspaCy() throws Exception {
 
-        int iScale = 10;
+        int iScale = 1;
 
         DUUIComposer composer = new DUUIComposer()
                 .withSkipVerification(true)
@@ -552,7 +552,8 @@ public class GerParCor {
         String sPathDB = "/home/staff_homes/abrami/Projects/GitHub/abrami/DockerUnifiedUIMAInterface/src/main/resources/rw";
 
         AnalysisEngineDescription writerEngine = createEngineDescription(GerParCorWriter.class,
-                GerParCorWriter.PARAM_DBConnection, sPathDB
+                GerParCorWriter.PARAM_DBConnection, sPathDB,
+                GerParCorWriter.PARAM_compress, "true"
         );
         composer.add(new DUUIUIMADriver.Component(writerEngine).withScale(iScale).build());
 

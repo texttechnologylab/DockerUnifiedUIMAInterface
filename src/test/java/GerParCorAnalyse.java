@@ -1,24 +1,11 @@
-import org.apache.commons.compress.compressors.CompressorException;
-import org.apache.uima.UIMAException;
-import org.apache.uima.analysis_engine.AnalysisEngineDescription;
-import org.apache.uima.collection.CollectionReaderDescription;
 import org.junit.jupiter.api.Test;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIDockerDriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIUIMADriver;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.io.GerParCorReader;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.io.GerParCorWriter;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.segmentation.DUUISegmentationStrategy;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.segmentation.DUUISegmentationStrategyByDelemiter;
-import org.xml.sax.SAXException;
-
-import java.io.IOException;
-import java.net.URISyntaxException;
-
-import static org.apache.uima.fit.factory.AnalysisEngineFactory.createEngineDescription;
-import static org.apache.uima.fit.factory.CollectionReaderFactory.createReaderDescription;
 
 public class GerParCorAnalyse {
     int iScale = 20;
@@ -50,18 +37,18 @@ public class GerParCorAnalyse {
 
 //        composer.add(component);
 
+//
+//        AnalysisEngineDescription writerEngine = createEngineDescription(GerParCorWriter.class,
+//                GerParCorWriter.PARAM_DBConnection, "DockerUnifiedUIMAInterface/gerparcor"
+//        );
+//        composer.add(new DUUIUIMADriver.Component(writerEngine).withScale(iScale).build());
+//
+//        CollectionReaderDescription reader = createReaderDescription(GerParCorReader.class,
+//                GerParCorReader.PARAM_DBConnection, "DockerUnifiedUIMAInterface/gerparcor",
+//                GerParCorReader.PARAM_Query, "{\"annotations.Token\": 0}"
+//        );
 
-        AnalysisEngineDescription writerEngine = createEngineDescription(GerParCorWriter.class,
-                GerParCorWriter.PARAM_DBConnection, "DockerUnifiedUIMAInterface/gerparcor"
-        );
-        composer.add(new DUUIUIMADriver.Component(writerEngine).withScale(iScale).build());
-
-        CollectionReaderDescription reader = createReaderDescription(GerParCorReader.class,
-                GerParCorReader.PARAM_DBConnection, "DockerUnifiedUIMAInterface/gerparcor",
-                GerParCorReader.PARAM_Query, "{\"annotations.Token\": 0}"
-        );
-
-        composer.run(reader);
+//        composer.run(reader);
 
     }
 
@@ -93,16 +80,16 @@ public class GerParCorAnalyse {
 //        composer.add(component);
 
 
-        AnalysisEngineDescription writerEngine = createEngineDescription(GerParCorWriter.class,
-                GerParCorWriter.PARAM_DBConnection, "DockerUnifiedUIMAInterface/gerparcor"
-        );
-        composer.add(new DUUIUIMADriver.Component(writerEngine).withScale(iScale).build());
-
-        CollectionReaderDescription reader = createReaderDescription(GerParCorReader.class,
-                GerParCorReader.PARAM_DBConnection, "DockerUnifiedUIMAInterface/gerparcor"
-        );
-
-        composer.run(reader);
+//        AnalysisEngineDescription writerEngine = createEngineDescription(GerParCorWriter.class,
+//                GerParCorWriter.PARAM_DBConnection, "DockerUnifiedUIMAInterface/gerparcor"
+//        );
+//        composer.add(new DUUIUIMADriver.Component(writerEngine).withScale(iScale).build());
+//
+//        CollectionReaderDescription reader = createReaderDescription(GerParCorReader.class,
+//                GerParCorReader.PARAM_DBConnection, "DockerUnifiedUIMAInterface/gerparcor"
+//        );
+//
+//        composer.run(reader);
 
     }
 
