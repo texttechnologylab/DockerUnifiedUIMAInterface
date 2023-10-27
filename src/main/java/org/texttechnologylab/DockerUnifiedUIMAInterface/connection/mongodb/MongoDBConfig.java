@@ -72,6 +72,30 @@ public class MongoDBConfig extends Properties {
         return Integer.valueOf(getProperty("remote_port", "27017"));
     }
 
+    public int getConnectionCount() {
+        return Integer.valueOf(getProperty("connection_count", "10"));
+    }
+
+    public int getConnectionTimeOut() {
+        return Integer.valueOf(getProperty("connection_timeout", "300000"));
+    }
+
+    public int getSocketTimeOut() {
+        return Integer.valueOf(getProperty("connection_socket_timeout", "300000"));
+    }
+
+    public int getMaxWaitTime() {
+        return Integer.valueOf(getProperty("connection_max_wait", "300000"));
+    }
+
+    public int getServerSelectionTimeout() {
+        return Integer.valueOf(getProperty("connection_server_timeout", "300000"));
+    }
+
+    public boolean getConnectionSSL() {
+        return Boolean.valueOf(getProperty("connection_ssl", "false"));
+    }
+
 
     /**
      * Method for the Database name

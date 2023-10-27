@@ -3,7 +3,11 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface.connection.mongodb;
 import com.mongodb.MongoClient;
 import com.mongodb.*;
 import com.mongodb.client.*;
+import com.mongodb.client.model.Filters;
+import com.mongodb.client.result.UpdateResult;
 import org.bson.Document;
+import org.bson.conversions.Bson;
+import org.bson.types.ObjectId;
 
 import java.util.*;
 import java.util.concurrent.TimeUnit;
@@ -53,13 +57,13 @@ public class MongoDBConnectionHandler {
         seeds.add(seed);
         // defining some Options
         MongoClientOptions options = MongoClientOptions.builder()
-                .connectionsPerHost(10)
-                .socketTimeout(300000)
-                .maxWaitTime(300000)
+                .connectionsPerHost(pConfig.getConnectionCount())
+                .socketTimeout(pConfig.getSocketTimeOut())
+                .maxWaitTime(pConfig.getMaxWaitTime())
                 .socketKeepAlive(true)
-                .serverSelectionTimeout(300000)
-                .connectTimeout(300000)
-                .sslEnabled(false)
+                .serverSelectionTimeout(pConfig.getServerSelectionTimeout())
+                .connectTimeout(pConfig.getConnectionCount())
+                .sslEnabled(pConfig.getConnectionSSL())
                 .build();
 
         // connect to MongoDB
@@ -112,7 +116,7 @@ public class MongoDBConnectionHandler {
     public Document getObject(String sID, String sCollection) {
 
         BasicDBObject whereQuery = new BasicDBObject();
-        whereQuery.put("_id", sID);
+        whereQuery.put("_id", new ObjectId(sID));
 
         FindIterable<Document> result = this.getCollection(sCollection).find(whereQuery);
 
@@ -125,6 +129,22 @@ public class MongoDBConnectionHandler {
         }
 
         return doc;
+
+    }
+
+    public boolean updateObject(String sID, Document pDocument) {
+        return updateObject(sID, pDocument, pConfig.getMongoCollection());
+    }
+
+    public boolean updateObject(String sID, Document pDocument, String sCollection) {
+
+        BasicDBObject whereQuery = new BasicDBObject();
+        whereQuery.put("_id", new ObjectId(sID));
+
+        Bson query = Filters.eq("_id", new ObjectId(sID));
+        UpdateResult pResult = this.getCollection(sCollection).replaceOne(query, pDocument);
+
+        return pResult.wasAcknowledged();
 
     }
 

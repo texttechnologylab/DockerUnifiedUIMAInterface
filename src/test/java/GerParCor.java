@@ -1,15 +1,17 @@
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Sentence;
 import org.apache.uima.analysis_engine.AnalysisEngineDescription;
-import org.apache.uima.collection.CollectionReaderDescription;
 import org.dkpro.core.io.xmi.XmiWriter;
 import org.junit.jupiter.api.Test;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.mongodb.MongoDBConfig;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIDockerDriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIUIMADriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.AsyncCollectionReader;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.io.GerParCorReader;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.io.GerParCorWriter;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.io.DUUIAsynchronousProcessor;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.io.DUUICollectionReader;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.io.reader.DUUIGerParCorReader;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.io.writer.GerParCorWriter;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.sqlite.DUUISqliteStorageBackend;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.segmentation.DUUISegmentationStrategy;
@@ -24,7 +26,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static org.apache.uima.fit.factory.AnalysisEngineFactory.createEngineDescription;
-import static org.apache.uima.fit.factory.CollectionReaderFactory.createReaderDescription;
 
 public class GerParCor {
 
@@ -462,7 +463,7 @@ public class GerParCor {
     @Test
     public void DBTest() throws Exception {
 
-        int iScale = 1;
+        int iScale = 5;
 
         DUUIComposer composer = new DUUIComposer()
                 .withSkipVerification(true)
@@ -480,7 +481,8 @@ public class GerParCor {
 
         DUUISegmentationStrategy pStrategy = new DUUISegmentationStrategyByDelemiter()
                 .withDelemiter(".")
-                .withLength(10000)
+                .withLength(100000)
+                .withDebug()
                 .withOverlap(500);
 
         composer.add(spacy.withSegmentationStrategy(pStrategy));
@@ -493,12 +495,149 @@ public class GerParCor {
         );
         composer.add(new DUUIUIMADriver.Component(writerEngine).withScale(iScale).build());
 
-        CollectionReaderDescription reader = createReaderDescription(GerParCorReader.class,
-                GerParCorReader.PARAM_DBConnection, "/home/staff_homes/abrami/Projects/GitHub/abrami/DockerUnifiedUIMAInterface/src/main/resources/rw",
-                GerParCorReader.PARAM_Query, "{\"annotations.Token\": { $exists: 0 }}"
+//        CollectionReaderDescription reader = createReaderDescription(GerParCorReader.class,
+//                GerParCorReader.PARAM_DBConnection, "/home/staff_homes/abrami/Projects/GitHub/abrami/DockerUnifiedUIMAInterface/src/main/resources/rw",
+//                GerParCorReader.PARAM_Query, "{\"annotations.Token\": 0 }"
+//        );
+
+        AnalysisEngineDescription writerEngineCAS = createEngineDescription(XmiWriter.class,
+                XmiWriter.PARAM_TARGET_LOCATION, "/tmp/test",
+                XmiWriter.PARAM_PRETTY_PRINT, true,
+                XmiWriter.PARAM_OVERWRITE, true,
+                XmiWriter.PARAM_VERSION, "1.1",
+                XmiWriter.PARAM_COMPRESSION, "GZIP"
         );
 
-        composer.run(reader);
+        composer.add(new DUUIUIMADriver.Component(writerEngineCAS).build());
+        composer.add(new DUUIUIMADriver.Component(writerEngine).build());
+
+        DUUICollectionReader gerparcorReader = new DUUIGerParCorReader(new MongoDBConfig("/home/staff_homes/abrami/Projects/GitHub/abrami/DockerUnifiedUIMAInterface/src/main/resources/rw"), "{\"annotations.Token\": 0 }");
+        ((DUUIGerParCorReader) gerparcorReader).withOverrideMeta();
+        DUUIAsynchronousProcessor asyncProcessor = new DUUIAsynchronousProcessor(gerparcorReader);
+
+        composer.run(asyncProcessor, "test");
+
+
+    }
+
+
+    @Test
+    public void GerParCorFullspaCy() throws Exception {
+
+        int iScale = 10;
+
+        DUUIComposer composer = new DUUIComposer()
+                .withSkipVerification(true)
+                .withWorkers(iScale)
+                .withLuaContext(new DUUILuaContext().withJsonLibrary());
+
+        DUUIUIMADriver uimaDriver = new DUUIUIMADriver();
+        DUUIDockerDriver dockerDriver = new DUUIDockerDriver();
+        DUUIRemoteDriver remoteDriver = new DUUIRemoteDriver();
+        composer.addDriver(remoteDriver, uimaDriver, dockerDriver);
+
+        DUUIDockerDriver.Component spacy = new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
+                .withScale(iScale).withImageFetching();
+
+        DUUISegmentationStrategy pStrategy = new DUUISegmentationStrategyByDelemiter()
+                .withDelemiter(".")
+                .withLength(100000)
+                .withDebug()
+                .withOverlap(500);
+
+        composer.add(spacy.withSegmentationStrategy(pStrategy));
+
+//        composer.add(component);
+
+        String sPathDB = "/home/staff_homes/abrami/Projects/GitHub/abrami/DockerUnifiedUIMAInterface/src/main/resources/rw";
+
+        AnalysisEngineDescription writerEngine = createEngineDescription(GerParCorWriter.class,
+                GerParCorWriter.PARAM_DBConnection, sPathDB
+        );
+        composer.add(new DUUIUIMADriver.Component(writerEngine).withScale(iScale).build());
+
+//        CollectionReaderDescription reader = createReaderDescription(GerParCorReader.class,
+//                GerParCorReader.PARAM_DBConnection, "/home/staff_homes/abrami/Projects/GitHub/abrami/DockerUnifiedUIMAInterface/src/main/resources/rw",
+//                GerParCorReader.PARAM_Query, "{\"annotations.Token\": 0 }"
+//        );
+
+        AnalysisEngineDescription writerEngineCAS = createEngineDescription(XmiWriter.class,
+                XmiWriter.PARAM_TARGET_LOCATION, "/tmp/test",
+                XmiWriter.PARAM_PRETTY_PRINT, true,
+                XmiWriter.PARAM_OVERWRITE, true,
+                XmiWriter.PARAM_VERSION, "1.1",
+                XmiWriter.PARAM_COMPRESSION, "GZIP"
+        );
+
+//        composer.add(new DUUIUIMADriver.Component(writerEngineCAS).build());
+        composer.add(new DUUIUIMADriver.Component(writerEngine).build());
+
+        DUUICollectionReader gerparcorReader = new DUUIGerParCorReader(new MongoDBConfig(sPathDB), "{\"annotations.Token\": 0 }");
+        ((DUUIGerParCorReader) gerparcorReader).withOverrideMeta();
+        DUUIAsynchronousProcessor asyncProcessor = new DUUIAsynchronousProcessor(gerparcorReader);
+
+        composer.run(asyncProcessor, "spacy");
+
+
+    }
+
+    @Test
+    public void GerParCorFullSentiment() throws Exception {
+
+        int iScale = 10;
+
+        DUUIComposer composer = new DUUIComposer()
+                .withSkipVerification(true)
+                .withWorkers(iScale)
+                .withLuaContext(new DUUILuaContext().withJsonLibrary());
+
+        DUUIUIMADriver uimaDriver = new DUUIUIMADriver();
+        DUUIDockerDriver dockerDriver = new DUUIDockerDriver();
+        DUUIRemoteDriver remoteDriver = new DUUIRemoteDriver();
+        composer.addDriver(remoteDriver, uimaDriver, dockerDriver);
+
+        DUUIDockerDriver.Component sentiment = new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-transformers-sentiment:0.1.2").withScale(iScale)
+                .withParameter("model_name", "cardiffnlp/twitter-xlm-roberta-base-sentiment")
+                .withParameter("selection", "de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Sentence");
+
+        DUUISegmentationStrategy pStrategy = new DUUISegmentationStrategyByDelemiter()
+                .withDelemiter(".")
+                .withLength(100000)
+                .withDebug()
+                .withOverlap(500);
+
+        composer.add(sentiment.withSegmentationStrategy(pStrategy));
+
+//        composer.add(component);
+
+        String sPathDB = "/home/staff_homes/abrami/Projects/GitHub/abrami/DockerUnifiedUIMAInterface/src/main/resources/rw";
+
+        AnalysisEngineDescription writerEngine = createEngineDescription(GerParCorWriter.class,
+                GerParCorWriter.PARAM_DBConnection, sPathDB
+        );
+        composer.add(new DUUIUIMADriver.Component(writerEngine).withScale(iScale).build());
+
+//        CollectionReaderDescription reader = createReaderDescription(GerParCorReader.class,
+//                GerParCorReader.PARAM_DBConnection, "/home/staff_homes/abrami/Projects/GitHub/abrami/DockerUnifiedUIMAInterface/src/main/resources/rw",
+//                GerParCorReader.PARAM_Query, "{\"annotations.Token\": 0 }"
+//        );
+
+        AnalysisEngineDescription writerEngineCAS = createEngineDescription(XmiWriter.class,
+                XmiWriter.PARAM_TARGET_LOCATION, "/tmp/test",
+                XmiWriter.PARAM_PRETTY_PRINT, true,
+                XmiWriter.PARAM_OVERWRITE, true,
+                XmiWriter.PARAM_VERSION, "1.1",
+                XmiWriter.PARAM_COMPRESSION, "GZIP"
+        );
+
+//        composer.add(new DUUIUIMADriver.Component(writerEngineCAS).build());
+        composer.add(new DUUIUIMADriver.Component(writerEngine).build());
+
+        DUUICollectionReader gerparcorReader = new DUUIGerParCorReader(new MongoDBConfig(sPathDB), "{\"annotations.Token\": 0 }");
+        ((DUUIGerParCorReader) gerparcorReader).withOverrideMeta();
+        DUUIAsynchronousProcessor asyncProcessor = new DUUIAsynchronousProcessor(gerparcorReader);
+
+        composer.run(asyncProcessor, "sentiment");
 
 
     }
