@@ -3,6 +3,7 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface.io.writer;
 import com.mongodb.client.gridfs.GridFSBucket;
 import com.mongodb.client.gridfs.GridFSBuckets;
 import com.mongodb.client.gridfs.GridFSUploadStream;
+import com.mongodb.client.gridfs.model.GridFSFile;
 import com.mongodb.client.gridfs.model.GridFSUploadOptions;
 import org.apache.uima.UimaContext;
 import org.apache.uima.analysis_engine.AnalysisEngineProcessException;
@@ -13,7 +14,9 @@ import org.apache.uima.jcas.JCas;
 import org.apache.uima.jcas.tcas.Annotation;
 import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.util.CasIOUtils;
-import org.bson.Document;
+import org.bson.*;
+import org.bson.conversions.Bson;
+import org.bson.types.ObjectId;
 import org.dkpro.core.api.io.JCasFileWriter_ImplBase;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.mongodb.MongoDBConfig;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.mongodb.MongoDBConnectionHandler;
@@ -95,6 +98,13 @@ public class GerParCorWriter extends JCasFileWriter_ImplBase {
 
         if (sGridId.length() > 0) {
 
+            Bson bQuery= BsonDocument.parse("{\"filename\": \""+sGridId+"\"}" );
+
+            for (GridFSFile gridFSFile : gridFS.find(bQuery)) {
+                System.out.println("Remove: "+gridFSFile.getObjectId());
+                gridFS.delete(gridFSFile.getObjectId());
+            }
+
             GridFSUploadOptions options = new GridFSUploadOptions()
                     .chunkSizeBytes(358400)
                     .metadata(new Document("type", "uima"))
@@ -116,6 +126,8 @@ public class GerParCorWriter extends JCasFileWriter_ImplBase {
                 } else {
                     CasIOUtils.save(aJCas.getCas(), uploadStream, SerialFormat.XMI_1_1);
                 }
+                uploadStream.flush();
+                uploadStream.close();
 
                 Document pDocument = this.dbConnectionHandler.getObject(sDocumentId);
                 pDocument.put("annotations", countAnnotations(aJCas));
@@ -131,6 +143,7 @@ public class GerParCorWriter extends JCasFileWriter_ImplBase {
                 pDocument.put("meta", pMeta);
 
                 this.dbConnectionHandler.updateObject(sDocumentId, pDocument);
+                System.out.println("Write: "+sDocumentId);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
