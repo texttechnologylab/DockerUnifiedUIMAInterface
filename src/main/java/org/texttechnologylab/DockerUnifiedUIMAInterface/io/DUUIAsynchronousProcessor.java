@@ -17,10 +17,14 @@ public class DUUIAsynchronousProcessor {
     // Set for readers
     private Set<DUUICollectionReader> readerSet = new HashSet<>(0);
 
-
+    // max length of all collection readers
     private long lMax = -1;
 
-
+    /**
+     * Constructor
+     *
+     * @param pSet
+     */
     public DUUIAsynchronousProcessor(Set<DUUICollectionReader> pSet) {
 
         this.readerSet = pSet;
@@ -28,6 +32,10 @@ public class DUUIAsynchronousProcessor {
         System.out.printf("Found %d elements in total!", getSumMax());
     }
 
+    /**
+     * Constructor
+     * @param pValues
+     */
     public DUUIAsynchronousProcessor(DUUICollectionReader... pValues) {
 
         for (DUUICollectionReader pValue : pValues) {
@@ -37,6 +45,10 @@ public class DUUIAsynchronousProcessor {
         System.out.printf("Found %d elements in total!", getSumMax());
     }
 
+    /**
+     * return the current progress
+     * @return
+     */
     public ProgressMeter getProgress() {
 
         long lDone = readerSet.stream().flatMapToLong(r -> LongStream.of(r.getDone())).sum();
@@ -47,6 +59,10 @@ public class DUUIAsynchronousProcessor {
         return pProgress;
     }
 
+    /**
+     * Sum all sizes
+     * @return
+     */
     private long getSumMax() {
         if (lMax < 0) {
             lMax = readerSet.stream().flatMapToLong(r -> LongStream.of(r.getSize())).sum();
@@ -54,6 +70,11 @@ public class DUUIAsynchronousProcessor {
         return lMax;
     }
 
+    /**
+     * Return the next CAS-object
+     * @param empty
+     * @return
+     */
     public boolean getNextCAS(JCas empty) {
 
         DUUICollectionReader pReader = this.readerSet.stream().filter(reader -> reader.hasNext()).findFirst().get();
@@ -61,6 +82,10 @@ public class DUUIAsynchronousProcessor {
         return true;
     }
 
+    /**
+     * Is the processor, means all collection readers finish?
+     * @return
+     */
     public boolean isFinish() {
         boolean bReturn = true;
         for (DUUICollectionReader duuiCollectionReader : readerSet) {
