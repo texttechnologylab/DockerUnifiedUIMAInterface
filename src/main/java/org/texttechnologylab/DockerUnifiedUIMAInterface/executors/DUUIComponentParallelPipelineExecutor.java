@@ -39,7 +39,7 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.profiling.IDUUIResource;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.profiling.ResourceManager;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.profiling.ResourceManager.PipelineProgress;
 
-public class DUUIParallelPipelineExecutor extends DUUILinearPipelineExecutor implements IDUUIResource {
+public class DUUIComponentParallelPipelineExecutor extends DUUILinearPipelineExecutor implements IDUUIResource {
 
     class PipelineExecutor extends ThreadPoolExecutor {
         final BlockingQueue<DUUIWorker> _backedUp = new LinkedBlockingQueue<>();
@@ -67,11 +67,6 @@ public class DUUIParallelPipelineExecutor extends DUUILinearPipelineExecutor imp
 
         @Override
         protected void beforeExecute(Thread t, Runnable r) {
-            // if (r instanceof ComparableFutureTask) {
-            //     final ComparableFutureTask<?> c = (ComparableFutureTask<?>) r;
-            //     if (c.getPriority() > 0)
-            //         _currentLevel.set(c.getPriority());
-            // }
         }
 
         void afterWorker(DUUIWorker worker) throws InterruptedException {
@@ -121,11 +116,14 @@ public class DUUIParallelPipelineExecutor extends DUUILinearPipelineExecutor imp
 
                 AnnotatorUnreachableException e = (AnnotatorUnreachableException) t;
                 final String workerId = e.failedWorker._name + e.failedWorker.component();
-                if (!_failedWorkers.contains(workerId) && e.resuable && _reschedule) { // Reschedule
-                    _failedWorkers.add(workerId);
-                    submit(e.failedWorker);
-                    return;
-                } 
+
+                if (_reschedule) {
+                    if (!_failedWorkers.contains(workerId) && e.resuable) { // Reschedule
+                        _failedWorkers.add(workerId);
+                        submit(e.failedWorker);
+                        return;
+                    } 
+                }
 
                 try {
                     _failedWorkers.remove(workerId);
@@ -203,11 +201,11 @@ public class DUUIParallelPipelineExecutor extends DUUILinearPipelineExecutor imp
 
     final PipelineProgressView _view;
 
-    public DUUIParallelPipelineExecutor(Vector<PipelinePart> flow) {
+    public DUUIComponentParallelPipelineExecutor(Vector<PipelinePart> flow) {
         this(flow, Integer.MAX_VALUE);
     }
 
-    public DUUIParallelPipelineExecutor(Vector<PipelinePart> flow, int maxWidth) {
+    public DUUIComponentParallelPipelineExecutor(Vector<PipelinePart> flow, int maxWidth) {
         super(flow, maxWidth);
 
         ResourceManager.register(this);
@@ -259,12 +257,12 @@ public class DUUIParallelPipelineExecutor extends DUUILinearPipelineExecutor imp
         _view = new PipelineProgressView();
     }
 
-    public DUUIParallelPipelineExecutor withLevelSynchronization(boolean synchronize) {
+    public DUUIComponentParallelPipelineExecutor withLevelSynchronization(boolean synchronize) {
         _levelSynchronized = synchronize;
         return this;
     }
 
-    public DUUIParallelPipelineExecutor withFailedWorkerRescheduling(boolean reschedule) {
+    public DUUIComponentParallelPipelineExecutor withFailedWorkerRescheduling(boolean reschedule) {
         _reschedule = reschedule;
         return this;
     }
@@ -640,11 +638,7 @@ public class DUUIParallelPipelineExecutor extends DUUILinearPipelineExecutor imp
             return false;
         }
     }
-
-    /*
-     * 
-     * Taken and adapted from: https://jvmaware.com/priority-queue-and-threadpool/
-     */
+    
     class ComparableFutureTask<T> extends FutureTask<T> implements Comparable<ComparableFutureTask<T>> {
 
         final PipelineWorker _task;
@@ -697,7 +691,7 @@ public class DUUIParallelPipelineExecutor extends DUUILinearPipelineExecutor imp
         }
     }
 
-    public static class DUUIWorker implements Callable<DUUIWorker>, PipelineWorker {
+    class DUUIWorker implements Callable<DUUIWorker>, PipelineWorker {
     public final String _name;
     public final PipelinePart _component;
     public final JCas _jc;
@@ -732,6 +726,10 @@ public class DUUIParallelPipelineExecutor extends DUUILinearPipelineExecutor imp
     public DUUIWorker call() throws Exception {
         Thread.currentThread().setName(_threadName);
         ResourceManager.register(Thread.currentThread(), true);
+        if (!typeCheck(_jc)) {
+            System.out.printf("[%s] failed type checking.%n", _threadName + "-" + _component.getSignature());
+            return this;
+        }
         try {
             System.out.printf("[%s] starting analysis.%n", _threadName);
             _component.run(_name, _jc, _perf); 

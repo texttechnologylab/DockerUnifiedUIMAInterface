@@ -52,6 +52,7 @@ public class DUUIDocumentParallelPipelineExecutor extends DUUILinearPipelineExec
     @Override
     public void run(String name, JCas jc, DUUIPipelineDocumentPerformance perf) {
         Callable<Void> runner = () -> {
+            ResourceManager.register(Thread.currentThread());
             Thread.currentThread().setName(name);
             super.run(name, jc, perf);
             return null;
