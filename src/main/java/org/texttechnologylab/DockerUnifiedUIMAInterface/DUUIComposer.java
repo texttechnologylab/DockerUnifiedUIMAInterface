@@ -3,7 +3,10 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface;
 import static java.lang.String.format;
 import static org.texttechnologylab.DockerUnifiedUIMAInterface.profiling.visualisation.DUUIPipelineVisualizer.formatns;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
 import java.security.InvalidParameterException;
@@ -45,7 +48,7 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.IDUUIDriverCompon
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.Signature;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.executors.DUUIDocumentParallelPipelineExecutor;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.executors.DUUILinearPipelineExecutor;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.executors.DUUIParallelPipelineExecutor;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.executors.DUUIComponentParallelPipelineExecutor;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.executors.IDUUIPipelineExecutor;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.executors.PipelinePart;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.executors.strategy.AdaptiveStrategy;
@@ -313,11 +316,11 @@ public class DUUIComposer {
     }
     
     public DUUIComposer withComponentParallelPipeline(PoolStrategy strategy) {
-        return withComponentParallelPipeline(strategy, false, Integer.MAX_VALUE, true);
+        return withComponentParallelPipeline(strategy, false, Integer.MAX_VALUE, false);
     }
 
     public DUUIComposer withComponentParallelPipeline(PoolStrategy strategy, boolean levelSynchronized, int maxLevelWidth) {
-        return withComponentParallelPipeline(strategy, levelSynchronized, maxLevelWidth, true);
+        return withComponentParallelPipeline(strategy, levelSynchronized, maxLevelWidth, false);
     }
     
     public DUUIComposer withComponentParallelPipeline(PoolStrategy strategy, boolean levelSynchronized, int maxLevelWidth, boolean rescheduleFailedWorkers) {
@@ -459,12 +462,9 @@ public class DUUIComposer {
 
     public void runOld(AsyncCollectionReader collectionReader, String name, int _workers) throws Exception {
         ConcurrentLinkedQueue<JCas> emptyCasDocuments = new ConcurrentLinkedQueue<>();
-        ConcurrentLinkedQueue<JCas> loadedCasDocuments = new ConcurrentLinkedQueue<>();
         int _cas_poolsize = 0;
         AtomicInteger aliveThreads = new AtomicInteger(0);
         _shutdownAtomic.set(false);
-
-        Exception catched = null;
 
         System.out.printf("[Composer] Running in asynchronous mode, %d threads at most!\n", _workers);
 
@@ -492,6 +492,7 @@ public class DUUIComposer {
                 System.out.printf("[Composer] Starting worker thread [%d/%d]\n",i+1,_workers);
                 arr[i] = new DUUIWorkerAsyncReader(_instantiatedPipeline,emptyCasDocuments.poll(),_shutdownAtomic,aliveThreads,_storage,name,collectionReader);
                 arr[i].start();
+                _rm.register(arr[i]);
             }
             Instant starttime = Instant.now();
             _rm.start();
@@ -531,15 +532,21 @@ public class DUUIComposer {
             if(_storage!=null) {
                 _storage.finalizeRun(name,starttime,Instant.now());
             }
-            System.out.printf("FINISHED ANALYSIS: %d s %n", Instant.now().minusSeconds(starttime.getEpochSecond()).getEpochSecond()); 
-            System.out.printf("URL WAIT %s%n", formatns(DUUIComposer.totalurlwait.getAndSet(0l)));
-            System.out.printf("SERIALIZE WAIT %s%n", formatns(DUUIComposer.totalserializewait.getAndSet(0l)));
-            System.out.printf("ANNOTATOR WAIT %s%n", formatns(DUUIComposer.totalannotatorwait.getAndSet(0l)));
-            System.out.printf("DESERIALIZE WAIT %s%n", formatns(DUUIComposer.totaldeserializewait.getAndSet(0l)));
-            System.out.printf("SCALING WAIT %s%n", formatns(DUUIComposer.totalscalingwait.getAndSet(0l)));
-            System.out.printf("AFTER WORKER WAIT %s%n", formatns(DUUIComposer.totalafterworkerwait.getAndSet(0l))); 
-            System.out.printf("READ WAIT %s%n", formatns(DUUIComposer.totalreadwait.getAndSet(0l))); 
-            System.out.printf("RESOURCE MANAGER TOTAL %s%n", formatns(DUUIComposer.totalrm.getAndSet(0l)));
+
+            File perf = new File("./duui_parallel_benchmarks/perfs.txt");
+            PrintStream out = new PrintStream(new FileOutputStream(perf));
+            out.println();
+            out.println(name);
+            out.printf("FINISHED ANALYSIS: %d s %n", Instant.now().minusSeconds(starttime.getEpochSecond()).getEpochSecond()); 
+            out.printf("URL WAIT %s%n", formatns(DUUIComposer.totalurlwait.getAndSet(0l)));
+            out.printf("SERIALIZE WAIT %s%n", formatns(DUUIComposer.totalserializewait.getAndSet(0l)));
+            out.printf("ANNOTATOR WAIT %s%n", formatns(DUUIComposer.totalannotatorwait.getAndSet(0l)));
+            out.printf("DESERIALIZE WAIT %s%n", formatns(DUUIComposer.totaldeserializewait.getAndSet(0l)));
+            out.printf("SCALING WAIT %s%n", formatns(DUUIComposer.totalscalingwait.getAndSet(0l)));
+            out.printf("AFTER WORKER WAIT %s%n", formatns(DUUIComposer.totalafterworkerwait.getAndSet(0l))); 
+            out.printf("READ WAIT %s%n", formatns(DUUIComposer.totalreadwait.getAndSet(0l))); 
+            out.printf("RESOURCE MANAGER TOTAL %s%n", formatns(DUUIComposer.totalrm.getAndSet(0l)));
+            out.println();
             
         } catch (Exception e) {
             e.printStackTrace();
@@ -599,15 +606,20 @@ public class DUUIComposer {
             Instant starttime = Instant.now();
             runPipeline.call();
             Instant duration = Instant.now().minusSeconds(starttime.getEpochSecond());
-            System.out.printf("FINISHED ANALYSIS: %d s %n", duration.getEpochSecond()); 
-            System.out.printf("URL WAIT %s%n", formatns(DUUIComposer.totalurlwait.getAndSet(0l)));
-            System.out.printf("SERIALIZE WAIT %s%n", formatns(DUUIComposer.totalserializewait.getAndSet(0l)));
-            System.out.printf("ANNOTATOR WAIT %s%n", formatns(DUUIComposer.totalannotatorwait.getAndSet(0l)));
-            System.out.printf("DESERIALIZE WAIT %s%n", formatns(DUUIComposer.totaldeserializewait.getAndSet(0l)));
-            System.out.printf("SCALING WAIT %s%n", formatns(DUUIComposer.totalscalingwait.getAndSet(0l)));
-            System.out.printf("AFTER WORKER WAIT %s%n", formatns(DUUIComposer.totalafterworkerwait.getAndSet(0l))); 
-            System.out.printf("READ WAIT %s%n", formatns(DUUIComposer.totalreadwait.getAndSet(0l))); 
-            System.out.printf("RESOURCE MANAGER TOTAL %s%n", formatns(DUUIComposer.totalrm.getAndSet(0l))); 
+            File perf = new File("./duui_parallel_benchmarks/perfs.txt");
+            PrintStream out = new PrintStream(new FileOutputStream(perf));
+            out.println();
+            out.println(name);
+            out.printf("FINISHED ANALYSIS: %d s %n", duration.getEpochSecond()); 
+            out.printf("URL WAIT %s%n", formatns(DUUIComposer.totalurlwait.getAndSet(0l)));
+            out.printf("SERIALIZE WAIT %s%n", formatns(DUUIComposer.totalserializewait.getAndSet(0l)));
+            out.printf("ANNOTATOR WAIT %s%n", formatns(DUUIComposer.totalannotatorwait.getAndSet(0l)));
+            out.printf("DESERIALIZE WAIT %s%n", formatns(DUUIComposer.totaldeserializewait.getAndSet(0l)));
+            out.printf("SCALING WAIT %s%n", formatns(DUUIComposer.totalscalingwait.getAndSet(0l)));
+            out.printf("AFTER WORKER WAIT %s%n", formatns(DUUIComposer.totalafterworkerwait.getAndSet(0l))); 
+            out.printf("READ WAIT %s%n", formatns(DUUIComposer.totalreadwait.getAndSet(0l))); 
+            out.printf("RESOURCE MANAGER TOTAL %s%n", formatns(DUUIComposer.totalrm.getAndSet(0l)));
+            out.println();
             if(_storage!=null) {
                 _storage.finalizeRun(name,starttime,Instant.now());
             }
@@ -699,7 +711,7 @@ public class DUUIComposer {
         if (_withSemiParallelPipeline) {
             _executionPipeline = new DUUIDocumentParallelPipelineExecutor(_instantiatedPipeline);
         } else if (_withParallelPipeline) {
-            _executionPipeline = new DUUIParallelPipelineExecutor(_instantiatedPipeline, _maxLevelWidth)
+            _executionPipeline = new DUUIComponentParallelPipelineExecutor(_instantiatedPipeline, _maxLevelWidth)
                 .withFailedWorkerRescheduling(_reschedule)
                 .withLevelSynchronization(_levelSynchronized);
         } else {
