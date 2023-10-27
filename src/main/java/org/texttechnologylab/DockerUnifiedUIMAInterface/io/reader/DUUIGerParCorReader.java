@@ -162,17 +162,25 @@ public class DUUIGerParCorReader implements DUUICollectionReader {
                 bCompressed = false;
             }
 
-            if (bCompressed) {
+            boolean bError = false;
+
+            if (!bCompressed) {
+                try {
+                    CasIOUtils.load(downloadStream, pEmpty.getCas());
+                } catch (Exception e) {
+                    System.out.println(e.getMessage());
+                    bError = true;
+                }
+            }
+
+            if (bError || bCompressed) {
                 File tempFile = TempFileHandler.getTempFile("aaa", ".temp");
                 gridFS.downloadToStream(gridID, new FileOutputStream(tempFile));
                 File nFile = ArchiveUtils.decompressGZ(tempFile);
                 CasIOUtils.load(new FileInputStream(nFile), pEmpty.getCas());
                 tempFile.delete();
                 nFile.delete();
-            } else {
-                CasIOUtils.load(downloadStream, pEmpty.getCas());
             }
-
 
 
             try {
