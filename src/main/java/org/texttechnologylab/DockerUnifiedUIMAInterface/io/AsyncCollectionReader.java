@@ -269,6 +269,7 @@ public class AsyncCollectionReader {
 
 
                 _path = folder;
+                System.out.println("Search for files in :"+folder);
                 addFilesToConcurrentList(fl, ending, _filePaths);
 
                 if (skipSmallerFiles > 0) {
@@ -663,15 +664,28 @@ public class AsyncCollectionReader {
     public static void addFilesToConcurrentList(File folder, String ending, ConcurrentLinkedQueue<String> paths) {
         File[] listOfFiles = folder.listFiles();
 
-        for (int i = 0; i < listOfFiles.length; i++) {
-            if (listOfFiles[i].isFile()) {
-                if (listOfFiles[i].getName().endsWith(ending)) {
-                    paths.add(listOfFiles[i].getPath().toString());
+        Arrays.stream(listOfFiles).parallel().forEach(f->{
+            if(f.isFile()){
+                if(f.getName().endsWith(ending)){
+                    paths.add(f.getPath().toString());
+
                 }
-            } else if (listOfFiles[i].isDirectory()) {
-                addFilesToConcurrentList(listOfFiles[i], ending, paths);
             }
-        }
+            else if(f.isDirectory()){
+                addFilesToConcurrentList(f, ending, paths);
+
+            }
+        });
+
+//        for (int i = 0; i < listOfFiles.length; i++) {
+//            if (listOfFiles[i].isFile()) {
+//                if (listOfFiles[i].getName().endsWith(ending)) {
+//                    paths.add(listOfFiles[i].getPath().toString());
+//                }
+//            } else if (listOfFiles[i].isDirectory()) {
+//                addFilesToConcurrentList(listOfFiles[i], ending, paths);
+//            }
+//        }
     }
 
     public static ConcurrentLinkedQueue<String> sortBySize(ConcurrentLinkedQueue<String> paths) {
