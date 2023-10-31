@@ -9,7 +9,6 @@ import org.apache.uima.cas.impl.XmiCasDeserializer;
 import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.javaync.io.AsyncFiles;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.data_reader.DUUIInputStream;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.AsyncCollectionReader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.DUUICollectionReader;
 import org.texttechnologylab.utilities.helper.StringUtils;
@@ -19,13 +18,14 @@ import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 class ByteReadFuture {
     private String _path;
@@ -127,7 +127,7 @@ public class DUUIFileReader implements DUUICollectionReader {
 
         if (bSort && iRandom > 0) {
             System.out.println("Sorting and Random Selection is active, using the " + (iRandom > 0 ? "largest " : "smallest ") + Math.abs(iRandom) + " documents.");
-            _filePaths = takeFirstOrLast(_filePaths, iRandom);
+//            _filePaths = takeFirstOrLast(_filePaths, iRandom);
         } else if (iRandom > 0) {
             _filePaths = random(_filePaths, iRandom);
         }
@@ -154,7 +154,7 @@ public class DUUIFileReader implements DUUICollectionReader {
         // remove files that are already in the target location
         // NOTE we do this after saving the file list, as we do not want to change anything but only avoid processing files multiple times
         if (this.targetLocation != null) {
-            _filePaths = removeIfInTarget(_filePaths, this.targetLocation, targetEnding, this._path, ending);
+//            _filePaths = removeIfInTarget(_filePaths, this.targetLocation, targetEnding, this._path, ending);
         }
 
         _filePathsBackup.addAll(_filePaths);
@@ -186,17 +186,20 @@ public class DUUIFileReader implements DUUICollectionReader {
     }
 
     public static void addFilesToConcurrentList(File folder, String ending, ConcurrentLinkedQueue<String> paths) {
-        File[] listOfFiles = folder.listFiles();
+//        File[] listOfFiles = folder.listFiles();
+//
+//        for (int i = 0; i < listOfFiles.length; i++) {
+//            if (listOfFiles[i].isFile()) {
+//                if (listOfFiles[i].getName().endsWith(ending)) {
+//                    paths.add(listOfFiles[i].getPath().toString());
+//                }
+//            } else if (listOfFiles[i].isDirectory()) {
+//                addFilesToConcurrentList(listOfFiles[i], ending, paths);
+//            }
+//        }
 
-        for (int i = 0; i < listOfFiles.length; i++) {
-            if (listOfFiles[i].isFile()) {
-                if (listOfFiles[i].getName().endsWith(ending)) {
-                    paths.add(listOfFiles[i].getPath().toString());
-                }
-            } else if (listOfFiles[i].isDirectory()) {
-                addFilesToConcurrentList(listOfFiles[i], ending, paths);
-            }
-        }
+        DUUIParallelFileReader pReader = new DUUIParallelFileReader(folder, ending, paths, 2);
+
     }
 
     public static ConcurrentLinkedQueue<String> sortBySize(ConcurrentLinkedQueue<String> paths) {
@@ -260,101 +263,9 @@ public class DUUIFileReader implements DUUICollectionReader {
 
     }
 
-    /***
-     * Takes the first n or last n elements of the queue
-     * @param paths List of paths
-     * @param n Number of elements to take, if n is positive, the first n elements are taken, if n is negative, the last n elements are taken, if n is 0, an IllegalArgumentException is thrown
-     * @return A new queue with the first or last n elements
-     */
-    public static ConcurrentLinkedQueue<String> takeFirstOrLast(ConcurrentLinkedQueue<String> paths, int n) {
-        ConcurrentLinkedQueue<String> rQueue = new ConcurrentLinkedQueue<>();
-        ArrayList<String> sList = new ArrayList<>(paths);
-
-        System.out.println("Take first or last " + n + " files");
-        System.out.println("  Number of files before taking: " + paths.size());
-
-        if (n > 0) {
-            rQueue.addAll(sList.subList(0, n));
-        } else if (n < 0) {
-            // NOTE using "+n" because the value is already negative
-            rQueue.addAll(sList.subList(sList.size() + n, sList.size()));
-        } else {
-            throw new IllegalArgumentException("n must not be 0");
-        }
-
-        return rQueue;
-    }
-
-    /***
-     * Removes files that are present in the target location
-     * @param paths List of paths
-     * @param targetLocation Target location where to check for files
-     * @return A new queue without files that are present in the target location
-     */
-    public static ConcurrentLinkedQueue<String> removeIfInTarget(ConcurrentLinkedQueue<String> paths, String targetLocation, String targetEnding, String sourceLocation, String sourceEnding) {
-        System.out.println("Chacking target location for files: " + targetLocation);
-        ConcurrentLinkedQueue<String> targetFilePaths = new ConcurrentLinkedQueue<>();
-        File targetDir = new File(targetLocation);
-        if (!targetDir.exists()) {
-            // This might not be an error, e.g. if it is the first run
-            System.err.println("The targetLocation " + targetFilePaths + " does not exist! Continuing without removing files from target location.");
-        } else if (targetDir.exists() && !targetDir.isDirectory()) {
-            throw new RuntimeException("The targetLocation " + targetFilePaths + " is not a directory!");
-        } else {
-            addFilesToConcurrentList(targetDir, targetEnding, targetFilePaths);
-        }
-        System.out.println("Found " + targetFilePaths.size() + " files in target location");
-
-        List<String> cleanList = new ArrayList<>();
-        if (!targetFilePaths.isEmpty()) {
-            System.out.println("Checking against " + targetFilePaths.size() + " files in target location");
-            Set<String> existingFiles = targetFilePaths.stream()
-                    .map(Paths::get)
-                    .filter(Files::isRegularFile)
-                    .map(f -> targetDir.toPath().relativize(f).toString())
-                    .map(f -> f.replaceAll(targetEnding, ""))
-                    .map(f -> f.replaceAll(sourceEnding, ""))
-                    .collect(Collectors.toSet());
-
-            Path sourceDir = Paths.get(sourceLocation);
-            for (String f : paths) {
-                Path p = Paths.get(f);
-                String fn = sourceDir.relativize(p).toString();
-                fn = fn.replaceAll(sourceEnding, "");
-                boolean found = existingFiles.contains(fn);
-                if (!found) {
-                    cleanList.add(f);
-                }
-            }
-        } else {
-            System.out.println("No files in target location found, keeping all files from source location");
-            cleanList.addAll(paths);
-        }
-        System.out.println("Removed " + (paths.size() - cleanList.size()) + " files from source location that are already present in target location, keeping " + cleanList.size() + " files");
-
-        return new ConcurrentLinkedQueue<>(cleanList);
-    }
 
     public static String getSize(String sPath) {
         return FileUtils.byteCountToDisplaySize(new File(sPath).length());
-    }
-
-    public static List<DUUIInputStream> getFilesInDirectoryRecursive(String directory) throws IOException {
-        try (Stream<Path> stream = Files.walk(Paths.get(directory))) {
-            return stream.filter(Files::isRegularFile).map(
-                    (path -> {
-                        try (InputStream inputStream = new FileInputStream(path.toFile())) {
-                            return new DUUIInputStream(
-                                    path.getFileName().toString(),
-                                    path.toString(),
-                                    path.toFile().length(),
-                                    new ByteArrayInputStream(inputStream.readAllBytes()));
-                        } catch (IOException e) {
-                            throw new RuntimeException(e);
-                        }
-                    })
-            ).collect(Collectors.toList());
-        }
     }
 
     @Override
@@ -494,4 +405,5 @@ public class DUUIFileReader implements DUUICollectionReader {
         SMALLEST,
         LARGEST
     }
+
 }

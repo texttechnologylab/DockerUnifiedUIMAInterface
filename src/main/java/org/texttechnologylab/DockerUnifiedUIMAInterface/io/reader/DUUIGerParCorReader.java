@@ -48,6 +48,9 @@ public class DUUIGerParCorReader implements DUUICollectionReader {
 
     private boolean bOverrideMeta = false;
 
+    private int iLimit = 100;
+    private int iSkip = 0;
+
     public DUUIGerParCorReader(MongoDBConfig dbConfig) {
         this(dbConfig, "{}");
     }
@@ -78,28 +81,35 @@ public class DUUIGerParCorReader implements DUUICollectionReader {
         this.mongoDBConnectionHandler = new MongoDBConnectionHandler(dbConfig);
 
         this.gridFS = GridFSBuckets.create(mongoDBConnectionHandler.getDatabase(), "grid");
-        results = mongoDBConnectionHandler.getCollection().find(BsonDocument.parse(sQuery)).cursor();
+        results = mongoDBConnectionHandler.getCollection().find(BsonDocument.parse(sQuery)).limit(iLimit).cursor();
         _maxItems = mongoDBConnectionHandler.getCollection().countDocuments(BsonDocument.parse(sQuery));
         progress = new ProgressMeter(_maxItems);
 
         Runnable r = new Runnable() {
             @Override
             public void run() {
-                while (results.hasNext()) {
-                    if (loadedItems.size() < 10) {
-                        loadedItems.add(results.next());
+                while (docNumber.get() < _maxItems) {
+                    while (results.hasNext()) {
+                        if (loadedItems.size() < 10) {
+                            loadedItems.add(results.next());
+                        }
+                        try {
+                            Thread.sleep(1000l);
+                        } catch (InterruptedException e) {
+                            throw new RuntimeException(e);
+                        }
                     }
-                    try {
-                        Thread.sleep(1000l);
-                    } catch (InterruptedException e) {
-                        throw new RuntimeException(e);
-                    }
+                    getMoreItems();
                 }
             }
         };
         Thread popThread = new Thread(r);
         popThread.start();
 
+    }
+
+    private void getMoreItems() {
+        results = mongoDBConnectionHandler.getCollection().find(BsonDocument.parse(sQuery)).limit(iLimit).skip(++iSkip).cursor();
     }
 
     @Override

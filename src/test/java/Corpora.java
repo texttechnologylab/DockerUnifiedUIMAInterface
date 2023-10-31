@@ -1,38 +1,60 @@
-import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Sentence;
 import org.apache.uima.analysis_engine.AnalysisEngineDescription;
 import org.dkpro.core.io.xmi.XmiWriter;
 import org.junit.jupiter.api.Test;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.mongodb.MongoDBConfig;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIDockerDriver;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIUIMADriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.AsyncCollectionReader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.DUUIAsynchronousProcessor;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.io.DUUICollectionReader;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.io.reader.DUUIGerParCorReader;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.io.writer.GerParCorWriter;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.io.reader.DUUIFileReader;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.io.reader.DUUIParallelFileReader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.sqlite.DUUISqliteStorageBackend;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.segmentation.DUUISegmentationStrategy;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.segmentation.DUUISegmentationStrategyByDelemiter;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.tools.*;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.apache.uima.fit.factory.AnalysisEngineFactory.createEngineDescription;
 
+
 public class Corpora {
+
+
+    @Test
+    public void readingTest() throws IOException {
+
+        String sourcePath = "/storage/projects/Verben/c4";
+
+        long lStart = System.currentTimeMillis();
+//        List<Path> pathList = Files.walk(Path.of(sourcePath)).filter(f->{
+//            return f.getFileName().endsWith(".xmi.gz");
+//        }).collect(Collectors.toList());
+
+        AtomicInteger pCounter = new AtomicInteger(0);
+
+//        ConcurrentLinkedQueue<Path> pList = new ConcurrentLinkedQueue<>();
+        List<String> pList = Collections.synchronizedList(new ArrayList<>());
+
+        DUUIParallelFileReader pReader = new DUUIParallelFileReader(new File(sourcePath), "xmi.gz", pList, 3);
+
+        System.out.println(pList.size());
+
+
+        //getFiles(Path.of(sourcePath), pList);
+
+
+    }
+
 
     @Test
     public void C4() throws Exception {
 
-        int iScale = 20;
+        int iScale = 1;
 
         DUUIComposer composer = new DUUIComposer()
                 .withSkipVerification(true)
@@ -69,7 +91,11 @@ public class Corpora {
 
         String sourcePath = "/storage/projects/Verben/c4";
 
-        AsyncCollectionReader collectionReader = new AsyncCollectionReader(sourcePath, ".xmi.gz", 1, false);
+        DUUIFileReader dFileReader = new DUUIFileReader(sourcePath, "xmi.gz");
+
+        DUUIAsynchronousProcessor collectionReader = new DUUIAsynchronousProcessor(dFileReader);
+
+//        AsyncCollectionReader collectionReader = new AsyncCollectionReader(sourcePath, ".xmi.gz", 1, false);
 
         composer.run(collectionReader, "spacy");
 
