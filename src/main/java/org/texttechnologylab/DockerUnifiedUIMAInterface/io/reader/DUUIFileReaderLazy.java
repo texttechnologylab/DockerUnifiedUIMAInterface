@@ -27,19 +27,18 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
-
-
-public class DUUIFileReader implements DUUICollectionReader {
+public class DUUIFileReaderLazy implements DUUICollectionReader {
 
     private String _path;
     private ConcurrentLinkedQueue<String> _filePaths;
     private ConcurrentLinkedQueue<String> _filePathsBackup;
     private ConcurrentLinkedQueue<ByteReadFuture> _loadedFiles;
 
-    private int _initialSize;
     private AtomicInteger _docNumber;
     private long _maxMemory;
     private AtomicLong _currentMemorySize;
+
+    private AtomicInteger _collectionSize;
 
     private boolean _addMetadata = true;
 
@@ -54,21 +53,22 @@ public class DUUIFileReader implements DUUICollectionReader {
     private String targetLocation = null;
 
 
-    public DUUIFileReader(String folder, String ending) {
+    public DUUIFileReaderLazy(String folder, String ending) {
         this(folder, ending, 25, -1, null, "", false, null, 0);
     }
 
-    public DUUIFileReader(String folder, String ending, int debugCount, int sampleSize, AsyncCollectionReader.DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE sampleMode, String savePath, boolean bAddMetadata, String language, int skipSmallerFiles) {
+    public DUUIFileReaderLazy(String folder, String ending, int debugCount, int sampleSize, AsyncCollectionReader.DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE sampleMode, String savePath, boolean bAddMetadata, String language, int skipSmallerFiles) {
         this(folder, ending, debugCount, getRandomFromMode(sampleMode, sampleSize), getSortFromMode(sampleMode), savePath, bAddMetadata, language, skipSmallerFiles, savePath, null);
     }
 
-    public DUUIFileReader(String folder, String ending, int debugCount, int iRandom, boolean bSort, String savePath, boolean bAddMetadata, String language, int skipSmallerFiles, String targetLocation, String targetEnding) {
+    public DUUIFileReaderLazy(String folder, String ending, int debugCount, int iRandom, boolean bSort, String savePath, boolean bAddMetadata, String language, int skipSmallerFiles, String targetLocation, String targetEnding) {
         this.targetLocation = targetLocation;
         _addMetadata = bAddMetadata;
         _language = language;
         _filePaths = new ConcurrentLinkedQueue<>();
         _loadedFiles = new ConcurrentLinkedQueue<>();
         _filePathsBackup = new ConcurrentLinkedQueue<>();
+        _collectionSize = new AtomicInteger(0);
 
         if (new File(savePath).exists() && savePath.length() > 0) {
             File sPath = new File(savePath);
@@ -93,28 +93,11 @@ public class DUUIFileReader implements DUUICollectionReader {
 
 
             _path = folder;
-            addFilesToConcurrentList(fl, ending, _filePaths);
 
-            if (skipSmallerFiles > 0) {
-                _filePaths = skipBySize(_filePaths, skipSmallerFiles);
-            }
+            LazyFileReader lfr = new LazyFileReader(fl, ending, _filePaths, _collectionSize);
+
         }
 
-
-        if (skipSmallerFiles > 0) {
-            _filePaths = skipBySize(_filePaths, skipSmallerFiles);
-        }
-
-        if (bSort) {
-            _filePaths = sortBySize(_filePaths);
-        }
-
-        if (bSort && iRandom > 0) {
-            System.out.println("Sorting and Random Selection is active, using the " + (iRandom > 0 ? "largest " : "smallest ") + Math.abs(iRandom) + " documents.");
-//            _filePaths = takeFirstOrLast(_filePaths, iRandom);
-        } else if (iRandom > 0) {
-            _filePaths = random(_filePaths, iRandom);
-        }
 
         if (savePath.length() > 0) {
             File nFile = new File(savePath);
@@ -135,24 +118,16 @@ public class DUUIFileReader implements DUUICollectionReader {
             }
         }
 
-        // remove files that are already in the target location
-        // NOTE we do this after saving the file list, as we do not want to change anything but only avoid processing files multiple times
-        if (this.targetLocation != null) {
-//            _filePaths = removeIfInTarget(_filePaths, this.targetLocation, targetEnding, this._path, ending);
-        }
-
-        _filePathsBackup.addAll(_filePaths);
 
         this.debugCount = debugCount;
 
-        System.out.printf("Found %d files matching the pattern! \t Using Random: %d\n", _filePaths.size(), iRandom);
-        _initialSize = _filePaths.size();
+        System.out.printf("Starting lazy loading...");
         _docNumber = new AtomicInteger(0);
         _currentMemorySize = new AtomicLong(0);
         // 500 MB
         _maxMemory = 500 * 1024 * 1024;
 
-        progress = new ProgressMeter(_initialSize);
+        progress = new ProgressMeter(_collectionSize.get());
     }
 
     private static int getRandomFromMode(AsyncCollectionReader.DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE sampleMode, int sampleSize) {
@@ -169,21 +144,19 @@ public class DUUIFileReader implements DUUICollectionReader {
         return true;
     }
 
-    public static void addFilesToConcurrentList(File folder, String ending, ConcurrentLinkedQueue<String> paths) {
-//        File[] listOfFiles = folder.listFiles();
-//
-//        for (int i = 0; i < listOfFiles.length; i++) {
-//            if (listOfFiles[i].isFile()) {
-//                if (listOfFiles[i].getName().endsWith(ending)) {
-//                    paths.add(listOfFiles[i].getPath().toString());
-//                }
-//            } else if (listOfFiles[i].isDirectory()) {
-//                addFilesToConcurrentList(listOfFiles[i], ending, paths);
-//            }
-//        }
+    public static void addFilesToConcurrentList(File folder, String ending, ConcurrentLinkedQueue<String> paths, AtomicInteger iCounter) {
+        File[] listOfFiles = folder.listFiles();
 
-        DUUIParallelFileReader pReader = new DUUIParallelFileReader(folder, ending, paths, 2);
-
+        for (int i = 0; i < listOfFiles.length; i++) {
+            if (listOfFiles[i].isFile()) {
+                if (listOfFiles[i].getName().endsWith(ending)) {
+                    paths.add(listOfFiles[i].getPath().toString());
+                    iCounter.incrementAndGet();
+                }
+            } else if (listOfFiles[i].isDirectory()) {
+                addFilesToConcurrentList(listOfFiles[i], ending, paths, iCounter);
+            }
+        }
     }
 
     public static ConcurrentLinkedQueue<String> sortBySize(ConcurrentLinkedQueue<String> paths) {
@@ -278,10 +251,14 @@ public class DUUIFileReader implements DUUICollectionReader {
         }
         int val = _docNumber.addAndGet(1);
 
-        progress.setDone(val);
-        progress.setLeft(_initialSize - val);
+        int iCurSize = _collectionSize.get();
 
-        if (_initialSize - progress.getCount() > debugCount) {
+        progress = new ProgressMeter(iCurSize);
+
+        progress.setDone(val);
+        progress.setLeft(iCurSize - val);
+
+        if (iCurSize - progress.getCount() > debugCount) {
             if (val % debugCount == 0 || val == 0) {
                 System.out.printf("%s: \t %s \t %s\n", progress, getSize(result), result);
             }
@@ -335,7 +312,7 @@ public class DUUIFileReader implements DUUICollectionReader {
     public void reset() {
         _filePaths = _filePathsBackup;
         _docNumber.set(0);
-        progress = new ProgressMeter(_initialSize);
+        progress = new ProgressMeter(_collectionSize.get());
     }
 
     @Override
@@ -390,6 +367,34 @@ public class DUUIFileReader implements DUUICollectionReader {
         LARGEST
     }
 
+    class LazyFileReader {
+
+        File pFile = null;
+        String sEnding = "";
+
+        ConcurrentLinkedQueue<String> _filePaths = null;
+
+        AtomicInteger iCounter = null;
+
+        public LazyFileReader(File fl, String ending, ConcurrentLinkedQueue<String> _filePaths, AtomicInteger iCounter) {
+            this.pFile = fl;
+            this.sEnding = ending;
+            this._filePaths = _filePaths;
+            this.iCounter = iCounter;
+
+            Runnable r = new Runnable() {
+                @Override
+                public void run() {
+                    addFilesToConcurrentList(pFile, sEnding, _filePaths, iCounter);
+                }
+            };
+            Thread pThread = new Thread(r);
+            pThread.start();
+
+        }
+
+    }
+
     class ByteReadFuture {
         private String _path;
         private byte[] _bytes;
@@ -407,5 +412,4 @@ public class DUUIFileReader implements DUUICollectionReader {
             return _bytes;
         }
     }
-
 }

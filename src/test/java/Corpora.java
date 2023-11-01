@@ -6,7 +6,7 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIDockerDriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIUIMADriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.AsyncCollectionReader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.DUUIAsynchronousProcessor;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.io.reader.DUUIFileReader;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.io.reader.DUUIFileReaderLazy;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.reader.DUUIParallelFileReader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.segmentation.DUUISegmentationStrategy;
@@ -91,7 +91,7 @@ public class Corpora {
 
         String sourcePath = "/storage/projects/Verben/c4";
 
-        DUUIFileReader dFileReader = new DUUIFileReader(sourcePath, "xmi.gz");
+        DUUIFileReaderLazy dFileReader = new DUUIFileReaderLazy(sourcePath, "xmi.gz");
 
         DUUIAsynchronousProcessor collectionReader = new DUUIAsynchronousProcessor(dFileReader);
 
