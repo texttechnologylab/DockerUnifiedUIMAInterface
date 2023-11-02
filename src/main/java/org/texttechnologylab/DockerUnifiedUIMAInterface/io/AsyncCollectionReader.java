@@ -405,7 +405,6 @@ public class AsyncCollectionReader {
         rQueue.addAll(paths
                         .stream()
                         .filter(s -> new File(s).length() >= skipSmallerFiles)
-                        .filter(s -> new File(s).length() <= 5*1024*1024)
                         .collect(Collectors.toList())
         );
 

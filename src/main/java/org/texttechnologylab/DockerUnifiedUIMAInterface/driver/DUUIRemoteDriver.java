@@ -25,7 +25,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
-public class DUUIRemoteDriver implements IDUUIConnectedDriver{
+public class DUUIRemoteDriver implements IDUUIRestDriver{
     private Map<String, IDUUIInstantiatedPipelineComponent> _components;
     private HttpClient _client;
     private IDUUIConnectionHandler _wsclient = null;

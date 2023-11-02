@@ -313,6 +313,7 @@ public interface IDUUIInstantiatedPipelineComponent extends IDUUIResource<Resour
         long deserializeEnd = System.nanoTime();
         long durationDeserialize = deserializeEnd - deserializeStart;
         DUUIComposer.totaldeserializewait.addAndGet(durationDeserialize);
+        DUUIComposer.totalcomponentwait.addAndGet(deserializeEnd-mutexStart);
 
         String componentKey = String.valueOf(comp.getPipelineComponent().getFinalizedRepresentationHash());
         ReproducibleAnnotation ann = new ReproducibleAnnotation(jc);

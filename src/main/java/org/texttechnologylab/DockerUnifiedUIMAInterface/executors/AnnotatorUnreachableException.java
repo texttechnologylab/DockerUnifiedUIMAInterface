@@ -1,13 +1,17 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.executors;
 
-import org.texttechnologylab.DockerUnifiedUIMAInterface.executors.DUUIComponentParallelPipelineExecutor.DUUIWorker;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.executors.DUUIComponentParallelPipelineExecutor.DUUITask;
 
+/**
+ * Exception used by {@link DUUIComponentParallelPipelineExecutor}s to reschedule tasks.
+ * 
+ */
 public class AnnotatorUnreachableException extends RuntimeException{
 
-    public DUUIWorker failedWorker;
+    public DUUITask failedWorker;
     final public boolean resuable;
 
-    public AnnotatorUnreachableException(DUUIWorker worker, Exception e) {
+    public AnnotatorUnreachableException(DUUITask worker, Exception e) {
         super(e);
         failedWorker = worker;
         resuable = false;
@@ -18,7 +22,7 @@ public class AnnotatorUnreachableException extends RuntimeException{
         resuable = true;
     }
 
-    public void setFailedWorker(DUUIWorker worker) {
+    public void setFailedWorker(DUUITask worker) {
         failedWorker = worker;
     }
     

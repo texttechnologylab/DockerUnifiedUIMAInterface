@@ -28,7 +28,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 
 import static java.lang.String.format;
 
-public class DUUISwarmDriver implements IDUUIConnectedDriver, IDUUIResource {
+public class DUUISwarmDriver implements IDUUIRestDriver, IDUUIResource {
     private final DUUIDockerInterface _interface;
     private HttpClient _client;
     private IDUUIConnectionHandler _wsclient;

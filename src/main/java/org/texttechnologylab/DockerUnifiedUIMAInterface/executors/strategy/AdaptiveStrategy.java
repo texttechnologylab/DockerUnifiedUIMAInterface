@@ -18,9 +18,9 @@ public class AdaptiveStrategy extends AbstractStrategy {
                 String.format("Max pool size has to be greater than core pool size:\n Core size: %d | Max size: %d", 
                 _corePoolSize, maxPoolSize));
         }
-        if (casPoolSize < 1) {
+        if (casPoolSize < 0) {
             throw new IllegalArgumentException(
-                String.format("Cas pool size must be greater than or equal 1: %d", 
+                String.format("Cas pool size must be greater than or equal 0: %d", 
                 casPoolSize));
         }
 
@@ -44,10 +44,25 @@ public class AdaptiveStrategy extends AbstractStrategy {
         return _casPoolSize;
     }
 
+    /**
+     * Dynamically set max-pool-size.
+     * 
+     * @param newMaxPoolSize
+     */
     public void setMaxPoolSize(int newMaxPoolSize) {
         _maxPoolSize = newMaxPoolSize; 
     }
 
+    /**
+     * Dynamically set core-pool-size.
+     * 
+     * @param newCorePoolSize
+     */
+    public void setCorePoolSize(int newCorePoolSize) {
+        _corePoolSize = newCorePoolSize; 
+    }
+
+    @Override
     public long getTimeout(TimeUnit unit) {
         return unit.convert(3000, TimeUnit.MILLISECONDS);
     }

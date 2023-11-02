@@ -1,6 +1,9 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.executors;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.time.Duration;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -10,6 +13,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
@@ -29,7 +33,18 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import org.apache.uima.cas.CASException;
+import org.apache.uima.cas.Feature;
+import org.apache.uima.cas.FeatureStructure;
+import org.apache.uima.cas.Marker;
+import org.apache.uima.cas.impl.CASImpl;
+import org.apache.uima.cas.impl.Serialization;
+import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
+import org.apache.uima.jcas.tcas.Annotation;
+import org.apache.uima.resource.ResourceInitializationException;
+import org.apache.uima.util.CasCopier;
+import org.apache.uima.util.CasCreationUtils;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer.Config;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.IDUUIDriver;
@@ -39,10 +54,15 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.profiling.IDUUIResource;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.profiling.ResourceManager;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.profiling.ResourceManager.PipelineProgress;
 
+import de.tudarmstadt.ukp.dkpro.core.api.lexmorph.type.morph.MorphologicalFeatures;
+import de.tudarmstadt.ukp.dkpro.core.api.lexmorph.type.pos.POS;
+import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
+import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token_Type;
+
 public class DUUIComponentParallelPipelineExecutor extends DUUILinearPipelineExecutor implements IDUUIResource {
 
     class PipelineExecutor extends ThreadPoolExecutor {
-        final BlockingQueue<DUUIWorker> _backedUp = new LinkedBlockingQueue<>();
+        final BlockingQueue<DUUITask> _backedUp = new LinkedBlockingQueue<>();
         final BlockingQueue<JCasCompletionWorker> _backedUpJcas = new LinkedBlockingQueue<>();
         final Set<String> _failedWorkers = ConcurrentHashMap.newKeySet();
 
@@ -69,7 +89,7 @@ public class DUUIComponentParallelPipelineExecutor extends DUUILinearPipelineExe
         protected void beforeExecute(Thread t, Runnable r) {
         }
 
-        void afterWorker(DUUIWorker worker) throws InterruptedException {
+        void afterWorker(DUUITask worker) throws InterruptedException {
             final PipelineComponent cp = _components.get(worker.component());
             _currentLevel.set(worker.getPriority());
             cp.complete(worker);
@@ -103,17 +123,19 @@ public class DUUIComponentParallelPipelineExecutor extends DUUILinearPipelineExe
             Object result = null;
             try {
                 result = ((Future<?>) r).get();
-                if (result == null || !(result instanceof DUUIWorker))
+                if (result == null || !(result instanceof DUUITask))
                     return;
 
-                final DUUIWorker worker = (DUUIWorker) result;
+                final DUUITask worker = (DUUITask) result;
                 afterWorker(worker);
                 
             } catch (ExecutionException ee) {
                 t = ee.getCause();
-                if (!(t instanceof AnnotatorUnreachableException)) return;
-                t.printStackTrace();
-
+                if (!(t instanceof AnnotatorUnreachableException)) {
+                    t.printStackTrace();
+                    
+                    return;
+                }
                 AnnotatorUnreachableException e = (AnnotatorUnreachableException) t;
                 final String workerId = e.failedWorker._name + e.failedWorker.component();
 
@@ -140,12 +162,12 @@ public class DUUIComponentParallelPipelineExecutor extends DUUILinearPipelineExe
             }
         }
 
-        void tryFinalizeCas(DUUIWorker worker) throws InterruptedException {
+        void tryFinalizeCas(DUUITask worker) throws InterruptedException {
             worker._jCasLock.countDown();
             final long count = worker._jCasLock.getCount();
             if (worker._jCasLock.await(1, TimeUnit.NANOSECONDS) && count == 0L) {
                 JCasCompletionWorker w = new JCasCompletionWorker(worker._jc, worker.getPriority(), worker._perf);
-                if (_levelSynchronized) {
+                if (_levelSynchronized && !_view.hasShutdown()) {
                     _backedUpJcas.add(w);
                     if (isCompleted.getAsBoolean()) {
                         _view.reset();
@@ -160,8 +182,8 @@ public class DUUIComponentParallelPipelineExecutor extends DUUILinearPipelineExe
 
         @Override
         public <T> Future<T> submit(Callable<T> task) {
-            if (task instanceof DUUIWorker) {
-                DUUIWorker worker = (DUUIWorker) task;
+            if (task instanceof DUUITask) {
+                DUUITask worker = (DUUITask) task;
                 final String workerId = worker._name + worker.component();
                 final PipelineComponent component = _components.get(worker.component());
                 if (!_failedWorkers.contains(workerId))
@@ -171,7 +193,7 @@ public class DUUIComponentParallelPipelineExecutor extends DUUILinearPipelineExe
         }
 
         public void submit(String document, PipelineComponent component) {
-            DUUIWorker worker = component.getTask(document);
+            DUUITask worker = component.getTask(document);
             if (worker == null) return;
             if (_levelSynchronized) {
                 if (component.canSubmit()) {
@@ -198,6 +220,7 @@ public class DUUIComponentParallelPipelineExecutor extends DUUILinearPipelineExe
     final AtomicInteger _currentLevel = new AtomicInteger(1);
     final List<PipelineComponent> _lastLevel;
     final int _pipelineDepth;
+    final int _pipelineWidth; 
 
     final PipelineProgressView _view;
 
@@ -212,7 +235,7 @@ public class DUUIComponentParallelPipelineExecutor extends DUUILinearPipelineExe
 
         _components = new ConcurrentHashMap<>((int) (_pipeline.size() * 1.25));
 
-        final int corePoolSize = Config.strategy().getCorePoolSize();
+        final int corePoolSize = Config.strategy().getMaxPoolSize();
         final int maxPoolSize = Config.strategy().getMaxPoolSize();
 
         _executor = new PipelineExecutor(corePoolSize, maxPoolSize);
@@ -255,6 +278,7 @@ public class DUUIComponentParallelPipelineExecutor extends DUUILinearPipelineExe
         };
 
         _view = new PipelineProgressView();
+        _pipelineWidth = _view.heightComponents.values().stream().mapToInt(Set::size).max().orElse(1);
     }
 
     public DUUIComponentParallelPipelineExecutor withLevelSynchronization(boolean synchronize) {
@@ -286,7 +310,7 @@ public class DUUIComponentParallelPipelineExecutor extends DUUILinearPipelineExe
         _comps.stream()
         .filter(p -> p._ancestors.size() == 0)
         .forEach(component -> {
-            final DUUIWorker runner = getTask(name, component._uuid, jc, perf);
+            final DUUITask runner = getTask(name, component._uuid, jc, perf);
             _executor.submit(runner);
         });
         DUUIComposer.totalafterworkerwait.getAndAdd(System.nanoTime() - start);
@@ -312,8 +336,8 @@ public class DUUIComponentParallelPipelineExecutor extends DUUILinearPipelineExe
     }
 
 
-    public DUUIWorker getTask(String name, String uuid, JCas jc, DUUIPipelineDocumentPerformance perf) {
-        DUUIWorker w = null;
+    public DUUITask getTask(String name, String uuid, JCas jc, DUUIPipelineDocumentPerformance perf) {
+        DUUITask w = null;
         if ((w = _components.get(uuid).getTask(name)) != null)
             return w;
 
@@ -334,7 +358,7 @@ public class DUUIComponentParallelPipelineExecutor extends DUUILinearPipelineExe
                     .collect(Collectors.toSet());
 
             comp.addTask(name, 
-                new DUUIWorker(name, 
+                new DUUITask(name, 
                     _pipeline.get(comp._uuid), 
                     jc, 
                     perf, 
@@ -478,7 +502,7 @@ public class DUUIComponentParallelPipelineExecutor extends DUUILinearPipelineExe
         final String _uuid;
         final IDUUIDriver _driver;
         final Signature _sig;
-        final Map<String, DUUIWorker> _initializedWorkers = new ConcurrentHashMap<>();
+        final Map<String, DUUITask> _initializedWorkers = new ConcurrentHashMap<>();
         final int _height;
         final List<PipelineComponent> _ancestors;
 
@@ -497,12 +521,12 @@ public class DUUIComponentParallelPipelineExecutor extends DUUILinearPipelineExe
                 .collect(Collectors.toUnmodifiableList());
         }
 
-        DUUIWorker getTask(String document) {
+        DUUITask getTask(String document) {
             return _initializedWorkers.remove(document);
         }
 
-        void addTask(String document, DUUIWorker worker) {
-            _initializedWorkers.put(document, worker);
+        void addTask(String document, DUUITask task) {
+            _initializedWorkers.put(document, task);
             initialized.getAndIncrement();
         }
 
@@ -511,7 +535,7 @@ public class DUUIComponentParallelPipelineExecutor extends DUUILinearPipelineExe
             alive.incrementAndGet();
         }
 
-        void complete(DUUIWorker worker) {
+        void complete(DUUITask task) {
             completed.incrementAndGet();
             alive.decrementAndGet();
         }
@@ -562,7 +586,7 @@ public class DUUIComponentParallelPipelineExecutor extends DUUILinearPipelineExe
         int getPriority();
     }
 
-    class JCasCompletionWorker implements PipelineWorker, Callable<DUUIWorker> {
+    class JCasCompletionWorker implements PipelineWorker, Callable<DUUITask> {
 
         final JCas jc;
         final int parentLevel;
@@ -574,7 +598,7 @@ public class DUUIComponentParallelPipelineExecutor extends DUUILinearPipelineExe
             this.perf = _perf;
         }
 
-        public DUUIWorker call() {
+        public DUUITask call() {
             _view.liveDocuments.decrementAndGet();
             if (DUUIComposer.Config.storage() != null)
                 DUUIComposer.Config.storage().addMetricsForDocument(perf);
@@ -592,48 +616,65 @@ public class DUUIComponentParallelPipelineExecutor extends DUUILinearPipelineExe
     class PipelineQueue extends LinkedBlockingQueue<Runnable> { // PriorityBlockingQueue
         static final long serialVersionUID = -6903933921423432194L;
         final LinkedBlockingDeque<ComparableFutureTask<?>> backpressure = new LinkedBlockingDeque<>();
-        final AtomicBoolean switch_ = new AtomicBoolean(false);
+        final LinkedBlockingDeque<ComparableFutureTask<?>> backpressure2 = new LinkedBlockingDeque<>();
+        // final AtomicBoolean switch_ = new AtomicBoolean(false);
+        boolean switch_ = false;
 
         @Override
         public boolean offer(Runnable e) {
+            final ComparableFutureTask<?> c = (ComparableFutureTask<?>) e;
+            
             if (_executor.getPoolSize() >= Config.strategy().getMaxPoolSize()) {
-                if (!_levelSynchronized) return super.offer(e);
+                return super.offer(e);
+                // if (_pipelineWidth == 1) return super.offer(e);
+                
+                // if (!_levelSynchronized) {
+                //     ComparableFutureTask<?> b;
+                //     if (_view.hasShutdown() && isSubmitted.getAsBoolean()) {
+                //         while ((b = (switch_ = !switch_) ? backpressure2.pollLast() : backpressure2.pollFirst()) != null) {
+                //             super.offer(b);
+                //         }
+                //         return super.offer(c);
+                //     }
+
+                //     b = (switch_ = !switch_) ? backpressure2.pollLast() : backpressure2.pollFirst();
+                //     super.offer(b);
+                //     return (switch_ = !switch_) ? backpressure2.offerFirst(c) : backpressure2.offerLast(c);
+                // } 
 
                 // Task mangling to reduce probability of sibling tasks being scheduled together 
 
-                final ComparableFutureTask<?> c = (ComparableFutureTask<?>) e;
-                if (!(c._task instanceof DUUIWorker)) return super.offer(e);
-                final boolean wide = _view.heightComponents.getOrDefault(c.getPriority(), new HashSet<>(0)).size() > 1;
-                if (!wide) return super.offer(e);
+                // if (!(c._task instanceof DUUIWorker)) return super.offer(e);
+                // final boolean wide = _view.heightComponents.getOrDefault(c.getPriority(), new HashSet<>(0)).size() > 1;
+                // if (!wide) return super.offer(e);
 
 
 
-                final PipelineComponent pc = _components.get(((DUUIWorker) c._task).component());
-                ComparableFutureTask<?> b = switch_.get() ? backpressure.pollLast() : backpressure.pollFirst();
-                if (b == null) {
-                    if (!pc.isSubmitted()) 
-                        return switch_.get() ? backpressure.offerFirst(c) : backpressure.offerLast(c);
-                    else return super.offer(c);
-                }
-                else {
-                    switch_.set(!switch_.get());
-                    final boolean isChild = b.getPriority() < c.getPriority();
-                    if (pc.isSubmitted() || isChild) {
-                        super.offer(b);
-                        if (!isChild) super.offer(c);
-                        while ((b = backpressure.pollFirst()) != null) {
-                            super.offer(b);
-                        }
-                        if (isChild) backpressure.offerLast(c);
-                        return true;
-                    }
-                    if (b.isSibling(c) || backpressure.size() < _executor.getMaximumPoolSize()) 
-                        return (switch_.get() ? 
-                            backpressure.offerFirst(b) && backpressure.offerFirst(c) : backpressure.offerLast(b) && backpressure.offerLast(c));
-                    else if (b.isSameComp(c)) 
-                        return super.offer(b) && super.offer(c);
-                    else return super.offer(b) && super.offer(c);
-                }
+                // final PipelineComponent pc = _components.get(((DUUIWorker) c._task).component());
+                // ComparableFutureTask<?> b = (switch_ = !switch_) ? backpressure.pollLast() : backpressure.pollFirst();
+                // if (b == null) {
+                //     if (!pc.isSubmitted()) 
+                //         return (switch_ = !switch_) ? backpressure.offerFirst(c) : backpressure.offerLast(c);
+                //     else return super.offer(c);
+                // }
+                // else {
+                //     final boolean isChild = b.getPriority() < c.getPriority();
+                //     if (pc.isSubmitted() || isChild) {
+                //         super.offer(b);
+                //         if (!isChild) super.offer(c);
+                //         while ((b = (switch_ = !switch_) ? backpressure.pollLast() : backpressure.pollFirst()) != null) {
+                //             super.offer(b);
+                //         }
+                //         if (isChild) backpressure.offerLast(c);
+                //         return true;
+                //     }
+                //     if (b.isSibling(c) || backpressure.size() < _executor.getMaximumPoolSize()) 
+                //         return ((switch_ = !switch_) ? 
+                //             backpressure.offerFirst(b) && backpressure.offerFirst(c) : backpressure.offerLast(b) && backpressure.offerLast(c));
+                //     else if (b.isSameComp(c)) 
+                //         return super.offer(b) && super.offer(c);
+                //     else return super.offer(b) && super.offer(c);
+                // }
             }
             return false;
         }
@@ -659,20 +700,20 @@ public class DUUIComponentParallelPipelineExecutor extends DUUILinearPipelineExe
 
         public boolean isSibling(ComparableFutureTask<?> that) {
             final boolean bothWorkers = 
-                _task instanceof DUUIWorker && that._task instanceof DUUIWorker;
+                _task instanceof DUUITask && that._task instanceof DUUITask;
             if (bothWorkers) {
-                final DUUIWorker w1 = (DUUIWorker) _task;
-                final DUUIWorker w2 = (DUUIWorker) that._task;
+                final DUUITask w1 = (DUUITask) _task;
+                final DUUITask w2 = (DUUITask) that._task;
                 return w1._jc == w2._jc && w1._height == w2._height;
             } else return false;
         }
 
         public boolean isSameComp(ComparableFutureTask<?> that) {
             final boolean bothWorkers = 
-                _task instanceof DUUIWorker && that._task instanceof DUUIWorker;
+                _task instanceof DUUITask && that._task instanceof DUUITask;
             if (bothWorkers) {
-                final DUUIWorker w1 = (DUUIWorker) _task;
-                final DUUIWorker w2 = (DUUIWorker) that._task;
+                final DUUITask w1 = (DUUITask) _task;
+                final DUUITask w2 = (DUUITask) that._task;
                 return w1._component == w2._component;
             } else return false;
         }
@@ -683,15 +724,16 @@ public class DUUIComponentParallelPipelineExecutor extends DUUILinearPipelineExe
 
         @Override
         public String toString() {
-            if (_task instanceof DUUIWorker) {
-                DUUIWorker worker = (DUUIWorker) _task;
+            if (_task instanceof DUUITask) {
+                DUUITask worker = (DUUITask) _task;
                 return "component=" + worker._signature + ", document=" + worker._name;
             } else
                 return super.toString();
         }
     }
 
-    class DUUIWorker implements Callable<DUUIWorker>, PipelineWorker {
+    
+    class DUUITask implements Callable<DUUITask>, PipelineWorker {
     public final String _name;
     public final PipelinePart _component;
     public final JCas _jc;
@@ -702,8 +744,9 @@ public class DUUIComponentParallelPipelineExecutor extends DUUILinearPipelineExe
     public final int _height;
     public final CountDownLatch _jCasLock;
     Duration _total = Duration.ofSeconds(0);
+    ByteArrayOutputStream out = new ByteArrayOutputStream(1024 * 1024);
 
-    public DUUIWorker(String name, 
+    public DUUITask(String name, 
                 PipelinePart component, 
                 JCas jc, 
                 DUUIPipelineDocumentPerformance perf,
@@ -723,7 +766,12 @@ public class DUUIComponentParallelPipelineExecutor extends DUUILinearPipelineExe
     }
 
     @Override
-    public DUUIWorker call() throws Exception {
+    public DUUITask call() throws Exception {
+        long start = System.nanoTime();
+        final boolean hasSiblings = _view.heightComponents.get(_height).size() > 1;
+        JCas uCas = _jc;
+        Marker m = null;
+        
         Thread.currentThread().setName(_threadName);
         ResourceManager.register(Thread.currentThread(), true);
         if (!typeCheck(_jc)) {
@@ -731,17 +779,126 @@ public class DUUIComponentParallelPipelineExecutor extends DUUILinearPipelineExe
             return this;
         }
         try {
-            System.out.printf("[%s] starting analysis.%n", _threadName);
+            // if (hasSiblings) {
+                
+            //     uCas = getResourceManager().takeInterCas();
+            //     // uCas = CasCreationUtils
+            //     //     .createCas(_jc.getTypeSystem(), null, null, null)
+            //     //     .getJCas();
+            //     System.out.printf("[%s] take cas %s.%n",_threadName, uCas);
+            //     if (uCas == null) {
+            //         System.out.println("FUZUUUUCK");
+            //     } else {
+            //         synchronized(_jc) {
+            //             Serialization.serializeCAS(_jc.getCas(), out);
+            //         }
+            //         Serialization.deserializeCAS(uCas.getCas(), new ByteArrayInputStream(out.toByteArray()));
+            //         m = uCas.getCas().createMarker();
+            //         if (!m.isValid()) {
+            //             System.out.println("FUUUUCK");
+            //         }
+            //         DUUIComposer.totalafterworkerwait.getAndAdd(System.nanoTime() - start);
+                        
+            //     }
+            // }
+            
+            System.out.printf("[%s] starting analysis %s.%n", _threadName, uCas);
             _component.run(_name, _jc, _perf); 
-            // System.out.printf("[%s] finished analysis.%n", _threadName);
-                 
+            System.out.printf("[%s] finished analysis.%n", _threadName);
+            
+            
+            // if (hasSiblings && uCas != null ) {
+            //     start = System.nanoTime();
+                
+            //     int b = 0;
+            //     int e = 0;
+            //     boolean s = false;
+            //     synchronized(_jc) {
+            //         Serialization.deserializeCAS(_jc.getCas(), new ByteArrayInputStream(out.toByteArray()));
+
+            //         CasCopier c2 = new CasCopier(uCas.getCas(), _jc.getCas());
+            //         final Collection<? extends Annotation> jss = JCasUtil.select(uCas, Annotation.class);
+            //         for (Class<? extends Annotation> output : _signature.getOutputs()) {
+            //             final Collection<? extends Annotation> outs = JCasUtil.select(uCas, output);
+            //             System.out.println(_threadName + " : " + output.getSimpleName() + " " + outs.size());
+            //             for (Annotation annotation : outs) {
+            //                 if (m.isNew(annotation)) {
+            //                     Annotation tgt = (Annotation) c2.copyFs(annotation);
+            //                     tgt.addToIndexes();
+            //                 }
+            //             }
+            //         }
+
+            //         // for (Class<? extends Annotation> input : _signature.getInputs()) {
+            //         //     final Collection<? extends Annotation> outs = JCasUtil.select(uCas, input);
+            //         //     System.out.println(_threadName + " : " + input.getSimpleName() + " " + outs.size());
+            //         //     for (Annotation annotation : outs) {
+            //         //         if (m.isModified(annotation)) {
+            //         //             Annotation anSrc = annotation;
+            //         //             Annotation tgt = JCasUtil.selectAt(_jc, input, anSrc.getBegin(), anSrc.getEnd()).get(0);
+            //         //             for (Feature feat : tgt.getType().getFeatures()) {
+            //         //                 for (Feature feat2 : anSrc.getType().getFeatures()) {
+            //         //                     final boolean prim = feat.getRange().isPrimitive();
+            //         //                     if (prim) {
+            //         //                         String f2 = anSrc.getFeatureValueAsString(feat2);
+            //         //                         final boolean isnull = tgt.getFeatureValueAsString(feat) == null;
+            //         //                         if (isnull) {
+            //         //                             tgt.setFeatureValueFromString(feat, f2);
+            //         //                         } else if (tgt.getFeatureValueAsString(feat).equals(f2)) {
+            //         //                             tgt.setFeatureValueFromString(feat, f2);
+            //         //                         }
+            //         //                         continue;
+            //         //                     }
+
+            //         //                     if (feat.getName().equals(feat2.getName())) {
+            //         //                         if (anSrc.getFeatureValue(feat2) == null) continue;
+            //         //                         // System.out.println("FEATURE " + feat2);
+            //         //                         // System.out.println("FEATURE STRUCTURE " + anSrc);
+            //         //                         // System.out.println("FEATURE STRUCTURE " + tgt);
+            //         //                         final FeatureStructure fs = anSrc.getFeatureValue(feat2);
+            //         //                         final boolean isnull = tgt.getFeatureValue(feat) == null;
+            //         //                         if (isnull) {
+                                                
+            //         //                             final Annotation fs2 = (Annotation) fs;
+            //         //                             Annotation tgtn = JCasUtil.selectAt(_jc, fs2.getClass(), fs2.getBegin(), fs2.getEnd()).get(0);
+            //         //                             tgt.setFeatureValue(feat, tgtn);
+            //         //                         } else if (!tgt.getFeatureValue(feat).equals(fs)) {
+            //         //                             if (!(fs instanceof Annotation)) continue;
+            //         //                             final Annotation fs2 = (Annotation) fs;
+            //         //                             Annotation tgtn = JCasUtil.selectAt(_jc, fs2.getClass(), fs2.getBegin(), fs2.getEnd()).get(0);
+            //         //                             tgt.setFeatureValue(feat, tgtn);
+                                                
+            //         //                         }
+            //         //                     }
+            //         //                 }
+            //         //             }
+            //         //         }
+            //         //     }
+            //         // }
+                    
+            //         // Token t1 = JCasUtil.select(_jc, Token.class).stream().findFirst().orElse(null);
+            //         // if (t1 != null) {
+            //         //     System.out.printf("[%s] Token\n", _threadName);
+            //         //     System.out.println(t1);
+            //         // }
+            //     }
+            //     // out.reset();
+            //     // synchronized(_jc) {
+            //     // }
+            //     getResourceManager().returnInterCas(uCas);
+            //     DUUIComposer.totalafterworkerwait.getAndAdd(System.nanoTime() - start);
+            // }
+  
         } catch (AnnotatorUnreachableException e) { 
             e.setFailedWorker(this); // Task might be rescheduled
             throw e;
         } catch (Exception e) { // Task won't be rescheduled
+        
+            // if (uCas != _jc) getResourceManager().returnInterCas(uCas);
             throw new AnnotatorUnreachableException(this, 
                 new RuntimeException(String.format("[%s] Pipeline component failed.%n", _threadName), e));
         }
+
         return this; 
     }
 

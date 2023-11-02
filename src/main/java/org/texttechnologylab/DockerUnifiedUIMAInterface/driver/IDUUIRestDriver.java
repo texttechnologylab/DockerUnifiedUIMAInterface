@@ -39,7 +39,11 @@ interface ResponsiveMessageCallback {
     public void operation(String message);
 }
 
-public interface IDUUIConnectedDriver extends IDUUIDriver {
+/**
+ * Interface for Drivers using the RESTful schema.
+ * 
+ */
+public interface IDUUIRestDriver extends IDUUIDriver {
     
     public Map<String, ? extends IDUUIInstantiatedPipelineComponent> getComponents(); 
 
@@ -159,6 +163,16 @@ public interface IDUUIConnectedDriver extends IDUUIDriver {
 
     }
 
+    /**
+     * Ping Annotator for fast test of responsiveness.
+     * 
+     * @param url                   URL for the Annotator.
+     * @param client                HttpClient.
+     * @param request               Test request to the Annotator.
+     * @param retry                 Amount of times to retry the test-requests.
+     * @return                      True if Annotator responds, false otherwise.
+     * @throws InterruptedException Thrown if Thread interrupted during ping.
+     */
     public default boolean ping(String url, HttpClient client, HttpRequest request, int retry) throws InterruptedException {
         int tries = 0; 
         boolean success = false; 
@@ -174,6 +188,16 @@ public interface IDUUIConnectedDriver extends IDUUIDriver {
         return success;
     }
 
+    /**
+     * Perform process-call to verify that the Annotator is working properly. 
+     * 
+     * @param url           URL of the Annotator
+     * @param client        HttpClient.
+     * @param layer         Communication layer for serialization and deserialization.
+     * @param jc            CAS document.
+     * @return  	        True if no Exceptions were thrown, false otherwise.
+     * @throws Exception    Exceptions associated with a process-call.
+     */
     public default boolean verify(String url, HttpClient client, IDUUICommunicationLayer layer, JCas jc) throws Exception {
         ByteArrayOutputStream stream = new ByteArrayOutputStream();
         try {

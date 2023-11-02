@@ -1,33 +1,32 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.sqlite;
 
-import org.luaj.vm2.lib.PackageLib.require;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer.Config;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIPipelineComponent;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.IDUUIPipelineComponent;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIDockerDriver.DockerDriverView;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelinePerformancePoint;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.IDUUIStorageBackend;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.profiling.IDUUIResource;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.profiling.IDUUIResourceProfiler;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.profiling.IDUUIResource.DockerContainerView;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.profiling.ResourceManager.HostConfig;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.profiling.ResourceManager.HostThreadView;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.profiling.ResourceManager.HostUsage;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.profiling.ResourceManager.ResourceView;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.profiling.ResourceManager.ResourceViews;
+import static java.lang.String.format;
 
 import java.io.IOException;
 import java.net.UnknownHostException;
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
-import static java.lang.String.format;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer.Config;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIDockerDriver.DockerDriverView;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIPipelineComponent;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.IDUUIPipelineComponent;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelinePerformancePoint;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.IDUUIStorageBackend;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.profiling.IDUUIResource.DockerContainerView;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.profiling.IDUUIResourceProfiler;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.profiling.ResourceManager.HostConfig;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.profiling.ResourceManager.HostThreadView;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.profiling.ResourceManager.HostUsage;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.profiling.ResourceManager.ResourceViews;
 
 /**
  * Do not use this class it is not finished and just a raw idea about how one could implement a postgres backend
@@ -281,7 +280,7 @@ public class DUUISqliteStorageBackend implements IDUUIStorageBackend, IDUUIResou
                 stmt.setString(4, containerview.getContainerId());
                 stmt.setString(5, containerview.getState());
                 stmt.setLong(6, containerview.getMemoryUsage());
-                stmt.setLong(7, containerview.getMemoryPeakUsage());
+                stmt.setLong(7, containerview.getPeakMemoryUsage());
                 stmt.setDouble(8, containerview.getCpuUsage());
                 stmt.setLong(9, containerview.getNetworkIn());
                 stmt.setLong(10, containerview.getNetworkOut());

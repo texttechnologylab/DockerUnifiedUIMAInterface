@@ -4,12 +4,14 @@ import static java.lang.String.format;
 import static org.texttechnologylab.DockerUnifiedUIMAInterface.profiling.visualisation.DUUIPipelineVisualizer.formatns;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
 import java.security.InvalidParameterException;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -49,6 +51,7 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.Signature;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.executors.DUUIDocumentParallelPipelineExecutor;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.executors.DUUILinearPipelineExecutor;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.executors.DUUIComponentParallelPipelineExecutor;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.executors.DUUIDisruptor;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.executors.IDUUIPipelineExecutor;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.executors.PipelinePart;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.executors.strategy.AdaptiveStrategy;
@@ -224,6 +227,8 @@ public class DUUIComposer {
     public static AtomicLong totalreadwait = new AtomicLong(0);
     public static AtomicLong totalscalingwait = new AtomicLong(0);
     public static AtomicLong totalafterworkerwait = new AtomicLong(0);
+    public static AtomicLong totalcomponentwait = new AtomicLong(0);
+    public static AtomicLong totalcaspoolwait = new AtomicLong(0);
     public static AtomicLong totalrm = new AtomicLong(0);
 
     public DUUIComposer() throws URISyntaxException {
@@ -348,7 +353,7 @@ public class DUUIComposer {
     }
 
     public DUUIComposer withWorkers(int workers) {
-        // TODO: remove all uses. Has no effect anymore. Use with[Semi]ParallelPipelint() instead.
+        // TODO: remove all uses. Has no effect anymore.
         return this;
     }
 
@@ -532,21 +537,7 @@ public class DUUIComposer {
             if(_storage!=null) {
                 _storage.finalizeRun(name,starttime,Instant.now());
             }
-
-            File perf = new File("./duui_parallel_benchmarks/perfs.txt");
-            PrintStream out = new PrintStream(new FileOutputStream(perf));
-            out.println();
-            out.println(name);
-            out.printf("FINISHED ANALYSIS: %d s %n", Instant.now().minusSeconds(starttime.getEpochSecond()).getEpochSecond()); 
-            out.printf("URL WAIT %s%n", formatns(DUUIComposer.totalurlwait.getAndSet(0l)));
-            out.printf("SERIALIZE WAIT %s%n", formatns(DUUIComposer.totalserializewait.getAndSet(0l)));
-            out.printf("ANNOTATOR WAIT %s%n", formatns(DUUIComposer.totalannotatorwait.getAndSet(0l)));
-            out.printf("DESERIALIZE WAIT %s%n", formatns(DUUIComposer.totaldeserializewait.getAndSet(0l)));
-            out.printf("SCALING WAIT %s%n", formatns(DUUIComposer.totalscalingwait.getAndSet(0l)));
-            out.printf("AFTER WORKER WAIT %s%n", formatns(DUUIComposer.totalafterworkerwait.getAndSet(0l))); 
-            out.printf("READ WAIT %s%n", formatns(DUUIComposer.totalreadwait.getAndSet(0l))); 
-            out.printf("RESOURCE MANAGER TOTAL %s%n", formatns(DUUIComposer.totalrm.getAndSet(0l)));
-            out.println();
+            log(name, Instant.now().minusSeconds(starttime.getEpochSecond()));
             
         } catch (Exception e) {
             e.printStackTrace();
@@ -591,6 +582,27 @@ public class DUUIComposer {
 
         run(name, runPipeline);
     
+
+    }
+
+    void log(String name, Instant total) throws FileNotFoundException  {
+        File perf = new File("./duui_parallel_benchmarks/perfs.txt");
+        PrintStream out = new PrintStream(new FileOutputStream(perf, true));
+        out.println();
+        out.println(name);
+        out.printf("FINISHED ANALYSIS: %s s %n", DUUIPipelineVisualizer.formatsec(total.getEpochSecond())); 
+        out.printf("URL WAIT %s%n", formatns(DUUIComposer.totalurlwait.getAndSet(0l)));
+        out.printf("SERIALIZE WAIT %s%n", formatns(DUUIComposer.totalserializewait.getAndSet(0l)));
+        out.printf("DESERIALIZE WAIT %s%n", formatns(DUUIComposer.totaldeserializewait.getAndSet(0l)));
+        out.printf("ANNOTATOR WAIT %s%n", formatns(DUUIComposer.totalannotatorwait.getAndSet(0l)));
+        out.printf("COMPONENT WAIT %s%n", formatns(DUUIComposer.totalcomponentwait.getAndSet(0l)));
+        out.printf("SCALING WAIT %s%n", formatns(DUUIComposer.totalscalingwait.getAndSet(0l)));
+        out.printf("AFTER WORKER WAIT %s%n", formatns(DUUIComposer.totalafterworkerwait.getAndSet(0l))); 
+        out.printf("READ WAIT %s%n", formatns(DUUIComposer.totalreadwait.getAndSet(0l))); 
+        out.printf("CAS POOL WAIT %s%n", formatns(DUUIComposer.totalcaspoolwait.getAndSet(0l))); 
+        out.printf("RESOURCE MANAGER TOTAL %s%n", formatns(DUUIComposer.totalrm.getAndSet(0l)));
+        out.println();
+        out.close();
     }
 
     private void run(String name, Callable<Void> runPipeline) throws Exception {
@@ -606,20 +618,7 @@ public class DUUIComposer {
             Instant starttime = Instant.now();
             runPipeline.call();
             Instant duration = Instant.now().minusSeconds(starttime.getEpochSecond());
-            File perf = new File("./duui_parallel_benchmarks/perfs.txt");
-            PrintStream out = new PrintStream(new FileOutputStream(perf));
-            out.println();
-            out.println(name);
-            out.printf("FINISHED ANALYSIS: %d s %n", duration.getEpochSecond()); 
-            out.printf("URL WAIT %s%n", formatns(DUUIComposer.totalurlwait.getAndSet(0l)));
-            out.printf("SERIALIZE WAIT %s%n", formatns(DUUIComposer.totalserializewait.getAndSet(0l)));
-            out.printf("ANNOTATOR WAIT %s%n", formatns(DUUIComposer.totalannotatorwait.getAndSet(0l)));
-            out.printf("DESERIALIZE WAIT %s%n", formatns(DUUIComposer.totaldeserializewait.getAndSet(0l)));
-            out.printf("SCALING WAIT %s%n", formatns(DUUIComposer.totalscalingwait.getAndSet(0l)));
-            out.printf("AFTER WORKER WAIT %s%n", formatns(DUUIComposer.totalafterworkerwait.getAndSet(0l))); 
-            out.printf("READ WAIT %s%n", formatns(DUUIComposer.totalreadwait.getAndSet(0l))); 
-            out.printf("RESOURCE MANAGER TOTAL %s%n", formatns(DUUIComposer.totalrm.getAndSet(0l)));
-            out.println();
+            log(name, duration);
             if(_storage!=null) {
                 _storage.finalizeRun(name,starttime,Instant.now());
             }
@@ -752,7 +751,9 @@ public class DUUIComposer {
         Runnable readerTask = () -> {
             try {
                 while(!reader.isEmpty()) { 
+                    final long ss = System.nanoTime();
                     JCas jc = _rm.takeCas();
+                    DUUIComposer.totalcaspoolwait.addAndGet(System.nanoTime()-ss);
                     long waitTimeStart = 0;
                     try {
                         waitTimeStart = System.nanoTime();
@@ -778,7 +779,8 @@ public class DUUIComposer {
             }    
         };
 
-        final int readerLimit = Math.min(Math.max(_strategy.getInitialQueueSize(), _strategy.getMaxPoolSize()), 50);
+        // final int readerLimit = Math.min(Math.max(_strategy.getInitialQueueSize(), _strategy.getMaxPoolSize()), 50);
+        final int readerLimit = _strategy.getMaxPoolSize();
         for (int i = 0; i < readerLimit; i++) {
             readers.submit(readerTask);
         }
@@ -918,7 +920,7 @@ public class DUUIComposer {
             .withSkipVerification(true)
             .withLuaContext(new DUUILuaContext().withJsonLibrary());
 
-        composer.addDriver(new DUUIDockerDriver().withContainerPause());
+        composer.addDriver(new DUUIDockerDriver().withContainerKill());
         
         composer.add(  
             new DUUIDockerDriver.Component("tokenizer:latest")//.withScale(2)

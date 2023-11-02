@@ -6,8 +6,19 @@ import java.util.stream.Collectors;
 
 import org.apache.uima.jcas.tcas.Annotation;
 
+
+/**
+ * Data-structure storing the inputs and outputs of a Component. 
+ * 
+ */
 public class Signature {
 
+    /**
+     * Dependency types used to determiine the dependency between two Components.
+     * 
+     * {@link DependencyType.FIRST} and {@link DependencyType.LAST} are used for special Components which need
+     * to be ran at the beginning or the end of the pipeline. 
+     */
     public static enum DependencyType {
         FIRST,
         LAST,
@@ -65,6 +76,12 @@ public class Signature {
             outputs.stream().map(Class::getSimpleName).collect(Collectors.toList()));
     }
 
+    /**
+     * Compare two signatures.
+     * 
+     * @param s2 Signature to compare current signature with.
+     * @return Dependency relationship between the signatures.
+     */
     public DependencyType compare(Signature s2) {
         switch (type) {
             case FIRST:

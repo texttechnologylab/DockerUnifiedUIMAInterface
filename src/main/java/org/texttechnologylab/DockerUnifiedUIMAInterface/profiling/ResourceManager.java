@@ -15,9 +15,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.DelayQueue;
-import java.util.concurrent.Delayed;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -45,15 +44,16 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.executors.strategy.PoolS
 public class ResourceManager {
 
     final AtomicBoolean _finished = new AtomicBoolean(false);
-    final CountDownLatch finishLock = new CountDownLatch(1);
 
     CasPool _casPool;     
-
     SystemResourceViews _system; 
+
     boolean memoryCritical = false;
     final ReentrantLock memoryLock = new ReentrantLock();
     final Condition unpaused = memoryLock.newCondition();
+
     final AtomicBoolean _batchRead = new AtomicBoolean(false);
+    
     final ScheduledThreadPoolExecutor _executor = new ScheduledThreadPoolExecutor(1);
 
 
@@ -95,6 +95,7 @@ public class ResourceManager {
         final Runnable cycle = () -> {
             final long start = System.nanoTime();
             try {
+                
                 _rm.dispatch(false);
                 _rm._system.scale();
                 _rm.resumeWhenMemoryFree();
@@ -174,6 +175,15 @@ public class ResourceManager {
         _casPool.returnCas(jc);
     }
 
+    public JCas takeInterCas() {
+        return _casPool.takeInterCas();
+    }
+
+    public void returnInterCas(JCas interCas) {
+        interCas.reset();
+        _casPool.returnInterCas(interCas);
+    }
+
     public ByteArrayOutputStream takeByteStream() throws InterruptedException {
         if (_casPool == null) 
             return new ByteArrayOutputStream(3*1024*1024);
@@ -245,8 +255,13 @@ public class ResourceManager {
         }
     }
 
+    /**
+     * Structure storing all CAS objects. 
+     * 
+     */
     class CasPool {
         final BlockingQueue<JCas> _casPool;
+        final ConcurrentLinkedQueue<JCas> _intercasPool;
         final Collection<JCas> _casMonitorPool; 
         final BlockingQueue<ByteArrayOutputStream> _bytestreams;
         final Supplier<JCas> _casSupplier; 
@@ -255,14 +270,12 @@ public class ResourceManager {
         final AtomicInteger _currCasPoolSize; 
         final AtomicInteger _currStreamPoolSize;
         final AtomicInteger _maxPoolSize; 
-        final ByteArrayOutputStream test = new ByteArrayOutputStream(10*1024*1024);
-
 
         CasPool(PoolStrategy strategy, TypeSystemDescription desc) throws UIMAException {
             _strategy = strategy;
             _casPool = _strategy.instantiate(JCas.class);
             _bytestreams = _strategy.instantiate(ByteArrayOutputStream.class);
-            _casMonitorPool = ConcurrentHashMap.newKeySet(_strategy.getCorePoolSize());
+            _casMonitorPool = ConcurrentHashMap.newKeySet(_strategy.getMaxPoolSize() * 3);
             _maxPoolSize = new AtomicInteger(_casPool.remainingCapacity());
             
             final JCas exJcas = JCasFactory.createJCas(desc); 
@@ -295,10 +308,23 @@ public class ResourceManager {
                 .limit(initialPoolSize)
                 .forEach(_bytestreams::add);
             _currStreamPoolSize = new AtomicInteger(initialPoolSize);
+
+            _intercasPool = new ConcurrentLinkedQueue<>();
+            for (int i = 0; i < _strategy.getMaxPoolSize(); i++) {
+                _intercasPool.add(_casSupplier.get());
+            }
             
             // System.out.printf(
             //     "JCAS QUEUE CAPACITY: %d | #JCAS: %d | #RESERVED: %d \nMEMORY USED:      %s \nMEMORY THRESHOLD: %s %n", 
             //     _maxPoolSize.get(), initialPoolSize, _casPool.size(), formatb(_system._usedBytes), formatb(_system._thresholdBytes));
+        }
+
+        public JCas takeInterCas() {
+            return _intercasPool.poll();
+        }
+
+        public void returnInterCas(JCas interCas) {
+            _intercasPool.add(interCas);
         }
 
         int borrowedCount() {
@@ -410,7 +436,6 @@ public class ResourceManager {
 
         long _thresholdBytes = (long) (Runtime.getRuntime().maxMemory() * 0.1);
         long _usedBytes = 0L; 
-        AtomicBoolean _poolSizeSet = new AtomicBoolean(false);
 
         public void register(IDUUIResource resource) {
             _resources.add(resource);
@@ -425,7 +450,6 @@ public class ResourceManager {
             // _dockerDriverView = null; Drivers should persist through multiple Composer.shutdown() calls.
             _resources.removeIf(r -> !(r instanceof IDUUIDriver));
             _resourceStats.clear();
-            _poolSizeSet.set(false);
             _systemView._tvs.clear();
         }
 
@@ -444,12 +468,9 @@ public class ResourceManager {
             _usedBytes = _casPool.getJCasMemoryConsumption();
             boolean critical = _usedBytes > (_thresholdBytes + 25*1024*1024) || _systemView.isMemoryCritical();
 
-            // If threshhold has been set once, but is back below again.
-            if (!critical) {
+            if (!critical) // If threshhold has been set once, but is back below again.
                 _casPool.resetMaxPoolSize();
-            }else if (critical) {
-                _casPool.setMaxPoolSize();
-            }
+            else _casPool.setMaxPoolSize();
                 
             return critical;
         }
@@ -644,17 +665,25 @@ public class ResourceManager {
                 _tvs.putIfAbsent(thread.getId(), new ThreadView(thread, worker));
         }
 
+        /**
+         * Set the memory threshold.
+         * 
+         */
         public void setMemoryThreshold(double percentage) {
             memory_threshold = percentage;
         }
 
+        /**
+         * 
+         * @return True if the current heap usage is above the threshold, false otherwise.
+         */
         public boolean isMemoryCritical() {
             return _config.jvm_max_memory * memory_threshold < memory_used;
         }
 
         @Override
         public void update() {
-            if (_os instanceof com.sun.management.OperatingSystemMXBean) {
+            if (_os instanceof com.sun.management.OperatingSystemMXBean) { // Requires Hotspot VM by Oracle
                 com.sun.management.OperatingSystemMXBean osSun = (com.sun.management.OperatingSystemMXBean) _os;
                 cpu_load_average = osSun.getSystemLoadAverage();
                 system_cpu_load = osSun.getSystemCpuLoad();
@@ -767,100 +796,261 @@ public class ResourceManager {
         default void update() {};
     }
 
+    /**
+     * Container for all statistics. 
+     */
     public static interface ResourceViews {
 
+        /**
+         * Update statistics.
+         * 
+         * @return Current updated statistics.
+         */
         ResourceViews update();
 
+        /**
+         * 
+         * @return Progress-data of the pipeline.
+         */
         PipelineProgress getComponentProgress();
 
+        /**
+         * 
+         * @return Data of the Docker Driver.
+         */
         DockerDriverView getDockerDriverView();
 
+        /**
+         * 
+         * @return Config of the host and the pipeline.
+         */
         HostConfig getHostConfig();
 
+        /**
+         * 
+         * @return Host usage statistics.
+         */
         HostUsage getHostUsage();
 
+        /**
+         * 
+         * @return Miscellaneous statistics currently not organized.
+         */
         Map<Class<? extends IDUUIResource>, ResourceView> getResourceViews();
     }
 
+    /**
+     * Container holding progress-data of the pipeline. Primarily used by {@link ComponentParallelPipelineExecutor}
+     */
     public static interface PipelineProgress extends ResourceView {
 
-        int getComponentPoolSize(String uuid);
-
+        /**
+         * Remaining time spent processing the current level.
+         * 
+         * @return Remaining time as nanoseconds.
+         */
         long getRemainingNanos();
 
+        /**
+         * Progress in the current level.
+         * 
+         * @return Progress as a number in the range of [0.0, 1.0]
+         */
         double getLevelProgress();
 
+        /**
+         * Progress of a single Component.
+         * 
+         * @param uuid Id of Component.
+         * 
+         * @return Progress as a number in the range of [0.0, 1.0]
+         */
         double getComponentProgress(String uuid);
 
+        /**
+         * 
+         * @param uuid Id of Component.
+         * @return True if Component has completed the currently read-in (batch) documents, false otherwise.
+         */
         boolean isCompleted(String uuid);
         
+        /**
+         * @return True if no more documents will be read-in, false otherwise.
+         */
         boolean hasShutdown();
 
+        /**
+         * @return True if current batch of documents is completely read-in. Used by a level-synchronized 
+         * {@link ComponentParallelPipelineExecutor}.
+         */
         default boolean isBatchReadIn() {
             return _rm.isBatchReadIn();
         }
 
+        /**
+         * @return Maximal level in the pipeline.
+         */
         int getPipelineLevel(String uuid);
 
+        
+        /**
+         * @param uuid  Id of Component.
+         * @return Level of Component.
+         */
         int getPipelineDepth();
 
+        
+        /**
+         * @return Next level to be processed. Used by a level-synchronized 
+         * {@link ComponentParallelPipelineExecutor}.
+         */
         int getNextLevel();
 
+        
+        /**
+         * @return Current level being processed. 
+         */
         int getCurrentLevel();
-
+        
+        /**
+         * @param level Level. 
+         * 
+         * @return Number of Components in a level.
+         */
         int getLevelSize(int level);
-
+                
+        /**
+         * @param level Level. 
+         * @param filter Filter by Components belonging to this Driver. 
+         * 
+         * @return Number of Components in a level containing only Components belonging to filter.
+         */
         int getLevelSize(int level, Class<? extends IDUUIDriver> filter);
-
+      
+        /**
+         * @param level Level. 
+         * @param filter Filters by Components belonging to these Drivers. 
+         * 
+         * @return Number of Components in a level containing only Components belonging to one of filters.
+         */
         int getLevelSize(int level, Class<? extends IDUUIDriver> ...filters);
     }
 
+    /**
+     * Container holding configuration of the pipeline and the host.
+     */
     public static interface HostConfig extends ResourceView {
 
+        /**
+         * @return Maximum amount of memory the JVM heap can hold in bytes.
+         */
         long getJVMMaxMemory();
 
+        /**
+         * @return RAM size of the machine.
+         */
         long getHostMemoryTotal();
-
+        
+        /**
+         * @return Number of CPU cores.
+         */
         int getAvailableProcessors();
-
+        
+        /**
+         * @return Initial CAS pool size.
+         */
         int getCASPoolSize();
 
+        /**
+         * @return Name of the current OS.
+         */
         String getOSName();
-
+        
+        /**
+         * @return Name of the JVM vendor. Relevant since some statistics like {@link HostUsage#getSystemCpuLoad()}
+         * are only avaiable to the Hotspot VM created by Oracle.
+         */
         String getJVMVendor();
     }
 
+    /**
+     * Container for statistics holding current information about the host.
+     */
     public static interface HostUsage extends ResourceView {
 
+        /**
+         * @return Current CPU-load of all processes on the CPU. Range: [0.0, 1.0]
+         */
         double getSystemCpuLoad();
 
+        /**
+         * @return Current CPU-load of the JVM process on the CPU. Range: [0.0, 1.0]
+         */
         double getJvmCpuLoad();
 
+        /**
+         * @return Total amount of time spent by the JVM process executing on the CPU
+         */
         long getJvmCpuTime();
 
+        /**
+         * @return Current memory usage by the machine in bytes.
+         */
         long getHostMemoryUsage();
 
+        /**
+         * @return Current heap usage by the process in bytes.
+         */
         long getHeapMemoryUsage();
 
+        /**
+         * @return Current heap limit of the JVM in bytes. Can grow, but not past {@link HostConfig#getJVMMaxMemory()}.
+         */
         long getHeapMemoryTotal();
 
+        
+        /**
+         * @return Iterable containing thread-statistics.
+         */
         Iterable<? extends HostThreadView> getThreadViews(); 
 
         // int calculateDynamicPoolsize();
     }
 
+    /**
+     * Container for the thread-statistics of a single thread.
+     */
     public static interface HostThreadView extends ResourceView {
 
+        /**
+         * @return Name of the thread.
+         */
         String getName();
         
+        /**
+         * @return State of the thread.
+         */
         String getState();
-
+        
+        /**
+         * @return Cumulated time the thread spent in the {@link Thread.State.WAITING} or {@link Thread.State.TIMED_WAITING} state. In milliseconds.
+         */
         long getWaitedTime();
 
+        /**
+         * @return Cumulated time the thread spent in the {@link Thread.State.BLOCKED} state. In milliseconds.
+         */
         long getBlockedTime();
         
+        
+        /**
+         * @return Cumulated time the thread spent in the {@link Thread.State.RUNNABLE} state. In milliseconds.
+         */
         long getCpuTime();
 
+        /**
+         * @return Total amount of bytes ever allocated by the thread.
+         */
         long getMemoryUsage();
     }
 }

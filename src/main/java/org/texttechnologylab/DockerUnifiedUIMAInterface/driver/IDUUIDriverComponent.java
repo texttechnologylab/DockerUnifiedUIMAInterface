@@ -5,6 +5,9 @@ import java.io.IOException;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.Signature.DependencyType;
 import org.xml.sax.SAXException;
 
+/**
+ * Interface to enable configuration of Components by the user. 
+ */
 public interface IDUUIDriverComponent<Component extends IDUUIDriverComponent<Component>> {
 
     public Component getComponent(); 

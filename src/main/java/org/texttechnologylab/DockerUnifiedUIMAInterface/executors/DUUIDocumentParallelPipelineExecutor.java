@@ -2,7 +2,6 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface.executors;
 
 import java.util.Vector;
 import java.util.concurrent.Callable;
-import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -14,20 +13,11 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer.Config;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.profiling.ResourceManager;
 
+/**
+ * Pipeline-Executor used to schedule the processing of CAS documents in a thread-pool.
+ * One document is processed sequentially in a single thread. 
+ */
 public class DUUIDocumentParallelPipelineExecutor extends DUUILinearPipelineExecutor {
-
-    final class RejectingQueue extends LinkedBlockingQueue<Runnable> {
-
-        static final long serialVersionUID = -6903933921423432194L;
-        @Override
-        public boolean offer(Runnable e) {
-            if (_executor.getPoolSize() >= DUUIComposer.Config.strategy().getMaxPoolSize()) {
-                return super.offer(e);
-            } else {
-                return false;
-            }
-        }
-    }
 
     final ThreadPoolExecutor _executor;
 
@@ -35,11 +25,11 @@ public class DUUIDocumentParallelPipelineExecutor extends DUUILinearPipelineExec
         super(instantiatedPipeline);
 
         _executor = new ThreadPoolExecutor(
-            Config.strategy().getCorePoolSize(), 
+            Config.strategy().getMaxPoolSize(), 
             Config.strategy().getMaxPoolSize(), 
             Config.strategy().getTimeout(TimeUnit.MILLISECONDS), 
             TimeUnit.MILLISECONDS, 
-            new RejectingQueue());
+            new LinkedBlockingQueue<>());
 
         _executor.setRejectedExecutionHandler((Runnable r, ThreadPoolExecutor executor) -> {
             executor.getQueue().add(r);
@@ -62,6 +52,9 @@ public class DUUIDocumentParallelPipelineExecutor extends DUUILinearPipelineExec
         DUUIComposer.totalafterworkerwait.getAndAdd(System.nanoTime() - start);
     }
 
+    /**
+     * Shutdown thread-pool.
+     */
     @Override
     public void shutdown() throws Exception {
         _executor.shutdown();
@@ -70,6 +63,10 @@ public class DUUIDocumentParallelPipelineExecutor extends DUUILinearPipelineExec
         {}
     }
 
+    
+    /**
+     * Shutdown thread-pool.
+     */
     @Override
     public void destroy() {
         _executor.shutdownNow();

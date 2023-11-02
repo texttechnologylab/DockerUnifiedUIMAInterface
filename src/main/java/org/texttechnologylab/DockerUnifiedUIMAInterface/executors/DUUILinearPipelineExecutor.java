@@ -88,6 +88,12 @@ public class DUUILinearPipelineExecutor extends DirectedAcyclicGraph<String, Cus
         ResourceManager.getInstance().returnCas(jc);
     }
 
+    /**
+     * Type-check CAS.
+     * 
+     * @param jc CAS.
+     * @return True if type-check successful, false otherwise.
+     */
     boolean typeCheck(JCas jc) {
         if (!DUUIComposer.Config.typeCheck()) return true; 
         for (Map.Entry<Class<? extends Annotation>, Boolean> type : inputs) {
@@ -99,6 +105,12 @@ public class DUUILinearPipelineExecutor extends DirectedAcyclicGraph<String, Cus
         return true;
     }
     
+    /**
+     * Get height of 'node'.
+     * 
+     * @param node
+     * @return Height.
+     */
     public int getHeight(String node) {
         if (incomingEdgesOf(node).isEmpty())
             return 1;
@@ -110,8 +122,14 @@ public class DUUILinearPipelineExecutor extends DirectedAcyclicGraph<String, Cus
 
     }
 
-    public Set<String> getChildren(String child) {
-        return outgoingEdgesOf(child).stream()
+    /**
+     * Get child-nodes of 'node'. 
+     * 
+     * @param node
+     * @return Set containing child-nodes.
+     */
+    public Set<String> getChildren(String node) {
+        return outgoingEdgesOf(node).stream()
             .map(CustomEdge::getTarget)
             .collect(Collectors.toSet());
     }
@@ -131,8 +149,15 @@ public class DUUILinearPipelineExecutor extends DirectedAcyclicGraph<String, Cus
         return graph; 
     }
 
+
+    /**
+     * Constructs the pipeline-graph using the Component's {@link Signature}.
+     * Afterward, restructure graph based on user-specified graph-width.
+     * 
+     */
     private void initialiseDAG() {
 
+        // Construct graph width.
         for (PipelinePart part1 : _pipeline.values()) {
             this.addVertex(part1.getUUID());
             for (PipelinePart part2 : _pipeline.values()) {
@@ -162,15 +187,17 @@ public class DUUILinearPipelineExecutor extends DirectedAcyclicGraph<String, Cus
         }
 
         
+        // Restructure graph to conform to graph-width supplied by the user.
         Map<String, Integer> heights = new HashMap<>(_pipeline.size());
         List<String> comps = _pipeline.values().stream().map(PipelinePart::getUUID)
             .peek(uuid -> heights.put(uuid, getHeight(uuid)))
             .sorted((uuid1, uuid2) -> Integer.compare(getAncestors(uuid1).size(), getAncestors(uuid2).size()))
             .sorted((uuid1, uuid2) -> Integer.compare(getDescendants(uuid1).size(), getDescendants(uuid2).size()))
             .sorted((uuid1, uuid2) -> Integer.compare(getHeight(uuid1), getHeight(uuid2)))
-            .collect(Collectors.toList());
-        final List<?>[] compsFinal = { comps };
+            .collect(Collectors.toList()); // Sort Components to preserve original order. 
+
         int depth = comps.stream().mapToInt(this::getHeight).max().orElse(1);
+        final List<?>[] compsFinal = { comps };
         final int[] depthFinal = { depth };
 
         BooleanSupplier isLessThanWidth = () -> IntStream.rangeClosed(1, depthFinal[0])
@@ -178,9 +205,6 @@ public class DUUILinearPipelineExecutor extends DirectedAcyclicGraph<String, Cus
         // MAKE MAP FOR PREVIOUS HEIGHTS TO SORT COMPONENTS BY CURRENT HEIGHT FIRST; PREVIOUS SECOND!
         do {
             for (int i = comps.size() - 1; i > 0; i--) {
-                // System.out.printf("%s: %d AND %s: %d \n", 
-                //     _pipeline.get(comps.get(i - 1)).getSignature(), getHeight(comps.get(i - 1)), 
-                //     _pipeline.get(comps.get(i)).getSignature(), getHeight(comps.get(i)));
                 if (comps.stream().map(this::getHeight).filter(Predicate.isEqual(getHeight(comps.get(i - 1)))).count() > _maxWidth) {
                     this.addEdge(comps.get(i - 1), comps.get(i));
                     comps = _pipeline.values().stream().map(PipelinePart::getUUID)
@@ -188,20 +212,17 @@ public class DUUILinearPipelineExecutor extends DirectedAcyclicGraph<String, Cus
                         .sorted((uuid1, uuid2) -> Integer.compare(getDescendants(uuid1).size(), getDescendants(uuid2).size()))
                         .sorted((uuid1, uuid2) -> Integer.compare(getHeight(uuid1), getHeight(uuid2)))
                         .sorted((uuid1, uuid2) -> Integer.compare(heights.get(uuid1), heights.get(uuid2)))
-                        .collect(Collectors.toList());
-                    depthFinal[0] = comps.stream().mapToInt(this::getHeight).max().orElse(1);
+                        .collect(Collectors.toList()); // Re-sort Components to preserve original order. 
+                    depthFinal[0] = comps.stream().mapToInt(this::getHeight).max().orElse(1); 
                 }
         }
         } while (!isLessThanWidth.getAsBoolean());
-        System.out.println();
-        comps.stream().peek(c -> System.out.println(_pipeline.get(c).getSignature())).peek(c -> System.out.println(getHeight(c))).forEach(System.out::println);
-        System.out.println();
+        // System.out.println();
+        // comps.stream().peek(c -> System.out.println(_pipeline.get(c).getSignature())).peek(c -> System.out.println(getHeight(c))).forEach(System.out::println);
+        // System.out.println();
     }
 
 }
-
-//  x  x  x  x
-// x x  x  x  x
 
 class CustomEdge extends DefaultEdge {
     public String getSource() {
