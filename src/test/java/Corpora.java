@@ -54,7 +54,7 @@ public class Corpora {
     @Test
     public void C4() throws Exception {
 
-        int iScale = 1;
+        int iScale = 20;
 
         DUUIComposer composer = new DUUIComposer()
                 .withSkipVerification(true)
