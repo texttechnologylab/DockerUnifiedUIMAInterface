@@ -65,7 +65,7 @@ public class Corpora {
         DUUIDockerDriver dockerDriver = new DUUIDockerDriver();
         composer.addDriver(uimaDriver, dockerDriver);
 
-        DUUIDockerDriver.Component spacy = new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
+        DUUIDockerDriver.Component spacy = new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy:0.3.0")
                 .withScale(iScale).withImageFetching();
 
         DUUISegmentationStrategy pStrategy = new DUUISegmentationStrategyByDelemiter()
@@ -74,7 +74,7 @@ public class Corpora {
                 .withDebug()
                 .withOverlap(500);
 
-        composer.add(spacy);
+        composer.add(spacy.withSegmentationStrategy(pStrategy));
 
 //        composer.add(component);
 
@@ -115,7 +115,7 @@ public class Corpora {
         DUUIDockerDriver dockerDriver = new DUUIDockerDriver();
         composer.addDriver(uimaDriver, dockerDriver);
 
-        DUUIDockerDriver.Component spacy = new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
+        DUUIDockerDriver.Component spacy = new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy:0.3.0")
                 .withScale(iScale).withImageFetching();
 
         DUUISegmentationStrategy pStrategy = new DUUISegmentationStrategyByDelemiter()
@@ -124,7 +124,7 @@ public class Corpora {
                 .withDebug()
                 .withOverlap(500);
 
-        composer.add(spacy);
+        composer.add(spacy.withSegmentationStrategy(pStrategy));
 
 //        composer.add(component);
 
@@ -141,7 +141,12 @@ public class Corpora {
 
         String sourcePath = "/storage/projects/Verben/twitter_sample/xmi";
 
-        AsyncCollectionReader collectionReader = new AsyncCollectionReader(sourcePath, ".xmi.gz", 1, false);
+        DUUIFileReaderLazy dFileReader = new DUUIFileReaderLazy(sourcePath, "xmi.gz");
+
+        DUUIAsynchronousProcessor collectionReader = new DUUIAsynchronousProcessor(dFileReader);
+
+
+//        AsyncCollectionReader collectionReader = new AsyncCollectionReader(sourcePath, ".xmi.gz", 1, false);
 
         composer.run(collectionReader, "spacy");
 
