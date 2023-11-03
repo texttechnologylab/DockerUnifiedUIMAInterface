@@ -71,7 +71,6 @@ public class Corpora {
         DUUISegmentationStrategy pStrategy = new DUUISegmentationStrategyByDelemiter()
                 .withDelemiter(".")
                 .withLength(100000)
-                .withDebug()
                 .withOverlap(500);
 
         composer.add(spacy.withSegmentationStrategy(pStrategy));
@@ -121,7 +120,6 @@ public class Corpora {
         DUUISegmentationStrategy pStrategy = new DUUISegmentationStrategyByDelemiter()
                 .withDelemiter(".")
                 .withLength(100000)
-                .withDebug()
                 .withOverlap(500);
 
         composer.add(spacy.withSegmentationStrategy(pStrategy));
