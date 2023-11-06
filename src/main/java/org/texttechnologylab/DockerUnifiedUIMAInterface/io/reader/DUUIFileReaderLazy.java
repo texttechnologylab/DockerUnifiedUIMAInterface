@@ -62,7 +62,7 @@ public class DUUIFileReaderLazy implements DUUICollectionReader {
     }
 
     public DUUIFileReaderLazy(String folder, String ending, String sTargetPath) {
-        this(folder, ending, 25, -1, false, "", false, null, 0, sTargetPath, ending);
+        this(folder, ending, 25, -1, false, "", true, null, 0, sTargetPath, ending);
     }
 
     public DUUIFileReaderLazy(String folder, String ending, int debugCount, int sampleSize, AsyncCollectionReader.DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE sampleMode, String savePath, boolean bAddMetadata, String language, int skipSmallerFiles) {
@@ -341,6 +341,7 @@ public class DUUIFileReaderLazy implements DUUICollectionReader {
                 dmd.setDocumentId(pFile.getName());
                 dmd.setDocumentTitle(pFile.getName());
                 dmd.setDocumentUri(pFile.getAbsolutePath());
+                dmd.setDocumentBaseUri(this._path);
                 dmd.addToIndexes();
             }
         }
