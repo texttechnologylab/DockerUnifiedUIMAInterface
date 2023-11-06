@@ -73,12 +73,15 @@ public class Corpora {
                 .withLength(100000)
                 .withOverlap(500);
 
-        composer.add(spacy.withSegmentationStrategy(pStrategy));
+//        composer.add(spacy.withSegmentationStrategy(pStrategy));
+        composer.add(spacy);
 
 //        composer.add(component);
 
+        String sTargetPath = "/tmp/corpora/c4/";
+
         AnalysisEngineDescription writerEngineCAS = createEngineDescription(XmiWriter.class,
-                XmiWriter.PARAM_TARGET_LOCATION, "/tmp/corpora/c4/",
+                XmiWriter.PARAM_TARGET_LOCATION, sTargetPath,
                 XmiWriter.PARAM_PRETTY_PRINT, true,
                 XmiWriter.PARAM_OVERWRITE, true,
                 XmiWriter.PARAM_VERSION, "1.1",
@@ -90,7 +93,7 @@ public class Corpora {
 
         String sourcePath = "/storage/projects/Verben/c4";
 
-        DUUIFileReaderLazy dFileReader = new DUUIFileReaderLazy(sourcePath, "xmi.gz");
+        DUUIFileReaderLazy dFileReader = new DUUIFileReaderLazy(sourcePath, ".xmi.gz", sTargetPath);
 
         DUUIAsynchronousProcessor collectionReader = new DUUIAsynchronousProcessor(dFileReader);
 
@@ -122,14 +125,17 @@ public class Corpora {
                 .withLength(100000)
                 .withOverlap(500);
 
-        composer.add(spacy.withSegmentationStrategy(pStrategy));
+//        composer.add(spacy.withSegmentationStrategy(pStrategy));
+        composer.add(spacy);
 
 //        composer.add(component);
+
+        String sTargetPath = "/tmp/corpora/twitter_sample/";
 
         AnalysisEngineDescription writerEngineCAS = createEngineDescription(XmiWriter.class,
                 XmiWriter.PARAM_TARGET_LOCATION, "/tmp/corpora/twitter_sample/",
                 XmiWriter.PARAM_PRETTY_PRINT, true,
-                XmiWriter.PARAM_OVERWRITE, true,
+                XmiWriter.PARAM_OVERWRITE, false,
                 XmiWriter.PARAM_VERSION, "1.1",
                 XmiWriter.PARAM_COMPRESSION, "GZIP"
         );
@@ -139,7 +145,8 @@ public class Corpora {
 
         String sourcePath = "/storage/projects/Verben/twitter_sample/xmi";
 
-        DUUIFileReaderLazy dFileReader = new DUUIFileReaderLazy(sourcePath, "xmi.gz");
+        DUUIFileReaderLazy dFileReader = new DUUIFileReaderLazy(sourcePath, ".xmi.gz", sTargetPath);
+
 
         DUUIAsynchronousProcessor collectionReader = new DUUIAsynchronousProcessor(dFileReader);
 

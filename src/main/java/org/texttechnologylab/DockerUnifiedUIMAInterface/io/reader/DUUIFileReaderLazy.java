@@ -30,12 +30,15 @@ import java.util.stream.Collectors;
 
 public class DUUIFileReaderLazy implements DUUICollectionReader {
 
+
     private String _path;
     private ConcurrentLinkedQueue<String> _filePaths;
     private ConcurrentLinkedQueue<String> _filePathsBackup;
     private ConcurrentLinkedQueue<ByteReadFuture> _loadedFiles;
 
     private AtomicInteger _docNumber;
+
+    private AtomicInteger _skipNumber;
     private long _maxMemory;
     private AtomicLong _currentMemorySize;
 
@@ -44,7 +47,7 @@ public class DUUIFileReaderLazy implements DUUICollectionReader {
     private boolean _addMetadata = true;
 
     private String _targetPath = null;
-
+    private String _targetEnding;
     private String _language = null;
 
     private AdvancedProgressMeter progress = null;
@@ -58,12 +61,17 @@ public class DUUIFileReaderLazy implements DUUICollectionReader {
         this(folder, ending, 25, -1, null, "", false, null, 0);
     }
 
+    public DUUIFileReaderLazy(String folder, String ending, String sTargetPath) {
+        this(folder, ending, 25, -1, false, "", false, null, 0, sTargetPath, ending);
+    }
+
     public DUUIFileReaderLazy(String folder, String ending, int debugCount, int sampleSize, AsyncCollectionReader.DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE sampleMode, String savePath, boolean bAddMetadata, String language, int skipSmallerFiles) {
         this(folder, ending, debugCount, getRandomFromMode(sampleMode, sampleSize), getSortFromMode(sampleMode), savePath, bAddMetadata, language, skipSmallerFiles, savePath, null);
     }
 
     public DUUIFileReaderLazy(String folder, String ending, int debugCount, int iRandom, boolean bSort, String savePath, boolean bAddMetadata, String language, int skipSmallerFiles, String targetLocation, String targetEnding) {
         this.targetLocation = targetLocation;
+        this._targetEnding = targetEnding;
         _addMetadata = bAddMetadata;
         _language = language;
         _filePaths = new ConcurrentLinkedQueue<>();
@@ -124,6 +132,7 @@ public class DUUIFileReaderLazy implements DUUICollectionReader {
 
         System.out.printf("Starting lazy loading...");
         _docNumber = new AtomicInteger(0);
+        _skipNumber = new AtomicInteger(0);
         _currentMemorySize = new AtomicLong(0);
         // 500 MB
         _maxMemory = 500 * 1024 * 1024;
@@ -234,64 +243,96 @@ public class DUUIFileReaderLazy implements DUUICollectionReader {
     @Override
     public void getNextCas(JCas empty) {
 
-        ByteReadFuture future = _loadedFiles.poll();
-
-        byte[] file = null;
+        boolean bSkip = false;
         String result = null;
-        if (future == null) {
-            result = _filePaths.poll();
-            if (result == null) return;
-        } else {
-            result = future.getPath();
-            file = future.getBytes();
-            long factor = 1;
-            if (result.endsWith(".gz") || result.endsWith(".xz")) {
-                factor = 10;
-            }
-            _currentMemorySize.getAndAdd(-factor * (long) file.length);
-        }
-        int val = _docNumber.addAndGet(1);
 
-        int iCurSize = _collectionSize.get();
+        do {
+            bSkip=false;
+            ByteReadFuture future = _loadedFiles.poll();
 
-        progress.setMax(iCurSize);
-
-        progress.setDone(val);
-        progress.setLeft(iCurSize - val);
-
-        if (iCurSize - progress.getCount() > debugCount) {
-            if (val % debugCount == 0 || val == 0) {
-                System.out.printf("%s: \t %s \t %s\n", progress, getSize(result), result);
-            }
-        } else {
-            System.out.printf("%s: \t %s \t %s\n", progress, getSize(result), result);
-        }
-
-        if (file == null) {
-            try {
-                file = Files.readAllBytes(Path.of(result));
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        }
-
-        InputStream decodedFile;
-        try {
-            if (result.endsWith(".xz")) {
-                ByteArrayOutputStream out = new ByteArrayOutputStream();
-                decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.XZ, new ByteArrayInputStream(file));
-            } else if (result.endsWith(".gz")) {
-                ByteArrayOutputStream out = new ByteArrayOutputStream();
-                decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.GZIP, new ByteArrayInputStream(file));
+            byte[] file = null;
+            if (future == null) {
+                result = _filePaths.poll();
+                if (result == null) return;
             } else {
-                decodedFile = new ByteArrayInputStream(file);
+                result = future.getPath();
+                file = future.getBytes();
+                long factor = 1;
+                if (result.endsWith(".gz") || result.endsWith(".xz")) {
+                    factor = 10;
+                }
+                _currentMemorySize.getAndAdd(-factor * (long) file.length);
             }
 
-            XmiCasDeserializer.deserialize(decodedFile, empty.getCas(), true);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
 
+            if (file == null) {
+                try {
+                    file = Files.readAllBytes(Path.of(result));
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+
+            InputStream decodedFile;
+            try {
+                if (result.endsWith(".xz")) {
+                    ByteArrayOutputStream out = new ByteArrayOutputStream();
+                    decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.XZ, new ByteArrayInputStream(file));
+                } else if (result.endsWith(".gz")) {
+                    ByteArrayOutputStream out = new ByteArrayOutputStream();
+                    decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.GZIP, new ByteArrayInputStream(file));
+                } else {
+                    decodedFile = new ByteArrayInputStream(file);
+                }
+
+                XmiCasDeserializer.deserialize(decodedFile, empty.getCas(), true);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+
+            if(this.targetLocation.length()>0) {
+                try {
+                    DocumentMetaData dmd = DocumentMetaData.get(empty);
+                    if (dmd != null) {
+                        String sURI = dmd.getDocumentUri();
+                        String sBase = dmd.getDocumentBaseUri();
+                        String sNewOutput = sURI.replace(sBase, this.targetLocation)+this._targetEnding;
+                        File tFile = new File(sNewOutput);
+                        if(tFile.exists()){
+                            bSkip=true;
+                            _skipNumber.incrementAndGet();
+                        }
+                    }
+                }
+                catch (Exception e){
+
+                }
+            }
+
+            int val = _docNumber.addAndGet(1);
+
+            int iCurSize = _collectionSize.get();
+
+            progress.setMax(iCurSize);
+
+            progress.setDone(val);
+            progress.setLeft(iCurSize - val);
+
+            if(bSkip && _skipNumber.get()%debugCount==0){
+                System.out.printf("skip\t (%d) \t %s \t %s\n", _docNumber.get(), progress, result);
+            }
+            else {
+                if (iCurSize - progress.getCount() > debugCount) {
+                    if (val % debugCount == 0 || val == 0) {
+                        System.out.printf("%s: \t %s \t %s\n", progress, getSize(result), result);
+                    }
+                } else {
+                    System.out.printf("%s: \t %s \t %s\n", progress, getSize(result), result);
+                }
+            }
+
+        }
+        while(bSkip);
 
         if (_addMetadata) {
             if (JCasUtil.select(empty, DocumentMetaData.class).size() == 0) {

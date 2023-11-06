@@ -407,9 +407,11 @@ class DUUIWorkerAsyncProcessor extends Thread {
                 } catch (Exception e) {
                     //Ignore errors at the moment
                     //e.printStackTrace();
-                    System.err.println(e.getMessage());
-                    System.out.println("Thread continues work with next document!");
-                    break;
+                    if(!(e instanceof IOException)) {
+                        System.err.println(e.getMessage());
+                        System.out.println("Thread continues work with next document!");
+                        break;
+                    }
                 }
             }
 
@@ -611,7 +613,7 @@ public class DUUIComposer {
             }
 
             // Always return a copy to allow for multiple processes/threads
-            System.out.println("Cloning segmentation strategy: " + segmentationStrategy.getClass().getName());
+//            System.out.println("Cloning segmentation strategy: " + segmentationStrategy.getClass().getName());
             return SerializationUtils.clone(segmentationStrategy);
         }
     }
