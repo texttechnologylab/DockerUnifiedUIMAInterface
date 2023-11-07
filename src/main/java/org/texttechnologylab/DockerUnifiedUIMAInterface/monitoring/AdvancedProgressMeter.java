@@ -102,6 +102,6 @@ public class AdvancedProgressMeter {
         final long minutes = seconds / 60;
         final long hours = minutes / 60;
         final long days = hours / 24;
-        return String.format("%02d:%02d:%02d:%02d.%-3d", days, hours, (minutes % 60), (seconds % 60), fracs);
+        return String.format("%02d:%02d:%02d:%02d.%-3d", (days % 365), (hours % 24), (minutes % 60), (seconds % 60), fracs);
     }
 }

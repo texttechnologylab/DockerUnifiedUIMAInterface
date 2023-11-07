@@ -5,6 +5,7 @@ import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.commons.compress.compressors.CompressorStreamFactory;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.IOUtils;
 import org.apache.uima.cas.impl.XmiCasDeserializer;
 import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
@@ -12,10 +13,14 @@ import org.javaync.io.AsyncFiles;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.AsyncCollectionReader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.DUUICollectionReader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.AdvancedProgressMeter;
+import org.texttechnologylab.utilities.helper.ArchiveUtils;
 import org.texttechnologylab.utilities.helper.StringUtils;
+import org.texttechnologylab.utilities.helper.TempFileHandler;
 import org.xml.sax.SAXException;
+import org.xml.sax.SAXParseException;
 
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -26,6 +31,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public class DUUIFileReaderLazy implements DUUICollectionReader {
@@ -39,6 +45,7 @@ public class DUUIFileReaderLazy implements DUUICollectionReader {
     private AtomicInteger _docNumber;
 
     private AtomicInteger _skipNumber;
+    private AtomicInteger _repairedNumber;
     private long _maxMemory;
     private AtomicLong _currentMemorySize;
 
@@ -62,7 +69,7 @@ public class DUUIFileReaderLazy implements DUUICollectionReader {
     }
 
     public DUUIFileReaderLazy(String folder, String ending, String sTargetPath) {
-        this(folder, ending, 25, -1, false, "", true, null, 0, sTargetPath, ending);
+        this(folder, ending, 500, -1, false, "", true, null, 0, sTargetPath, ending);
     }
 
     public DUUIFileReaderLazy(String folder, String ending, int debugCount, int sampleSize, AsyncCollectionReader.DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE sampleMode, String savePath, boolean bAddMetadata, String language, int skipSmallerFiles) {
@@ -133,6 +140,7 @@ public class DUUIFileReaderLazy implements DUUICollectionReader {
         System.out.printf("Starting lazy loading...");
         _docNumber = new AtomicInteger(0);
         _skipNumber = new AtomicInteger(0);
+        _repairedNumber = new AtomicInteger(0);
         _currentMemorySize = new AtomicLong(0);
         // 500 MB
         _maxMemory = 500 * 1024 * 1024;
@@ -240,14 +248,20 @@ public class DUUIFileReaderLazy implements DUUICollectionReader {
         return null;
     }
 
+    private static final Pattern XMLCharInvalidPattern =
+            Pattern.compile(
+                    "[\\x{1}-\\x{8}]|[\\x{B}-\\x{C}]|[\\x{E}-\\x{1F}]|[\\x{7F}-\\x{84}]|[\\x{86}-\\x{9F}]|[\\x{FDD0}-\\x{FDDF}]|[\\x{1FFFE}-\\x{1FFFF}]|[\\x{2FFFE}-\\x{2FFFF}]|[\\x{3FFFE}-\\x{3FFFF}]|[\\x{4FFFE}-\\x{4FFFF}]|[\\x{5FFFE}-\\x{5FFFF}]|[\\x{6FFFE}-\\x{6FFFF}]|[\\x{7FFFE}-\\x{7FFFF}]|[\\x{8FFFE}-\\x{8FFFF}]|[\\x{9FFFE}-\\x{9FFFF}]|[\\x{AFFFE}-\\x{AFFFF}]|[\\x{BFFFE}-\\x{BFFFF}]|[\\x{CFFFE}-\\x{CFFFF}]|[\\x{DFFFE}-\\x{DFFFF}]|[\\x{EFFFE}-\\x{EFFFF}]|[\\x{FFFFE}-\\x{FFFFF}]|[\\x{10FFFE}-\\x{10FFFF}]");
+
     @Override
     public void getNextCas(JCas empty) {
 
         boolean bSkip = false;
         String result = null;
+        boolean bRepair = false;
 
         do {
             bSkip=false;
+            bRepair = false;
             ByteReadFuture future = _loadedFiles.poll();
 
             byte[] file = null;
@@ -273,7 +287,7 @@ public class DUUIFileReaderLazy implements DUUICollectionReader {
                 }
             }
 
-            InputStream decodedFile;
+            InputStream decodedFile = null;
             try {
                 if (result.endsWith(".xz")) {
                     ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -287,7 +301,42 @@ public class DUUIFileReaderLazy implements DUUICollectionReader {
 
                 XmiCasDeserializer.deserialize(decodedFile, empty.getCas(), true);
             } catch (Exception e) {
-                e.printStackTrace();
+
+                if(e instanceof SAXParseException){
+                    try {
+                        String rString = "";
+                        if(result.endsWith(".gz")){
+                            File decompressedFile = ArchiveUtils.decompressGZ(new File(result));
+                            rString = IOUtils.toString(new FileInputStream(decompressedFile), StandardCharsets.UTF_8);
+                            decompressedFile.delete();
+                        }
+                        else {
+                            rString = IOUtils.toString(decodedFile, StandardCharsets.UTF_8);
+                        }
+                        rString = XMLCharInvalidPattern.matcher(rString).replaceAll("");
+
+                        File tFile = TempFileHandler.getTempFile("aaa", ".xmi");
+                        org.texttechnologylab.utilities.helper.FileUtils.writeContent(rString, tFile);
+
+                        XmiCasDeserializer.deserialize(new FileInputStream(tFile), empty.getCas(), true);
+
+//                        System.out.println("Repaired File: "+result+"\t"+empty.getDocumentText().length());
+
+                        _repairedNumber.incrementAndGet();
+
+                        tFile.delete();
+                        bRepair = true;
+
+                    } catch (IOException ex) {
+                        ex.printStackTrace();
+                    } catch (SAXException ex) {
+                        ex.printStackTrace();
+                    }
+                }
+                else{
+                    e.printStackTrace();
+                }
+
             }
 
             if(this.targetLocation.length()>0) {
@@ -299,8 +348,13 @@ public class DUUIFileReaderLazy implements DUUICollectionReader {
                         String sNewOutput = sURI.replace(sBase, this.targetLocation)+this._targetEnding;
                         File tFile = new File(sNewOutput);
                         if(tFile.exists()){
-                            bSkip=true;
-                            _skipNumber.incrementAndGet();
+                            if(bRepair){
+                                tFile.delete();
+                            }
+                            else {
+                                bSkip = true;
+                                _skipNumber.incrementAndGet();
+                            }
                         }
                     }
                 }
@@ -318,18 +372,18 @@ public class DUUIFileReaderLazy implements DUUICollectionReader {
             progress.setDone(val);
             progress.setLeft(iCurSize - val);
 
-            if(bSkip && _skipNumber.get()%debugCount==0){
-                System.out.printf("skip\t (%d) \t %s \t %s\n", _docNumber.get(), progress, result);
-            }
-            else {
+//            if(bSkip && _skipNumber.get()%debugCount==0){
+//                System.out.printf("skip\t (%d) \t %s \t %s\n", _docNumber.get(), progress, result);
+//            }
+//            else {
                 if (iCurSize - progress.getCount() > debugCount) {
                     if (val % debugCount == 0 || val == 0) {
-                        System.out.printf("%s: \t %s \t %s\n", progress, getSize(result), result);
+                        System.out.printf("%s: \t %s \t %s\t (S: %s / R: %s)\n", progress, getSize(result), result, _skipNumber.get(), _repairedNumber.get());
                     }
                 } else {
                     System.out.printf("%s: \t %s \t %s\n", progress, getSize(result), result);
                 }
-            }
+//            }
 
         }
         while(bSkip);
