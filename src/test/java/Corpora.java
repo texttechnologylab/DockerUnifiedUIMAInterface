@@ -3,8 +3,8 @@ import org.dkpro.core.io.xmi.XmiWriter;
 import org.junit.jupiter.api.Test;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIDockerDriver;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUISwarmDriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIUIMADriver;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.io.AsyncCollectionReader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.DUUIAsynchronousProcessor;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.reader.DUUIFileReaderLazy;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.reader.DUUIParallelFileReader;
@@ -54,7 +54,7 @@ public class Corpora {
     @Test
     public void C4() throws Exception {
 
-        int iScale = 20;
+        int iScale = 100;
 
         DUUIComposer composer = new DUUIComposer()
                 .withSkipVerification(true)
@@ -63,10 +63,11 @@ public class Corpora {
 
         DUUIUIMADriver uimaDriver = new DUUIUIMADriver();
         DUUIDockerDriver dockerDriver = new DUUIDockerDriver();
-        composer.addDriver(uimaDriver, dockerDriver);
+        DUUISwarmDriver swarmDriver = new DUUISwarmDriver();
+        composer.addDriver(uimaDriver, dockerDriver, swarmDriver);
 
-        DUUIDockerDriver.Component spacy = new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy:0.3.0")
-                .withScale(iScale).withImageFetching();
+        DUUISwarmDriver.Component spacy = new DUUISwarmDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy:0.3.0")
+                .withScale(iScale);
 
         DUUISegmentationStrategy pStrategy = new DUUISegmentationStrategyByDelemiter()
                 .withDelemiter(".")
@@ -106,7 +107,7 @@ public class Corpora {
     @Test
     public void Twitter() throws Exception {
 
-        int iScale = 20;
+        int iScale = 100;
 
         DUUIComposer composer = new DUUIComposer()
                 .withSkipVerification(true)
@@ -115,10 +116,14 @@ public class Corpora {
 
         DUUIUIMADriver uimaDriver = new DUUIUIMADriver();
         DUUIDockerDriver dockerDriver = new DUUIDockerDriver();
-        composer.addDriver(uimaDriver, dockerDriver);
+        DUUISwarmDriver swarmDriver = new DUUISwarmDriver();
+        composer.addDriver(uimaDriver, dockerDriver, swarmDriver);
 
-        DUUIDockerDriver.Component spacy = new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy:0.3.0")
-                .withScale(iScale).withImageFetching();
+        DUUISwarmDriver.Component spacy = new DUUISwarmDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy:0.3.0")
+                .withScale(iScale);
+//        DUUIDockerDriver.Component spacy = new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy:0.3.0")
+//                .withScale(iScale).withImageFetching();
+
 
         DUUISegmentationStrategy pStrategy = new DUUISegmentationStrategyByDelemiter()
                 .withDelemiter(".")
