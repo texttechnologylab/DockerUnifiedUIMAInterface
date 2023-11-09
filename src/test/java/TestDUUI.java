@@ -2062,7 +2062,6 @@ public class TestDUUI {
 
         composer.add(new DUUIKubernetesDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
                 .withScale(iWorkers)
-                .withGPU("gpu")  // specify one label. Warogast has the label "gpu".
                 .build());
 
         composer.add(new DUUIUIMADriver.Component(createEngineDescription(XmiWriter.class,
