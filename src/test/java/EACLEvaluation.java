@@ -1,12 +1,15 @@
+import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Sentence;
 import org.dkpro.core.io.xmi.XmiWriter;
 import org.junit.jupiter.api.Test;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIKubernetesDriver;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIUIMADriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.AsyncCollectionReader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.sqlite.DUUISqliteStorageBackend;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.segmentation.DUUISegmentationStrategy;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.segmentation.DUUISegmentationStrategyByAnnotation;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.segmentation.DUUISegmentationStrategyByDelemiter;
 import org.texttechnologylab.utilities.helper.FileUtils;
 
@@ -93,9 +96,10 @@ public class EACLEvaluation {
 
     public static void caseTwo(int iThreads, String runLabel, String sOutput, List<String> sLabels) throws Exception {
 
-        String sInputPath = "/opt/gerparcor/gerparcor_sample1000_RANDOM";  // strg+L am entsprechenden Ort
+//        String sInputPath = "/opt/gerparcor/gerparcor_sample1000_RANDOM";  // strg+L am entsprechenden Ort
+        String sInputPath = "/home/staff_homes/abrami/Downloads/GerParCor_Test/";  // strg+L am entsprechenden Ort
         String sOutputPath = sOutput + "/" + runLabel + "_" + iThreads;
-        String sSuffix = "xmi.gz";
+        String sSuffix = "xmi";
 
         // Asynchroner reader für die Input-Dateien
         AsyncCollectionReader pCorpusReader = new AsyncCollectionReader(sInputPath, sSuffix, 10, false);
@@ -119,24 +123,38 @@ public class EACLEvaluation {
 
         DUUIKubernetesDriver kubernetes_driver = new DUUIKubernetesDriver();
         DUUIUIMADriver uima_driver = new DUUIUIMADriver();
+        DUUIRemoteDriver remoteDriver = new DUUIRemoteDriver();
 
         // Hinzufügen der einzelnen Driver zum Composer
-        composer.addDriver(kubernetes_driver, uima_driver);  // remote_driver und swarm_driver scheint nicht benötigt zu werden.
+        composer.addDriver(kubernetes_driver, uima_driver, remoteDriver);  // remote_driver und swarm_driver scheint nicht benötigt zu werden.
 
-        DUUISegmentationStrategy pStrategy = new DUUISegmentationStrategyByDelemiter()
-                .withDelemiter(".")
-                .withLength(10000)
-                .withOverlap(500);
+        DUUISegmentationStrategy pStrategy = new DUUISegmentationStrategyByAnnotation()
+                .withSegmentationClass(Sentence.class)
+                .withMaxAnnotationsPerSegment(1000)
+                .withMaxCharsPerSegment(100000);
 
         // "docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4"
-        composer.add(new DUUIKubernetesDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
-                .withScale(iWorkers)
-                .withLabels(sLabels.get(0))
-                .build().withSegmentationStrategy(pStrategy));
+//        composer.add(new DUUIKubernetesDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
+//                .withScale(iWorkers)
+//                .withLabels(sLabels.get(0))
+//                .build().withSegmentationStrategy(pStrategy));
+//
+//        composer.add(new DUUIKubernetesDriver.Component("docker.texttechnologylab.org/srl_cuda_1024:0.1")
+//                .withScale(iWorkers)
+//                .withLabels(sLabels.get(1))
+//                .build().withSegmentationStrategy(pStrategy));
 
-        composer.add(new DUUIKubernetesDriver.Component("docker.texttechnologylab.org/srl_cuda_1024:0.1")
+//        composer.add(new DUUIKubernetesDriver.Component("docker.texttechnologylab.org/textimager-duui-transformers-topic:0.0.3-cuda")
+//                .withParameter("model_name", "chkla/parlbert-topic-german")
+//                .withParameter("selection", "de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Sentence")
+//                .withScale(iWorkers)
+//                .withLabels(sLabels.get(1))
+//                .build().withSegmentationStrategy(pStrategy));
+
+        composer.add(new DUUIRemoteDriver.Component("http://localhost:9714")
+                .withParameter("model_name", "chkla/parlbert-topic-german")
+                .withParameter("selection", "de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Sentence")
                 .withScale(iWorkers)
-                .withLabels(sLabels.get(1))
                 .build().withSegmentationStrategy(pStrategy));
 
         composer.add(new DUUIUIMADriver.Component(createEngineDescription(XmiWriter.class,
@@ -309,19 +327,19 @@ public class EACLEvaluation {
 
         Set<String> runs = new HashSet<>(0);
 
-        runs.add("2;caseOne;One;default=true");
-        runs.add("4;caseOne;One;default=true");
-        runs.add("8;caseOne;One;default=true");
-        runs.add("16;caseOne;One;default=true");
+//        runs.add("2;caseOne;One;default=true");
+//        runs.add("4;caseOne;One;default=true");
+//        runs.add("8;caseOne;One;default=true");
+//        runs.add("16;caseOne;One;default=true");
 
         runs.add("2;caseTwo;Two;default=true,gpu=all");
         runs.add("4;caseTwo;Two;default=true,gpu=all");
 
-        runs.add("2;caseThree;Three_1;default=true,gpu=all,gpu=all");
-        runs.add("4;caseThree;Three_1;default=true,gpu=all,gpu=all");
-
-        runs.add("2;caseThree;Three_2;default=true,gpu=1,gpu=2");
-        runs.add("4;caseThree;Three_2;default=true,gpu=1,gpu=2");
+//        runs.add("2;caseThree;Three_1;default=true,gpu=all,gpu=all");
+//        runs.add("4;caseThree;Three_1;default=true,gpu=all,gpu=all");
+//
+//        runs.add("2;caseThree;Three_2;default=true,gpu=1,gpu=2");
+//        runs.add("4;caseThree;Three_2;default=true,gpu=1,gpu=2");
 
         for (String r : runs) {
 

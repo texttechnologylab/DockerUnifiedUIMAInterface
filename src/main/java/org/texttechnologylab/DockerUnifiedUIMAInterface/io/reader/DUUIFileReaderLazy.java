@@ -348,13 +348,13 @@ public class DUUIFileReaderLazy implements DUUICollectionReader {
                         String sNewOutput = sURI.replace(sBase, this.targetLocation)+this._targetEnding;
                         File tFile = new File(sNewOutput);
                         if(tFile.exists()){
-                            if(bRepair){
-                                tFile.delete();
-                            }
-                            else {
+//                            if(bRepair){
+//                                tFile.delete();
+//                            }
+//                            else {
                                 bSkip = true;
                                 _skipNumber.incrementAndGet();
-                            }
+//                            }
                         }
                     }
                 }

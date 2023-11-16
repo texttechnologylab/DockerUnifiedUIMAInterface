@@ -659,6 +659,11 @@ public class AsyncCollectionReader {
             empty.setDocumentLanguage(_language);
         }
 
+//        JCasUtil.select(empty, Sentence.class).size()
+//        for (Sentence s : JCasUtil.select(empty, Sentence.class)) {
+//            System.out.println(s.getCoveredText());
+//        }
+
         return true;
     }
     public static void addFilesToConcurrentList(File folder, String ending, ConcurrentLinkedQueue<String> paths) {
