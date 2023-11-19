@@ -43,13 +43,13 @@ public class ExperimentLecture {
     @Test
     public void GerParCorClean() throws Exception {
 
-        String sInputPath = "/mnt/corpora2/projects/baumartz/ma/data/sdz/sample_22000_sdz_1992_2014_path_2021-10-18_09-17-53-034644/xmi";
-        String sOutputPath = "/home/staff_homes/abrami/Lecture_2/0_plain";
+        String sInputPath = "/storage/xmi/GerParCorDownload/";
+        String sOutputPath = "/tmp/cleanDUUI/";
         String sSuffix = "xmi.gz";
 
-        AsyncCollectionReader pCorpusReader = new AsyncCollectionReader(sInputPath, sSuffix, 1, true);
+        AsyncCollectionReader pCorpusReader = new AsyncCollectionReader(sInputPath, sSuffix, 1, 10, false, "/tmp/sampleDUUI");
 
-        int iWorkers = Integer.valueOf(4);
+        int iWorkers = Integer.valueOf(1);
 
         DUUILuaContext ctx = LuaConsts.getJSON();
 
@@ -275,6 +275,7 @@ public class ExperimentLecture {
         DUUISwarmDriver swarm_driver = new DUUISwarmDriver();
         DUUIUIMADriver uima_driver = new DUUIUIMADriver()
                 .withDebug(true);
+
 
         composer.addDriver(swarm_driver, uima_driver, docker_driver, remote_driver);
 

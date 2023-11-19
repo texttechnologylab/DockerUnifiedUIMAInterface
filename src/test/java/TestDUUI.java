@@ -1,3 +1,4 @@
+import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import de.tudarmstadt.ukp.dkpro.core.api.ner.type.NamedEntity;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Sentence;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
@@ -5,11 +6,8 @@ import de.tudarmstadt.ukp.dkpro.core.io.text.TextReader;
 import de.tudarmstadt.ukp.dkpro.core.io.text.TextWriter;
 import de.tudarmstadt.ukp.dkpro.core.opennlp.OpenNlpPosTagger;
 import de.tudarmstadt.ukp.dkpro.core.tokit.BreakIteratorSegmenter;
-import eu.clarin.weblicht.wlfxb.md.xb.Services;
-import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.UIMAException;
-import org.jetbrains.annotations.NotNull;
 import org.apache.uima.analysis_engine.AnalysisEngineDescription;
 import org.apache.uima.cas.SerialFormat;
 import org.apache.uima.cas.impl.XmiCasSerializer;
@@ -23,13 +21,12 @@ import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.jcas.cas.TOP;
 import org.apache.uima.jcas.tcas.Annotation;
-import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.util.CasIOUtils;
-import org.apache.uima.util.InvalidXMLException;
 import org.apache.uima.util.XmlCasSerializer;
 import org.dkpro.core.io.xmi.XmiReader;
 import org.dkpro.core.io.xmi.XmiWriter;
 import org.hucompute.textimager.uima.type.GerVaderSentiment;
+import org.hucompute.textimager.uima.type.category.CategoryCoveredTagged;
 import org.json.JSONArray;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -41,17 +38,11 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.AnnotationRemover;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIPipelineAnnotationComponent;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIPipelineDescription;
-
 import org.texttechnologylab.DockerUnifiedUIMAInterface.data_reader.DUUIDropboxDataReader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.data_reader.DUUIInputStream;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.data_reader.IDUUIDataReader;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIDockerDriver;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUISwarmDriver;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIUIMADriver;
-
+import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.*;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.AsyncCollectionReader;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.io.TTLabXmiWriter;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.io.writer.TTLabXmiWriter;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaCommunicationLayer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaSandbox;
@@ -77,16 +68,7 @@ import static org.apache.uima.fit.factory.AnalysisEngineFactory.createEngineDesc
 import static org.apache.uima.fit.factory.CollectionReaderFactory.createReaderDescription;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-
 import static org.texttechnologylab.DockerUnifiedUIMAInterface.io.AsyncCollectionReader.getFilesInDirectoryRecursive;
-import static org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIKubernetesDriver.*;
-
-import io.kubernetes.client.openapi.ApiClient;
-import io.kubernetes.client.openapi.ApiException;
-import io.kubernetes.client.openapi.Configuration;
-import io.kubernetes.client.openapi.apis.CoreV1Api;
-import io.kubernetes.client.openapi.models.V1Namespace;
-import io.kubernetes.client.util.Config;
 
 
 public class TestDUUI {
@@ -233,6 +215,57 @@ public class TestDUUI {
             );
         }
     }
+
+    @Test
+    public void TestSentimentBERT() throws Exception {
+        int iWorkers = 1;
+
+        AsyncCollectionReader testReader = new AsyncCollectionReader("/storage/xmi/GerParCorDownload", "xmi.gz", 1, 1, false, "/tmp/sentimentBertTest", false, "all");
+
+        DUUILuaContext ctx = new DUUILuaContext().withJsonLibrary();
+
+        DUUIComposer composer = new DUUIComposer()
+                .withWorkers(iWorkers)
+                .withLuaContext(ctx).withSkipVerification(true);
+
+        // Instantiate drivers with options
+        DUUIUIMADriver uima_driver = new DUUIUIMADriver();
+        DUUIRemoteDriver remote_driver = new DUUIRemoteDriver(1000);
+        DUUIDockerDriver docker_driver = new DUUIDockerDriver(10000);
+        DUUISwarmDriver swarm_driver = new DUUISwarmDriver(10000);
+
+        // A driver must be added before components can be added for it in the composer.
+        composer.addDriver(uima_driver);
+        composer.addDriver(remote_driver);
+        composer.addDriver(docker_driver);
+        composer.addDriver(swarm_driver);
+
+        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/german-sentiment-bert:0.1")
+                .withImageFetching()
+                .withScale(iWorkers)
+                .build());
+
+        composer.add(new DUUIUIMADriver.Component(
+                createEngineDescription(XmiWriter.class,
+                        XmiWriter.PARAM_TARGET_LOCATION, "/tmp/test/",
+                        XmiWriter.PARAM_PRETTY_PRINT, true,
+                        XmiWriter.PARAM_OVERWRITE, true,
+                        XmiWriter.PARAM_VERSION, "1.1",
+                        XmiWriter.PARAM_COMPRESSION, "GZIP"
+                )).withScale(1).build());
+
+
+        composer.run(testReader, "test");
+
+//        JCasUtil.select(jc, Entity.class).forEach(t -> {
+//            System.out.println(t.getCoveredText());
+//        });
+
+//        System.out.println(jc.getDocumentLanguage());
+
+
+    }
+
 
     @Test
     public void creatingSample() throws IOException, UIMAException {
@@ -518,6 +551,56 @@ public class TestDUUI {
     }
 
     @Test
+    public void createSmallSample() throws Exception {
+        String sValue = "Um die Regierung der Ukraine zu stürzen, versuchten die russischen Streitkräfte am 24. Februar 2022 eine Luftlandeoperation auf dem Flughafen Kiew-Hostomel. Aus den abgehörten Telefonaten russischer Offiziere ging hervor, dass diese vor dem Angriff von ihren Kommandeuren dazu aufgefordert wurden, ihre Paradeuniformen für die Siegesparade in Kiew einzupacken. Die Truppen konnten aber zunächst keine Kontrolle über den Platz erringen. Bodentruppen rückten derweil aus mehreren Stoßrichtungen rasch von Belarus aus nach, dennoch und trotz einer anfänglichen Überzahl von geschätzt 12:1 geriet der Vormarsch schon nach wenigen Tagen ca. 30 km vor Kiew ins Stocken. Nach wochenlanger Umklammerung der Stadt von Norden, Westen und Osten musste Russland den Versuch der Eroberung Kiews Ende März aufgeben. Beim Abzug der russischen Truppen aus allen zuvor eroberten Gebieten nördlich von Kiew und Charkiw offenbarten sich Kriegsverbrechen an Zivilisten wie jene in Butscha. Im Osten der Ukraine, wo bei Kriegsbeginn entlang der seit 2015 bestehenden Kontaktlinie etwa die Hälfte der ukrainischen Armee lag, konnten die ukrainischen Truppen ihre Stellungen vor Donezk den ganzen März und April durchgehend halten, zudem die nahe der russischen Grenze liegende Großstadt Charkiw, die in der um sie geführten Schlacht erheblich zerstört wurde. Zwischen Donezk/Luhansk und Charkiw liegende Gebiete wurden von Russland besetzt. Beim Brückenkopf von Isjum wollte Russland eine Großoffensive starten, um die ukrainischen Truppen einzukesseln, doch kam der Vormarsch nicht voran. Noch stärker als Charkiw wurde die am Asowschen Meer liegende Hafenstadt Mariupol zerstört. Bis auf das lange belagerte Mariupol und den Südwesten der Ukraine (Oblast Odessa und Mykolajiw) wurden alle Gebiete im Süden der Ukraine, wo seit 2014 die Einnahme einer Landbrücke von Russland zur Krim (Föderativer Staat Neurussland) befürchtet worden war, besetzt. Dazu gehörte auch die Stadt Cherson, die bereits Anfang März eingenommen worden war. In diesem Gebiet im Süden hatten keine großen ukrainischen Einheiten zum Schutz vor einer Invasion von der Krim bereit gestanden, obwohl sie im nationalen Verteidigungsplan vorgesehen waren. In der Ukraine soll untersucht werden, wie das passieren konnte. Der weitere russische Vorstoß von Cherson in Richtung Odessa war Anfang März bei Mykolajiw gescheitert. Eine amphibische Landung wurde nach der Versenkung des Flaggschiffs Moskwa Mitte April nochmals unwahrscheinlicher. Gleichwohl wurde noch Mitte April von Landverbindungen nach Transnistrien gesprochen; insbesondere das russische Militär war mit den politischen Beschränkungen der Ziele auf den Donbass unzufrieden und forderte im Gegenteil ehrgeizigere Ziele und eine Generalmobilmachung in Russland.";
+
+        int iScale = 1;
+
+        JCas pCas = JCasFactory.createText(sValue, "de");
+
+        DocumentMetaData dmd = DocumentMetaData.create(pCas);
+        dmd.setDocumentId("Test");
+        dmd.setDocumentTitle("Test");
+        dmd.setDocumentUri("Test");
+
+        DUUILuaContext ctx = LuaConsts.getJSON();
+
+        DUUIComposer composer = new DUUIComposer()
+                //       .withStorageBackend(new DUUIArangoDBStorageBackend("password",8888))
+                .withWorkers(iScale)
+                .withLuaContext(ctx)
+                .withSkipVerification(true);
+
+        // Instantiate drivers with options
+        DUUIRemoteDriver remote_driver = new DUUIRemoteDriver(10000);
+        DUUIDockerDriver docker_driver = new DUUIDockerDriver(10000);
+        DUUISwarmDriver swarm_driver = new DUUISwarmDriver(10000);
+        DUUIUIMADriver uima_driver = new DUUIUIMADriver().withDebug(false);
+
+        // A driver must be added before components can be added for it in the composer.
+        composer.addDriver(remote_driver);
+        composer.addDriver(docker_driver);
+        composer.addDriver(swarm_driver);
+        composer.addDriver(uima_driver);
+
+//        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
+//                .withScale(iScale).withImageFetching().build());
+
+        AnalysisEngineDescription writerEngine = createEngineDescription(XmiWriter.class,
+                XmiWriter.PARAM_TARGET_LOCATION, "/tmp/",
+                XmiWriter.PARAM_PRETTY_PRINT, true,
+                XmiWriter.PARAM_OVERWRITE, true,
+                XmiWriter.PARAM_VERSION, "1.1",
+                XmiWriter.PARAM_COMPRESSION, "GZIP"
+        );
+
+        composer.add(new DUUIUIMADriver.Component(writerEngine));
+
+        composer.run(pCas, "test");
+
+
+    }
+    @Test
     public void testTokenizer() throws Exception {
         String sValue = "Um die Regierung der Ukraine zu stürzen, versuchten die russischen Streitkräfte am 24. Februar 2022 eine Luftlandeoperation auf dem Flughafen Kiew-Hostomel. Aus den abgehörten Telefonaten russischer Offiziere ging hervor, dass diese vor dem Angriff von ihren Kommandeuren dazu aufgefordert wurden, ihre Paradeuniformen für die Siegesparade in Kiew einzupacken. Die Truppen konnten aber zunächst keine Kontrolle über den Platz erringen. Bodentruppen rückten derweil aus mehreren Stoßrichtungen rasch von Belarus aus nach, dennoch und trotz einer anfänglichen Überzahl von geschätzt 12:1 geriet der Vormarsch schon nach wenigen Tagen ca. 30 km vor Kiew ins Stocken. Nach wochenlanger Umklammerung der Stadt von Norden, Westen und Osten musste Russland den Versuch der Eroberung Kiews Ende März aufgeben. Beim Abzug der russischen Truppen aus allen zuvor eroberten Gebieten nördlich von Kiew und Charkiw offenbarten sich Kriegsverbrechen an Zivilisten wie jene in Butscha. Im Osten der Ukraine, wo bei Kriegsbeginn entlang der seit 2015 bestehenden Kontaktlinie etwa die Hälfte der ukrainischen Armee lag, konnten die ukrainischen Truppen ihre Stellungen vor Donezk den ganzen März und April durchgehend halten, zudem die nahe der russischen Grenze liegende Großstadt Charkiw, die in der um sie geführten Schlacht erheblich zerstört wurde. Zwischen Donezk/Luhansk und Charkiw liegende Gebiete wurden von Russland besetzt. Beim Brückenkopf von Isjum wollte Russland eine Großoffensive starten, um die ukrainischen Truppen einzukesseln, doch kam der Vormarsch nicht voran. Noch stärker als Charkiw wurde die am Asowschen Meer liegende Hafenstadt Mariupol zerstört. Bis auf das lange belagerte Mariupol und den Südwesten der Ukraine (Oblast Odessa und Mykolajiw) wurden alle Gebiete im Süden der Ukraine, wo seit 2014 die Einnahme einer Landbrücke von Russland zur Krim (Föderativer Staat Neurussland) befürchtet worden war, besetzt. Dazu gehörte auch die Stadt Cherson, die bereits Anfang März eingenommen worden war. In diesem Gebiet im Süden hatten keine großen ukrainischen Einheiten zum Schutz vor einer Invasion von der Krim bereit gestanden, obwohl sie im nationalen Verteidigungsplan vorgesehen waren. In der Ukraine soll untersucht werden, wie das passieren konnte. Der weitere russische Vorstoß von Cherson in Richtung Odessa war Anfang März bei Mykolajiw gescheitert. Eine amphibische Landung wurde nach der Versenkung des Flaggschiffs Moskwa Mitte April nochmals unwahrscheinlicher. Gleichwohl wurde noch Mitte April von Landverbindungen nach Transnistrien gesprochen; insbesondere das russische Militär war mit den politischen Beschränkungen der Ziele auf den Donbass unzufrieden und forderte im Gegenteil ehrgeizigere Ziele und eine Generalmobilmachung in Russland.";
 
@@ -565,6 +648,66 @@ public class TestDUUI {
         composer.run(pCas, "test");
         JCasUtil.select(pCas, Annotation.class).forEach(pAnno -> {
             System.out.println(pAnno.getType().getShortName());
+        });
+
+    }
+    @Test
+    public void testTrankit() throws Exception {
+        String sValue = "Um die Regierung der Ukraine zu stürzen, versuchten die russischen Streitkräfte am 24. Februar 2022 eine Luftlandeoperation auf dem Flughafen Kiew-Hostomel. Aus den abgehörten Telefonaten russischer Offiziere ging hervor, dass diese vor dem Angriff von ihren Kommandeuren dazu aufgefordert wurden, ihre Paradeuniformen für die Siegesparade in Kiew einzupacken. Die Truppen konnten aber zunächst keine Kontrolle über den Platz erringen. Bodentruppen rückten derweil aus mehreren Stoßrichtungen rasch von Belarus aus nach, dennoch und trotz einer anfänglichen Überzahl von geschätzt 12:1 geriet der Vormarsch schon nach wenigen Tagen ca. 30 km vor Kiew ins Stocken. Nach wochenlanger Umklammerung der Stadt von Norden, Westen und Osten musste Russland den Versuch der Eroberung Kiews Ende März aufgeben. Beim Abzug der russischen Truppen aus allen zuvor eroberten Gebieten nördlich von Kiew und Charkiw offenbarten sich Kriegsverbrechen an Zivilisten wie jene in Butscha. Im Osten der Ukraine, wo bei Kriegsbeginn entlang der seit 2015 bestehenden Kontaktlinie etwa die Hälfte der ukrainischen Armee lag, konnten die ukrainischen Truppen ihre Stellungen vor Donezk den ganzen März und April durchgehend halten, zudem die nahe der russischen Grenze liegende Großstadt Charkiw, die in der um sie geführten Schlacht erheblich zerstört wurde. Zwischen Donezk/Luhansk und Charkiw liegende Gebiete wurden von Russland besetzt. Beim Brückenkopf von Isjum wollte Russland eine Großoffensive starten, um die ukrainischen Truppen einzukesseln, doch kam der Vormarsch nicht voran. Noch stärker als Charkiw wurde die am Asowschen Meer liegende Hafenstadt Mariupol zerstört. Bis auf das lange belagerte Mariupol und den Südwesten der Ukraine (Oblast Odessa und Mykolajiw) wurden alle Gebiete im Süden der Ukraine, wo seit 2014 die Einnahme einer Landbrücke von Russland zur Krim (Föderativer Staat Neurussland) befürchtet worden war, besetzt. Dazu gehörte auch die Stadt Cherson, die bereits Anfang März eingenommen worden war. In diesem Gebiet im Süden hatten keine großen ukrainischen Einheiten zum Schutz vor einer Invasion von der Krim bereit gestanden, obwohl sie im nationalen Verteidigungsplan vorgesehen waren. In der Ukraine soll untersucht werden, wie das passieren konnte. Der weitere russische Vorstoß von Cherson in Richtung Odessa war Anfang März bei Mykolajiw gescheitert. Eine amphibische Landung wurde nach der Versenkung des Flaggschiffs Moskwa Mitte April nochmals unwahrscheinlicher. Gleichwohl wurde noch Mitte April von Landverbindungen nach Transnistrien gesprochen; insbesondere das russische Militär war mit den politischen Beschränkungen der Ziele auf den Donbass unzufrieden und forderte im Gegenteil ehrgeizigere Ziele und eine Generalmobilmachung in Russland.";
+
+        int iScale = 1;
+
+        JCas pCas = JCasFactory.createText(sValue, "de");
+
+        DUUILuaContext ctx = LuaConsts.getJSON();
+
+        DUUIComposer composer = new DUUIComposer()
+                //       .withStorageBackend(new DUUIArangoDBStorageBackend("password",8888))
+                .withWorkers(iScale)
+                .withLuaContext(ctx)
+                .withSkipVerification(true);
+
+        // Instantiate drivers with options
+        DUUIRemoteDriver remote_driver = new DUUIRemoteDriver(10000);
+        DUUIDockerDriver docker_driver = new DUUIDockerDriver(10000);
+        DUUISwarmDriver swarm_driver = new DUUISwarmDriver(10000);
+
+        // A driver must be added before components can be added for it in the composer.
+        composer.addDriver(remote_driver);
+        composer.addDriver(docker_driver);
+        composer.addDriver(swarm_driver);
+
+        // only on host huaxal
+//        List<String> constraints = new ArrayList<>(0);
+//        constraints.add("node.hostname!=huaxal");
+
+        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
+                .withImageFetching()
+                .withScale(iScale)
+                .build());
+
+        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/parlbert-topic-german:latest")
+                .withImageFetching()
+                .withScale(iScale)
+                .build());
+//        composer.add(new DUUIDockerDriver.Component("duui-trankit:0.1")
+//                .withScale(iScale).withImageFetching().build());
+//        composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/gazetteer-rs/biofid:latest")
+//                .withScale(iScale).withLabels(labels).build());
+//        composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/gazetteer-rs/biofid-habitat:latest")
+//                .withScale(iScale).build());
+//        composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/gazetteer-rs/geonames:latest")
+//                .withScale(iScale).build());
+//        composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/gazetteer-rs/gnd:latest")
+//                .withScale(iScale).build());
+
+//        composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9716")
+//                .withScale(1)
+//                .build());
+
+        composer.run(pCas, "test");
+        JCasUtil.select(pCas, CategoryCoveredTagged.class).forEach(pAnno->{
+            System.out.println(pAnno);
         });
 
     }
@@ -1919,7 +2062,6 @@ public class TestDUUI {
 
         composer.add(new DUUIKubernetesDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
                 .withScale(iWorkers)
-                .withGPU("gpu")  // specify one label. Warogast has the label "gpu".
                 .build());
 
         composer.add(new DUUIUIMADriver.Component(createEngineDescription(XmiWriter.class,

@@ -17,7 +17,6 @@ import org.texttechnologylab.utilities.helper.StringUtils;
 import org.xml.sax.SAXException;
 
 import java.io.*;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -29,6 +28,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+@Deprecated
 class ByteReadFuture {
     private String _path;
     private byte[] _bytes;
@@ -47,11 +47,14 @@ class ByteReadFuture {
     }
 }
 
+@Deprecated
 public class AsyncCollectionReader {
     private String _path;
     private ConcurrentLinkedQueue<String> _filePaths;
     private ConcurrentLinkedQueue<String> _filePathsBackup;
-    private ConcurrentLinkedQueue<DUUIInputStream> _loadedFiles;
+    private ConcurrentLinkedQueue<DUUIInputStream> _loadedFilesStream;
+
+    private ConcurrentLinkedQueue<ByteReadFuture> _loadedFiles;
 
     private int _initialSize;
     private AtomicInteger _docNumber;
@@ -59,6 +62,8 @@ public class AsyncCollectionReader {
     private AtomicLong _currentMemorySize;
 
     private boolean _addMetadata = true;
+
+    private String _targetPath = null;
 
     private String _language = null;
 
@@ -166,51 +171,50 @@ public class AsyncCollectionReader {
     }
 
     public AsyncCollectionReader(String folder, String ending) {
-        this(folder, ending, 25, -1, false, "", false, null);
+        this(folder, ending, 25, -1, null, "", false, null, 0);
     }
 
     public AsyncCollectionReader(String folder, String ending, boolean bAddMetadata) {
-        this(folder, ending, 25, -1, false, "", bAddMetadata, null);
+        this(folder, ending, 25, -1, null, "", bAddMetadata, null, 0);
     }
 
     public AsyncCollectionReader(String folder, String ending, boolean bAddMetadata, String language) {
-        this(folder, ending, 25, -1, false, "", bAddMetadata, language);
+        this(folder, ending, 25, -1, null, "", bAddMetadata, language, 0);
     }
 
+
+
     public AsyncCollectionReader(String folder, String ending, String language) {
-        this(folder, ending, 25, -1, false, "", false, language);
+        this(folder, ending, 25, -1, null, "", false, language, 0);
     }
 
     public AsyncCollectionReader(String folder, String ending, int debugCount, boolean bSort) {
-        this(folder, ending, debugCount, -1, bSort, "", false, null);
+        this(folder, ending, debugCount, -1, null, "", false, null, 0);
+    }
+
+    public AsyncCollectionReader(String folder, String ending, int debugCount, boolean bSort, String sTargetPath) {
+        this(folder, ending, debugCount, -1, bSort, "", false, null, sTargetPath, "xmi.gz");
+
     }
 
     public AsyncCollectionReader(String folder, String ending, int debugCount, int iRandom, boolean bSort, String savePath) {
-        this(folder, ending, debugCount, iRandom, bSort, savePath, false, null);
+        this(folder, ending, debugCount, iRandom, savePath, false, null, 0);
+    }
+
+    public AsyncCollectionReader(String folder, String ending, int debugCount, int sampleSize, DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE sampleMode, String savePath, boolean bAddMetadata, String language, int skipSmallerFiles) {
+        this(folder, ending, debugCount, getRandomFromMode(sampleMode, sampleSize), getSortFromMode(sampleMode), savePath, bAddMetadata, language, skipSmallerFiles, null, null);
+    }
+
+    public AsyncCollectionReader(String folder, String ending, int debugCount, int sampleSize, String savePath, boolean bAddMetadata, String language, int skipSmallerFiles) {
+        this(folder, ending, debugCount, sampleSize, null, savePath, bAddMetadata, language, skipSmallerFiles);
+    }
+
+    public AsyncCollectionReader(String folder, String ending, int debugCount, int iRandom, boolean bSort, String savePath, boolean bAddMetadata, String language) {
+        this(folder, ending, debugCount, iRandom, bSort, savePath, bAddMetadata, language, null, null);
     }
 
     public AsyncCollectionReader(String folder, String ending, int debugCount, int iRandom, boolean bSort, String savePath, boolean bAddMetadata) {
         this(folder, ending, debugCount, iRandom, bSort, savePath, bAddMetadata, null);
-    }
-
-    public enum DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE {
-        RANDOM,
-        SMALLEST,
-        LARGEST
-    }
-
-    private static int getRandomFromMode(DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE sampleMode, int sampleSize) {
-        if (sampleMode == DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE.SMALLEST) {
-            return sampleSize * -1;
-        }
-        return sampleSize;
-    }
-
-    private static boolean getSortFromMode(DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE mode) {
-        if (mode == DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE.RANDOM) {
-            return false;
-        }
-        return true;
     }
 
 
@@ -218,36 +222,10 @@ public class AsyncCollectionReader {
         this(folder, ending, debugCount, getRandomFromMode(sampleMode, sampleSize), getSortFromMode(sampleMode), savePath, bAddMetadata, language);
     }
 
-    public AsyncCollectionReader(String folder, String ending, int debugCount, int sampleSize, DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE sampleMode, String savePath, boolean bAddMetadata, String language, int skipSmallerFiles) {
-        this(folder, ending, null, debugCount, getRandomFromMode(sampleMode, sampleSize), getSortFromMode(sampleMode), savePath, bAddMetadata, language, skipSmallerFiles, null, "");
-    }
-
-    public AsyncCollectionReader(String folder, String ending, int debugCount, int iRandom, boolean bSort, String savePath, boolean bAddMetadata, String language) {
-        this(folder, ending, null, debugCount, iRandom, bSort, savePath, bAddMetadata, language, 0, null, "");
-    }
-
-    public AsyncCollectionReader(String folder, String ending, int debugCount, int iRandom, boolean bSort, String savePath, boolean bAddMetadata, String language, String targetLocation, String targetEnding) {
-        this(folder, ending, null, debugCount, iRandom, bSort, savePath, bAddMetadata, language, 0, targetLocation, targetEnding);
-    }
-
-    public AsyncCollectionReader(String folder, String ending, int debugCount, int iRandom, boolean bSort, String savePath, boolean bAddMetadata, String language, int skipSmallerFiles, String targetLocation, String targetEnding) {
-        this(folder, ending, null, debugCount, iRandom, bSort, savePath, bAddMetadata, language, skipSmallerFiles, targetLocation, targetEnding);
-    }
-
     /***
      * Constructor for the AsyncCollectionReader
-     * @param folder Input folder
-     * @param ending File ending
-     * @param dataReader If data is read from an external source use an IDUUIDataReader
-     * @param debugCount Number of documents to print out
-     * @param iRandom Number of documents to select either randomly of from beginning or end depending on whether bSort is true or false
-     * @param bSort Sort the documents by size from largest to smallest, if true and iRandom is not 0, the first (= largest) iRandom documents are selected, if iRandom is negative, the last (= smallest) iRandom documents are selected
-     * @param savePath Path to a file where the paths of the selected documents are saved and loaded from, if the file exists
-     * @param bAddMetadata Add metadata to the documents
-     * @param language Add language to the documents
-     * @param skipSmallerFiles Skip files smaller than this value in bytes
-     * @param targetLocation If a target location is specified, documents in the source directory that already exist in the target are skipped automatically
      */
+
     public AsyncCollectionReader(String folder, String ending, IDUUIDataReader dataReader, int debugCount, int iRandom, boolean bSort, String savePath, boolean bAddMetadata, String language, int skipSmallerFiles, String targetLocation, String targetEnding) {
         this.targetLocation = targetLocation;
         _addMetadata = bAddMetadata;
@@ -257,13 +235,47 @@ public class AsyncCollectionReader {
         _filePathsBackup = new ConcurrentLinkedQueue<>();
         _dataReader = dataReader;
 
-        try {
-            if (!savePath.isEmpty()) {
-                _filePaths.addAll(_dataReader.listFiles(savePath));
+        if (_dataReader != null) {
+            try {
+                if (!savePath.isEmpty()) {
+                    _filePaths.addAll(_dataReader.listFiles(savePath));
+                }
+                _filePaths.addAll(_dataReader.listFiles(folder));
+            } catch (IOException e) {
+                System.out.println("Save path not found. Processing all documents.");
             }
-            _filePaths.addAll(_dataReader.listFiles(folder));
-        } catch (IOException e) {
-            System.out.println("Save path not found. Processing all documents.");
+
+        } else {
+            if (new File(savePath).exists() && savePath.length() > 0) {
+                File sPath = new File(savePath);
+
+                String sContent = null;
+                try {
+                    sContent = StringUtils.getContent(sPath);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                String[] sSplit = sContent.split("\n");
+
+                for (String s : sSplit) {
+                    _filePaths.add(s);
+                }
+
+            } else {
+                File fl = new File(folder);
+                if (!fl.isDirectory()) {
+                    throw new RuntimeException("The folder is not a directory!");
+                }
+
+
+                _path = folder;
+                System.out.println("Search for files in :"+folder);
+                addFilesToConcurrentList(fl, ending, _filePaths);
+
+                if (skipSmallerFiles > 0) {
+                    _filePaths = skipBySize(_filePaths, skipSmallerFiles);
+                }
+            }
         }
 
         if (skipSmallerFiles > 0) {
@@ -317,7 +329,7 @@ public class AsyncCollectionReader {
             _filePaths = sortBySize(_filePaths);
         }
 
-        if (bSort && iRandom != 0) {
+        if (bSort && iRandom >0) {
             System.out.println("Sorting and Random Selection is active, using the " + (iRandom > 0 ? "largest " : "smallest ") + Math.abs(iRandom) + " documents.");
             _filePaths = takeFirstOrLast(_filePaths, iRandom);
         } else if (iRandom > 0) {
@@ -364,6 +376,34 @@ public class AsyncCollectionReader {
 
     }
 
+    private static int getRandomFromMode(DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE sampleMode, int sampleSize) {
+        if (sampleMode == DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE.SMALLEST) {
+            return sampleSize * -1;
+        }
+        return sampleSize;
+    }
+
+    private static boolean getSortFromMode(DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE mode) {
+        if (mode == DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE.RANDOM) {
+            return false;
+        }
+        return true;
+    }
+
+    public AsyncCollectionReader(String folder, String ending, int debugCount, int iRandom, boolean bSort, String savePath, boolean bAddMetadata, String language, String targetLocation, String targetEnding) {
+        this(folder, ending, null, debugCount, iRandom, bSort, savePath, bAddMetadata, language, 0, targetLocation, targetEnding);
+    }
+
+    public AsyncCollectionReader(String folder, String ending, int debugCount, int iRandom, boolean bSort, String savePath, boolean bAddMetadata, String language, int skipSmallerFiles, String targetLocation, String targetEnding) {
+        this(folder, ending, null, debugCount, iRandom, bSort, savePath, bAddMetadata, language, skipSmallerFiles, targetLocation, targetEnding);
+    }
+
+    public enum DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE {
+        RANDOM,
+        SMALLEST,
+        LARGEST
+    }
+
     public void reset() {
         _filePaths = _filePathsBackup;
         _docNumber.set(0);
@@ -388,25 +428,43 @@ public class AsyncCollectionReader {
     }
 
     public CompletableFuture<Integer> getAsyncNextByteArray() throws IOException, CompressorException, SAXException {
-        String path = _filePaths.poll();
-        if (path == null) return CompletableFuture.completedFuture(1);
+        String result = _filePaths.poll();
+        if (result == null) return CompletableFuture.completedFuture(1);
+        CompletableFuture<Integer> val = AsyncFiles
+                .readAllBytes(Paths.get(result), 1024 * 1024 * 5)
+                .thenApply(bytes -> {
+                    _loadedFiles.add(new ByteReadFuture(result, bytes));
 
-        return CompletableFuture.supplyAsync(
-            () -> {
-                DUUIInputStream stream = _dataReader.readFile(path);
-                stream.getContent().readAllBytes();
-                return stream;
-            }
-        ).thenApply(stream -> {
-            _loadedFiles.add(stream);
-            long factor = 1;
-            if (path.endsWith(".gz") || path.endsWith(".xz")) {
-                factor = 10;
-            }
-            _currentMemorySize.getAndAdd(factor * (long) stream.getSizeBytes());
-            return 0;
-        });
-
+                    //Calculate estimated unpacked size by using a compression ratio of 0.1
+                    long factor = 1;
+                    if (result.endsWith(".gz") || result.endsWith(".xz")) {
+                        factor = 10;
+                    }
+                    _currentMemorySize.getAndAdd(factor * (long) bytes.length);
+                    return 0;
+                });
+        return val;
+    }
+//    public CompletableFuture<Integer> getAsyncNextByteArray() throws IOException, CompressorException, SAXException {
+//        String path = _filePaths.poll();
+//        if (path == null) return CompletableFuture.completedFuture(1);
+//
+////        return CompletableFuture.supplyAsync(
+////            () -> {
+////                DUUIInputStream stream = _dataReader.readFile(path);
+////                stream.getContent().readAllBytes();
+////                return stream;
+////            }
+////        ).thenApply(stream -> {
+////            _loadedFiles.add(stream);
+////            long factor = 1;
+////            if (path.endsWith(".gz") || path.endsWith(".xz")) {
+////                factor = 10;
+////            }
+////            _currentMemorySize.getAndAdd(factor * (long) stream.getSizeBytes());
+////            return 0;
+////        });
+//
 //        if (_dataReader != null) {
 //            String path = _filePaths.poll();
 //            if (path == null) return CompletableFuture.completedFuture(1);
@@ -438,7 +496,7 @@ public class AsyncCollectionReader {
 //                    return 0;
 //                });
 //        }
-    }
+//    }
 
     public static XmiSerializationSharedData deserialize(JCas pCas) {
 
@@ -452,63 +510,147 @@ public class AsyncCollectionReader {
 
     }
 
-    public boolean getNextCAS(JCas empty) throws IOException, CompressorException, SAXException {
-        DUUIInputStream stream = _loadedFiles.poll();
+//    public boolean getNextCAS(JCas empty) throws IOException, CompressorException, SAXException {
+//        DUUIInputStream stream = _loadedFiles.poll();
+//
+//        byte []file = null;
+//        String result = null;
+//        if (stream == null) {
+//            result = _filePaths.poll();
+//            if (result == null) return false;
+//        } else {
+//            result = stream.getName();
+//            long factor = 1;
+//            if (result.endsWith(".gz") || result.endsWith(".xz")) {
+//                factor = 10;
+//            }
+//            _currentMemorySize.getAndAdd(-factor * stream.getSizeBytes());
+//        }
+//        int val = _docNumber.addAndGet(1);
+//
+//        progress.setDone(val);
+//        progress.setLeft(_initialSize - val);
+//
+//        if (stream == null && _dataReader!=null) {
+//            stream = _dataReader.readFile(result);
+//        }
+//        else{
+//
+//        }
+//
+//        String sizeBytes = FileUtils.byteCountToDisplaySize(stream.getSizeBytes());
+//
+//        if (_initialSize - progress.getCount() > debugCount) {
+//            if (val % debugCount == 0 || val == 0) {
+//                System.out.printf("%s: \t %s \t %s\n", progress, sizeBytes, result);
+//            }
+//        } else {
+//            System.out.printf("%s: \t %s \t %s\n", progress, sizeBytes, result);
+//        }
+//
+//        InputStream decodedFile;
+//        if (result.endsWith(".xz")) {
+//            decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.XZ, new ByteArrayInputStream(stream.getBytes()));
+//        } else if (result.endsWith(".gz")) {
+//            decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.GZIP, new ByteArrayInputStream(stream.getBytes()));
+//        } else {
+//            decodedFile = stream.getContent();
+//        }
+//
+//        try {
+//            XmiCasDeserializer.deserialize(decodedFile, empty.getCas(), true);
+//        } catch (Exception e) {
+//            System.out.println("WARNING: Could not deserialize file as XMI: " + result + " using plain text deserialization.");
+//            empty.setDocumentText(new String(stream.getBytes(), StandardCharsets.UTF_8));
+//        }
+//
+////        try {
+////            XmiSerializationSharedData sharedData = deserialize(empty.getCas().getJCas());
+////            XmiCasDeserializer.deserialize(decodedFile, empty.getCas(), true, sharedData);
+////        }
+////        catch (Exception e){
+////            empty.setDocumentText(StringUtils.getContent(new File(result)));
+////        }
+//
+//        if (_addMetadata) {
+//            if (JCasUtil.select(empty, DocumentMetaData.class).isEmpty()) {
+//                DocumentMetaData dmd = DocumentMetaData.create(empty);
+//                dmd.setDocumentId(stream.getName());
+//                dmd.setDocumentTitle(stream.getName());
+//                dmd.setDocumentUri(stream.getPath());
+//                dmd.addToIndexes();
+//            }
+//        }
+//
+//        if (_language != null && !_language.isEmpty()) {
+//            empty.setDocumentLanguage(_language);
+//        }
+//
+//        return true;
+//    }
 
+    public boolean getNextCAS(JCas empty) throws IOException, CompressorException, SAXException {
+        ByteReadFuture future = _loadedFiles.poll();
+
+        byte[] file = null;
         String result = null;
-        if (stream == null) {
+        if (future == null) {
             result = _filePaths.poll();
             if (result == null) return false;
         } else {
-            result = stream.getName();
+            result = future.getPath();
+            file = future.getBytes();
             long factor = 1;
             if (result.endsWith(".gz") || result.endsWith(".xz")) {
                 factor = 10;
             }
-            _currentMemorySize.getAndAdd(-factor * stream.getSizeBytes());
+            _currentMemorySize.getAndAdd(-factor * (long) file.length);
         }
         int val = _docNumber.addAndGet(1);
 
         progress.setDone(val);
         progress.setLeft(_initialSize - val);
 
-        if (stream == null) {
-            stream = _dataReader.readFile(result);
-        }
-
-        String sizeBytes = FileUtils.byteCountToDisplaySize(stream.getSizeBytes());
-
         if (_initialSize - progress.getCount() > debugCount) {
             if (val % debugCount == 0 || val == 0) {
-                System.out.printf("%s: \t %s \t %s\n", progress, sizeBytes, result);
+                System.out.printf("%s: \t %s \t %s\n", progress, getSize(result), result);
             }
         } else {
-            System.out.printf("%s: \t %s \t %s\n", progress, sizeBytes, result);
+            System.out.printf("%s: \t %s \t %s\n", progress, getSize(result), result);
+        }
+
+        if (file == null) {
+            file = Files.readAllBytes(Path.of(result));
         }
 
         InputStream decodedFile;
         if (result.endsWith(".xz")) {
-            decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.XZ, new ByteArrayInputStream(stream.getBytes()));
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.XZ, new ByteArrayInputStream(file));
         } else if (result.endsWith(".gz")) {
-            decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.GZIP, new ByteArrayInputStream(stream.getBytes()));
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.GZIP, new ByteArrayInputStream(file));
         } else {
-            decodedFile = stream.getContent();
+            decodedFile = new ByteArrayInputStream(file);
         }
 
-        try {
-            XmiCasDeserializer.deserialize(decodedFile, empty.getCas(), true);
-        } catch (Exception e) {
-            System.out.println("WARNING: Could not deserialize file as XMI: " + result + " using plain text deserialization.");
-            empty.setDocumentText(new String(stream.getBytes(), StandardCharsets.UTF_8));
-        }
+        XmiCasDeserializer.deserialize(decodedFile, empty.getCas(), true);
 
+//        try {
+//            XmiSerializationSharedData sharedData = deserialize(empty.getCas().getJCas());
+//            XmiCasDeserializer.deserialize(decodedFile, empty.getCas(), true, sharedData);
+//        }
+//        catch (Exception e){
+//            empty.setDocumentText(StringUtils.getContent(new File(result)));
+//        }
 
         if (_addMetadata) {
-            if (JCasUtil.select(empty, DocumentMetaData.class).isEmpty()) {
+            if (JCasUtil.select(empty, DocumentMetaData.class).size() == 0) {
                 DocumentMetaData dmd = DocumentMetaData.create(empty);
-                dmd.setDocumentId(stream.getName());
-                dmd.setDocumentTitle(stream.getName());
-                dmd.setDocumentUri(stream.getPath());
+                File pFile = new File(result);
+                dmd.setDocumentId(pFile.getName());
+                dmd.setDocumentTitle(pFile.getName());
+                dmd.setDocumentUri(pFile.getAbsolutePath());
                 dmd.addToIndexes();
             }
         }
@@ -517,21 +659,38 @@ public class AsyncCollectionReader {
             empty.setDocumentLanguage(_language);
         }
 
+//        JCasUtil.select(empty, Sentence.class).size()
+//        for (Sentence s : JCasUtil.select(empty, Sentence.class)) {
+//            System.out.println(s.getCoveredText());
+//        }
+
         return true;
     }
-
     public static void addFilesToConcurrentList(File folder, String ending, ConcurrentLinkedQueue<String> paths) {
         File[] listOfFiles = folder.listFiles();
 
-        for (int i = 0; i < listOfFiles.length; i++) {
-            if (listOfFiles[i].isFile()) {
-                if (listOfFiles[i].getName().endsWith(ending)) {
-                    paths.add(listOfFiles[i].getPath().toString());
+        Arrays.stream(listOfFiles).parallel().forEach(f->{
+            if(f.isFile()){
+                if(f.getName().endsWith(ending)){
+                    paths.add(f.getPath().toString());
+
                 }
-            } else if (listOfFiles[i].isDirectory()) {
-                addFilesToConcurrentList(listOfFiles[i], ending, paths);
             }
-        }
+            else if(f.isDirectory()){
+                addFilesToConcurrentList(f, ending, paths);
+
+            }
+        });
+
+//        for (int i = 0; i < listOfFiles.length; i++) {
+//            if (listOfFiles[i].isFile()) {
+//                if (listOfFiles[i].getName().endsWith(ending)) {
+//                    paths.add(listOfFiles[i].getPath().toString());
+//                }
+//            } else if (listOfFiles[i].isDirectory()) {
+//                addFilesToConcurrentList(listOfFiles[i], ending, paths);
+//            }
+//        }
     }
 
     public static ConcurrentLinkedQueue<String> sortBySize(ConcurrentLinkedQueue<String> paths) {
@@ -589,6 +748,7 @@ public class AsyncCollectionReader {
         } else {
             rQueue.addAll(sList.subList(0, iRandom));
         }
+
 
 
         return rQueue;

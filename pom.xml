@@ -26,7 +26,26 @@
         </repository>
     </repositories>
 
+
     <build>
+        <resources>
+            <resource>
+                <filtering>false</filtering>
+                <directory>src/main/resources</directory>
+                <excludes>
+                    <exclude>desc/type/**/*</exclude>
+                    <exclude>org/**/*</exclude>
+                </excludes>
+            </resource>
+            <resource>
+                <filtering>true</filtering>
+                <directory>src/main/resources</directory>
+                <includes>
+                    <include>desc/type/**/*</include>
+                    <include>org/**/*</include>
+                </includes>
+            </resource>
+        </resources>
         <plugins>
 
                     <plugin>
@@ -114,8 +133,8 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.8.0</version>
                 <configuration>
-                    <source>16</source>
-                    <target>16</target>
+                    <source>11</source>
+                    <target>11</target>
                 </configuration>
             </plugin>
             <plugin>
@@ -141,6 +160,12 @@
         </plugins>
     </build>
     <dependencies>
+
+        <dependency>
+            <groupId>org.mongodb</groupId>
+            <artifactId>mongo-java-driver</artifactId>
+            <version>3.12.11</version>
+        </dependency>
 
         <dependency>
             <groupId>io.kubernetes</groupId>
@@ -254,7 +279,8 @@
         <dependency>
             <groupId>com.github.texttechnologylab.textimager-uima</groupId>
             <artifactId>textimager-uima-types</artifactId>
-            <version>b10db8275163d19d63b9512cc20ca5872e52499b</version>
+            <version>8efebf1980</version>
+            <!--            <version>b10db8275163d19d63b9512cc20ca5872e52499b</version>-->
         </dependency>
         <!-- https://mvnrepository.com/artifact/org.openjdk.nashorn/nashorn-core -->
         <dependency>
@@ -268,7 +294,7 @@
         <dependency>
             <groupId>com.github.texttechnologylab</groupId>
             <artifactId>UIMATypeSystem</artifactId>
-            <version>021f3cfff6</version>
+            <version>74a8489af5</version>
         </dependency>
 
         <!-- https://mvnrepository.com/artifact/org.msgpack/msgpack-core -->

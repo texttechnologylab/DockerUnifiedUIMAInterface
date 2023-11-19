@@ -22,6 +22,7 @@ public class DUUILuaContext {
     }
 
     public DUUILuaContext withGlobalLibrary(String globalName, URI path) throws IOException {
+        System.out.println(path);
         _luaScripts.put(globalName,Files.readString(Path.of(path)));
         return this;
     }

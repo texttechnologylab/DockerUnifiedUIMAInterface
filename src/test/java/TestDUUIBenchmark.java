@@ -260,6 +260,7 @@ public class TestDUUIBenchmark {
         composer.addDriver(new DUUISwarmDriver());
 
         composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
+                .withParameter("label", "gpu")
                         .withScale(iWorkers)
                         .build());
 
