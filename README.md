@@ -28,7 +28,7 @@ Independently of this, Components can also be implemented in alternative program
 #### Current implementations
 
 ### Driver
-DUUI has a variety of drivers that enable communication as well as the execution of Components in different software environments.
+DUUI has a variety of drivers that enable communication as well as the execution of Components in different runtime environments.
 
 #### UIMADriver
 
