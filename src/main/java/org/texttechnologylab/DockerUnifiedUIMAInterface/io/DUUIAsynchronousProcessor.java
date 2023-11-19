@@ -4,6 +4,7 @@ import de.tudarmstadt.ukp.dkpro.core.api.io.ProgressMeter;
 import org.apache.uima.jcas.JCas;
 
 import java.util.HashSet;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.LongStream;
 
@@ -77,9 +78,15 @@ public class DUUIAsynchronousProcessor {
      */
     public boolean getNextCAS(JCas empty) {
 
-        DUUICollectionReader pReader = this.readerSet.stream().filter(reader -> reader.hasNext()).findFirst().get();
-        pReader.getNextCas(empty);
-        return true;
+        Optional<DUUICollectionReader> readers = this.readerSet.stream().filter(reader -> reader.hasNext()).findFirst();
+
+        if (!readers.isEmpty()) {
+            DUUICollectionReader pReader = readers.get();
+            pReader.getNextCas(empty);
+        }
+
+        return !readers.isEmpty();
+
     }
 
     /**
