@@ -202,7 +202,7 @@ public class AsyncCollectionReader {
     }
 
     public AsyncCollectionReader(String folder, String ending, int debugCount, int sampleSize, DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE sampleMode, String savePath, boolean bAddMetadata, String language, int skipSmallerFiles) {
-        this(folder, ending, debugCount, getRandomFromMode(sampleMode, sampleSize), getSortFromMode(sampleMode), savePath, bAddMetadata, language, skipSmallerFiles, savePath, null);
+        this(folder, ending, debugCount, getRandomFromMode(sampleMode, sampleSize), getSortFromMode(sampleMode), savePath, bAddMetadata, language, skipSmallerFiles, null, null);
     }
 
     public AsyncCollectionReader(String folder, String ending, int debugCount, int sampleSize, String savePath, boolean bAddMetadata, String language, int skipSmallerFiles) {
