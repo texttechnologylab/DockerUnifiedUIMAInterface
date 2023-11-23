@@ -1,6 +1,7 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.connection;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.java_websocket.client.WebSocketClient;
 import org.java_websocket.handshake.ServerHandshake;
 
@@ -15,8 +16,11 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-
+/**
+ * Interface for WebSocket connections
+ *
+ * @author David Terefe
+ */
 public class WebsocketClient extends WebSocketClient{
 
     List<byte []> messageStack = new ArrayList<>();
@@ -117,21 +121,21 @@ public class WebsocketClient extends WebSocketClient{
     public void onMessage(String s) {
 //        System.out.println("[WebsocketClient]: Message Received: " + s);
         System.out.println("[WebsocketClient]: Message Received: ");
-
     }
+
     @Override
     public void onOpen(ServerHandshake serverHandshake) {
         System.out.println("[WebsocketClient]: Opened websocket connection...");
-
     }
 
     @Override
     public void onClose(int i, String s, boolean b) {
         System.out.println("[WebsocketClient]: CLOSED: i="+i+", s="+s+", b="+b );
-
     }
 
     @Override
     public void onError(Exception e) {
+        System.err.println("[WebsocketClient]: ERROR:" + e.getMessage());
+        e.getStackTrace();
     }
 }

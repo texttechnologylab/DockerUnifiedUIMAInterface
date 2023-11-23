@@ -8,10 +8,17 @@ import org.luaj.vm2.lib.jse.CoerceLuaToJava;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUICommunicationLayer;
 import org.xml.sax.SAXException;
 
-import java.io.*;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Implementation of a communication layer for LUA
+ *
+ * @author Alexander Leonhardt
+ */
 public class DUUILuaCommunicationLayer implements IDUUICommunicationLayer {
     private String _script;
     private String _origin;

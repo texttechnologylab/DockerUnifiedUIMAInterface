@@ -9,8 +9,7 @@ import java.util.Set;
 import java.util.stream.LongStream;
 
 /**
- * Class for asynchronous processing of DUUI processes
- *
+ * Class for asynchronous processing of DUUI readers
  * @author Giuseppe Abrami
  */
 public class DUUIAsynchronousProcessor {

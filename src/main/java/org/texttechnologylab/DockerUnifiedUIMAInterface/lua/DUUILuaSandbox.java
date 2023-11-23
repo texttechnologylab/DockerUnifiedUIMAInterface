@@ -3,6 +3,11 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface.lua;
 import java.util.HashSet;
 import java.util.Set;
 
+/**
+ * Lua sandbox to ensure proper class usage or its restriction by Lua
+ *
+ * @author Alexander Leonhardt
+ */
 public class DUUILuaSandbox {
     public boolean _enable_io;
     public boolean  _enable_coroutines;

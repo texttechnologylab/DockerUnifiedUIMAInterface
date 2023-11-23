@@ -14,9 +14,9 @@ import org.apache.uima.jcas.JCas;
 import org.apache.uima.jcas.tcas.Annotation;
 import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.util.CasIOUtils;
-import org.bson.*;
+import org.bson.BsonDocument;
+import org.bson.Document;
 import org.bson.conversions.Bson;
-import org.bson.types.ObjectId;
 import org.dkpro.core.api.io.JCasFileWriter_ImplBase;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.mongodb.MongoDBConfig;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.mongodb.MongoDBConnectionHandler;
@@ -31,7 +31,14 @@ import java.nio.file.Files;
 import java.util.HashSet;
 import java.util.Set;
 
+/**
+ * GerParCor Database Writer
+ *
+ * @author Giuseppe Abrami
+ */
 public class GerParCorWriter extends JCasFileWriter_ImplBase {
+
+    private static Set<String> classNames = new HashSet<>(0);
 
     public static final String PARAM_DBConnection = "dbconnection";
     private final String GRIDID = "gridid";
@@ -70,7 +77,6 @@ public class GerParCorWriter extends JCasFileWriter_ImplBase {
         super.finalize();
     }
 
-    private static Set<String> classNames = new HashSet<>(0);
 
     @Override
     public void process(JCas aJCas) throws AnalysisEngineProcessException {
@@ -152,6 +158,11 @@ public class GerParCorWriter extends JCasFileWriter_ImplBase {
 
     }
 
+    /**
+     * Count Annotations in JCas
+     * @param pCas
+     * @return
+     */
     private Document countAnnotations(JCas pCas) {
 
         Document rDocument = new Document();
@@ -179,6 +190,11 @@ public class GerParCorWriter extends JCasFileWriter_ImplBase {
 
     }
 
+    /**
+     * Get Meta-Informations
+     * @param pCas
+     * @return
+     */
     private Document getMetaInformation(JCas pCas) {
 
         Document rDocument = new Document();

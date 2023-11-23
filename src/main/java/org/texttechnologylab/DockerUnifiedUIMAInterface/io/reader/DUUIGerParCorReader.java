@@ -25,6 +25,11 @@ import java.io.IOException;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
+/**
+ * Reader for GerParCor
+ *
+ * @author Giuseppe Abrami
+ */
 public class DUUIGerParCorReader implements DUUICollectionReader {
 
 

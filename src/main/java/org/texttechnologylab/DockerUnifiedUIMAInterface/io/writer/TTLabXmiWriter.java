@@ -27,6 +27,11 @@ import java.io.OutputStream;
 import static java.util.Arrays.asList;
 import static org.apache.commons.io.IOUtils.closeQuietly;
 
+/**
+ * TTLabXmiWriter to write files to XMI.
+ *
+ * @author Giuseppe Abrami
+ */
 public class TTLabXmiWriter extends JCasFileWriter_ImplBase {
 
     @Override

@@ -13,6 +13,11 @@ import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * Class for managing and using Lua contexts
+ *
+ * @author Alexander Leonhardt
+ */
 public class DUUILuaContext {
     private Map<String,String> _luaScripts;
     private DUUILuaSandbox _sandbox;

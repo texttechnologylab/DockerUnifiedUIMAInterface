@@ -262,14 +262,5 @@ public class MongoDBConnectionHandler {
         return rSet;
     }
 
-
-    public String createIndex(String sCollection, String sField) {
-
-        BasicDBObject query = new BasicDBObject();
-        query.put(sField, "text");
-        String rString = this.getCollection(sCollection).createIndex(query);
-
-        return rString;
-    }
 }
 
