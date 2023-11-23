@@ -1,4 +1,4 @@
-package org.texttechnologylab.DockerUnifiedUIMAInterface;
+package org.texttechnologylab.DockerUnifiedUIMAInterface.tools;
 
 
 import org.apache.uima.analysis_engine.AnalysisEngineProcessException;

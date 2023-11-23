@@ -46,10 +46,19 @@ import java.util.logging.Logger;
 
 import static java.lang.String.format;
 
+/**
+ * Interface for all drivers
+ *
+ * @author Alexander Leonhardt
+ */
 interface ResponsiveMessageCallback {
     public void operation(String message);
 }
 
+/**
+ * Driver for the use of Docker
+ * @author Alexander Leonhardt
+ */
 public class DUUIDockerDriver implements IDUUIDriverInterface {
     private DUUIDockerInterface _interface;
     private HttpClient _client;
@@ -78,6 +87,13 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
         _luaContext = null;
     }
 
+    /**
+     * Constructor with built-in timeout
+     * @param timeout
+     * @throws IOException
+     * @throws UIMAException
+     * @throws SAXException
+     */
     public DUUIDockerDriver(int timeout) throws IOException, UIMAException, SAXException {
         _interface = new DUUIDockerInterface();
         _client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(timeout)).build();
@@ -87,16 +103,18 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
         _active_components = new HashMap<String, InstantiatedComponent>();
     }
 
-    public void setLuaContext(DUUILuaContext luaContext) {
-        _luaContext = luaContext;
-    }
-
-    public DUUIDockerDriver withTimeout(int container_timeout_ms) {
-        _container_timeout = container_timeout_ms;
-        return this;
-    }
-
-    // TODO: Fragen, ob ich eine analoge Funktion auch für den KubernetesDriver schreiben sollte.
+    /**
+     * Creation of the communication layer based on the Driver
+     * @param url
+     * @param jc
+     * @param timeout_ms
+     * @param client
+     * @param printfunc
+     * @param context
+     * @param skipVerification
+     * @return
+     * @throws Exception
+     */
     public static IDUUICommunicationLayer responsiveAfterTime(String url, JCas jc, int timeout_ms, HttpClient client, ResponsiveMessageCallback printfunc, DUUILuaContext context, boolean skipVerification) throws Exception {
         long start = System.currentTimeMillis();
         IDUUICommunicationLayer layer = new DUUIFallbackCommunicationLayer();  // Hier wird layer zum ersten mal erstellt.
@@ -139,8 +157,6 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
                     String body2 = new String(resp.body(), Charset.defaultCharset());
                     try {
                         printfunc.operation("Component lua communication layer, loading...");
-
-//                        System.out.printf("Got script %s\n", body2);
                         IDUUICommunicationLayer lua_com = new DUUILuaCommunicationLayer(body2,"requester",context);
                         layer = lua_com;
                         printfunc.operation("Component lua communication layer, loaded.");
@@ -211,10 +227,41 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
                 }
     }
 
+    /**
+     * Set Lua-Context
+     * @param luaContext
+     */
+    public void setLuaContext(DUUILuaContext luaContext) {
+        _luaContext = luaContext;
+    }
+
+    /**
+     * Set Timeout
+     * @param container_timeout_ms
+     * @return
+     */
+    public DUUIDockerDriver withTimeout(int container_timeout_ms) {
+        _container_timeout = container_timeout_ms;
+        return this;
+    }
+
+    /**
+     * Check whether the image is available.
+     * @param comp
+     * @return
+     */
     public boolean canAccept(DUUIPipelineComponent comp) {
         return comp.getDockerImageName()!=null;
     }
 
+    /**
+     * Instantiate the component
+     * @param component
+     * @param jc
+     * @param skipVerification
+     * @return
+     * @throws Exception
+     */
     public String instantiate(DUUIPipelineComponent component, JCas jc, boolean skipVerification) throws Exception {
         String uuid = UUID.randomUUID().toString();
         while (_active_components.containsKey(uuid.toString())) {
@@ -293,6 +340,10 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
         return uuid;
     }
 
+    /**
+     * Show the maximum parallelism
+     * @param uuid
+     */
     public void printConcurrencyGraph(String uuid) {
         InstantiatedComponent component = _active_components.get(uuid);
         if (component == null) {
@@ -301,6 +352,16 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
         System.out.printf("[DockerLocalDriver][%s]: Maximum concurrency %d\n",uuid,component.getInstances().size());
     }
 
+    /**
+     * Return the TypeSystem used by the given Component
+     * @param uuid
+     * @return
+     * @throws InterruptedException
+     * @throws IOException
+     * @throws SAXException
+     * @throws CompressorException
+     * @throws ResourceInitializationException
+     */
     public TypeSystemDescription get_typesystem(String uuid) throws InterruptedException, IOException, SAXException, CompressorException, ResourceInitializationException {
         InstantiatedComponent comp = _active_components.get(uuid);
         if (comp == null) {
@@ -309,6 +370,17 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
         return IDUUIInstantiatedPipelineComponent.getTypesystem(uuid,comp);
     }
 
+    /**
+     * Execute a component in the driver
+     * @param uuid
+     * @param aCas
+     * @param perf
+     * @throws InterruptedException
+     * @throws IOException
+     * @throws SAXException
+     * @throws CompressorException
+     * @throws CASException
+     */
     public void run(String uuid, JCas aCas, DUUIPipelineDocumentPerformance perf) throws InterruptedException, IOException, SAXException, CompressorException, CASException {
         long mutexStart = System.nanoTime();
         InstantiatedComponent comp = _active_components.get(uuid);
@@ -323,10 +395,18 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
         }
     }
 
+    /**
+     * Shutdown of the Docker-Driver
+     * @hidden
+     */
     public void shutdown() {
 
     }
 
+    /**
+     * Terminate a component
+     * @param uuid
+     */
     public void destroy(String uuid) {
         InstantiatedComponent comp = _active_components.remove(uuid);
         if (comp == null) {

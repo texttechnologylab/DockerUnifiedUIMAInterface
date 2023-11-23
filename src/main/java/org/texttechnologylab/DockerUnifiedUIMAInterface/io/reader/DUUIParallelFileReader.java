@@ -8,6 +8,11 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
+/**
+ * Parallel File Reader - not finished!
+ *
+ * @author Giuseppe Abrami
+ */
 public class DUUIParallelFileReader implements Runnable {
 
     public static AtomicInteger iDebugCount = new AtomicInteger(0);

@@ -3,3 +3,4 @@ target/*
 *.png
 *.pgf
 *.db
+*.iml

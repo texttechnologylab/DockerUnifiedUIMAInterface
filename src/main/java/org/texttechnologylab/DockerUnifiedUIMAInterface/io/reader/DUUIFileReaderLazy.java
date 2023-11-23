@@ -34,8 +34,12 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+/**
+ * Lazy file reader. The reader reads in files, but processing can begin in parallel before the entire file list has been read in.
+ *
+ * @author Giuseppe Abrami
+ */
 public class DUUIFileReaderLazy implements DUUICollectionReader {
-
 
     private String _path;
     private ConcurrentLinkedQueue<String> _filePaths;
@@ -348,13 +352,8 @@ public class DUUIFileReaderLazy implements DUUICollectionReader {
                         String sNewOutput = sURI.replace(sBase, this.targetLocation)+this._targetEnding;
                         File tFile = new File(sNewOutput);
                         if(tFile.exists()){
-//                            if(bRepair){
-//                                tFile.delete();
-//                            }
-//                            else {
                                 bSkip = true;
                                 _skipNumber.incrementAndGet();
-//                            }
                         }
                     }
                 }

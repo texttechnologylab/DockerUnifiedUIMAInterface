@@ -37,6 +37,11 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import static io.fabric8.kubernetes.client.impl.KubernetesClientImpl.logger;
 import static java.lang.String.format;
 
+/**
+ * Driver for the running of components in Kubernetes
+ *
+ * @author Markos Genios, Filip Fitzermann
+ */
 public class DUUIKubernetesDriver implements IDUUIDriverInterface {
 
     private final KubernetesClient _kube_client;

@@ -170,19 +170,17 @@ public class DUUIFileReader implements DUUICollectionReader {
     }
 
     public static void addFilesToConcurrentList(File folder, String ending, ConcurrentLinkedQueue<String> paths) {
-//        File[] listOfFiles = folder.listFiles();
-//
-//        for (int i = 0; i < listOfFiles.length; i++) {
-//            if (listOfFiles[i].isFile()) {
-//                if (listOfFiles[i].getName().endsWith(ending)) {
-//                    paths.add(listOfFiles[i].getPath().toString());
-//                }
-//            } else if (listOfFiles[i].isDirectory()) {
-//                addFilesToConcurrentList(listOfFiles[i], ending, paths);
-//            }
-//        }
+        File[] listOfFiles = folder.listFiles();
 
-        DUUIParallelFileReader pReader = new DUUIParallelFileReader(folder, ending, paths, 2);
+        for (int i = 0; i < listOfFiles.length; i++) {
+            if (listOfFiles[i].isFile()) {
+                if (listOfFiles[i].getName().endsWith(ending)) {
+                    paths.add(listOfFiles[i].getPath().toString());
+                }
+            } else if (listOfFiles[i].isDirectory()) {
+                addFilesToConcurrentList(listOfFiles[i], ending, paths);
+            }
+        }
 
     }
 
