@@ -54,8 +54,6 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
 
     private IDUUIConnectionHandler _wsclient;
 
-    private String _namespace = "default";
-
     /**
      * Constructor.
      * @throws IOException
@@ -83,29 +81,6 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
     }
 
     /**
-     * Creates a list of NodeSelectorTerms from a list of labels. If added to a deployment the pods are scheduled onto
-     * any node that has one or multiple of the given labels.
-     * Each label must be given in the format "key=value".
-     *
-     * @param rawLabels
-     * @return List<NodeSelectorTerm>
-     */
-    public static List<NodeSelectorTerm> getNodeSelectorTerms(List<String> rawLabels) {
-        List<NodeSelectorTerm> terms = new ArrayList<>();
-
-//        Splits each label in string form at the "=" and adds the resulting strings into a new
-//        NodeSelectorTerm as key value pairs.
-        for (String rawLabel : rawLabels) {
-            String[] l = rawLabel.split("=");
-            NodeSelectorTerm term = new NodeSelectorTerm();
-            NodeSelectorRequirement requirement = new NodeSelectorRequirement(l[0], "In", List.of(l[1]));
-            term.setMatchExpressions(List.of(requirement));
-            terms.add(term);
-        }
-        return terms;
-    }
-
-    /**
      * Creates Deployment for the kubernetes cluster.
      * @param name: Name of the deployment
      * @param image: Image that the pods are running
@@ -113,7 +88,7 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
      * @param labels: Use only gpu-servers with the specified labels.
      * @author Markos Genios
      */
-    public void createDeployment(String name, String image, int replicas, List<String> labels) {
+    public static void createDeployment(String name, String image, int replicas, List<String> labels) {
 
         if (labels.isEmpty()) {
             labels = List.of("disktype=all");
@@ -158,23 +133,18 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
                     .endSpec()
                     .build();
 
-            deployment = k8s.apps().deployments().inNamespace(_namespace).resource(deployment).create();
+            deployment = k8s.apps().deployments().inNamespace("default").resource(deployment).create();
         }
-    }
-
-    public void setNamespace(String sValue) {
-        this._namespace = sValue;
     }
 
     /**
      * Creates Service for kubernetes cluster which is matched by selector labels to the previously created deployment.
-     *
      * @param name
      * @return
      */
-    public Service createService(String name) {
+    public static Service createService(String name) {
         try (KubernetesClient client = new KubernetesClientBuilder().build()) {
-            String namespace = Optional.ofNullable(client.getNamespace()).orElse(_namespace);
+            String namespace = Optional.ofNullable(client.getNamespace()).orElse("default");
             Service service = new ServiceBuilder()
                     .withNewMetadata()
                     .withName(name)
@@ -201,9 +171,34 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
             return service;
         }
     }
+
+    /**
+     * Creates a list of NodeSelectorTerms from a list of labels. If added to a deployment the pods are scheduled onto
+     * any node that has one or multiple of the given labels.
+     * Each label must be given in the format "key=value".
+     *
+     * @param rawLabels
+     * @return List<NodeSelectorTerm>
+     */
+    public static List<NodeSelectorTerm> getNodeSelectorTerms(List<String> rawLabels) {
+        List<NodeSelectorTerm> terms = new ArrayList<>();
+
+//        Splits each label in string form at the "=" and adds the resulting strings into a new
+//        NodeSelectorTerm as key value pairs.
+        for (String rawLabel : rawLabels) {
+            String[] l = rawLabel.split("=");
+            NodeSelectorTerm term = new NodeSelectorTerm();
+            NodeSelectorRequirement requirement = new NodeSelectorRequirement(l[0], "In", List.of(l[1]));
+            term.setMatchExpressions(List.of(requirement));
+            terms.add(term);
+        }
+        return terms;
+    }
+
     /**
      * Checks, whether the used Server is the master-node of kubernetes cluster.
      * Note: Function can give false-negative results, therefore is not used in the working code.
+     *
      * @param kubeClient
      * @return
      * @throws SocketException
@@ -213,8 +208,8 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
         String masterNodeIP = kubeClient.getMasterUrl().getHost();  // IP-Adresse des Master Node
         Enumeration<NetworkInterface> networkInterfaceEnumeration = NetworkInterface.getNetworkInterfaces();
         // Source of code snippet: https://www.educative.io/answers/how-to-get-the-ip-address-of-a-localhost-in-java
-        while( networkInterfaceEnumeration.hasMoreElements()){
-            for ( InterfaceAddress interfaceAddress : networkInterfaceEnumeration.nextElement().getInterfaceAddresses()) {
+        while (networkInterfaceEnumeration.hasMoreElements()) {
+            for (InterfaceAddress interfaceAddress : networkInterfaceEnumeration.nextElement().getInterfaceAddresses()) {
                 if (interfaceAddress.getAddress().isSiteLocalAddress()) {
                     if (interfaceAddress.getAddress().getHostAddress().equals(masterNodeIP)) {
                         return true;
@@ -227,6 +222,7 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
 
     /**
      * Creates Deployment and Service. Puts the new component, which includes the Pods with their image to the active components.
+     *
      * @param component
      * @param jc
      * @param skipVerification
@@ -252,11 +248,10 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
              * with alphabetical character (must not start with digit)
              */
             createDeployment("a" + uuid, dockerImage, scale, comp.getLabels());  // Erstelle Deployment
-            service = createService("a"+uuid);  // Erstelle service und gebe diesen zurück
-        }
-        catch (Exception e){
-            deleteDeployment("a"+uuid);
-            deleteService("a"+uuid);
+            service = createService("a" + uuid);  // Erstelle service und gebe diesen zurück
+        } catch (Exception e) {
+            deleteDeployment("a" + uuid);
+            deleteService("a" + uuid);
             throw e;
         }
 
@@ -269,15 +264,14 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
             layer = DUUIDockerDriver.responsiveAfterTime("http://localhost:" + port, jc, _container_timeout, _client, (msg) -> {
                 System.out.printf("[KubernetesDriver][%s][%d Replicas] %s\n", uuidCopy, comp.getScale(), msg);
             }, _luaContext, skipVerification);
-        }
-        catch (Exception e){
-            deleteDeployment("a"+uuid);
-            deleteService("a"+uuid);
+        } catch (Exception e) {
+            deleteDeployment("a" + uuid);
+            deleteService("a" + uuid);
             throw e;
         }
 
 
-        System.out.printf("[KubernetesDriver][%s][%d Replicas] Service for image %s is online (URL http://localhost:%d) and seems to understand DUUI V1 format!\n", uuid, comp.getScale(),comp.getImageName(), port);
+        System.out.printf("[KubernetesDriver][%s][%d Replicas] Service for image %s is online (URL http://localhost:%d) and seems to understand DUUI V1 format!\n", uuid, comp.getScale(), comp.getImageName(), port);
 
         comp.initialise(port, layer, this);
         Thread.sleep(500);
@@ -286,14 +280,15 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
         return uuid;
     }
 
+
     /**
      * Deletes the Deployment from the kubernetes cluster.
      * @author Markos Genios
      */
-    public void deleteDeployment(String name) {
+    public static void deleteDeployment(String name) {
         try (KubernetesClient k8s = new KubernetesClientBuilder().build()) {
             // Argument namespace could be generalized.
-            k8s.apps().deployments().inNamespace(_namespace)
+            k8s.apps().deployments().inNamespace("default")
                     .withName(name)
                     .delete();
         }
@@ -303,10 +298,10 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
      * Deletes the service from the kubernetes cluster.
      * @author Markos Genios
      */
-    public void deleteService(String name) {
+    public static void deleteService(String name) {
         try (KubernetesClient client = new DefaultKubernetesClient()) {
             // Argument namespace could be generalized.
-            client.services().inNamespace(_namespace).withName(name).delete();
+            client.services().inNamespace("default").withName(name).delete();
         }
     }
 
@@ -426,6 +421,7 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
 
         private int _ws_elements;  // Dieses Attribut wird irgendwie dem _wsclient-String am Ende angeheftet. Ka wieso.
         private List<String> _labels;
+        private String _uniqueComponentKey = "";
 
         InstantiatedComponent(DUUIPipelineComponent comp) {
             _component = comp;
@@ -501,12 +497,12 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
 
         @Override
         public Map<String, String> getParameters() {
-            return null;
+            return _parameters;
         }
 
         @Override
         public String getUniqueComponentKey() {
-            return null;
+            return _uniqueComponentKey;
         }
 
         public boolean getRunningAfterExit() {

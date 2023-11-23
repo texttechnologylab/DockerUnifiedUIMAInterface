@@ -279,7 +279,8 @@
         <dependency>
             <groupId>com.github.texttechnologylab.textimager-uima</groupId>
             <artifactId>textimager-uima-types</artifactId>
-            <version>b10db8275163d19d63b9512cc20ca5872e52499b</version>
+            <version>8efebf1980</version>
+            <!--            <version>b10db8275163d19d63b9512cc20ca5872e52499b</version>-->
         </dependency>
         <!-- https://mvnrepository.com/artifact/org.openjdk.nashorn/nashorn-core -->
         <dependency>
