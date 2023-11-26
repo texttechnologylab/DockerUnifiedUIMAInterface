@@ -1,6 +1,6 @@
 [![](https://jitpack.io/v/texttechnologylab/DockerUnifiedUIMAInterface.svg)](https://jitpack.io/#texttechnologylab/DockerUnifiedUIMAInterface)
-[![version](https://img.shields.io/github/license/texttechnologylab/DockerUnifiedUIMAInterface)]()
-[![latest](https://img.shields.io/github/v/release/texttechnologylab/DockerUnifiedUIMAInterface)]()
+![GitHub License](https://img.shields.io/github/license/Texttechnologylab/DockerUnifiedUIMAInterface)
+![GitHub release (with filter)](https://img.shields.io/github/v/release/Texttechnologylab/DockerUnifiedUIMAInterface)
 [![Conference](http://img.shields.io/badge/conference-FindingsEMNLP--2023-4b44ce.svg)](https://2023.emnlp.org/)
 
 # Docker Unified UIMA Interface (DUUI)
