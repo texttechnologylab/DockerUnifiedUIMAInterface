@@ -1,8 +1,11 @@
 [![](https://jitpack.io/v/texttechnologylab/DockerUnifiedUIMAInterface.svg)](https://jitpack.io/#texttechnologylab/DockerUnifiedUIMAInterface)
 [![version](https://img.shields.io/github/license/texttechnologylab/DockerUnifiedUIMAInterface)]()
 [![latest](https://img.shields.io/github/v/release/texttechnologylab/DockerUnifiedUIMAInterface)]()
+[![Conference](http://img.shields.io/badge/conference-FindingsEMNLP--2023-4b44ce.svg)](https://2023.emnlp.org/)
 
-# DockerUnifiedUIMAInterface (DUUI)
+# Docker Unified UIMA Interface (DUUI)
+![img|320x271](https://github.com/texttechnologylab/DockerUnifiedUIMAInterface/blob/main/DUUI_Logo.png)
+
 Automatic analysis of large text corpora is a complex task. This complexity particularly concerns the question of time efficiency. Furthermore, efficient, flexible, and extensible textanalysis requires the continuous integration of every new text analysis tools. Since there are currently, in the area of NLP and especially in the application context of UIMA, only very few to no adequate frameworks for these purposes, which are not simultaneously outdated or can no longer be used for security reasons, this work will present a new approach to fill this gap. To this end, we present Docker Unified UIMA Interface (DUUI), a scalable, flexible, lightweight, and featurerich framework for automated and distributed analysis of text corpora that leverages experience in Big Data analytics and virtualization with Docker.
 
 ## Features
@@ -12,7 +15,7 @@ Using DUUI, NLP preprocessing on texts can be performed using the following feat
 * Capturing heterogeneous implementation landscapes
 * Reproducible & reusable annotations
 * Monitoring and error-reporting
-* Easy to use
+* Lightweight usability
 
 ## Functions
 DUUI has different components which are distinguished into Drivers and Components. 
@@ -25,16 +28,22 @@ Independently of this, Components can also be implemented in alternative program
 #### Current implementations
 
 ### Driver
-DUUI has a variety of drivers that enable communication as well as the execution of Components in different software environments.
+DUUI has a variety of drivers that enable communication as well as the execution of Components in different runtime environments.
 
 #### UIMADriver
+The UIMA DRIVER runs a UIMA Analysis Engine (AE) on the local machine (using local memory and processor) in the same process within the JRE and allows scaling on that machine by replicating the underlying Analysis Engine. This enables the use of all previous analysis methods based on UIMA AE without further adjustments.
 
 #### DockerDriver
+The DUUI core DRIVER runs COMPONENTs on the local Docker daemon and enables machine-specific resource management. This requires that the AEs are available as Docker images according to DUUI to run as Docker containers. It is not relevant whether the Docker image is stored locally or in a remote registry, since the Docker container is built on startup. This makes it very easy to test new AEs (as local containers) before being released. The distinction between local and remote Docker images is achieved by the URI of the Docker image used
 
 #### RemoteDriver
+AEs that are not available as containers and whose models can or should not be shared can still be used if they are available via REST. Since DUUI communicates via RESTful, remote endpoints can be used for pre-processing. In general, AEs implemented based on DUUI can be accessed and used via REST, but the scaling is limited regarding request and processing capabilities of the hosting system. In addition, Components addressed via the RemoteDRiver can be used as services. This has advantages for AEs that need to hold large models in memory and thus require a long startup time. To avoid continuous reloading, it may be necessary to start a service once or twice in a dedicated mode and then use a RemoteDriver to access it. To use services, their URL must be specified to enable horizontal scaling.
 
 #### SwarmDriver
+The SwarmDriver complements the DockerDriver; it uses the same function alities, but its AEs are used as Docker images distributed within the Docker Swarm network. A swarm consists of n nodes and is controlled by a leader node within the Docker framework. However, if an application using DUUI is executed on a Docker leader node, the individual AEs can be executed on multiple swarm nodes.
 
+#### KubernetesDriver
+The KubernetesDriver works similarly to the SwarmDriver, but Kubernetes is used as the runtime environment instead of Docker Swarm. 
 
 ## Requirements
 ![Java](https://img.shields.io/badge/Java-11-blue)
@@ -138,24 +147,23 @@ docker push REPOSITORY/IMAGENAME:VERSION
 ```
 After the build, the image can be used / tried locally and after pushing it to the remote repository, it can also be used from that repository.
 
+## UIMA-Components
+A list of existing DUUI components as Docker images can be found [here](https://github.com/texttechnologylab/duui-uima).
 
 # Cite
 If you want to use the project please quote this as follows:
 
-A. Leonhardt, G. Abrami, D. Baumartz and A. Mehler, “Unlocking the Heterogeneous Landscape of Big Data NLP with DUUI” in Proceedings of ... 2022 ![[Link]]() ![[PDF]]()
+A. Leonhardt, G. Abrami, D. Baumartz, and A. Mehler, “Unlocking the Heterogeneous Landscape of Big Data NLP with DUUI,” in Findings of the Association for Computational Linguistics: EMNLP 2023, 2023, pp. 1-15 (accepted)
 
 ## BibTeX
 ```
-@InProceedings{Leonhardt:Abrami:Baumartz:Mehler:2022,
-  author         = {Leonhardt, Alexander and Abrami, Giuseppe and Baumartz, Daniel and Mehler, Alexander},
-  title          = {Unlocking the Heterogeneous Landscape of Big Data NLP with DUUI},
-  booktitle      = {},
-  month          = {},
-  year           = {2022},
-  address        = {},
-  publisher      = {},
-  pages          = {},
-  url            = {},
-  note           = {submitted}
+@inproceedings{Leonhardt:et:al:2023,
+  title = {Unlocking the Heterogeneous Landscape of Big Data {NLP} with {DUUI}},
+  author = {Leonhardt, Alexander and Abrami, Giuseppe and Baumartz, Daniel and Mehler, Alexander},
+  year = {2023},
+  booktitle = {Findings of the Association for Computational Linguistics: EMNLP 2023},
+  publisher = {Association for Computational Linguistics},
+  pages = {1--15},
+  note = {accepted}
 }
 ```

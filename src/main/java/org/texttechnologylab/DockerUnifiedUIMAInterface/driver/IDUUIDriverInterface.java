@@ -13,6 +13,11 @@ import org.xml.sax.SAXException;
 
 import java.io.IOException;
 
+/**
+ * Interface for all drivers
+ *
+ * @author Alexander Leonhardt
+ */
 public interface IDUUIDriverInterface {
     public void setLuaContext(DUUILuaContext luaContext);
     public boolean canAccept(DUUIPipelineComponent component) throws InvalidXMLException, IOException, SAXException;

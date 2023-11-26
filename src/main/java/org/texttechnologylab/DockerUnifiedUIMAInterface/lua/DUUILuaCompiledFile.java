@@ -5,8 +5,12 @@ import org.luaj.vm2.LuaThread;
 import org.luaj.vm2.LuaValue;
 import org.luaj.vm2.Varargs;
 import org.luaj.vm2.lib.ZeroArgFunction;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaSandbox;
 
+/**
+ * Class on the use of Lua
+ *
+ * @author Alexander Leonhardt
+ */
 public class DUUILuaCompiledFile {
     private Globals _globals;
     private LuaValue _sethook;
