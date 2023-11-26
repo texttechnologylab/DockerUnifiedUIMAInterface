@@ -1,0 +1,35 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Leonhardt"
+  given-names: "Alexander"
+- family-names: "Abrami"
+  given-names: "Giuseppe"
+  orcid: "https://orcid.org/0000-0002-7084-4909"
+- family-names: "Baumartz"
+  given-names: "Daniel"
+- family-names: "Mehler"
+  given-names: "Alexander"
+  orcid: "https://orcid.org/0000-0003-2567-7539"
+title: "Docker Unified UIMA Interface (DUUI)"
+version: 1.0
+date-released: 2023-11-26
+license: AGPLv3
+preferred-citation:
+  authors:
+    - family-names: "Leonhardt"
+      given-names: "Alexander"
+    - family-names: "Abrami"
+      given-names: "Giuseppe"
+      orcid: "https://orcid.org/0000-0002-7084-4909"
+    - family-names: "Baumartz"
+      given-names: "Daniel"
+    - family-names: "Mehler"
+      given-names: "Alexander"
+      orcid: "https://orcid.org/0000-0003-2567-7539"
+  title: "Unlocking the Heterogeneous Landscape of Big Data NLP with DUUI"
+  conference:
+      date-end: "2023-12-06"
+      name: "EMNLP 2023 - Findings"
+  type: conference-paper
+url: "https://github.com/texttechnologylab/DockerUnifiedUIMAInterface"
