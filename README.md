@@ -31,15 +31,19 @@ Independently of this, Components can also be implemented in alternative program
 DUUI has a variety of drivers that enable communication as well as the execution of Components in different runtime environments.
 
 #### UIMADriver
+The UIMA DRIVER runs a UIMA Analysis Engine (AE) on the local machine (using local memory and processor) in the same process within the JRE and allows scaling on that machine by replicating the underlying Analysis Engine. This enables the use of all previous analysis methods based on UIMA AE without further adjustments.
 
 #### DockerDriver
+The DUUI core DRIVER runs COMPONENTs on the local Docker daemon and enables machine-specific resource management. This requires that the AEs are available as Docker images according to DUUI to run as Docker containers. It is not relevant whether the Docker image is stored locally or in a remote registry, since the Docker container is built on startup. This makes it very easy to test new AEs (as local containers) before being released. The distinction between local and remote Docker images is achieved by the URI of the Docker image used
 
 #### RemoteDriver
+AEs that are not available as containers and whose models can or should not be shared can still be used if they are available via REST. Since DUUI communicates via RESTful, remote endpoints can be used for pre-processing. In general, AEs implemented based on DUUI can be accessed and used via REST, but the scaling is limited regarding request and processing capabilities of the hosting system. In addition, Components addressed via the RemoteDRiver can be used as services. This has advantages for AEs that need to hold large models in memory and thus require a long startup time. To avoid continuous reloading, it may be necessary to start a service once or twice in a dedicated mode and then use a RemoteDriver to access it. To use services, their URL must be specified to enable horizontal scaling.
 
 #### SwarmDriver
+The SwarmDriver complements the DockerDriver; it uses the same function alities, but its AEs are used as Docker images distributed within the Docker Swarm network. A swarm consists of n nodes and is controlled by a leader node within the Docker framework. However, if an application using DUUI is executed on a Docker leader node, the individual AEs can be executed on multiple swarm nodes.
 
 #### KubernetesDriver
-
+The KubernetesDriver works similarly to the SwarmDriver, but Kubernetes is used as the runtime environment instead of Docker Swarm. 
 
 ## Requirements
 ![Java](https://img.shields.io/badge/Java-11-blue)
@@ -143,6 +147,8 @@ docker push REPOSITORY/IMAGENAME:VERSION
 ```
 After the build, the image can be used / tried locally and after pushing it to the remote repository, it can also be used from that repository.
 
+## UIMA-Components
+A list of existing DUUI components as Docker images can be found [here](https://github.com/texttechnologylab/duui-uima).
 
 # Cite
 If you want to use the project please quote this as follows:
