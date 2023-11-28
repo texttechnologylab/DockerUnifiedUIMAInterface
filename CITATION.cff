@@ -3,6 +3,7 @@ message: "If you use this software, please cite it as below."
 authors:
 - family-names: "Leonhardt"
   given-names: "Alexander"
+  orcidid: "https://orcid.org/0009-0006-8263-6900"
 - family-names: "Abrami"
   given-names: "Giuseppe"
   orcid: "https://orcid.org/0000-0002-7084-4909"
@@ -19,6 +20,7 @@ preferred-citation:
   authors:
     - family-names: "Leonhardt"
       given-names: "Alexander"
+      orcidid: "https://orcid.org/0009-0006-8263-6900"
     - family-names: "Abrami"
       given-names: "Giuseppe"
       orcid: "https://orcid.org/0000-0002-7084-4909"
