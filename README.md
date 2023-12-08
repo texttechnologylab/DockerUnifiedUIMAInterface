@@ -155,7 +155,7 @@ A list of existing DUUI components as Docker images can be found [here](https://
 # Cite
 If you want to use the project please quote this as follows:
 
-A. Leonhardt, G. Abrami, D. Baumartz, and A. Mehler, “Unlocking the Heterogeneous Landscape of Big Data NLP with DUUI,” in Findings of the Association for Computational Linguistics: EMNLP 2023, 2023, pp. 1-15 (accepted)
+Alexander Leonhardt, Giuseppe Abrami, Daniel Baumartz and Alexander Mehler. (2023). "Unlocking the Heterogeneous Landscape of Big Data NLP with DUUI." Findings of the Association for Computational Linguistics: EMNLP 2023, 385–399. [[LINK](https://aclanthology.org/2023.findings-emnlp.2i)] [[PDF](https://aclanthology.org/2023.findings-emnlp.29.pdf)] 
 
 ## BibTeX
 ```
