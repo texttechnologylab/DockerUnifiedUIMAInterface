@@ -36,11 +36,11 @@ preferred-citation:
   collection-title: "Findings of the Association for Computational Linguistics: EMNLP 2023"
   publisher:
     name: "Association for Computational Linguistics"
-  pages: "1--5"
-  notes: "accepted"
+  pages: "385--399"
+  url: "https://aclanthology.org/2023.findings-emnlp.29"
   collection-type: proceedings
   conference:
       date-end: "2023-12-06"
-      name: "EMNLP 2023 - Findings"
+      name: "Findings of the Association for Computational Linguistics: EMNLP 2023"
   type: conference-paper
 url: "https://github.com/texttechnologylab/DockerUnifiedUIMAInterface"
