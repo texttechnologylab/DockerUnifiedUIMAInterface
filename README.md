@@ -2,6 +2,8 @@
 ![GitHub License](https://img.shields.io/github/license/Texttechnologylab/DockerUnifiedUIMAInterface)
 ![GitHub release (with filter)](https://img.shields.io/github/v/release/Texttechnologylab/DockerUnifiedUIMAInterface)
 [![Conference](http://img.shields.io/badge/conference-FindingsEMNLP--2023-4b44ce.svg)](https://2023.emnlp.org/)
+[![Paper](http://img.shields.io/badge/paper-FindingsEMNLP--2023-fb44ce.svg)]([https://2023.emnlp.org/](https://aclanthology.org/2023.findings-emnlp.29))
+
 
 # Docker Unified UIMA Interface (DUUI)
 ![img|320x271](https://github.com/texttechnologylab/DockerUnifiedUIMAInterface/blob/main/DUUI_Logo.png)
