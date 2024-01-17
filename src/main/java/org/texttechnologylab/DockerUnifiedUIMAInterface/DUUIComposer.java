@@ -41,6 +41,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
+import java.nio.charset.StandardCharsets;
 import java.security.InvalidParameterException;
 import java.time.Instant;
 import java.util.*;
@@ -683,6 +684,7 @@ public class DUUIComposer {
     }
 
     private TypeSystemDescription _minimalTypesystem;
+    private TypeSystemDescription instantiatedTypeSystem;
     private List<DUUIEvent> events = new ArrayList<>();
     private Map<String, DUUIDocument> documents = new HashMap<>();
     private Map<String, String> pipelineStatus = new HashMap<>();
@@ -1117,13 +1119,23 @@ public class DUUIComposer {
         if (_storage != null && name == null) {
             throw new RuntimeException("[Composer] When a storage backend is specified a run name is required, since it is the primary key");
         }
-        System.out.println("[Composer] Instantiating the collection reader...");
-        CollectionReader collectionReader = CollectionReaderFactory.createReader(reader);
-        System.out.println("[Composer] Instantiated the collection reader.");
+        addEvent(
+            DUUIEvent.Sender.COMPOSER,
+            "Instantiating the collection reader..."
+        );
 
+        CollectionReader collectionReader = CollectionReaderFactory.createReader(reader);
+
+        addEvent(
+            DUUIEvent.Sender.COMPOSER,
+            "Instantiated the collection reader"
+        );
 
         if (_workers == 1) {
-            System.out.println("[Composer] Running in synchronous mode, 1 thread at most!");
+            addEvent(
+                DUUIEvent.Sender.COMPOSER,
+                "Running in synchronous mode, 1 thread at most!");
+
             _cas_poolsize = 1;
         } else {
             run_async(collectionReader, name);
@@ -1155,7 +1167,9 @@ public class DUUIComposer {
                         throw e;
                     }
 
-                    System.out.println("[Composer] Something went wrong, contuing with next document...");
+                    addEvent(
+                        DUUIEvent.Sender.COMPOSER,
+                        "Something went wrong, shutting down remaining components...");
                 }
                 jc.reset();
             }
@@ -1164,7 +1178,9 @@ public class DUUIComposer {
             }
         } catch (Exception e) {
             e.printStackTrace();
-            System.out.println("[Composer] Something went wrong, shutting down remaining components...");
+            addEvent(
+                DUUIEvent.Sender.COMPOSER,
+                "Something went wrong, shutting down remaining components...");
             catched = e;
         }
 
@@ -1174,14 +1190,20 @@ public class DUUIComposer {
         }
     }
 
-    private TypeSystemDescription instantiate_pipeline() throws Exception {
+    public TypeSystemDescription instantiate_pipeline() throws Exception {
+
+        Timer timer = new Timer();
+        timer.start();
+
         _hasShutdown = false;
         JCas jc = JCasFactory.createJCas();
         jc.setDocumentLanguage("en");
         jc.setDocumentText("Hello World!");
 
         if (_skipVerification) {
-            System.out.println("[Composer] Running without verification, no process calls will be made during initialization!");
+            addEvent(
+                DUUIEvent.Sender.COMPOSER,
+                "Running without verification, no process calls will be made during initialization!");
         }
 
         // Reset "instantiated pipeline" as the components will duplicate otherwise
@@ -1193,47 +1215,133 @@ public class DUUIComposer {
         descriptions.add(_minimalTypesystem);
         descriptions.add(TypeSystemDescriptionFactory.createTypeSystemDescription());
         try {
-            for (DUUIPipelineComponent comp : _pipeline) {
-                IDUUIDriverInterface driver = _drivers.get(comp.getDriver());
-                String uuid = driver.instantiate(comp, jc, _skipVerification, _shutdownAtomic);
-                if (uuid == null) return null;
-                DUUISegmentationStrategy segmentationStrategy = comp.getSegmentationStrategy();
+            int index = 0;
 
-                TypeSystemDescription desc = driver.get_typesystem(uuid);
-                if (desc != null) {
-                    descriptions.add(desc);
+            for (DUUIPipelineComponent comp : _pipeline) {
+                if (shouldShutdown()) return null;
+
+                IDUUIDriverInterface driver = _drivers.get(comp.getDriver());
+                pipelineStatus.put(driver.getClass().getSimpleName(), DUUIStatus.INSTANTIATING);
+                pipelineStatus.put(comp.getName(), DUUIStatus.INSTANTIATING);
+
+                // When a pipeline is run as a service, only components that are not yet instantiated
+                // should be instantiated here.
+
+                if (isServiceStarted && _instantiatedPipeline.size() > index) {
+                    addEvent(
+                        DUUIEvent.Sender.COMPOSER,
+                        String.format("Reusing component %s", comp.getName())
+                    );
+
+                    TypeSystemDescription desc = driver.get_typesystem(_instantiatedPipeline.get(index).getUUID());
+                    if (desc != null) {
+                        descriptions.add(desc);
+                    }
+                } else {
+                    addEvent(
+                        DUUIEvent.Sender.COMPOSER,
+                        String.format("Instantiating component %s", comp.getName())
+                    );
+
+                    String uuid = driver.instantiate(comp, jc, _skipVerification, _shutdownAtomic);
+                    if (uuid == null) {
+                        shutdown();
+                        return null;
+                    }
+
+                    DUUISegmentationStrategy segmentationStrategy = comp.getSegmentationStrategy();
+
+                    TypeSystemDescription desc = driver.get_typesystem(uuid);
+                    if (desc != null) {
+                        descriptions.add(desc);
+                    }
+                    //TODO: get input output of every annotator
+                    _instantiatedPipeline.add(new PipelinePart(driver, uuid, comp.getName(), segmentationStrategy));
                 }
-                //TODO: get input output of every annotator
-                _instantiatedPipeline.add(new PipelinePart(driver, uuid, comp.getName(), segmentationStrategy));
+
+                index++;
+                pipelineStatus.put(comp.getName(), DUUIStatus.IDLE);
             }
 
+            for (IDUUIDriverInterface driver : _drivers.values()) {
+                pipelineStatus.put(driver.getClass().getSimpleName(), DUUIStatus.IDLE);
+            }
+
+            if (shouldShutdown()) return null;
             // UUID und die input outputs
             // Execution Graph
             // Gegeben Knoten n finde Vorgaenger
             // inputs: [], outputs: [Token]
             // input: [Sentences], outputs: [POS]
+        } catch (InterruptedException e) {
+            return null;
         } catch (Exception e) {
-            System.out.println(e.getMessage());
+            addEvent(
+                DUUIEvent.Sender.COMPOSER,
+                e.getMessage(),
+                DebugLevel.ERROR);
+
             throw e;
         }
-        if (descriptions.size() > 1) {
-            return CasCreationUtils.mergeTypeSystems(descriptions);
-        } else if (descriptions.size() == 1) {
-            return descriptions.get(0);
+
+        if (isServiceStarted && instantiatedTypeSystem != null) {
+            addEvent(DUUIEvent.Sender.COMPOSER, "Reusing TypeSystemDescription");
+
+            timer.stop();
+            addEvent(
+                DUUIEvent.Sender.COMPOSER,
+                String.format("Instatiated Pipeline after %d ms.", timer.getDuration()));
+
         } else {
-            return TypeSystemDescriptionFactory.createTypeSystemDescription();
+            isServiceStarted = isService;
+
+            if (descriptions.size() > 1) {
+                instantiatedTypeSystem = CasCreationUtils.mergeTypeSystems(descriptions);
+            } else if (descriptions.size() == 1) {
+                instantiatedTypeSystem = descriptions.get(0);
+            } else {
+                instantiatedTypeSystem = TypeSystemDescriptionFactory.createTypeSystemDescription();
+            }
+            timer.stop();
+            addEvent(
+                DUUIEvent.Sender.COMPOSER,
+                String.format("Instatiated Pipeline after %d ms.", timer.getDuration()));
         }
+
+        instantiationDuration = timer.getDuration();
+
+        return instantiatedTypeSystem;
     }
 
     private JCas run_pipeline(String name, JCas jc, long documentWaitTime, Vector<PipelinePart> pipeline) throws Exception {
+        progress.set(0);
+
+        DUUIDocument document = new DUUIDocument("Text", "Text", jc.getDocumentText().getBytes(StandardCharsets.UTF_8));
+        if (JCasUtil.select(jc, DocumentMetaData.class).isEmpty()) {
+            DocumentMetaData dmd = DocumentMetaData.create(jc);
+            dmd.setDocumentId(document.getName());
+            dmd.setDocumentTitle(document.getName());
+            dmd.setDocumentUri(document.getPath());
+            dmd.addToIndexes();
+        }
+        addDocument(document);
+
+
         boolean trackErrorDocs = false;
         if (_storage != null) {
             trackErrorDocs = _storage.shouldTrackErrorDocs();
         }
 
         DUUIPipelineDocumentPerformance perf = new DUUIPipelineDocumentPerformance(name, documentWaitTime, jc, trackErrorDocs);
+        document.setStartedAt();
+        document.setStatus(DUUIStatus.ACTIVE);
+
+        Exception error = null;
+
         try {
             for (PipelinePart comp : pipeline) {
+                if (shouldShutdown()) break;
+                pipelineStatus.put(comp.getName(), DUUIStatus.ACTIVE);
 
                 // Segment document for each item in the pipeline separately
                 // TODO support "complete pipeline" segmentation to only segment once
@@ -1247,6 +1355,9 @@ public class DUUIComposer {
                     while (jCasSegmented != null) {
                         // Process each cas sequentially
                         // TODO add parallel variant later
+                        addEvent(
+                            DUUIEvent.Sender.COMPOSER,
+                            String.format("%s is being processed by component %s", document.getPath(), comp.getName()));
                         comp.getDriver().run(comp.getUUID(), jCasSegmented, perf, this);
 
                         segmentationStrategy.merge(jCasSegmented);
@@ -1255,9 +1366,17 @@ public class DUUIComposer {
 
                     segmentationStrategy.finalize(jc);
                 }
+
+                document.incrementProgress();
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            error = e;
+
+            document.setError(e.getMessage());
+            addEvent(
+                DUUIEvent.Sender.COMPOSER,
+                e.getMessage(),
+                DebugLevel.ERROR);
 
             // If we want to track errors we have to add the metrics for the document
             // TODO this should be configurable separately
@@ -1268,6 +1387,15 @@ public class DUUIComposer {
                 throw e;
             }
         }
+
+        if (error != null) {
+            document.setStatus(DUUIStatus.FAILED);
+        } else {
+            document.setStatus(DUUIStatus.COMPLETED);
+        }
+
+        document.setFinishedAt();
+        document.setFinished(true);
 
         if (_storage != null) {
             _storage.addMetricsForDocument(perf);
@@ -1308,14 +1436,26 @@ public class DUUIComposer {
         Exception catched = null;
         try {
             instantiate_pipeline();
-            System.out.printf("[Composer]: CAS Pool size %d\n", Objects.requireNonNullElseGet(_cas_poolsize, () -> _workers));
-            System.out.printf("[Composer]: Worker threads %d\n", _workers);
+            addEvent(
+                DUUIEvent.Sender.COMPOSER,
+                String.format(
+                    "CAS Pool size %d",
+                    Objects.requireNonNullElseGet(_cas_poolsize, () -> _workers)));
+
+            addEvent(
+                DUUIEvent.Sender.COMPOSER,
+                String.format("Worker threads %d", _workers));
+
             for (PipelinePart comp : _instantiatedPipeline) {
                 comp.getDriver().printConcurrencyGraph(comp.getUUID());
             }
         } catch (Exception e) {
             e.printStackTrace();
-            System.out.println(_instantiatedPipeline + "\t[Composer] Something went wrong, shutting down remaining components...");
+
+            addEvent(
+                DUUIEvent.Sender.COMPOSER,
+                String.format("%s Something went wrong, shutting down remaining components...", _instantiatedPipeline));
+
             catched = e;
         }
         shutdown_pipeline();
@@ -1356,7 +1496,9 @@ public class DUUIComposer {
             }
         } catch (Exception e) {
             e.printStackTrace();
-            System.out.println("[Composer] Something went wrong, shutting down remaining components...");
+            addEvent(
+                DUUIEvent.Sender.COMPOSER,
+                "Something went wrong, shutting down remaining components...");
             catched = e;
         }
         /** shutdown **/
@@ -1369,7 +1511,6 @@ public class DUUIComposer {
     public int getWorkerCount() {
         return _workers;
     }
-
 
     public void shutdown() throws UnknownHostException {
         if (isService) {
@@ -1436,12 +1577,18 @@ public class DUUIComposer {
 
     /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
+    /**
+     * Run the pipeline using a {@link DUUIDocumentReader} to retrieve the data from a given source.
+     *
+     * @param documentReader The document reader containing the {@link org.texttechnologylab.DockerUnifiedUIMAInterface.document_handler.IDUUIDocumentHandler} instances.
+     * @param identifier     A unique identifier function as the key in the storage backend
+     * @throws Exception
+     */
     public void run(DUUIDocumentReader documentReader, String identifier) throws Exception {
         ConcurrentLinkedQueue<JCas> emptyCasDocuments = new ConcurrentLinkedQueue<>();
         AtomicInteger aliveThreads = new AtomicInteger(0);
         _shutdownAtomic.set(false);
 
-        Exception catched = null;
         addEvent(
             DUUIEvent.Sender.COMPOSER,
             String.format("Running in asynchronous mode using up to %d threads", _workers));
@@ -1566,11 +1713,15 @@ public class DUUIComposer {
             isFinished.set(true);
             shutdown();
         } catch (InterruptedException ignored) {
-
+            addEvent(
+                DUUIEvent.Sender.COMPOSER,
+                "The process has been interrupted before finishing."
+            );
         } catch (Exception e) {
-            addEvent(DUUIEvent.Sender.COMPOSER, "An exception occurred: " + e.getMessage(), DebugLevel.ERROR);
-            // System.out.println("[Composer] Something went wrong, shutting down remaining
-            // components...");
+            addEvent(
+                DUUIEvent.Sender.COMPOSER,
+                String.format("An exception occurred: %s", e.getMessage()), DebugLevel.ERROR);
+
             shutdown();
             throw e;
         }
@@ -1647,6 +1798,12 @@ public class DUUIComposer {
         return pipelineStatus;
     }
 
+    /**
+     * Tracks the current status of Drivers and Components.
+     *
+     * @param name   The identifier of the object.
+     * @param status The status the object is in.
+     */
     public void setPipelineStatus(String name, String status) {
         pipelineStatus.put(name, status);
     }
@@ -1668,6 +1825,12 @@ public class DUUIComposer {
         return isService;
     }
 
+    /**
+     * When set to true the pipeline is not shutdown on completion but remains idle until a new request
+     * is made.
+     *
+     * @param service Flag that prevents the shutdown of the pipeline .
+     */
     public DUUIComposer asService(boolean service) {
         isService = service;
         return this;
@@ -1677,18 +1840,24 @@ public class DUUIComposer {
         return isServiceStarted;
     }
 
-    public AtomicBoolean getIsFinished() {
-        return isFinished;
+    public boolean getIsFinished() {
+        return isFinished.get();
     }
 
-    public void setIsFinished(AtomicBoolean isFinished) {
-        this.isFinished = isFinished;
+    public void setIsFinished(boolean isFinished) {
+        this.isFinished.set(isFinished);
     }
 
     public long getInstantiationDuration() {
         return instantiationDuration;
     }
 
+    /**
+     * The instantiation duration is the time it takes to initialize all drivers and components. The duration
+     * is measured as soon as the pipeline is operational.
+     *
+     * @param instantiationDuration Duration it takes to make the pipeline operational.
+     */
     public void setInstantiationDuration(long instantiationDuration) {
         this.instantiationDuration = instantiationDuration;
     }
@@ -1696,7 +1865,6 @@ public class DUUIComposer {
     public int getProgress() {
         return progress.get();
     }
-
 
     public void incrementProgress() {
         int progress = this.progress.incrementAndGet();
