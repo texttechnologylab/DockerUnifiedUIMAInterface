@@ -1836,6 +1836,23 @@ public class DUUIComposer {
         return this;
     }
 
+    /**
+     * Allow the cancellation of a process by calling interrupt.
+     *
+     * @param reason Optional. Provide a reason for interrupting.
+     */
+    public void interrupt(String reason) {
+        _shutdownAtomic.set(true);
+        addEvent(DUUIEvent.Sender.COMPOSER, String.format("Execution has been interrupted. Reason: %s.", reason));
+    }
+
+    /**
+     * Allow the cancellation of a process by calling interrupt.
+     */
+    public void interrupt() {
+        interrupt("User request");
+    }
+
     public boolean isServiceStarted() {
         return isServiceStarted;
     }
