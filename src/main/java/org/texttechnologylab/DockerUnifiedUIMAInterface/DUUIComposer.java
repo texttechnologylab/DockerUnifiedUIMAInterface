@@ -871,8 +871,15 @@ public class DUUIComposer {
         }
     }
 
+    /**
+     * Added new members for clean up.
+     */
     public DUUIComposer resetPipeline() {
+        events.clear();
         _pipeline.clear();
+        documents.clear();
+        progress.set(0);
+        isServiceStarted = false;
         return this;
     }
 
@@ -1853,15 +1860,23 @@ public class DUUIComposer {
         interrupt("User request");
     }
 
+    public void resetService() {
+        events.clear();
+        documents.clear();
+        progress.set(0);
+        _shutdownAtomic.set(false);
+        isServiceStarted = isService;
+    }
+
     public boolean isServiceStarted() {
         return isServiceStarted;
     }
 
-    public boolean getIsFinished() {
+    public boolean isFinished() {
         return isFinished.get();
     }
 
-    public void setIsFinished(boolean isFinished) {
+    public void setFinished(boolean isFinished) {
         this.isFinished.set(isFinished);
     }
 
