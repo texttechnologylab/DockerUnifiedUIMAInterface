@@ -471,4 +471,15 @@ public class DUUIDocumentReader implements DUUICollectionReader {
             return this;
         }
     }
+
+    public static List<DUUIDocument> loadDocumentsFromPath(String path, String fileExtension, boolean recursive) throws IOException {
+        DUUILocalDocumentHandler handler = new DUUILocalDocumentHandler();
+        return handler.readDocuments(
+            handler
+                .listDocuments(path, fileExtension, recursive)
+                .stream()
+                .map(DUUIDocument::getPath)
+                .collect(Collectors.toList())
+        );
+    }
 }
