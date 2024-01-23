@@ -469,11 +469,6 @@ class DUUIWorkerDocumentReader extends Thread {
         this.composer = composer;
     }
 
-    private DUUIDocument pollDocument() {
-
-        return null;
-    }
-
     @Override
     public void run() {
 
@@ -503,7 +498,6 @@ class DUUIWorkerDocumentReader extends Thread {
                         if (document != null && !document.isFinished()) break;
                     }
 
-                    // Give the main IO Thread time to finish work
                     Thread.sleep(300);
                 } catch (IllegalArgumentException ignored) {
                 } catch (InterruptedException e) {
@@ -592,7 +586,11 @@ class DUUIWorkerDocumentReader extends Thread {
                             "%s encountered error %s. Thread continues work with next document.",
                             document.getPath(), exception.getMessage()));
 
-                    document.setError(exception.toString());
+                    document.setError(String.format(
+                        "%s%n%s",
+                        exception.getClass().getCanonicalName(),
+                        exception.getMessage() == null ? "" : exception.getMessage()));
+
                     document.setStatus(DUUIStatus.FAILED);
 
                     if (composer.getIgnoreErrors()) {
@@ -607,7 +605,10 @@ class DUUIWorkerDocumentReader extends Thread {
                             "%s encountered error %s. Thread continues work with next document.",
                             document.getPath(), exception));
 
-                    document.setError(exception.toString());
+                    document.setError(String.format(
+                        "%s%n%s",
+                        exception.getClass().getCanonicalName(),
+                        exception.getMessage() == null ? "" : exception.getMessage()));
                     document.setStatus(DUUIStatus.FAILED);
 
                     if (composer.getIgnoreErrors()) {
@@ -649,14 +650,12 @@ class DUUIWorkerDocumentReader extends Thread {
 public class DUUIComposer {
     private final Map<String, IDUUIDriverInterface> _drivers;
     private final Vector<DUUIPipelineComponent> _pipeline;
-
     private int _workers;
     public Integer _cas_poolsize;
     private DUUILuaContext _context;
     private DUUIMonitor _monitor;
     private IDUUIStorageBackend _storage;
     private boolean _skipVerification;
-
     private Vector<PipelinePart> _instantiatedPipeline;
     private Thread _shutdownHook;
     private AtomicBoolean _shutdownAtomic;
@@ -710,7 +709,15 @@ public class DUUIComposer {
         _hasShutdown = false;
         _shutdownAtomic = new AtomicBoolean(false);
         _instantiatedPipeline = new Vector<>();
-        _minimalTypesystem = TypeSystemDescriptionFactory.createTypeSystemDescriptionFromPath(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/types/reproducibleAnnotations.xml").toURI().toString());
+        _minimalTypesystem = TypeSystemDescriptionFactory
+            .createTypeSystemDescriptionFromPath(
+                Objects.requireNonNull(
+                        DUUIComposer
+                            .class
+                            .getClassLoader()
+                            .getResource("org/texttechnologylab/types/reproducibleAnnotations.xml")
+                    ).toURI()
+                    .toString());
 
         addEvent(
             DUUIEvent.Sender.COMPOSER,
@@ -743,7 +750,7 @@ public class DUUIComposer {
         return this;
     }
 
-    public DUUIComposer withStorageBackend(IDUUIStorageBackend storage) throws UnknownHostException, InterruptedException {
+    public DUUIComposer withStorageBackend(IDUUIStorageBackend storage) {
         _storage = storage;
         return this;
     }
@@ -1376,22 +1383,26 @@ public class DUUIComposer {
 
                 document.incrementProgress();
             }
-        } catch (Exception e) {
-            error = e;
+        } catch (Exception exception) {
+            error = exception;
 
-            document.setError(e.getMessage());
+            document.setError(String.format(
+                "%s%n%s",
+                exception.getClass().getCanonicalName(),
+                exception.getMessage() == null ? "" : exception.getMessage()));
+
             addEvent(
                 DUUIEvent.Sender.COMPOSER,
-                e.getMessage(),
+                exception.getMessage(),
                 DebugLevel.ERROR);
 
             // If we want to track errors we have to add the metrics for the document
             // TODO this should be configurable separately
             if (_storage == null) {
-                throw e;
+                throw exception;
             }
             if (!_storage.shouldTrackErrorDocs()) {
-                throw e;
+                throw exception;
             }
         }
 
@@ -1407,6 +1418,8 @@ public class DUUIComposer {
         if (_storage != null) {
             _storage.addMetricsForDocument(perf);
         }
+
+        incrementProgress();
 
         return jc;
     }
@@ -1494,7 +1507,12 @@ public class DUUIComposer {
             // See https://github.com/texttechnologylab/DockerUnifiedUIMAInterface/issues/34
             // TODO check for side effects
             if (_instantiatedPipeline == null || _instantiatedPipeline.isEmpty()) {
-                instantiate_pipeline();
+                TypeSystemDescription desc = instantiate_pipeline();
+
+                if (desc == null || shouldShutdown()) {
+                    shutdown();
+                    return;
+                }
             }
             JCas start = run_pipeline(name, jc, 0, _instantiatedPipeline);
 
