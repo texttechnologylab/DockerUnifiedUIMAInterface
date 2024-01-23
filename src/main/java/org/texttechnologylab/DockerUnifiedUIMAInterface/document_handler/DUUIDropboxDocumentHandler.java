@@ -113,7 +113,7 @@ public class DUUIDropboxDocumentHandler implements IDUUIDocumentHandler {
                 "There has been a conflict because a file with the name %s already exists at %s.\n" +
                     "To overwrite existing files use write mode Overwrite instead of Add.",
                 document.getName(),
-                document.getPath()));
+                path));
         }
     }
 
