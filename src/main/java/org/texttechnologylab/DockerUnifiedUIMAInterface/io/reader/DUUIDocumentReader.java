@@ -30,16 +30,18 @@ import java.util.stream.Collectors;
 
 public class DUUIDocumentReader implements DUUICollectionReader {
 
-    private long maximumMemory;
+    private final long maximumMemory;
     private final AtomicInteger progress;
-    private AtomicLong currentMemorySize = new AtomicLong(0);
-    private int initialSize;
+    private final AtomicLong currentMemorySize = new AtomicLong(0);
+    private final int initialSize;
     private ConcurrentLinkedQueue<DUUIDocument> documents;
-    private ConcurrentLinkedQueue<DUUIDocument> documentsBackup;
-    private ConcurrentLinkedQueue<DUUIDocument> loadedDocuments;
+    private final ConcurrentLinkedQueue<DUUIDocument> documentsBackup;
+    private final ConcurrentLinkedQueue<DUUIDocument> loadedDocuments;
     private List<DUUIDocument> preProcessor;
     private final Builder builder;
     private final DUUIComposer composer;
+    private final int initial;
+    private final int skipped;
 
     private DUUIDocumentReader(Builder builder) {
         this.builder = builder;
@@ -57,6 +59,8 @@ public class DUUIDocumentReader implements DUUICollectionReader {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+
+        initial = preProcessor.size();
 
         if (builder.minimumDocumentSize > 0) removeSmallFiles();
         if (builder.sortBySize) sortFilesAscending();
@@ -77,6 +81,7 @@ public class DUUIDocumentReader implements DUUICollectionReader {
         maximumMemory = 500 * 1024 * 1024;
 
         composer.addDocuments(documents);
+        skipped = initial - documents.size();
     }
 
     public static Builder builder(DUUIComposer composer) {
@@ -175,7 +180,9 @@ public class DUUIDocumentReader implements DUUICollectionReader {
 
         int removedCounter = 0;
 
-        for (DUUIDocument document : preProcessor) {
+        List<DUUIDocument> preProcessorCopy = new ArrayList<>(preProcessor);
+
+        for (DUUIDocument document : preProcessorCopy) {
             String stem = document
                 .getName()
                 .replaceAll(builder.inputFileExtension, "")
@@ -235,7 +242,7 @@ public class DUUIDocumentReader implements DUUICollectionReader {
             DUUIEvent.Sender.READER,
             String.format(
                 "Document %s decoded after %d ms",
-                document.getName(),
+                document.getPath(),
                 timer.getDuration())
         );
 
@@ -243,7 +250,7 @@ public class DUUIDocumentReader implements DUUICollectionReader {
             DUUIEvent.Sender.READER,
             String.format(
                 "Deserializing document %s",
-                document.getName())
+                document.getPath())
         );
 
         timer.restart();
@@ -259,7 +266,7 @@ public class DUUIDocumentReader implements DUUICollectionReader {
             DUUIEvent.Sender.READER,
             String.format(
                 "Document %s deserialized after %d ms",
-                document.getName(),
+                document.getPath(),
                 timer.getDuration())
         );
 
@@ -323,7 +330,7 @@ public class DUUIDocumentReader implements DUUICollectionReader {
             DUUIEvent.Sender.READER,
             String.format(
                 "Decoding document %s",
-                document.getName())
+                document.getPath())
         );
 
         timer.start();
@@ -375,6 +382,14 @@ public class DUUIDocumentReader implements DUUICollectionReader {
     @Override
     public long getDone() {
         return progress.get();
+    }
+
+    public int getInitial() {
+        return initial;
+    }
+
+    public int getSkipped() {
+        return skipped;
     }
 
     public static final class Builder {
