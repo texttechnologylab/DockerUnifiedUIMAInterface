@@ -490,13 +490,8 @@ class DUUIWorkerDocumentReader extends Thread {
                 }
 
                 try {
-                    reader.getNextCas(cas);
-                    String path = JCasUtil.selectSingle(cas, DocumentMetaData.class).getDocumentUri();
-
-                    if (path != null && !path.isEmpty()) {
-                        document = composer.findDocumentByPath(path);
-                        if (document != null && !document.isFinished()) break;
-                    }
+                    document = reader.getNextDocument(cas);
+                    if (document != null && !document.isFinished()) break;
 
                     Thread.sleep(300);
                 } catch (IllegalArgumentException ignored) {
@@ -621,10 +616,12 @@ class DUUIWorkerDocumentReader extends Thread {
                 document.incrementProgress();
             }
 
+
             timer.stop();
 
             if (!document.getStatus().equals(DUUIStatus.FAILED)) {
                 document.setStatus(DUUIStatus.COMPLETED);
+                document.setResult(cas, reader.hasOutput());
             }
 
             composer.addEvent(
@@ -727,10 +724,8 @@ public class DUUIComposer {
         DUUIComposer that = this;
         _shutdownHook = new Thread(() -> {
             try {
-                System.out.println("[Composer] ShutdownHook... ");
-                /** @see */
                 that.shutdown();
-                System.out.println("[Composer] ShutdownHook finished.");
+                addEvent(DUUIEvent.Sender.COMPOSER, "Shutdown Hook finished.");
             } catch (UnknownHostException e) {
                 e.printStackTrace();
             }
@@ -1383,6 +1378,7 @@ public class DUUIComposer {
 
                 document.incrementProgress();
             }
+            document.setResult(jc, true);
         } catch (Exception exception) {
             error = exception;
 

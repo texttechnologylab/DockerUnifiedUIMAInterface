@@ -61,8 +61,11 @@ public class DUUIMinioDocumentHandler implements IDUUIDocumentHandler {
                 .putObject(
                     PutObjectArgs.builder()
                         .bucket(bucket)
-                        .object(document.getName())
-                        .stream(document.toInputStream(), document.getSize(), -1)
+                        .object(document.getOutputName())
+                        .stream(
+                            document.getResult(),
+                            document.getOutputStream().size(),
+                            -1)
                         .build());
 
         } catch (Exception e) {

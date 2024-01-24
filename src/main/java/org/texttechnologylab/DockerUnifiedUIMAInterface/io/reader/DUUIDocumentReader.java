@@ -218,6 +218,81 @@ public class DUUIDocumentReader implements DUUICollectionReader {
         return null;
     }
 
+    public DUUIDocument getNextDocument(JCas pCas) {
+        if (composer.shouldShutdown()) {
+            return null;
+        }
+
+        DUUIDocument document = pollDocument();
+        if (document == null) return null;
+        document.setStartedAt();
+
+        Timer timer = new Timer();
+
+        timer.start();
+        InputStream decodedDocument = decodeDocument(document, timer);
+        timer.stop();
+
+        document.setDurationDecode(timer.getDuration());
+
+        document.setStatus(DUUIStatus.DESERIALIZE);
+
+        composer.addEvent(
+            DUUIEvent.Sender.READER,
+            String.format(
+                "Document %s decoded after %d ms",
+                document.getPath(),
+                timer.getDuration())
+        );
+
+        composer.addEvent(
+            DUUIEvent.Sender.READER,
+            String.format(
+                "Deserializing document %s",
+                document.getPath())
+        );
+
+        timer.restart();
+
+        try {
+            XmiCasDeserializer.deserialize(decodedDocument, pCas.getCas(), true);
+        } catch (Exception e) {
+            pCas.setDocumentText(document.getText().trim());
+        }
+
+        timer.stop();
+        composer.addEvent(
+            DUUIEvent.Sender.READER,
+            String.format(
+                "Document %s deserialized after %d ms",
+                document.getPath(),
+                timer.getDuration())
+        );
+
+        document.setDurationDeserialize(timer.getDuration());
+        document.setStatus(DUUIStatus.WAITING);
+
+        if (builder.addMetadata) {
+            if (JCasUtil.select(pCas, DocumentMetaData.class).isEmpty()) {
+                DocumentMetaData metadata = DocumentMetaData.create(pCas);
+                metadata.setDocumentId(document.getName());
+                metadata.setDocumentTitle(document.getName());
+                metadata.setDocumentUri(document.getPath());
+                metadata.addToIndexes();
+            } else {
+                DocumentMetaData metaData = JCasUtil.selectSingle(pCas, DocumentMetaData.class);
+                metaData.setDocumentUri(document.getPath());
+                metaData.addToIndexes();
+            }
+        }
+
+        if (builder.language != null && !builder.language.isEmpty()) {
+            pCas.setDocumentLanguage(builder.language);
+        }
+
+        return document;
+    }
+
     @Override
     public void getNextCas(JCas pCas) {
         if (composer.shouldShutdown()) {
@@ -258,7 +333,7 @@ public class DUUIDocumentReader implements DUUICollectionReader {
         try {
             XmiCasDeserializer.deserialize(decodedDocument, pCas.getCas(), true);
         } catch (Exception e) {
-            pCas.setDocumentText(document.getText());
+            pCas.setDocumentText(document.getText().trim());
         }
 
         timer.stop();
@@ -390,6 +465,10 @@ public class DUUIDocumentReader implements DUUICollectionReader {
 
     public int getSkipped() {
         return skipped;
+    }
+
+    public boolean hasOutput() {
+        return builder.outputHandler != null;
     }
 
     public static final class Builder {

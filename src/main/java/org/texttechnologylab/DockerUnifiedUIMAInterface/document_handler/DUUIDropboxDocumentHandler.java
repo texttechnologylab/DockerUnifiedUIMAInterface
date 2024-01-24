@@ -101,12 +101,12 @@ public class DUUIDropboxDocumentHandler implements IDUUIDocumentHandler {
             };
 
             if (document.getSize() >= CHUNK_SIZE) {
-                writeDocumentChunked(document, path + document.getName(), progressListener);
+                writeDocumentChunked(document, path + document.getOutputName(), progressListener);
             } else {
                 client.files()
-                    .uploadBuilder(path + document.getName())
+                    .uploadBuilder(path + document.getOutputName())
                     .withMode(writeMode)
-                    .uploadAndFinish(document.toInputStream(), progressListener);
+                    .uploadAndFinish(document.getResult(), progressListener);
             }
         } catch (DbxException e) {
             throw new IOException(String.format(
@@ -129,7 +129,7 @@ public class DUUIDropboxDocumentHandler implements IDUUIDocumentHandler {
      * @throws IOException If an error occurs, throws the error as an IOException.
      */
     private void writeDocumentChunked(DUUIDocument document, String path, IOUtil.ProgressListener progressListener) throws IOException {
-        long size = document.getSize();
+        long size = document.getOutputStream().size();
         long uploadProgress = 0L;
 
         String sessionId = null;
@@ -139,7 +139,7 @@ public class DUUIDropboxDocumentHandler implements IDUUIDocumentHandler {
                 System.out.printf("Upload try %d of %d.", i + 1, MAX_RETRIES);
             }
 
-            try (InputStream stream = document.toInputStream()) {
+            try (InputStream stream = document.getResult()) {
                 // If this is not the first try. Skip already uploaded bytes.
                 long ignored = stream.skip(uploadProgress);
 

@@ -3,7 +3,9 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface.document_handler;
 import org.texttechnologylab.utilities.helper.FileUtils;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -17,14 +19,16 @@ public class DUUILocalDocumentHandler implements IDUUIDocumentHandler {
 
     @Override
     public void writeDocument(DUUIDocument document, String path) throws IOException {
-        File file = new File(Paths.get(path, document.getName()).toString());
+        File file = new File(Paths.get(path, document.getOutputName()).toString());
         File parent = new File(path);
 
         if (!parent.exists()) {
             boolean ignored = parent.mkdirs();
         }
 
-        FileUtils.writeContent(document.getText(), file);
+        try (FileOutputStream fileOutputStream = new FileOutputStream(file.getAbsolutePath())) {
+            document.getOutputStream().writeTo(fileOutputStream);
+        }
     }
 
     @Override
@@ -39,7 +43,7 @@ public class DUUILocalDocumentHandler implements IDUUIDocumentHandler {
         Path _path = Paths.get(path);
         return new DUUIDocument(
             _path.getFileName().toString(),
-            _path.getParent().toString(),
+            _path.toFile().getAbsolutePath(),
             Files.readAllBytes(_path)
         );
     }
