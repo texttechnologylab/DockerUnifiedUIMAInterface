@@ -96,7 +96,7 @@ public class DUUIAsynchronousProcessor {
         boolean bReturn = true;
         for (DUUICollectionReader duuiCollectionReader : readerSet) {
             if (bReturn) {
-                bReturn = duuiCollectionReader.hasNext();
+                bReturn = !duuiCollectionReader.hasNext();
             }
         }
         return bReturn;
