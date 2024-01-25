@@ -333,7 +333,7 @@ class DUUIWorkerAsyncProcessor extends Thread {
     @Override
     public void run() {
         int num = _threadsAlive.addAndGet(1);
-        while (true) {
+        do {
             long waitTimeStart = System.nanoTime();
             long waitTimeEnd = 0;
             while (true) {
@@ -419,6 +419,8 @@ class DUUIWorkerAsyncProcessor extends Thread {
                 _backend.addMetricsForDocument(perf);
             }
         }
+        while (!_processor.isFinish());
+
     }
 }
 
@@ -657,9 +659,9 @@ public class DUUIComposer {
                 arr[i].start();
             }
             Instant starttime = Instant.now();
-            while (!_shutdownAtomic.get()) {
-
-            }
+//            while (!_shutdownAtomic.get()) {
+//
+//            }
 
             AtomicInteger waitCount = new AtomicInteger();
             waitCount.set(0);
