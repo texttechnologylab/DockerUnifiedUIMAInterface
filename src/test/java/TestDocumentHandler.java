@@ -179,44 +179,46 @@ public class TestDocumentHandler {
     @DisplayName("min.io")
     public class TestMinioDocumentHandler {
 
-        private final String _endpoint = "http://192.168.2.122:9000";
+        private final String endpoint = "http://192.168.2.122:9000";
 
         @Test
         public void TestListFiles() throws IOException {
-            DUUIMinioDocumentHandler _reader = new DUUIMinioDocumentHandler(
-                _endpoint,
+            DUUIMinioDocumentHandler reader = new DUUIMinioDocumentHandler(
+                endpoint,
                 System.getenv("minio_key"),
                 System.getenv("minio_secret"));
 
-            assertEquals(17, _reader.listDocuments("input-txt", ".txt").size());
-            assertEquals(3, _reader.listDocuments("input-xmi", ".xmi").size());
+            assertEquals(1, reader.listDocuments("output/path", ".txt", true).size());
+            assertEquals(1, reader.listDocuments("output/python", ".py", true).size());
+            assertEquals(20, reader.listDocuments("output/path", ".xmi", true).size());
+            assertEquals(20, reader.listDocuments("output/path/to/file", ".xmi").size());
         }
 
         @Test
         public void TestMinioWriteFile() throws IOException {
             DUUIMinioDocumentHandler _reader = new DUUIMinioDocumentHandler(
-                _endpoint,
+                endpoint,
                 System.getenv("minio_key"),
                 System.getenv("minio_secret"));
 
             String text = "print(\"Hello World!\")";
             String name = "main.py";
-            String bucket = "output-python";
+            String path = "output/python";
 
             DUUIDocument document = new DUUIDocument(
                 name,
-                bucket,
+                path,
                 text.trim().getBytes(StandardCharsets.UTF_8)
             );
 
-            _reader.writeDocument(document, bucket);
-            assertEquals(1, _reader.listDocuments(bucket, ".py").size());
+            _reader.writeDocument(document, path);
+            assertEquals(1, _reader.listDocuments(path, ".py").size());
         }
 
         @Test
         public void TestWriteLargeFile() throws IOException {
             DUUIMinioDocumentHandler _reader = new DUUIMinioDocumentHandler(
-                _endpoint,
+                endpoint,
                 System.getenv("minio_key"),
                 System.getenv("minio_secret"));
 
@@ -225,25 +227,22 @@ public class TestDocumentHandler {
             DUUILocalDocumentHandler localDocumentHandler = new DUUILocalDocumentHandler();
             DUUIDocument document = localDocumentHandler.readDocument(path);
 
-            Timer timer = new Timer();
-            timer.start();
-            _reader.writeDocument(document, "output-large");
-            timer.stop();
-            System.out.println(timer.getDuration() + " ms");
-            assertEquals(1, _reader.listDocuments("output-large", ".gz").size());
+            _reader.writeDocument(document, "output/large");
+            assertEquals(1, _reader.listDocuments("output/large", ".gz").size());
         }
 
         @Test
         public void TestMinioReadFile() throws IOException {
             DUUIMinioDocumentHandler _reader = new DUUIMinioDocumentHandler(
-                _endpoint,
+                endpoint,
                 System.getenv("minio_key"),
                 System.getenv("minio_secret"));
 
-            String expected = "Der Deutsche Bundestag (Abkürzung BT) ist das Parlament und somit das gesetzgebende Organ der Bundesrepublik Deutschland mit Sitz in Berlin.";
+            String expected = "print(\"Hello World!\")";
 
-            DUUIDocument stream = _reader.readDocument("input-txt/sample_01_140.txt");
-            String content = new String(stream.getBytes(), StandardCharsets.UTF_8);
+
+            DUUIDocument document = _reader.readDocument("output/python/main.py");
+            String content = new String(document.getBytes(), StandardCharsets.UTF_8);
             assertEquals(expected.trim(), content.trim());
         }
 

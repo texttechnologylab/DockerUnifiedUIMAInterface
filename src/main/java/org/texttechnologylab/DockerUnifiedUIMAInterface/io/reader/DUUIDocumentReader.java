@@ -3,8 +3,10 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface.io.reader;
 import de.tudarmstadt.ukp.dkpro.core.api.io.ProgressMeter;
 import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import org.apache.uima.cas.impl.XmiCasDeserializer;
+import org.apache.uima.cas.impl.XmiCasSerializer;
 import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
+import org.apache.uima.util.XMLSerializer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.document_handler.DUUIDocument;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.document_handler.DUUILocalDocumentHandler;
@@ -14,7 +16,9 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.io.DUUIDocumentDecoder;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.DUUIEvent;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.DUUIStatus;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.tools.Timer;
+import org.xml.sax.SAXException;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Paths;
@@ -469,6 +473,32 @@ public class DUUIDocumentReader implements DUUICollectionReader {
 
     public boolean hasOutput() {
         return builder.outputHandler != null;
+    }
+
+    public void upload(DUUIDocument document, JCas cas) throws IOException, SAXException {
+        if (builder.outputHandler == null) return;
+
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        XmiCasSerializer xmiCasSerializer = new XmiCasSerializer(null);
+        XMLSerializer sax2xml = new XMLSerializer(outputStream);
+
+        xmiCasSerializer.serialize(cas.getCas(), sax2xml.getContentHandler(), null, null, null);
+
+        String outputName = document
+            .getName()
+            .replace(document.getFileExtension(), builder.outputFileExtension);
+
+        DUUIDocument temp = new DUUIDocument(
+            outputName,
+            builder.outputPath + "/" + outputName,
+            outputStream.toByteArray()
+        );
+
+        builder
+            .outputHandler
+            .writeDocument(temp, builder.outputPath);
+
+        document.setStatus(DUUIStatus.COMPLETED);
     }
 
     public static final class Builder {

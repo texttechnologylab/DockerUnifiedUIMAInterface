@@ -1,17 +1,11 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.document_handler;
 
-import com.google.protobuf.MessageLite;
-import de.tudarmstadt.ukp.dkpro.core.api.lexmorph.type.pos.POS;
-import org.apache.uima.cas.impl.XmiCasSerializer;
 import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.jcas.cas.TOP;
-import org.apache.uima.util.XMLSerializer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.DUUIStatus;
-import org.xml.sax.SAXException;
 
 import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.HashMap;
@@ -37,31 +31,26 @@ public class DUUIDocument {
     private long durationProcess = 0L;
     private long startedAt = 0L;
     private long finishedAt = 0L;
-    private long uploadProgress;
-    private long downloadProgress;
-    private ByteArrayOutputStream outputStream;
-    private String outputName;
-    private String result;
+    private long uploadProgress = 0L;
+    private long downloadProgress = 0L;
     private Map<String, Integer> annotations = new HashMap<>();
 
     public DUUIDocument(String name, String path, long size) {
         this.name = name;
         this.path = path;
         this.size = size;
-        this.outputName = name.replace(getFileExtension(), ".txt");
     }
 
     public DUUIDocument(String name, String path) {
         this.name = name;
         this.path = path;
-        this.outputName = name.replace(getFileExtension(), ".txt");
     }
 
     public DUUIDocument(String name, String path, byte[] bytes) {
         this.name = name;
         this.path = path;
         this.bytes = bytes;
-        this.outputName = name.replace(getFileExtension(), ".txt");
+        this.size = bytes.length;
     }
 
     @Override
@@ -237,6 +226,24 @@ public class DUUIDocument {
         this.finishedAt = finishedAt;
     }
 
+    public void countAnnotations(JCas cas) {
+        JCasUtil.select(cas, TOP.class).forEach(a -> {
+            String name = a.getType().getName();
+
+            int count = 0;
+
+            if (annotations.containsKey(name)) {
+                count = annotations.get(name);
+            }
+            count++;
+            annotations.put(name, count);
+        });
+    }
+
+    public Map<String, Integer> getAnnotations() {
+        return annotations;
+    }
+
     public long getUploadProgress() {
         return uploadProgress;
     }
@@ -251,53 +258,5 @@ public class DUUIDocument {
 
     public void setDownloadProgress(long downloadProgress) {
         this.downloadProgress = downloadProgress;
-    }
-
-    public ByteArrayInputStream getResult() {
-        return new ByteArrayInputStream(outputStream.toByteArray());
-    }
-
-    public void setResult(JCas cas, boolean serialize) {
-        if (serialize) {
-            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-            XmiCasSerializer xmiCasSerializer = new XmiCasSerializer(null);
-            XMLSerializer sax2xml = new XMLSerializer(outputStream);
-
-
-            try {
-                xmiCasSerializer.serialize(cas.getCas(), sax2xml.getContentHandler(), null, null, null);
-                this.outputStream = outputStream;
-            } catch (SAXException ignored) {
-            }
-        }
-
-        JCasUtil.select(cas, TOP.class).forEach(a -> {
-            String name = a.getType().getName();
-
-            int count = 0;
-
-            if (annotations.containsKey(name)) {
-                count = annotations.get(name);
-            }
-            count++;
-            annotations.put(name, count);
-        });
-
-    }
-
-    public String getOutputName() {
-        return outputName;
-    }
-
-    public void setOutputName(String outputName) {
-        this.outputName = outputName;
-    }
-
-    public ByteArrayOutputStream getOutputStream() {
-        return this.outputStream;
-    }
-
-    public Map<String, Integer> getAnnotations() {
-        return annotations;
     }
 }

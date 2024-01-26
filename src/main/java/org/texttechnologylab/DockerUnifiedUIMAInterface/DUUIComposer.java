@@ -626,8 +626,21 @@ class DUUIWorkerDocumentReader extends Thread {
             timer.stop();
 
             if (!document.getStatus().equals(DUUIStatus.FAILED)) {
-                document.setStatus(DUUIStatus.COMPLETED);
-                document.setResult(cas, reader.hasOutput());
+                document.setStatus(reader.hasOutput() ? DUUIStatus.OUTPUT : DUUIStatus.COMPLETED);
+                if (reader.hasOutput()) {
+                    try {
+                        reader.upload(document, cas);
+                    } catch (IOException | SAXException exception) {
+                        document.setError(String.format(
+                            "%s%n%s",
+                            exception.getClass().getCanonicalName(),
+                            exception.getMessage() == null ? "" : exception.getMessage()));
+                        document.setStatus(DUUIStatus.FAILED);
+
+                        if (!composer.getIgnoreErrors())
+                            throw new RuntimeException(exception);
+                    }
+                }
             }
 
             composer.addEvent(
@@ -1401,7 +1414,8 @@ public class DUUIComposer {
                 DUUIEvent.Sender.DOCUMENT,
                 String.format("%s has been processed",
                     document.getPath()));
-            document.setResult(jc, true);
+            document.countAnnotations(jc);
+
         } catch (Exception exception) {
             error = exception;
 
@@ -1428,7 +1442,7 @@ public class DUUIComposer {
         if (error != null) {
             document.setStatus(DUUIStatus.FAILED);
         } else {
-            document.setStatus(DUUIStatus.COMPLETED);
+            document.setStatus(DUUIStatus.OUTPUT);
         }
 
         document.setFinishedAt();
@@ -1829,11 +1843,11 @@ public class DUUIComposer {
         }
     }
 
-    public Set<String> getDocumentNames() {
+    public Set<String> getDocumentPaths() {
         return documents
             .values()
             .stream()
-            .map(DUUIDocument::getName)
+            .map(DUUIDocument::getPath)
             .collect(Collectors.toSet());
     }
 

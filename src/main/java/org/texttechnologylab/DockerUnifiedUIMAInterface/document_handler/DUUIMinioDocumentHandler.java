@@ -63,7 +63,7 @@ public class DUUIMinioDocumentHandler implements IDUUIDocumentHandler {
                         .build());
             }
 
-            String object = path.replace(bucket, "") + "/" + document.getOutputName();
+            String object = path.replace(bucket, "") + "/" + document.getName();
 
             client
                 .putObject(
@@ -71,8 +71,8 @@ public class DUUIMinioDocumentHandler implements IDUUIDocumentHandler {
                         .bucket(bucket)
                         .object(object)
                         .stream(
-                            document.getResult(),
-                            document.getOutputStream().size(),
+                            document.toInputStream(),
+                            document.getSize(),
                             -1)
                         .build()
                 );
@@ -93,7 +93,7 @@ public class DUUIMinioDocumentHandler implements IDUUIDocumentHandler {
     public DUUIDocument readDocument(String path) throws IOException {
         String bucket = getBucketFromPath(path);
         String object = path.replace(bucket, "");
-
+        if (object.startsWith("/")) object = object.substring(1);
         String name = Paths.get(path).getFileName().toString();
 
         try (InputStream document = client.getObject(GetObjectArgs
@@ -101,7 +101,7 @@ public class DUUIMinioDocumentHandler implements IDUUIDocumentHandler {
             .bucket(bucket)
             .object(object)
             .build())) {
-            return new DUUIDocument(name, bucket, document.readAllBytes());
+            return new DUUIDocument(name, path, document.readAllBytes());
         } catch (Exception e) {
             throw new IOException(e);
         }
@@ -120,6 +120,8 @@ public class DUUIMinioDocumentHandler implements IDUUIDocumentHandler {
     public List<DUUIDocument> listDocuments(String path, String fileExtension, boolean recursive) throws IOException {
         String bucket = getBucketFromPath(path);
         String prefix = path.replace(bucket, "");
+        if (prefix.startsWith("/")) prefix = prefix.substring(1);
+        if (!prefix.isEmpty() && !prefix.endsWith("/")) prefix += "/";
 
         Iterable<Result<Item>> results = client.listObjects(
             ListObjectsArgs
@@ -133,9 +135,11 @@ public class DUUIMinioDocumentHandler implements IDUUIDocumentHandler {
         List<DUUIDocument> documents = new ArrayList<>();
         for (Result<Item> result : results) {
             try {
+                if (result.get().isDir()) continue;
+
                 documents.add(
                     new DUUIDocument(
-                        result.get().objectName(),
+                        Paths.get(result.get().objectName()).getFileName().toString(),
                         bucket + "/" + result.get().objectName(),
                         result.get().size()));
             } catch (Exception exception) {
