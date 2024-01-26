@@ -6,7 +6,6 @@ import io.minio.messages.Item;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
@@ -21,6 +20,12 @@ public class DUUIMinioDocumentHandler implements IDUUIDocumentHandler {
             .endpoint(endpoint)
             .credentials(accessKey, secretKey)
             .build();
+    }
+
+    private String getBucketFromPath(String path) {
+        String[] parts = path.split("/");
+        if (parts.length == 1) return path;
+        return parts[0];
     }
 
     public DUUIMinioDocumentHandler(String endpoint, Provider credentialsProvider) {
@@ -39,8 +44,9 @@ public class DUUIMinioDocumentHandler implements IDUUIDocumentHandler {
     }
 
     @Override
-    public void writeDocument(DUUIDocument document, String bucket) throws IOException {
+    public void writeDocument(DUUIDocument document, String path) throws IOException {
         boolean doesBucketExist;
+        String bucket = getBucketFromPath(path);
 
         try {
             doesBucketExist = client.bucketExists(
@@ -57,16 +63,19 @@ public class DUUIMinioDocumentHandler implements IDUUIDocumentHandler {
                         .build());
             }
 
+            String object = path.replace(bucket, "") + "/" + document.getOutputName();
+
             client
                 .putObject(
                     PutObjectArgs.builder()
                         .bucket(bucket)
-                        .object(document.getOutputName())
+                        .object(object)
                         .stream(
                             document.getResult(),
                             document.getOutputStream().size(),
                             -1)
-                        .build());
+                        .build()
+                );
 
         } catch (Exception e) {
             throw new IOException(e);
@@ -82,14 +91,15 @@ public class DUUIMinioDocumentHandler implements IDUUIDocumentHandler {
 
     @Override
     public DUUIDocument readDocument(String path) throws IOException {
-        Path p = Paths.get(path);
-        String bucket = p.getParent().toString();
-        String name = p.getFileName().toString();
+        String bucket = getBucketFromPath(path);
+        String object = path.replace(bucket, "");
+
+        String name = Paths.get(path).getFileName().toString();
 
         try (InputStream document = client.getObject(GetObjectArgs
             .builder()
             .bucket(bucket)
-            .object(name)
+            .object(object)
             .build())) {
             return new DUUIDocument(name, bucket, document.readAllBytes());
         } catch (Exception e) {
@@ -107,11 +117,15 @@ public class DUUIMinioDocumentHandler implements IDUUIDocumentHandler {
     }
 
     @Override
-    public List<DUUIDocument> listDocuments(String bucket, String fileExtension, boolean recursive) throws IOException {
+    public List<DUUIDocument> listDocuments(String path, String fileExtension, boolean recursive) throws IOException {
+        String bucket = getBucketFromPath(path);
+        String prefix = path.replace(bucket, "");
+
         Iterable<Result<Item>> results = client.listObjects(
             ListObjectsArgs
                 .builder()
                 .bucket(bucket)
+                .prefix(prefix)
                 .recursive(recursive)
                 .build()
         );

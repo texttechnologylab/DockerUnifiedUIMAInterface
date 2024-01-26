@@ -523,10 +523,17 @@ class DUUIWorkerDocumentReader extends Thread {
 
             timer.restart();
 
-
             document.setStatus(DUUIStatus.ACTIVE);
 
             for (DUUIComposer.PipelinePart pipelinePart : flow) {
+                composer.addEvent(
+                    DUUIEvent.Sender.DOCUMENT,
+                    String.format(
+                        "%s is being processed by component %s",
+                        document.getPath(),
+                        pipelinePart.getName())
+                );
+
                 try {
                     DUUISegmentationStrategy segmentationStrategy = pipelinePart.getSegmentationStrategy();
                     if (segmentationStrategy instanceof DUUISegmentationStrategyNone) {
@@ -538,13 +545,6 @@ class DUUIWorkerDocumentReader extends Thread {
                             pipelinePart.getDriver().getClass().getSimpleName(),
                             DUUIStatus.ACTIVE);
 
-                        composer.addEvent(
-                            DUUIEvent.Sender.DOCUMENT,
-                            String.format(
-                                "%s is being processed by component %s",
-                                document.getPath(),
-                                pipelinePart.getName())
-                        );
 
                         pipelinePart.getDriver().run(pipelinePart.getUUID(), cas, perf, composer);
                     } else {
@@ -612,7 +612,13 @@ class DUUIWorkerDocumentReader extends Thread {
                         throw new RuntimeException(exception.getMessage());
                     }
                 }
-
+                composer.addEvent(
+                    DUUIEvent.Sender.DOCUMENT,
+                    String.format(
+                        "%s has been processed by component %s",
+                        document.getPath(),
+                        pipelinePart.getName())
+                );
                 document.incrementProgress();
             }
 
@@ -1346,7 +1352,6 @@ public class DUUIComposer {
         document.setStatus(DUUIStatus.ACTIVE);
 
         Exception error = null;
-
         try {
             for (PipelinePart comp : pipeline) {
                 if (shouldShutdown()) break;
@@ -1355,6 +1360,15 @@ public class DUUIComposer {
                 // Segment document for each item in the pipeline separately
                 // TODO support "complete pipeline" segmentation to only segment once
                 DUUISegmentationStrategy segmentationStrategy = comp.getSegmentationStrategy();
+
+                addEvent(
+                    DUUIEvent.Sender.DOCUMENT,
+                    String.format(
+                        "%s is being processed by component %s",
+                        document.getPath(),
+                        comp.getName())
+                );
+
                 if (segmentationStrategy instanceof DUUISegmentationStrategyNone) {
                     comp.getDriver().run(comp.getUUID(), jc, perf, this);
                 } else {
@@ -1364,9 +1378,7 @@ public class DUUIComposer {
                     while (jCasSegmented != null) {
                         // Process each cas sequentially
                         // TODO add parallel variant later
-                        addEvent(
-                            DUUIEvent.Sender.COMPOSER,
-                            String.format("%s is being processed by component %s", document.getPath(), comp.getName()));
+
                         comp.getDriver().run(comp.getUUID(), jCasSegmented, perf, this);
 
                         segmentationStrategy.merge(jCasSegmented);
@@ -1375,9 +1387,20 @@ public class DUUIComposer {
 
                     segmentationStrategy.finalize(jc);
                 }
-
+                addEvent(
+                    DUUIEvent.Sender.DOCUMENT,
+                    String.format(
+                        "%s has been processed by component %s",
+                        document.getPath(),
+                        comp.getName())
+                );
                 document.incrementProgress();
             }
+
+            addEvent(
+                DUUIEvent.Sender.DOCUMENT,
+                String.format("%s has been processed",
+                    document.getPath()));
             document.setResult(jc, true);
         } catch (Exception exception) {
             error = exception;
@@ -1416,7 +1439,6 @@ public class DUUIComposer {
         }
 
         incrementProgress();
-
         return jc;
     }
 
