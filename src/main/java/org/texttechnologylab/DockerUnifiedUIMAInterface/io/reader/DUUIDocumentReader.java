@@ -498,6 +498,9 @@ public class DUUIDocumentReader implements DUUICollectionReader {
             .outputHandler
             .writeDocument(temp, builder.outputPath);
 
+        long sizeStore = document.getSize();
+        document.setBytes(new byte[]{});
+        document.setSize(sizeStore);
         document.setStatus(DUUIStatus.COMPLETED);
     }
 
