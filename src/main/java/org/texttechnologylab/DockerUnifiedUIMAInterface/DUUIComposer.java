@@ -627,6 +627,8 @@ class DUUIWorkerDocumentReader extends Thread {
 
             if (!document.getStatus().equals(DUUIStatus.FAILED)) {
                 document.setStatus(reader.hasOutput() ? DUUIStatus.OUTPUT : DUUIStatus.COMPLETED);
+                document.countAnnotations(cas);
+
                 if (reader.hasOutput()) {
                     try {
                         reader.upload(document, cas);

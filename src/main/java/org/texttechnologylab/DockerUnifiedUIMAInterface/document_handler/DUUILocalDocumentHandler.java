@@ -40,7 +40,7 @@ public class DUUILocalDocumentHandler implements IDUUIDocumentHandler {
         Path _path = Paths.get(path);
         return new DUUIDocument(
             _path.getFileName().toString(),
-            _path.toFile().getAbsolutePath(),
+            _path.toFile().getAbsolutePath().replace("\\", "/"),
             Files.readAllBytes(_path)
         );
     }
@@ -65,7 +65,10 @@ public class DUUILocalDocumentHandler implements IDUUIDocumentHandler {
         return Stream
             .of(files)
             .filter(file -> !file.isDirectory() && file.getName().endsWith(fileExtension))
-            .map(file -> new DUUIDocument(file.getName(), file.getAbsolutePath(), file.length()))
+            .map(file -> new DUUIDocument(
+                file.getName(),
+                file.getAbsolutePath().replace("\\", "/"),
+                file.length()))
             .collect(Collectors.toList());
     }
 
@@ -77,7 +80,7 @@ public class DUUILocalDocumentHandler implements IDUUIDocumentHandler {
                     file.getFileName().toString(),
 
                     // This is only important if DUUI is run on Windows because Windows uses '\' as File.separator.
-                    file.toFile().getAbsolutePath().replace(Pattern.quote(File.separator), "/"),
+                    file.toFile().getAbsolutePath().replace("\\", "/"),
                     file.toFile().length())
                 ).filter(document -> document.getName().endsWith(fileExtension))
                 .collect(Collectors.toList());

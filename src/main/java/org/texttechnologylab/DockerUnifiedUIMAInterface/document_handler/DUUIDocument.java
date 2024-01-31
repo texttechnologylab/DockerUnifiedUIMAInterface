@@ -33,7 +33,7 @@ public class DUUIDocument {
     private long finishedAt = 0L;
     private long uploadProgress = 0L;
     private long downloadProgress = 0L;
-    private Map<String, Integer> annotations = new HashMap<>();
+    private final Map<String, Integer> annotations = new HashMap<>();
 
     public DUUIDocument(String name, String path, long size) {
         this.name = name;
