@@ -22,10 +22,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -38,7 +35,7 @@ public class DUUIDocumentReader implements DUUICollectionReader {
     private final AtomicInteger progress;
     private final AtomicLong currentMemorySize = new AtomicLong(0);
     private final int initialSize;
-    private ConcurrentLinkedQueue<DUUIDocument> documents;
+    private ConcurrentLinkedQueue<DUUIDocument> documentQueue;
     private final ConcurrentLinkedQueue<DUUIDocument> documentsBackup;
     private final ConcurrentLinkedQueue<DUUIDocument> loadedDocuments;
     private List<DUUIDocument> preProcessor;
@@ -70,22 +67,22 @@ public class DUUIDocumentReader implements DUUICollectionReader {
         if (builder.sortBySize) sortFilesAscending();
         if (builder.checkTarget) removeDocumentsInTarget();
 
-        documents = new ConcurrentLinkedQueue<>(preProcessor);
+        documentQueue = new ConcurrentLinkedQueue<>(preProcessor);
         documentsBackup = new ConcurrentLinkedQueue<>(preProcessor);
         loadedDocuments = new ConcurrentLinkedQueue<>();
 
         composer.addEvent(
             DUUIEvent.Sender.READER,
-            String.format("Processing %d files.", documents.size())
+            String.format("Processing %d files.", documentQueue.size())
         );
 
-        initialSize = documents.size();
+        initialSize = documentQueue.size();
         progress = new AtomicInteger(0);
         currentMemorySize.set(0);
         maximumMemory = 500 * 1024 * 1024;
 
-        composer.addDocuments(documents);
-        skipped = initial - documents.size();
+        composer.addDocuments(preProcessor);
+        skipped = initial - documentQueue.size();
     }
 
     public static Builder builder(DUUIComposer composer) {
@@ -213,7 +210,7 @@ public class DUUIDocumentReader implements DUUICollectionReader {
     }
 
     public void reset() {
-        documents = documentsBackup;
+        documentQueue = documentsBackup;
         progress.set(0);
     }
 
@@ -376,7 +373,7 @@ public class DUUIDocumentReader implements DUUICollectionReader {
         DUUIDocument document;
 
         if (polled == null) {
-            document = documents.poll();
+            document = documentQueue.poll();
             if (document == null) return null;
         } else {
             document = polled;
@@ -396,6 +393,7 @@ public class DUUIDocumentReader implements DUUICollectionReader {
                 throw new RuntimeException(exception);
             }
         }
+
 
         document = composer.addDocument(polled);
         document.setBytes(polled.getBytes());
@@ -426,7 +424,7 @@ public class DUUIDocumentReader implements DUUICollectionReader {
     }
 
     public CompletableFuture<Integer> getAsyncNextByteArray() {
-        DUUIDocument document = documents.poll();
+        DUUIDocument document = documentQueue.poll();
         if (document == null) return CompletableFuture.completedFuture(1);
 
         return CompletableFuture.supplyAsync(
@@ -455,7 +453,7 @@ public class DUUIDocumentReader implements DUUICollectionReader {
 
     @Override
     public long getSize() {
-        return documents.size();
+        return documentQueue.size();
     }
 
     @Override
@@ -476,7 +474,9 @@ public class DUUIDocumentReader implements DUUICollectionReader {
     }
 
     public void upload(DUUIDocument document, JCas cas) throws IOException, SAXException {
-        if (builder.outputHandler == null) return;
+        if (builder.outputHandler == null || document.getUploadProgress() != 0) return;
+
+        composer.addEvent(DUUIEvent.Sender.READER, String.format("Uploading document %s", document.getPath()));
 
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         XmiCasSerializer xmiCasSerializer = new XmiCasSerializer(null);
@@ -501,6 +501,7 @@ public class DUUIDocumentReader implements DUUICollectionReader {
         long sizeStore = document.getSize();
         document.setBytes(new byte[]{});
         document.setSize(sizeStore);
+        document.setUploadProgress(temp.getUploadProgress());
         document.setStatus(DUUIStatus.COMPLETED);
     }
 
@@ -597,6 +598,7 @@ public class DUUIDocumentReader implements DUUICollectionReader {
             this.recursive = recursive;
             return this;
         }
+
     }
 
     public static List<DUUIDocument> loadDocumentsFromPath(String path, String fileExtension, boolean recursive) throws IOException {

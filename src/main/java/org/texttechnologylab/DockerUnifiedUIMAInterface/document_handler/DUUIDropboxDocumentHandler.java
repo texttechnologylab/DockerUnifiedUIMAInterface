@@ -108,6 +108,13 @@ public class DUUIDropboxDocumentHandler implements IDUUIDocumentHandler {
                     .withMode(writeMode)
                     .uploadAndFinish(document.toInputStream(), progressListener);
             }
+        } catch (RateLimitException exception) {
+            try {
+                Thread.sleep(2000);
+                writeDocument(document, path);
+            } catch (InterruptedException sleepEx) {
+                Thread.currentThread().interrupt();
+            }
         } catch (DbxException e) {
             throw new IOException(String.format(
                 "There has been a conflict because a file with the name %s already exists at %s.\n" +
