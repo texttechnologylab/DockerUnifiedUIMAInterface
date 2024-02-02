@@ -13,6 +13,7 @@ import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.fit.factory.TypeSystemDescriptionFactory;
 import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
+import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.apache.uima.util.CasCreationUtils;
 import org.apache.uima.util.InvalidXMLException;
@@ -627,6 +628,8 @@ class DUUIWorkerDocumentReader extends Thread {
 
             if (!document.getStatus().equals(DUUIStatus.FAILED)) {
                 document.setStatus(reader.hasOutput() ? DUUIStatus.OUTPUT : DUUIStatus.COMPLETED);
+                document.countAnnotations(cas);
+
                 if (reader.hasOutput()) {
                     try {
                         reader.upload(document, cas);
@@ -1219,6 +1222,8 @@ public class DUUIComposer {
     }
 
     public TypeSystemDescription instantiate_pipeline() throws Exception {
+        if (isServiceStarted)
+            return fromInstantiatedPipeline();
 
         Timer timer = new Timer();
         timer.start();
@@ -1314,12 +1319,6 @@ public class DUUIComposer {
 
         if (isServiceStarted && instantiatedTypeSystem != null) {
             addEvent(DUUIEvent.Sender.COMPOSER, "Reusing TypeSystemDescription");
-
-            timer.stop();
-            addEvent(
-                DUUIEvent.Sender.COMPOSER,
-                String.format("Instatiated Pipeline after %d ms.", timer.getDuration()));
-
         } else {
             isServiceStarted = isService;
 
@@ -1330,11 +1329,12 @@ public class DUUIComposer {
             } else {
                 instantiatedTypeSystem = TypeSystemDescriptionFactory.createTypeSystemDescription();
             }
-            timer.stop();
-            addEvent(
-                DUUIEvent.Sender.COMPOSER,
-                String.format("Instatiated Pipeline after %d ms.", timer.getDuration()));
         }
+
+        timer.stop();
+        addEvent(
+            DUUIEvent.Sender.COMPOSER,
+            String.format("Instatiated Pipeline after %d ms.", timer.getDuration()));
 
         instantiationDuration = timer.getDuration();
 
@@ -1654,6 +1654,7 @@ public class DUUIComposer {
             if (_storage != null) {
                 _storage.addNewRun(identifier, this);
             }
+
             TypeSystemDescription desc = instantiate_pipeline();
 
             if (desc == null || shouldShutdown()) {
@@ -1784,6 +1785,49 @@ public class DUUIComposer {
         }
     }
 
+    /**
+     * Allow access to the instantiated pipeline to store it for future reusability.
+     *
+     * @return an instantiated pipeline.
+     */
+    public Vector<PipelinePart> getInstantiatedPipeline() {
+        return _instantiatedPipeline;
+    }
+
+    public DUUIComposer withInstantiatedPipeline(Vector<PipelinePart> pipeline) {
+        this._instantiatedPipeline = pipeline;
+        this.isServiceStarted = true;
+        return this;
+    }
+
+    public TypeSystemDescription fromInstantiatedPipeline() throws ResourceInitializationException, CompressorException, IOException, InterruptedException, SAXException {
+        List<TypeSystemDescription> descriptions = new LinkedList<>();
+        descriptions.add(_minimalTypesystem);
+        descriptions.add(TypeSystemDescriptionFactory.createTypeSystemDescription());
+
+        for (PipelinePart part : _instantiatedPipeline) {
+            addDriver(part.getDriver());
+            TypeSystemDescription desc = part.getDriver().get_typesystem(part.getUUID());
+            if (desc != null) {
+                descriptions.add(desc);
+            }
+        }
+
+        for (IDUUIDriverInterface driver : _drivers.values()) {
+            pipelineStatus.put(driver.getClass().getSimpleName(), DUUIStatus.IDLE);
+        }
+
+
+        if (descriptions.size() > 1) {
+            instantiatedTypeSystem = CasCreationUtils.mergeTypeSystems(descriptions);
+        } else if (descriptions.size() == 1) {
+            instantiatedTypeSystem = descriptions.get(0);
+        } else {
+            instantiatedTypeSystem = TypeSystemDescriptionFactory.createTypeSystemDescription();
+        }
+
+        return instantiatedTypeSystem;
+    }
 
     public List<DUUIEvent> getEvents() {
         return events;
