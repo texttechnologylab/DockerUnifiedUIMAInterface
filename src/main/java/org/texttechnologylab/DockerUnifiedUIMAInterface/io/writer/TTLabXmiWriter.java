@@ -42,22 +42,22 @@ public class TTLabXmiWriter extends JCasFileWriter_ImplBase {
             XMLSerializer sax2xml = new XMLSerializer(docOS, prettyPrint);
             sax2xml.setOutputProperty(OutputKeys.VERSION, version);
 
-            XmiSerializationSharedData sharedObject = null;
-            sharedObject = AsyncCollectionReader.deserialize(aJCas);
-
-            if(sharedObject!=null){
-                CAS tCas = aJCas.getCas();
-                JCasUtil.select(tCas.getJCas(), SharedData.class).forEach(sd->{
-                    tCas.removeFsFromIndexes(sd);
-                });
-                xmiCasSerializer.serialize(aJCas.getCas(), sax2xml.getContentHandler(), null, sharedObject,
-                        null);
-            }
-            else{
+//            XmiSerializationSharedData sharedObject = null;
+//            sharedObject = AsyncCollectionReader.deserialize(aJCas);
+//
+//            if(sharedObject!=null){
+//                CAS tCas = aJCas.getCas();
+//                JCasUtil.select(tCas.getJCas(), SharedData.class).forEach(sd->{
+//                    tCas.removeFsFromIndexes(sd);
+//                });
+//                xmiCasSerializer.serialize(aJCas.getCas(), sax2xml.getContentHandler(), null, sharedObject,
+//                        null);
+//            }
+//            else{
 
                 xmiCasSerializer.serialize(aJCas.getCas(), sax2xml.getContentHandler(), null, null,
                         null);
-            }
+//            }
 
 
             if (!typeSystemWritten) {

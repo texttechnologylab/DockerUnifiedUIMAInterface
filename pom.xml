@@ -6,12 +6,14 @@
 
     <groupId>org.texttechnologylab</groupId>
     <artifactId>DockerUnifiedUIMAInterface</artifactId>
-    <version>1.0</version>
+    <version>1.3</version>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <maven.compiler.source>11</maven.compiler.source>
-        <maven.compiler.target>11</maven.compiler.target>
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
+        <typesystem.version>a9b52439a7</typesystem.version>
+        <uima.version>3.5.0</uima.version>
     </properties>
 
     <repositories>
@@ -48,19 +50,19 @@
         </resources>
         <plugins>
 
-                    <plugin>
-                        <artifactId>maven-assembly-plugin</artifactId>
-                        <configuration>
-                            <archive>
-                                <manifest>
-                                    <mainClass>org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer</mainClass>
-                                </manifest>
-                            </archive>
-                            <descriptorRefs>
-                                <descriptorRef>jar-with-dependencies</descriptorRef>
-                            </descriptorRefs>
-                        </configuration>
-                    </plugin>
+            <plugin>
+                <artifactId>maven-assembly-plugin</artifactId>
+                <configuration>
+                    <archive>
+                        <manifest>
+                            <mainClass>org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer</mainClass>
+                        </manifest>
+                    </archive>
+                    <descriptorRefs>
+                        <descriptorRef>jar-with-dependencies</descriptorRef>
+                    </descriptorRefs>
+                </configuration>
+            </plugin>
 
 
             <plugin>
@@ -78,7 +80,8 @@
                 </executions>
                 <configuration>
                     <generateGitPropertiesFile>true</generateGitPropertiesFile>
-                    <generateGitPropertiesFilename>${project.build.outputDirectory}/git.properties</generateGitPropertiesFilename>
+                    <generateGitPropertiesFilename>${project.build.outputDirectory}/git.properties
+                    </generateGitPropertiesFilename>
                     <includeOnlyProperties>
                         <includeOnlyProperty>^git.build.(time|version)$</includeOnlyProperty>
                         <includeOnlyProperty>^git.commit.id.(abbrev|full)$</includeOnlyProperty>
@@ -86,55 +89,55 @@
                     <commitIdGenerationMode>full</commitIdGenerationMode>
                 </configuration>
             </plugin>
-                        <plugin>
-                            <!--generate types dynamically -->
-                            <groupId>org.apache.uima</groupId>
-                            <artifactId>jcasgen-maven-plugin</artifactId>
-                            <version>2.9.0</version>
-                            <configuration>
-                                <limitToProject>true</limitToProject>
-                                <typeSystemIncludes>
-                                    <include>src/main/resources/org/texttechnologylab/types/reproducibleAnnotations.xml</include>
-                                </typeSystemIncludes>
-                            </configuration>
-                            <executions>
-                                <execution>
-                                    <!--call it in the generate-source phase -->
-                                    <phase>generate-sources</phase>
-                                    <goals>
-                                        <goal>generate</goal>
-                                    </goals>
-                                </execution>
-                            </executions>
-                        </plugin>
-                        <plugin>
-                            <groupId>org.codehaus.mojo</groupId>
-                            <artifactId>build-helper-maven-plugin</artifactId>
-                            <version>1.10</version>
-                            <executions>
-                                <execution>
-                                    <id>addToSourceFolder</id>
-                                    <goals>
-                                        <!--add the generated sources -->
-                                        <goal>add-source</goal>
-                                    </goals>
-                                    <phase>process-sources</phase>
-                                    <configuration>
-                                        <sources>
-                                            <!--default path to generated sources -->
-                                            <source>${project.build.directory}/generated-sources/jcasgen</source>
-                                        </sources>
-                                    </configuration>
-                                </execution>
-                            </executions>
-                        </plugin>
+            <plugin>
+                <!--generate types dynamically -->
+                <groupId>org.apache.uima</groupId>
+                <artifactId>jcasgen-maven-plugin</artifactId>
+                <version>3.5.0</version>
+                <configuration>
+                    <limitToProject>true</limitToProject>
+                    <typeSystemIncludes>
+                        <include>src/main/resources/org/texttechnologylab/types/reproducibleAnnotations.xml</include>
+                    </typeSystemIncludes>
+                </configuration>
+                <executions>
+                    <execution>
+                        <!--call it in the generate-source phase -->
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>generate</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+<!--            <plugin>-->
+<!--                <groupId>org.codehaus.mojo</groupId>-->
+<!--                <artifactId>build-helper-maven-plugin</artifactId>-->
+<!--                <version>1.10</version>-->
+<!--                <executions>-->
+<!--                    <execution>-->
+<!--                        <id>addToSourceFolder</id>-->
+<!--                        <goals>-->
+<!--                            &lt;!&ndash;add the generated sources &ndash;&gt;-->
+<!--                            <goal>add-source</goal>-->
+<!--                        </goals>-->
+<!--                        <phase>process-sources</phase>-->
+<!--                        <configuration>-->
+<!--                            <sources>-->
+<!--                                &lt;!&ndash;default path to generated sources &ndash;&gt;-->
+<!--                                <source>${project.build.directory}/generated-sources/jcasgen</source>-->
+<!--                            </sources>-->
+<!--                        </configuration>-->
+<!--                    </execution>-->
+<!--                </executions>-->
+<!--            </plugin>-->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.8.0</version>
                 <configuration>
-                    <source>11</source>
-                    <target>11</target>
+                    <source>17</source>
+                    <target>17</target>
                 </configuration>
             </plugin>
             <plugin>
@@ -160,6 +163,22 @@
         </plugins>
     </build>
     <dependencies>
+        <dependency>
+            <groupId>org.apache.uima</groupId>
+            <artifactId>uimaj-core</artifactId>
+            <version>${uima.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.uima</groupId>
+            <artifactId>uimafit-core</artifactId>
+            <version>${uima.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.github.texttechnologylab</groupId>
+            <artifactId>UIMATypeSystem</artifactId>
+            <version>${typesystem.version}</version>
+        </dependency>
 
         <dependency>
             <groupId>org.mongodb</groupId>
@@ -184,8 +203,7 @@
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
-<!--            <version>2.9.8</version>-->
-            <version>2.15.2</version>
+            <version>2.16.1</version>
         </dependency>
         <dependency>
             <groupId>org.java-websocket</groupId>
@@ -195,25 +213,25 @@
         <dependency>
             <groupId>com.influxdb</groupId>
             <artifactId>influxdb-client-java</artifactId>
-<!--            <version>5.0.0</version>-->
+            <!--            <version>5.0.0</version>-->
             <version>6.9.0</version>
         </dependency>
-    <dependency>
-        <groupId>com.github.docker-java</groupId>
-        <artifactId>docker-java</artifactId>
-        <version>3.3.1</version>
-        <exclusions>
-            <exclusion>
-                <groupId>com.google.guava</groupId>
-                <artifactId>guava</artifactId>
-            </exclusion>
-        </exclusions>
-    </dependency>
-    <dependency>
-        <groupId>com.github.javasync</groupId>
-        <artifactId>RxIo</artifactId>
-        <version>1.1.3</version>
-    </dependency>
+        <dependency>
+            <groupId>com.github.docker-java</groupId>
+            <artifactId>docker-java</artifactId>
+            <version>3.3.1</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.google.guava</groupId>
+                    <artifactId>guava</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>com.github.javasync</groupId>
+            <artifactId>RxIo</artifactId>
+            <version>1.1.3</version>
+        </dependency>
 
         <!-- https://mvnrepository.com/artifact/org.apache.commons/commons-compress -->
         <dependency>
@@ -247,16 +265,7 @@
         </dependency>
 
 
-        <dependency>
-            <groupId>org.apache.uima</groupId>
-            <artifactId>uimaj-core</artifactId>
-            <version>2.11.0</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.uima</groupId>
-            <artifactId>uimafit-core</artifactId>
-            <version>2.5.0</version>
-        </dependency>
+
         <!-- https://mvnrepository.com/artifact/org.json/json -->
         <dependency>
             <groupId>org.json</groupId>
@@ -291,11 +300,6 @@
 
 
 
-        <dependency>
-            <groupId>com.github.texttechnologylab</groupId>
-            <artifactId>UIMATypeSystem</artifactId>
-            <version>74a8489af5</version>
-        </dependency>
 
         <!-- https://mvnrepository.com/artifact/org.msgpack/msgpack-core -->
         <dependency>
@@ -311,24 +315,6 @@
         </dependency>
 
 
-
-        <dependency>
-            <groupId>de.tudarmstadt.ukp.dkpro.core</groupId>
-            <artifactId>de.tudarmstadt.ukp.dkpro.core.opennlp-asl</artifactId>
-            <version>1.10.0</version>
-        </dependency>
-        <!-- https://mvnrepository.com/artifact/de.tudarmstadt.ukp.dkpro.core/de.tudarmstadt.ukp.dkpro.core.io.text-asl -->
-        <dependency>
-            <groupId>de.tudarmstadt.ukp.dkpro.core</groupId>
-            <artifactId>de.tudarmstadt.ukp.dkpro.core.io.text-asl</artifactId>
-            <version>1.10.0</version>
-        </dependency>
-        <!-- https://mvnrepository.com/artifact/de.tudarmstadt.ukp.dkpro.core/de.tudarmstadt.ukp.dkpro.core.tokit-asl -->
-        <dependency>
-            <groupId>de.tudarmstadt.ukp.dkpro.core</groupId>
-            <artifactId>de.tudarmstadt.ukp.dkpro.core.tokit-asl</artifactId>
-            <version>1.10.0</version>
-        </dependency>
         <!-- https://mvnrepository.com/artifact/junit/junit -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
@@ -367,13 +353,13 @@
             <artifactId>dropbox-core-sdk</artifactId>
             <version>5.4.5</version>
         </dependency>
-      
+
         <dependency>
             <groupId>com.amazonaws</groupId>
             <artifactId>aws-java-sdk-s3</artifactId>
             <version>1.12.565</version>
-        </dependency> 
-          <dependency>
+        </dependency>
+        <dependency>
             <groupId>io.fabric8</groupId>
             <artifactId>kubernetes-client</artifactId>
             <version>6.8.0</version> <!-- Use the appropriate version here -->
@@ -384,6 +370,23 @@
             <artifactId>jackson-databind</artifactId>
             <version>2.15.2</version>
         </dependency>
+
+        <!-- https://mvnrepository.com/artifact/org.dkpro.core/dkpro-core-tokit-asl -->
+        <dependency>
+            <groupId>org.dkpro.core</groupId>
+            <artifactId>dkpro-core-tokit-asl</artifactId>
+            <version>2.4.0</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- https://mvnrepository.com/artifact/org.dkpro.core/dkpro-core-opennlp-asl -->
+        <dependency>
+            <groupId>org.dkpro.core</groupId>
+            <artifactId>dkpro-core-opennlp-asl</artifactId>
+            <version>2.4.0</version>
+            <scope>test</scope>
+        </dependency>
+
+
 
     </dependencies>
     <dependencyManagement>

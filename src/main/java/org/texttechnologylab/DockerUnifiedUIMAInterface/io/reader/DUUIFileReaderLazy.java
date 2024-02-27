@@ -1,6 +1,5 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.io.reader;
 
-import de.tudarmstadt.ukp.dkpro.core.api.io.ProgressMeter;
 import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.commons.compress.compressors.CompressorStreamFactory;
@@ -9,6 +8,7 @@ import org.apache.commons.io.IOUtils;
 import org.apache.uima.cas.impl.XmiCasDeserializer;
 import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
+import org.dkpro.core.api.io.ProgressMeter;
 import org.javaync.io.AsyncFiles;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.AsyncCollectionReader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.DUUICollectionReader;
@@ -248,8 +248,8 @@ public class DUUIFileReaderLazy implements DUUICollectionReader {
     }
 
     @Override
-    public ProgressMeter getProgress() {
-        return null;
+    public AdvancedProgressMeter getProgress() {
+        return this.progress;
     }
 
     private static final Pattern XMLCharInvalidPattern =
