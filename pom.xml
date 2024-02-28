@@ -12,7 +12,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
-        <typesystem.version>a9b52439a7</typesystem.version>
+        <typesystem.version>bd6e684b12</typesystem.version>
         <uima.version>3.5.0</uima.version>
         <dkpro.core.version>2.4.0</dkpro.core.version>
     </properties>
@@ -204,12 +204,12 @@
             <groupId>com.github.texttechnologylab</groupId>
             <artifactId>UIMATypeSystem</artifactId>
             <version>${typesystem.version}</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>com.github.texttechnologylab.textimager-uima</groupId>
-                    <artifactId>*</artifactId>
-                </exclusion>
-            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>com.github.texttechnologylab</groupId>
+            <artifactId>Utilities</artifactId>
+            <version>e945c17493</version>
         </dependency>
 
         <dependency>
@@ -362,25 +362,25 @@
             <scope>compile</scope>
         </dependency>
 
-        <dependency>
-            <groupId>com.github.texttechnologylab.textimager-uima</groupId>
-            <artifactId>textimager-uima-io</artifactId>
-            <version>b10db8275163d19d63b9512cc20ca5872e52499b</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>com.github.texttechnologylab</groupId>
-                    <artifactId>UIMATypeSystem</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.dkpro.core</groupId>
-                    <artifactId>*</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>de.tudarmstadt.ukp.dkpro.core</groupId>
-                    <artifactId>*</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
+<!--        <dependency>-->
+<!--            <groupId>com.github.texttechnologylab.textimager-uima</groupId>-->
+<!--            <artifactId>textimager-uima-io</artifactId>-->
+<!--            <version>b10db8275163d19d63b9512cc20ca5872e52499b</version>-->
+<!--            <exclusions>-->
+<!--                <exclusion>-->
+<!--                    <groupId>com.github.texttechnologylab</groupId>-->
+<!--                    <artifactId>UIMATypeSystem</artifactId>-->
+<!--                </exclusion>-->
+<!--                <exclusion>-->
+<!--                    <groupId>org.dkpro.core</groupId>-->
+<!--                    <artifactId>*</artifactId>-->
+<!--                </exclusion>-->
+<!--                <exclusion>-->
+<!--                    <groupId>de.tudarmstadt.ukp.dkpro.core</groupId>-->
+<!--                    <artifactId>*</artifactId>-->
+<!--                </exclusion>-->
+<!--            </exclusions>-->
+<!--        </dependency>-->
 
         <!-- Givara Ebo https://mvnrepository.com/artifact/io.socket/socket.io-client -->
         <dependency>
