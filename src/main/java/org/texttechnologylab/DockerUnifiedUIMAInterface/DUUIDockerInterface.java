@@ -5,6 +5,7 @@ import com.github.dockerjava.api.async.ResultCallback;
 import com.github.dockerjava.api.async.ResultCallbackTemplate;
 import com.github.dockerjava.api.command.*;
 import com.github.dockerjava.api.exception.DockerClientException;
+import com.github.dockerjava.api.exception.NotFoundException;
 import com.github.dockerjava.api.exception.NotModifiedException;
 import com.github.dockerjava.api.model.*;
 import com.github.dockerjava.core.DockerClientBuilder;
@@ -385,9 +386,14 @@ public class DUUIDockerInterface {
     }
 
     public boolean hasLocalImage(String imageName) {
-        InspectImageResponse resp = _docker.inspectImageCmd(imageName).exec();
-        if(resp!=null) {
-            return true;
+        try {
+            InspectImageResponse resp = _docker.inspectImageCmd(imageName).exec();
+            if (resp != null) {
+                return true;
+            }
+        } catch (NotFoundException nfe) {
+            // try another way
+            return false;
         }
 
         List<Image> images = _docker.listImagesCmd()
@@ -446,6 +452,11 @@ public class DUUIDockerInterface {
     }
 
     public String pullImage(String tag,String username, String password) throws InterruptedException {
+
+        if (hasLocalImage(tag)) {
+            return tag;
+        }
+
         try {
             if (username != null && password != null) {
                 AuthConfig cfg = new AuthConfig();

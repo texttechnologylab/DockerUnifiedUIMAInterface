@@ -2,12 +2,9 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface.io.writer;
 
 import org.apache.uima.UimaContext;
 import org.apache.uima.analysis_engine.AnalysisEngineProcessException;
-import org.apache.uima.cas.CAS;
 import org.apache.uima.cas.CASRuntimeException;
 import org.apache.uima.cas.impl.XmiCasSerializer;
-import org.apache.uima.cas.impl.XmiSerializationSharedData;
 import org.apache.uima.fit.descriptor.ConfigurationParameter;
-import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.util.TypeSystemUtil;
@@ -15,8 +12,6 @@ import org.apache.uima.util.XMLSerializer;
 import org.dkpro.core.api.io.JCasFileWriter_ImplBase;
 import org.dkpro.core.api.parameter.ComponentParameters;
 import org.dkpro.core.api.resources.CompressionUtils;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.io.AsyncCollectionReader;
-import org.texttechnologylab.annotation.SharedData;
 import org.xml.sax.SAXException;
 
 import javax.xml.transform.OutputKeys;

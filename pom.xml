@@ -14,6 +14,7 @@
         <maven.compiler.target>17</maven.compiler.target>
         <typesystem.version>a9b52439a7</typesystem.version>
         <uima.version>3.5.0</uima.version>
+        <dkpro.core.version>2.4.0</dkpro.core.version>
     </properties>
 
     <repositories>
@@ -97,40 +98,41 @@
                 <configuration>
                     <limitToProject>true</limitToProject>
                     <typeSystemIncludes>
-                        <include>src/main/resources/org/texttechnologylab/types/reproducibleAnnotations.xml</include>
+                        <include>src/main/resources/org/texttechnologylab/types/*</include>
+                        <!--                        <include>src/main/resources/org/texttechnologylab/types/reproducibleAnnotations.xml</include>-->
                     </typeSystemIncludes>
                 </configuration>
+                <!--                <executions>-->
+                <!--                    <execution>-->
+                <!--                        &lt;!&ndash;call it in the generate-source phase &ndash;&gt;-->
+                <!--                        <phase>generate-sources</phase>-->
+                <!--                        <goals>-->
+                <!--                            <goal>generate</goal>-->
+                <!--                        </goals>-->
+                <!--                    </execution>-->
+                <!--                </executions>-->
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>build-helper-maven-plugin</artifactId>
+                <version>1.10</version>
                 <executions>
                     <execution>
-                        <!--call it in the generate-source phase -->
-                        <phase>generate-sources</phase>
+                        <id>addToSourceFolder</id>
                         <goals>
-                            <goal>generate</goal>
+                            <!--add the generated sources -->
+                            <goal>add-source</goal>
                         </goals>
+                        <phase>process-sources</phase>
+                        <configuration>
+                            <sources>
+                                <!--default path to generated sources -->
+                                <source>${project.build.directory}/generated-sources/jcasgen</source>
+                            </sources>
+                        </configuration>
                     </execution>
                 </executions>
             </plugin>
-<!--            <plugin>-->
-<!--                <groupId>org.codehaus.mojo</groupId>-->
-<!--                <artifactId>build-helper-maven-plugin</artifactId>-->
-<!--                <version>1.10</version>-->
-<!--                <executions>-->
-<!--                    <execution>-->
-<!--                        <id>addToSourceFolder</id>-->
-<!--                        <goals>-->
-<!--                            &lt;!&ndash;add the generated sources &ndash;&gt;-->
-<!--                            <goal>add-source</goal>-->
-<!--                        </goals>-->
-<!--                        <phase>process-sources</phase>-->
-<!--                        <configuration>-->
-<!--                            <sources>-->
-<!--                                &lt;!&ndash;default path to generated sources &ndash;&gt;-->
-<!--                                <source>${project.build.directory}/generated-sources/jcasgen</source>-->
-<!--                            </sources>-->
-<!--                        </configuration>-->
-<!--                    </execution>-->
-<!--                </executions>-->
-<!--            </plugin>-->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
@@ -147,6 +149,8 @@
                 <configuration>
                     <argLine>
                         --illegal-access=permit
+                        --add-opens java.base/java.util=ALL-UNNAMED
+                        <!--                        add-opens for use in JUnit-Tests...-->
                     </argLine>
                 </configuration>
             </plugin>
@@ -162,6 +166,28 @@
             </plugin>
         </plugins>
     </build>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.dkpro.core</groupId>
+                <artifactId>dkpro-core-asl</artifactId>
+                <version>${dkpro.core.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>com.amazonaws</groupId>
+                <artifactId>aws-java-sdk-bom</artifactId>
+                <version>1.11.1000</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+
     <dependencies>
         <dependency>
             <groupId>org.apache.uima</groupId>
@@ -178,6 +204,12 @@
             <groupId>com.github.texttechnologylab</groupId>
             <artifactId>UIMATypeSystem</artifactId>
             <version>${typesystem.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.github.texttechnologylab.textimager-uima</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -186,10 +218,12 @@
             <version>3.12.11</version>
         </dependency>
 
+        <!-- https://mvnrepository.com/artifact/io.kubernetes/client-java -->
         <dependency>
             <groupId>io.kubernetes</groupId>
             <artifactId>client-java</artifactId>
-            <version>15.0.1</version>
+            <!--            <version>15.0.1</version>-->
+            <version>20.0.0</version>
         </dependency>
 
         <!-- https://mvnrepository.com/artifact/commons-io/commons-io -->
@@ -198,7 +232,6 @@
             <artifactId>commons-io</artifactId>
             <version>2.11.0</version>
         </dependency>
-
 
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
@@ -210,16 +243,25 @@
             <artifactId>Java-WebSocket</artifactId>
             <version>1.5.3</version>
         </dependency>
+
+        <!-- https://mvnrepository.com/artifact/javax.ws.rs/javax.ws.rs-api -->
+        <dependency>
+            <groupId>javax.ws.rs</groupId>
+            <artifactId>javax.ws.rs-api</artifactId>
+            <version>2.1.1</version>
+        </dependency>
+
+
         <dependency>
             <groupId>com.influxdb</groupId>
             <artifactId>influxdb-client-java</artifactId>
-            <!--            <version>5.0.0</version>-->
             <version>6.9.0</version>
         </dependency>
         <dependency>
             <groupId>com.github.docker-java</groupId>
             <artifactId>docker-java</artifactId>
             <version>3.3.1</version>
+            <!--            <version>3.3.1</version>-->
             <exclusions>
                 <exclusion>
                     <groupId>com.google.guava</groupId>
@@ -237,7 +279,7 @@
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-compress</artifactId>
-            <version>1.21</version>
+            <version>1.26.0</version>
         </dependency>
         <dependency>
             <groupId>org.luaj</groupId>
@@ -265,7 +307,6 @@
         </dependency>
 
 
-
         <!-- https://mvnrepository.com/artifact/org.json/json -->
         <dependency>
             <groupId>org.json</groupId>
@@ -285,20 +326,18 @@
             <artifactId>jackson-dataformat-velocypack</artifactId>
             <version>3.0.0</version>
         </dependency>
-        <dependency>
-            <groupId>com.github.texttechnologylab.textimager-uima</groupId>
-            <artifactId>textimager-uima-types</artifactId>
-            <version>8efebf1980</version>
-            <!--            <version>b10db8275163d19d63b9512cc20ca5872e52499b</version>-->
-        </dependency>
+        <!--        <dependency>-->
+        <!--            <groupId>com.github.texttechnologylab.textimager-uima</groupId>-->
+        <!--            <artifactId>textimager-uima-types</artifactId>-->
+        <!--            <version>8efebf1980</version>-->
+        <!--            &lt;!&ndash;            <version>b10db8275163d19d63b9512cc20ca5872e52499b</version>&ndash;&gt;-->
+        <!--        </dependency>-->
         <!-- https://mvnrepository.com/artifact/org.openjdk.nashorn/nashorn-core -->
         <dependency>
             <groupId>org.openjdk.nashorn</groupId>
             <artifactId>nashorn-core</artifactId>
             <version>15.4</version>
         </dependency>
-
-
 
 
         <!-- https://mvnrepository.com/artifact/org.msgpack/msgpack-core -->
@@ -331,6 +370,14 @@
                 <exclusion>
                     <groupId>com.github.texttechnologylab</groupId>
                     <artifactId>UIMATypeSystem</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.dkpro.core</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>de.tudarmstadt.ukp.dkpro.core</groupId>
+                    <artifactId>*</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
@@ -365,40 +412,58 @@
             <version>6.8.0</version> <!-- Use the appropriate version here -->
         </dependency>
 
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
-            <version>2.15.2</version>
-        </dependency>
-
         <!-- https://mvnrepository.com/artifact/org.dkpro.core/dkpro-core-tokit-asl -->
         <dependency>
             <groupId>org.dkpro.core</groupId>
             <artifactId>dkpro-core-tokit-asl</artifactId>
-            <version>2.4.0</version>
             <scope>test</scope>
         </dependency>
+
+        <!-- https://mvnrepository.com/artifact/org.dkpro.core/dkpro-core-api-segmentation-asl -->
+        <dependency>
+            <groupId>org.dkpro.core</groupId>
+            <artifactId>dkpro-core-api-segmentation-asl</artifactId>
+        </dependency>
+
         <!-- https://mvnrepository.com/artifact/org.dkpro.core/dkpro-core-opennlp-asl -->
         <dependency>
             <groupId>org.dkpro.core</groupId>
             <artifactId>dkpro-core-opennlp-asl</artifactId>
-            <version>2.4.0</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- https://mvnrepository.com/artifact/org.dkpro.core/dkpro-core-api-io-asl -->
+        <dependency>
+            <groupId>org.dkpro.core</groupId>
+            <artifactId>dkpro-core-api-io-asl</artifactId>
+        </dependency>
+        <!-- https://mvnrepository.com/artifact/org.dkpro.core/dkpro-core-io-xmi-asl -->
+        <dependency>
+            <groupId>org.dkpro.core</groupId>
+            <artifactId>dkpro-core-io-xmi-asl</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- https://mvnrepository.com/artifact/org.dkpro.core/dkpro-core-io-text-asl -->
+        <dependency>
+            <groupId>org.dkpro.core</groupId>
+            <artifactId>dkpro-core-io-text-asl</artifactId>
             <scope>test</scope>
         </dependency>
 
+        <!-- https://mvnrepository.com/artifact/org.dkpro.core/dkpro-core-api-resources-asl -->
+        <dependency>
+            <groupId>org.dkpro.core</groupId>
+            <artifactId>dkpro-core-api-resources-asl</artifactId>
+        </dependency>
 
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-params</artifactId>
+            <version>5.10.2</version>
+            <scope>test</scope>
+        </dependency>
 
     </dependencies>
-    <dependencyManagement>
-        <dependencies>
-            <dependency>
-                <groupId>com.amazonaws</groupId>
-                <artifactId>aws-java-sdk-bom</artifactId>
-                <version>1.11.1000</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-        </dependencies>
-    </dependencyManagement>
+
 
 </project>
