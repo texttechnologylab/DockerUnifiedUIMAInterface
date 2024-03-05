@@ -168,17 +168,17 @@ public class DUUIDockerInterface {
     public DUUIDockerInterface() throws IOException {
 
         // GREAT TODO!!!
-        URI dockerClientURI;
-        if (System.getProperty("os.name").toLowerCase().contains("windows")) {
-            dockerClientURI = URI.create("npipe:////./pipe/docker_engine");
-        } else {
-            dockerClientURI = URI.create("tcp://localhost:2375");
-        }
+        //URI dockerClientURI;
+        //if (System.getProperty("os.name").toLowerCase().contains("windows")) {
+        //    dockerClientURI = URI.create("npipe:////./pipe/docker_engine");
+        //} else {
+        //    dockerClientURI = URI.create("tcp://localhost:2375");
+        //}
 
-        _docker = DockerClientBuilder.getInstance()
-            .withDockerHttpClient(new ApacheDockerHttpClient.Builder()
-                .dockerHost(dockerClientURI).build()).build();
-//        _docker = DockerClientBuilder.getInstance().build();
+        //_docker = DockerClientBuilder.getInstance()
+//            .withDockerHttpClient(new ApacheDockerHttpClient.Builder()
+//                .dockerHost(dockerClientURI).build()).build();
+        _docker = DockerClientBuilder.getInstance().build();
 
 
 //        DockerClientConfig config = DefaultDockerClientConfig.createDefaultConfigBuilder().withDockerHost("tcp://localhost:2375").build();
