@@ -65,6 +65,7 @@ public class DUUIGerParCorReader implements DUUICollectionReader {
         this.sQuery = sFilter;
         System.out.println("Init connection to " + dbConfig.getMongoDatabase() + "\t" + dbConfig.getMongoCollection());
         init();
+
     }
 
     @Override
