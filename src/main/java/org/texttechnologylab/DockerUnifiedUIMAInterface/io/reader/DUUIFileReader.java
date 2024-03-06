@@ -1,6 +1,5 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.io.reader;
 
-import de.tudarmstadt.ukp.dkpro.core.api.io.ProgressMeter;
 import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.commons.compress.compressors.CompressorStreamFactory;
@@ -11,6 +10,7 @@ import org.apache.uima.jcas.JCas;
 import org.javaync.io.AsyncFiles;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.AsyncCollectionReader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.DUUICollectionReader;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.AdvancedProgressMeter;
 import org.texttechnologylab.utilities.helper.StringUtils;
 import org.xml.sax.SAXException;
 
@@ -47,7 +47,7 @@ public class DUUIFileReader implements DUUICollectionReader {
 
     private String _language = null;
 
-    private ProgressMeter progress = null;
+    private AdvancedProgressMeter progress = null;
 
     private int debugCount = 25;
 
@@ -152,7 +152,7 @@ public class DUUIFileReader implements DUUICollectionReader {
         // 500 MB
         _maxMemory = 500 * 1024 * 1024;
 
-        progress = new ProgressMeter(_initialSize);
+        progress = new AdvancedProgressMeter(_initialSize);
     }
 
     private static int getRandomFromMode(AsyncCollectionReader.DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE sampleMode, int sampleSize) {
@@ -251,8 +251,8 @@ public class DUUIFileReader implements DUUICollectionReader {
     }
 
     @Override
-    public ProgressMeter getProgress() {
-        return null;
+    public AdvancedProgressMeter getProgress() {
+        return this.progress;
     }
 
     @Override
@@ -333,7 +333,7 @@ public class DUUIFileReader implements DUUICollectionReader {
     public void reset() {
         _filePaths = _filePathsBackup;
         _docNumber.set(0);
-        progress = new ProgressMeter(_initialSize);
+        progress = new AdvancedProgressMeter(_initialSize);
     }
 
     @Override

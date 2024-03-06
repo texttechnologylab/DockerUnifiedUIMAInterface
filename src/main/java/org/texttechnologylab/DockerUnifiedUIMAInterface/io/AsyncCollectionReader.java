@@ -1,6 +1,5 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.io;
 
-import de.tudarmstadt.ukp.dkpro.core.api.io.ProgressMeter;
 import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.commons.compress.compressors.CompressorStreamFactory;
@@ -12,7 +11,7 @@ import org.apache.uima.jcas.JCas;
 import org.javaync.io.AsyncFiles;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.data_reader.DUUIInputStream;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.data_reader.IDUUIDataReader;
-import org.texttechnologylab.annotation.SharedData;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.AdvancedProgressMeter;
 import org.texttechnologylab.utilities.helper.StringUtils;
 import org.xml.sax.SAXException;
 
@@ -68,7 +67,7 @@ public class AsyncCollectionReader {
     private String _language = null;
 
     private IDUUIDataReader _dataReader;
-    private ProgressMeter progress = null;
+    private AdvancedProgressMeter progress = null;
 
     private int debugCount = 25;
 
@@ -372,7 +371,7 @@ public class AsyncCollectionReader {
         // 500 MB
         _maxMemory = 500 * 1024 * 1024;
 
-        progress = new ProgressMeter(_initialSize);
+        progress = new AdvancedProgressMeter(_initialSize);
 
     }
 
@@ -407,7 +406,7 @@ public class AsyncCollectionReader {
     public void reset() {
         _filePaths = _filePathsBackup;
         _docNumber.set(0);
-        progress = new ProgressMeter(_initialSize);
+        progress = new AdvancedProgressMeter(_initialSize);
     }
 
     public AsyncCollectionReader withMaxMemorySize(long memorySize) {
@@ -498,16 +497,18 @@ public class AsyncCollectionReader {
 //        }
 //    }
 
+    @Deprecated
     public static XmiSerializationSharedData deserialize(JCas pCas) {
 
-        XmiSerializationSharedData sharedData = null;
-        SharedData result = JCasUtil.selectSingle(pCas, SharedData.class);
+//        XmiSerializationSharedData sharedData = null;
+//        SharedData result = JCasUtil.selectSingle(pCas, SharedData.class);
+//
+//        if (result != null) {
+//            sharedData = XmiSerializationSharedData.deserialize(result.getValue());
+//        }
+//        return sharedData;
 
-        if (result != null) {
-            sharedData = XmiSerializationSharedData.deserialize(result.getValue());
-        }
-        return sharedData;
-
+        return null;
     }
 
 //    public boolean getNextCAS(JCas empty) throws IOException, CompressorException, SAXException {

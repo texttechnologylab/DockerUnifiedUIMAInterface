@@ -1,7 +1,7 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.io;
 
-import de.tudarmstadt.ukp.dkpro.core.api.io.ProgressMeter;
 import org.apache.uima.jcas.JCas;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.AdvancedProgressMeter;
 
 import java.util.HashSet;
 import java.util.Optional;
@@ -49,10 +49,10 @@ public class DUUIAsynchronousProcessor {
      * return the current progress
      * @return
      */
-    public ProgressMeter getProgress() {
+    public AdvancedProgressMeter getProgress() {
 
         long lDone = readerSet.stream().flatMapToLong(r -> LongStream.of(r.getDone())).sum();
-        ProgressMeter pProgress = new ProgressMeter(getSumMax());
+        AdvancedProgressMeter pProgress = new AdvancedProgressMeter(getSumMax());
         pProgress.setDone(lDone);
         pProgress.setLeft(getSumMax() - lDone);
 

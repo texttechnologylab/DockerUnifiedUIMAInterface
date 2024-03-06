@@ -280,7 +280,7 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
             System.out.printf("[DockerLocalDriver] Pulled image with id %s\n",comp.getImageName());
         }
         else {
-//            _interface.pullImage(comp.getImageName());
+            _interface.pullImage(comp.getImageName());
             if(!_interface.hasLocalImage(comp.getImageName())) {
                 throw new InvalidParameterException(format("Could not find local docker image \"%s\". Did you misspell it or forget with .withImageFetching() to fetch it from remote registry?",comp.getImageName()));
             }
