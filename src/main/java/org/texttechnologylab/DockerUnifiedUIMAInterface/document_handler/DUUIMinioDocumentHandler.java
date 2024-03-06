@@ -64,6 +64,9 @@ public class DUUIMinioDocumentHandler implements IDUUIDocumentHandler {
             }
 
             String object = path.replace(bucket, "") + "/" + document.getName();
+            if (object.startsWith("/")) {
+                object = object.substring(1);
+            }
 
             client
                 .putObject(
