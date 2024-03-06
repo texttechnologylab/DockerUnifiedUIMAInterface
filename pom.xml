@@ -6,80 +6,12 @@
 
     <groupId>org.texttechnologylab</groupId>
     <artifactId>DockerUnifiedUIMAInterface</artifactId>
-    <version>1.3</version>
-
-
-    <licenses>
-        <license>
-            <name>AGPL-3.0-or-later</name>
-            <url>https://www.gnu.org/licenses/agpl.txt</url>
-            <distribution>repo</distribution>
-            <comments>GNU Affero General Public License v3.0 or later</comments>
-        </license>
-    </licenses>
-
-    <organization>
-        <name>Texttechnology Lab</name>
-        <url>https://www.texttechnologylab.org</url>
-    </organization>
-
-    <developers>
-        <developer>
-            <id>mehler</id>
-            <name>Prof. Dr. Alexander Mehler</name>
-            <email>mehler@em.uni-frankfurt.de</email>
-            <url>https://www.texttechnologylab.org/team/alexander-abrami/</url>
-            <organization>Goethe University Frankfurt / Texttechnology Lab</organization>
-            <organizationUrl>https://www.texttechnologylab.org</organizationUrl>
-            <roles>
-                <role>head of department</role>
-            </roles>
-        </developer>
-        <developer>
-            <id>abrami</id>
-            <name>Giuseppe Abrami</name>
-            <email>abrami@em.uni-frankfurt.de</email>
-            <url>https://www.texttechnologylab.org/team/giuseppe-abrami/</url>
-            <organization>Goethe University Frankfurt / Texttechnology Lab</organization>
-            <organizationUrl>https://www.texttechnologylab.org</organizationUrl>
-            <roles>
-                <role>lead developer</role>
-            </roles>
-            <timezone>Europe/Berlin</timezone>
-        </developer>
-        <developer>
-            <id>leonhardt</id>
-            <name>Alexander Leonhardt</name>
-            <organization>Goethe University Frankfurt / Texttechnology Lab</organization>
-            <organizationUrl>https://www.texttechnologylab.org</organizationUrl>
-            <roles>
-                <role>developer</role>
-            </roles>
-            <timezone>Europe/Berlin</timezone>
-        </developer>
-        <developer>
-            <id>baumartz</id>
-            <name>Daniel Baumartz</name>
-            <email>baumartz@em.uni-frankfurt.de</email>
-            <url>https://www.texttechnologylab.org/team/daniel-baumartz/</url>
-            <organization>Goethe University Frankfurt / Texttechnology Lab</organization>
-            <organizationUrl>https://www.texttechnologylab.org</organizationUrl>
-            <timezone>Europe/Berlin</timezone>
-            <roles>
-                <role>developer</role>
-            </roles>
-        </developer>
-    </developers>
-
+    <version>1.0</version>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <maven.compiler.source>17</maven.compiler.source>
-        <maven.compiler.target>17</maven.compiler.target>
-        <typesystem.version>bd6e684b12</typesystem.version>
-        <utilities.version>8bfa54cbe4</utilities.version>
-        <uima.version>3.5.0</uima.version>
-        <dkpro.core.version>2.4.0</dkpro.core.version>
+        <maven.compiler.source>11</maven.compiler.source>
+        <maven.compiler.target>11</maven.compiler.target>
     </properties>
 
     <repositories>
@@ -325,28 +257,10 @@
             <artifactId>Java-WebSocket</artifactId>
             <version>1.5.3</version>
         </dependency>
-
-
-
-        <!--        &lt;!&ndash; https://mvnrepository.com/artifact/jakarta.ws.rs/jakarta.ws.rs-api &ndash;&gt;-->
-<!--        <dependency>-->
-<!--            <groupId>jakarta.ws.rs</groupId>-->
-<!--            <artifactId>jakarta.ws.rs-api</artifactId>-->
-<!--            <version>3.1.0</version>-->
-<!--        </dependency>-->
-
-
-        <!--        &lt;!&ndash; https://mvnrepository.com/artifact/javax.ws.rs/javax.ws.rs-api &ndash;&gt;-->
-<!--        <dependency>-->
-<!--            <groupId>javax.ws.rs</groupId>-->
-<!--            <artifactId>javax.ws.rs-api</artifactId>-->
-<!--            <version>2.1.1</version>-->
-<!--        </dependency>-->
-
-
         <dependency>
             <groupId>com.influxdb</groupId>
             <artifactId>influxdb-client-java</artifactId>
+<!--            <version>5.0.0</version>-->
             <version>6.9.0</version>
         </dependency>
 
@@ -487,7 +401,14 @@
             <artifactId>aws-java-sdk-s3</artifactId>
             <version>1.12.565</version>
         </dependency>
+
         <dependency>
+            <groupId>io.minio</groupId>
+            <artifactId>minio</artifactId>
+            <version>8.5.6</version>
+        </dependency>
+
+          <dependency>
             <groupId>io.fabric8</groupId>
             <artifactId>kubernetes-client</artifactId>
             <version>6.8.0</version> <!-- Use the appropriate version here -->
