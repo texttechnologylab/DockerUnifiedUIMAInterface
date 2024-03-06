@@ -257,7 +257,6 @@ public class DUUIFileReader implements DUUICollectionReader {
 
     @Override
     public void getNextCas(JCas empty) {
-
         ByteReadFuture future = _loadedFiles.poll();
 
         byte[] file = null;

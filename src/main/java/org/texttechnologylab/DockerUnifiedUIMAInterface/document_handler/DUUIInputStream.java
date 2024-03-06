@@ -1,7 +1,8 @@
-package org.texttechnologylab.DockerUnifiedUIMAInterface.data_reader;
+package org.texttechnologylab.DockerUnifiedUIMAInterface.document_handler;
 
 import java.io.ByteArrayInputStream;
 
+@Deprecated
 public class DUUIInputStream {
 
     private final String _name;

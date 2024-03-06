@@ -8,10 +8,10 @@ import org.apache.uima.cas.impl.XmiCasDeserializer;
 import org.apache.uima.cas.impl.XmiSerializationSharedData;
 import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
+import org.dkpro.core.api.io.ProgressMeter;
 import org.javaync.io.AsyncFiles;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.data_reader.DUUIInputStream;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.data_reader.IDUUIDataReader;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.AdvancedProgressMeter;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.document_handler.DUUIInputStream;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.document_handler.IDUUIDocumentHandler;
 import org.texttechnologylab.utilities.helper.StringUtils;
 import org.xml.sax.SAXException;
 
@@ -66,8 +66,8 @@ public class AsyncCollectionReader {
 
     private String _language = null;
 
-    private IDUUIDataReader _dataReader;
-    private AdvancedProgressMeter progress = null;
+    private IDUUIDocumentHandler _dataReader;
+    private ProgressMeter progress = null;
 
     private int debugCount = 25;
 
@@ -80,7 +80,7 @@ public class AsyncCollectionReader {
 
         private String _sourceDirectory;
         private String _sourceFileExtension;
-        private IDUUIDataReader _dataReader;
+        private IDUUIDocumentHandler _dataReader;
         private boolean _addMetadata = false;
         private int _debugCount = 25;
         private int _randomCount = -1;
@@ -101,7 +101,7 @@ public class AsyncCollectionReader {
             return this;
         }
 
-        public Builder withDataReader(IDUUIDataReader dataReader) {
+        public Builder withDataReader(IDUUIDocumentHandler dataReader) {
             _dataReader = dataReader;
             return this;
         }
@@ -225,7 +225,7 @@ public class AsyncCollectionReader {
      * Constructor for the AsyncCollectionReader
      */
 
-    public AsyncCollectionReader(String folder, String ending, IDUUIDataReader dataReader, int debugCount, int iRandom, boolean bSort, String savePath, boolean bAddMetadata, String language, int skipSmallerFiles, String targetLocation, String targetEnding) {
+    public AsyncCollectionReader(String folder, String ending, IDUUIDocumentHandler dataReader, int debugCount, int iRandom, boolean bSort, String savePath, boolean bAddMetadata, String language, int skipSmallerFiles, String targetLocation, String targetEnding) {
         this.targetLocation = targetLocation;
         _addMetadata = bAddMetadata;
         _language = language;
@@ -235,14 +235,14 @@ public class AsyncCollectionReader {
         _dataReader = dataReader;
 
         if (_dataReader != null) {
-            try {
-                if (!savePath.isEmpty()) {
-                    _filePaths.addAll(_dataReader.listFiles(savePath));
-                }
-                _filePaths.addAll(_dataReader.listFiles(folder));
-            } catch (IOException e) {
-                System.out.println("Save path not found. Processing all documents.");
-            }
+//            try {
+//                if (!savePath.isEmpty()) {
+//                    _filePaths.addAll(_dataReader.listDocuments(savePath));
+//                }
+//                _filePaths.addAll(_dataReader.listDocuments(folder));
+//            } catch (IOException e) {
+//                System.out.println("Save path not found. Processing all documents.");
+//            }
 
         } else {
             if (new File(savePath).exists() && savePath.length() > 0) {
@@ -371,7 +371,7 @@ public class AsyncCollectionReader {
         // 500 MB
         _maxMemory = 500 * 1024 * 1024;
 
-        progress = new AdvancedProgressMeter(_initialSize);
+        progress = new ProgressMeter(_initialSize);
 
     }
 
@@ -406,7 +406,7 @@ public class AsyncCollectionReader {
     public void reset() {
         _filePaths = _filePathsBackup;
         _docNumber.set(0);
-        progress = new AdvancedProgressMeter(_initialSize);
+        progress = new ProgressMeter(_initialSize);
     }
 
     public AsyncCollectionReader withMaxMemorySize(long memorySize) {

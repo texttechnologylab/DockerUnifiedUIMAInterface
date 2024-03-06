@@ -325,28 +325,10 @@
             <artifactId>Java-WebSocket</artifactId>
             <version>1.5.3</version>
         </dependency>
-
-
-
-        <!--        &lt;!&ndash; https://mvnrepository.com/artifact/jakarta.ws.rs/jakarta.ws.rs-api &ndash;&gt;-->
-<!--        <dependency>-->
-<!--            <groupId>jakarta.ws.rs</groupId>-->
-<!--            <artifactId>jakarta.ws.rs-api</artifactId>-->
-<!--            <version>3.1.0</version>-->
-<!--        </dependency>-->
-
-
-        <!--        &lt;!&ndash; https://mvnrepository.com/artifact/javax.ws.rs/javax.ws.rs-api &ndash;&gt;-->
-<!--        <dependency>-->
-<!--            <groupId>javax.ws.rs</groupId>-->
-<!--            <artifactId>javax.ws.rs-api</artifactId>-->
-<!--            <version>2.1.1</version>-->
-<!--        </dependency>-->
-
-
         <dependency>
             <groupId>com.influxdb</groupId>
             <artifactId>influxdb-client-java</artifactId>
+<!--            <version>5.0.0</version>-->
             <version>6.9.0</version>
         </dependency>
 
@@ -487,7 +469,14 @@
             <artifactId>aws-java-sdk-s3</artifactId>
             <version>1.12.565</version>
         </dependency>
+
         <dependency>
+            <groupId>io.minio</groupId>
+            <artifactId>minio</artifactId>
+            <version>8.5.6</version>
+        </dependency>
+
+          <dependency>
             <groupId>io.fabric8</groupId>
             <artifactId>kubernetes-client</artifactId>
             <version>6.8.0</version> <!-- Use the appropriate version here -->
@@ -535,6 +524,14 @@
             <groupId>org.dkpro.core</groupId>
             <artifactId>dkpro-core-api-resources-asl</artifactId>
         </dependency>
+
+        <!-- https://mvnrepository.com/artifact/org.dkpro.core/dkpro-core-tokit-asl -->
+        <dependency>
+            <groupId>org.dkpro.core</groupId>
+            <artifactId>dkpro-core-tokit-asl</artifactId>
+            <scope>test</scope>
+        </dependency>
+
 
         <dependency>
             <groupId>com.github.texttechnologylab</groupId>
