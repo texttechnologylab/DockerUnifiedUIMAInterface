@@ -1,8 +1,7 @@
 import com.dropbox.core.DbxRequestConfig;
 import com.dropbox.core.oauth.DbxCredential;
-import com.dropbox.core.v2.files.WriteMode;
-import de.tudarmstadt.ukp.dkpro.core.tokit.BreakIteratorSegmenter;
-import de.tudarmstadt.ukp.dkpro.core.tokit.ParagraphSplitter;
+import org.dkpro.core.tokit.ParagraphSplitter;
+import org.dkpro.core.tokit.BreakIteratorSegmenter;
 import org.junit.jupiter.api.Test;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.document_handler.DUUIDropboxDocumentHandler;
