@@ -70,16 +70,17 @@ public class CorporaTests {
 
     @ParameterizedTest
     @DisplayName("Toxic")
-    @ValueSource(strings = {"ssharoff/genres", "cardiffnlp/tweet-topic-latest-multi", "classla/xlm-roberta-base-multilingual-text-genre-classifier", "chkla/parlbert-topic-german", "manifesto-project/manifestoberta-xlm-roberta-56policy-topics-context-2023-1-1"})
+    @ValueSource(strings = {"cardiffnlp/tweet-topic-latest-multi", "classla/xlm-roberta-base-multilingual-text-genre-classifier", "chkla/parlbert-topic-german", "ssharoff/genres", "manifesto-project/manifestoberta-xlm-roberta-56policy-topics-context-2023-1-1"})
     public void testToxic(String sModel) throws Exception {
 
-//        composer.resetPipeline();
+        composer.resetPipeline();
 
         try {
             composer.add(
                     new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
                             .withImageFetching()
                             .withScale(1)
+                            .build()
             );
 //
 //        composer.add(
@@ -95,13 +96,16 @@ public class CorporaTests {
                             .withParameter("model_name", sModel)
 //                            .withParameter("selection", "text")
                             .withParameter("selection", "de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Sentence")
+                            .build()
             );
 
             composer.run(pCas);
 
-            JCasUtil.select(pCas, CategoryCoveredTagged.class).forEach(a -> {
-                System.out.println(a);
-            });
+            assert JCasUtil.select(pCas, CategoryCoveredTagged.class).stream().count() > 0;
+
+//            JCasUtil.select(pCas, CategoryCoveredTagged.class).forEach(a -> {
+//                System.out.println(a);
+//            });
         } finally {
             composer.shutdown();
         }
