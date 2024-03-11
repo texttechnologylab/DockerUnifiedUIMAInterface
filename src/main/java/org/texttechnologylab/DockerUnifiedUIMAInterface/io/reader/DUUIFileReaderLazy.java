@@ -76,6 +76,14 @@ public class DUUIFileReaderLazy implements DUUICollectionReader {
         this(folder, ending, 500, -1, false, "", true, null, 0, sTargetPath, ending);
     }
 
+    public DUUIFileReaderLazy(String folder, String ending, int iDebugCount) {
+        this(folder, ending, iDebugCount, -1, null, "", false, null, 0);
+    }
+
+    public DUUIFileReaderLazy(String folder, String ending, String sTargetPath, int iDebugCount) {
+        this(folder, ending, iDebugCount, -1, false, "", true, null, 0, sTargetPath, ending);
+    }
+
     public DUUIFileReaderLazy(String folder, String ending, int debugCount, int sampleSize, AsyncCollectionReader.DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE sampleMode, String savePath, boolean bAddMetadata, String language, int skipSmallerFiles) {
         this(folder, ending, debugCount, getRandomFromMode(sampleMode, sampleSize), getSortFromMode(sampleMode), savePath, bAddMetadata, language, skipSmallerFiles, savePath, null);
     }
