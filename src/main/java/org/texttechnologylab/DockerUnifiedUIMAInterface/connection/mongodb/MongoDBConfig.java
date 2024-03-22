@@ -106,6 +106,10 @@ public class MongoDBConfig extends Properties {
         return getProperty("remote_database", "database");
     }
 
+    public String getAuthDatabase() {
+        return getProperty("remote_auth_database", "admin");
+    }
+
     /**
      * Method for the Collection to connect
      *
