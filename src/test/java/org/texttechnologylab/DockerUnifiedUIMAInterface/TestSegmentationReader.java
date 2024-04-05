@@ -1,7 +1,5 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface;
 
-import org.apache.commons.compress.compressors.CompressorException;
-import org.apache.uima.util.InvalidXMLException;
 import org.junit.jupiter.api.Test;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.mongodb.MongoDBConfig;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver;
@@ -9,16 +7,13 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.io.reader.DUUISegmentati
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.segmentation.DUUISegmentationStrategy;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.segmentation.DUUISegmentationStrategyByDelemiter;
-import org.xml.sax.SAXException;
 
-import java.io.IOException;
-import java.net.URISyntaxException;
 import java.nio.file.Paths;
 
 public class TestSegmentationReader {
     @Test
     void testSegmentationReader() throws Exception {
-        int toolWorkers = 1;
+        int toolWorkers = 3;
 
         int segmentationWorkers = 2;
         int segmentationQueueSize = Integer.MAX_VALUE;

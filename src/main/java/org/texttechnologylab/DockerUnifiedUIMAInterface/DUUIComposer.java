@@ -17,11 +17,12 @@ import org.apache.uima.util.CasCreationUtils;
 import org.apache.uima.util.InvalidXMLException;
 import org.luaj.vm2.Globals;
 import org.luaj.vm2.lib.jse.JsePlatform;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.composer.DUUISegmentedWorker;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.IDUUIConnectionHandler;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.*;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.AsyncCollectionReader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.DUUIAsynchronousProcessor;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.io.DUUICollectionReader;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.io.DUUICollectionDBReader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.DUUIMonitor;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
@@ -45,6 +46,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 import static java.lang.String.format;
 
@@ -695,87 +697,69 @@ public class DUUIComposer {
         }
     }
 
-    public void runSegmented(DUUICollectionReader collectionReader, String name) throws Exception {
-        ConcurrentLinkedQueue<JCas> emptyCasDocuments = new ConcurrentLinkedQueue<>();
-        AtomicInteger aliveThreads = new AtomicInteger(0);
-
-        _shutdownAtomic.set(false);
-
-        System.out.printf("[Composer] Running in segmented mode, %d threads at most!\n", _workers);
-
+    public void runSegmented(DUUICollectionDBReader collectionReader, String name) throws Exception {
         try {
-            if(_storage!=null) {
-                _storage.addNewRun(name,this);
+            _shutdownAtomic.set(false);
+
+            if(_storage != null) {
+                _storage.addNewRun(name, this);
             }
 
             TypeSystemDescription desc = instantiate_pipeline();
-            if (_cas_poolsize == null) {
-                _cas_poolsize = (int)Math.ceil(_workers*1.5);
-                System.out.printf("[Composer] Calculated CAS poolsize of %d!\n", _cas_poolsize);
-            } else {
-                if (_cas_poolsize < _workers) {
-                    System.err.println("[Composer] WARNING: Pool size is smaller than the available threads, this is likely a bottleneck.");
+
+            List<String> pipelineUUIDs = _instantiatedPipeline.stream().map(PipelinePart::getUUID).collect(Collectors.toList());
+
+            int threadsPerTool = _workers / _instantiatedPipeline.size();
+            System.out.printf("[Composer] Running in segmented mode, %d threads with %d threads per tool!\n", _workers, threadsPerTool);
+
+            List<Thread> threads = new ArrayList<>();
+            int tId = 0;
+            for (PipelinePart part : _instantiatedPipeline) {
+                for (int i = 0; i < threadsPerTool; i++) {
+                    System.out.printf("[Composer] Starting worker thread for pipeline part %s [%d/%d]\n", part.getUUID(), tId+1, _workers);
+                    Thread thread = new Thread(new DUUISegmentedWorker(
+                            tId,
+                            _shutdownAtomic,
+                            part,
+                            collectionReader,
+                            desc,
+                            _storage,
+                            name,
+                            pipelineUUIDs
+                    ));
+                    thread.start();
+                    threads.add(thread);
+                    tId += 1;
                 }
             }
 
-            for(int i = 0; i < _cas_poolsize; i++) {
-                emptyCasDocuments.add(JCasFactory.createJCas(desc));
-            }
-
-            Thread []arr = new Thread[_workers];
-            for(int i = 0; i < _workers; i++) {
-                System.out.printf("[Composer] Starting worker thread [%d/%d]\n",i+1,_workers);
-                arr[i] = new DUUIWorkerAsyncReader(_instantiatedPipeline,emptyCasDocuments.poll(),_shutdownAtomic,aliveThreads,_storage,name,collectionReader);
-                arr[i].start();
-            }
             Instant starttime = Instant.now();
-            final int maxNumberOfFutures = 20;
-            CompletableFuture<Integer> []futures = new CompletableFuture[maxNumberOfFutures];
-            boolean breakit = false;
-            while(!_shutdownAtomic.get()) {
-                if(collectionReader.getCachedSize() > collectionReader.getMaxMemory()) {
-                    Thread.sleep(50);
-                    continue;
-                }
-                for(int i = 0; i < maxNumberOfFutures; i++) {
-                    futures[i] = collectionReader.getAsyncNextByteArray();
-                }
-                CompletableFuture.allOf(futures).join();
-                for(int i = 0; i < maxNumberOfFutures; i++) {
-                    if(futures[i].join() != 0) {
-                        breakit=true;
-                    }
-                }
-                if(breakit) break;
+            while(!collectionReader.finishedLoading() || collectionReader.getDone() < collectionReader.getSize()) {
+                System.out.println(collectionReader.getProgress());
+                Thread.sleep(10L);
             }
 
-            AtomicInteger waitCount = new AtomicInteger();
-            waitCount.set(0);
-            // Wartet, bis die Dokumente fertig verarbeitet wurden.
-            while(emptyCasDocuments.size() != _cas_poolsize && !collectionReader.isEmpty()) {
-                if (waitCount.incrementAndGet() % 500 == 0) {
-                    System.out.println("[Composer] Waiting for threads to finish document processing...");
-                }
-                Thread.sleep(1000*_workers); // to fast or in relation with threads?
-
-            }
             System.out.println("[Composer] All documents have been processed. Signaling threads to shut down now...");
             _shutdownAtomic.set(true);
+            for(int i = 0; i < threads.size(); i++) {
+                System.out.printf("[Composer] Waiting for thread [%d/%d] to shut down\n", i+1, threads.size());
+                threads.get(i).join();
+                System.out.printf("[Composer] Thread %d returned.\n", i);
+            }
 
-            for(int i = 0; i < arr.length; i++) {
-                System.out.printf("[Composer] Waiting for thread [%d/%d] to shut down\n",i+1,arr.length);
-                arr[i].join();
-                System.out.printf("[Composer] Thread %d returned.\n",i);
+            if(_storage != null) {
+                _storage.finalizeRun(name, starttime, Instant.now());
             }
-            if(_storage!=null) {
-                _storage.finalizeRun(name,starttime,Instant.now());
-            }
+
             System.out.println("[Composer] All threads returned.");
             shutdown_pipeline();
+
         } catch (Exception e) {
             e.printStackTrace();
+
             System.out.println("[Composer] Something went wrong, shutting down remaining components...");
-            //shutdown_pipeline();
+            shutdown_pipeline();
+
             throw e;
         }
     }

@@ -1,6 +1,5 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.io.reader;
 
-import de.tudarmstadt.ukp.dkpro.core.api.io.ProgressMeter;
 import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.commons.compress.compressors.CompressorStreamFactory;
@@ -12,6 +11,7 @@ import org.apache.uima.jcas.JCas;
 import org.javaync.io.AsyncFiles;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.AsyncCollectionReader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.DUUICollectionReader;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.io.ProgressMeter;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.AdvancedProgressMeter;
 import org.texttechnologylab.utilities.helper.ArchiveUtils;
 import org.texttechnologylab.utilities.helper.StringUtils;

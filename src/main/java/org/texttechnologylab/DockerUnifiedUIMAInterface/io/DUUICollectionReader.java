@@ -1,6 +1,5 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.io;
 
-import de.tudarmstadt.ukp.dkpro.core.api.io.ProgressMeter;
 import org.apache.uima.jcas.JCas;
 
 /**
