@@ -263,8 +263,9 @@ public class DUUISegmentationReader implements DUUICollectionDBReader {
         Bson notFinishedFilter = Filters.ne("finished", true);
         Bson sizeCondition = Filters.expr(new Document("$gte", Arrays.asList(new Document("$size", "$metadata.duui_status_tools"), pipelinePosition)));
         Bson toolExistsCondition = Filters.ne("metadata.duui_status_tools", toolUUID);
-        Bson query = Filters.and(notFinishedFilter, sizeCondition, toolExistsCondition);
-        Document next = (Document) mongoCollection.find(query).first();
+        Bson notLockedCondition = Filters.ne("metadata.duui_locked", true);
+        Bson query = Filters.and(notFinishedFilter, sizeCondition, toolExistsCondition, notLockedCondition);
+        Document next = (Document) mongoCollection.findOneAndUpdate(query, new Document("$set", new Document("metadata.duui_locked", true)));
         // TODO fehlerhandling!
         if (next == null) {
             return false;
@@ -307,6 +308,8 @@ public class DUUISegmentationReader implements DUUICollectionDBReader {
 
         boolean finished = new HashSet<>(toolUUIDs).containsAll(pipelineUUIDs);
         docMeta.append("duui_status_finished", finished);
+
+        docMeta.append("duui_locked", false);
 
         GridFSUploadOptions options = new GridFSUploadOptions()
                 .metadata(docMeta);
