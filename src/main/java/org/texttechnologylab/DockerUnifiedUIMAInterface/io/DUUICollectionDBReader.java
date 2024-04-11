@@ -18,4 +18,6 @@ public interface DUUICollectionDBReader extends DUUICollectionReader {
     void updateCas(JCas pCas, String toolUUID, boolean status, List<String> pipelineUUIDs);
 
     boolean finishedLoading();
+
+    void merge();
 }

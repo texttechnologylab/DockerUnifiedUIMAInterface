@@ -294,7 +294,7 @@
         <dependency>
             <groupId>com.github.texttechnologylab</groupId>
             <artifactId>UIMATypeSystem</artifactId>
-            <version>74a8489af5</version>
+            <version>1.9.5</version>
         </dependency>
 
         <!-- https://mvnrepository.com/artifact/org.msgpack/msgpack-core -->

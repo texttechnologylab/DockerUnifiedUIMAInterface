@@ -736,7 +736,7 @@ public class DUUIComposer {
             Instant starttime = Instant.now();
             while(!collectionReader.finishedLoading() || collectionReader.getDone() < collectionReader.getSize()) {
                 System.out.println(collectionReader.getProgress());
-                Thread.sleep(10L);
+                Thread.sleep(500L);
             }
 
             System.out.println("[Composer] All documents have been processed. Signaling threads to shut down now...");
@@ -746,6 +746,9 @@ public class DUUIComposer {
                 threads.get(i).join();
                 System.out.printf("[Composer] Thread %d returned.\n", i);
             }
+
+            System.out.println("[Composer] Merging documents...");
+            collectionReader.merge();
 
             if(_storage != null) {
                 _storage.finalizeRun(name, starttime, Instant.now());
