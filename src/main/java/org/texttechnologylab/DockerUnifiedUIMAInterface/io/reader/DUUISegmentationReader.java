@@ -149,8 +149,8 @@ public class DUUISegmentationReader implements DUUICollectionDBReader {
                                 segmentIndex++;
                             }
                         }
-                    } catch (UIMAException | IOException e) {
-                        throw new RuntimeException(e);
+                    } catch (Exception e) {
+                        e.printStackTrace();
                     }
 
                     jCas.reset();
