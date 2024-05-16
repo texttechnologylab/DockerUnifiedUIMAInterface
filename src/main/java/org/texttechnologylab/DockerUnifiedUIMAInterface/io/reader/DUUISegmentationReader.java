@@ -10,6 +10,7 @@ import com.mongodb.client.gridfs.model.GridFSFile;
 import com.mongodb.client.gridfs.model.GridFSUploadOptions;
 import com.mongodb.client.model.Filters;
 import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
+import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.SerializationUtils;
 import org.apache.uima.UIMAException;
 import org.apache.uima.cas.impl.XmiCasDeserializer;
@@ -19,23 +20,28 @@ import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.bson.Document;
 import org.bson.conversions.Bson;
+import org.bson.types.ObjectId;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.mongodb.MongoDBConfig;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.mongodb.MongoDBConnectionHandler;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.DUUICollectionDBReader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.ProgressMeter;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.format.IDUUIFormat;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.io.format.TxtLoader;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.io.format.XmiLoader;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.io.transport.GZIPLocalFile;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.transport.IDUUITransport;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.io.transport.LocalFile;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.segmentation.DUUISegmentationStrategy;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.segmentation.DUUISegmentationStrategyNone;
 import org.texttechnologylab.annotation.AnnotationComment;
 import org.xml.sax.SAXException;
 
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.net.URLDecoder;
+import java.net.URLEncoder;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingDeque;
@@ -49,12 +55,15 @@ public class DUUISegmentationReader implements DUUICollectionDBReader {
     private static final String MONGO_BUCKET_NAME_FILES = MONGO_BUCKET_NAME + ".files";
 
     private static final String DUUI_SEGMENTATION_READER_SEGMENT_ID = "__duui_segmentation_reader_segment_id__";
-
-    private final MongoCollection mongoCollection;
+    private final MongoDBConfig mongoDBConfig;
+    private final MongoCollection<Document> mongoCollection;
     private final GridFSBucket mongoBucket;
     private final DUUISegmentationStrategy segmentationStrategy;
     private final ProgressMeter progress;
     private final AtomicBoolean loadingFinished;
+    private final Path outPath;
+    private final int workers;
+    private final int capacity;
 
     protected static String getGridId(String docId, long segmentIndex) {
         return docId + "_" + segmentIndex;
@@ -68,6 +77,16 @@ public class DUUISegmentationReader implements DUUICollectionDBReader {
         }
     }
 
+    static class MergeMessage {
+        public String id;
+        public List<ObjectId> ids;
+
+        public MergeMessage(String id, List<ObjectId> ids) {
+            this.id = id;
+            this.ids = ids;
+        }
+    }
+
     static class Segmenter implements Runnable {
         private final BlockingQueue<PathMessage> queue;
         private final GridFSBucket mongoBucket;
@@ -78,6 +97,7 @@ public class DUUISegmentationReader implements DUUICollectionDBReader {
 
             // TODO use single connection (pool?) for all threads?
             MongoDBConnectionHandler mongoConnectionHandler = new MongoDBConnectionHandler(mongoConfig);
+
             this.mongoBucket = GridFSBuckets.create(mongoConnectionHandler.getDatabase(), MONGO_BUCKET_NAME);
 
             this.segmentationStrategy = segmentationStrategy;
@@ -111,8 +131,8 @@ public class DUUISegmentationReader implements DUUICollectionDBReader {
                     System.out.println(Thread.currentThread().getId() + " - start " + path);
 
                     try {
-                        IDUUITransport transport = new LocalFile(path);
-                        IDUUIFormat format = new TxtLoader("de");
+                        IDUUITransport transport = new GZIPLocalFile(path);
+                        IDUUIFormat format = new XmiLoader(true);
                         format.load(transport.load(), jCas);
 
                         String docId = UUID.randomUUID().toString();
@@ -129,8 +149,8 @@ public class DUUISegmentationReader implements DUUICollectionDBReader {
                                 segmentIndex++;
                             }
                         }
-                    } catch (UIMAException | IOException e) {
-                        throw new RuntimeException(e);
+                    } catch (Exception e) {
+                        e.printStackTrace();
                     }
 
                     jCas.reset();
@@ -161,7 +181,7 @@ public class DUUISegmentationReader implements DUUICollectionDBReader {
                     );
 
             String segmentId = getGridId(docId, segmentIndex);
-            try(GridFSUploadStream upload = this.mongoBucket.openUploadStream(segmentId, options)) {
+            try (GridFSUploadStream upload = this.mongoBucket.openUploadStream(segmentId, options)) {
 
                 // Add metainfo
                 // TODO use special annotation type?
@@ -180,15 +200,107 @@ public class DUUISegmentationReader implements DUUICollectionDBReader {
         }
     }
 
-    public DUUISegmentationReader(Path sourcePath, MongoDBConfig mongoConfig, DUUISegmentationStrategy segmentationStrategy, int workers) throws IOException, InterruptedException {
-        this(sourcePath, mongoConfig, segmentationStrategy, workers, Integer.MAX_VALUE);
+    static class Merger implements Runnable {
+        private final BlockingQueue<MergeMessage> queue;
+        private final GridFSBucket mongoBucket;
+        private final DUUISegmentationStrategy segmentationStrategy;
+        private final Path outPath;
+
+        public Merger(BlockingQueue<MergeMessage> queue, Path outPath, MongoDBConfig mongoConfig, DUUISegmentationStrategy segmentationStrategy) {
+            this.queue = queue;
+            this.outPath = outPath;
+            // TODO use single connection (pool?) for all threads?
+            MongoDBConnectionHandler mongoConnectionHandler = new MongoDBConnectionHandler(mongoConfig);
+
+            this.mongoBucket = GridFSBuckets.create(mongoConnectionHandler.getDatabase(), MONGO_BUCKET_NAME);
+
+            this.segmentationStrategy = segmentationStrategy;
+        }
+
+        @Override
+        public void run() {
+            JCas jCas;
+            try {
+                jCas = JCasFactory.createJCas();
+            } catch (UIMAException e) {
+                throw new RuntimeException(e);
+            }
+
+            while (true) {
+                MergeMessage message;
+                try {
+                    message = queue.poll(10, TimeUnit.SECONDS);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+
+                if (message != null) {
+                    if (message.id == null)
+                        break;
+                    try {
+                        boolean first = true;
+
+                        for (ObjectId id : message.ids) {
+                            // Bit ugly but it's fine for now...
+                            if (first) {
+                                fetch(id, jCas);
+                                segmentationStrategy.initialize(jCas);
+                                first = false;
+                            } else {
+                                JCas currentCas = JCasFactory.createJCas();
+                                fetch(id, currentCas);
+                                segmentationStrategy.merge(currentCas);
+                            }
+                        }
+                    } catch (UIMAException e) {
+                        throw new RuntimeException(e);
+                    }
+                    String dir = String.format("%s/%s", this.outPath.toString(), getRelativePath(jCas, true, false));
+                    Path path = Paths.get(dir + ".xmi.gz");
+                    try {
+                        Files.createDirectories(Paths.get(dir.substring(0, dir.lastIndexOf("/"))));
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                    try (GZIPOutputStream stream = new GZIPOutputStream(Files.newOutputStream(path))) {
+                        XmiCasSerializer.serialize(jCas.getCas(), stream);
+                    } catch (SAXException | IOException e) {
+                        throw new RuntimeException(e);
+                    }
+
+                    jCas.reset();
+                }
+            }
+        }
+
+        private void fetch(ObjectId id, JCas cas) {
+            cas.reset();
+            try (GridFSDownloadStream download = this.mongoBucket.openDownloadStream(id)) {
+
+                // TODO different compressions using io/transport/format
+                try (GZIPInputStream gzip = new GZIPInputStream(download)) {
+                    XmiCasDeserializer.deserialize(gzip, cas.getCas());
+                }
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
     }
 
-    public DUUISegmentationReader(Path sourcePath, MongoDBConfig mongoConfig, DUUISegmentationStrategy segmentationStrategy, int workers, int capacity) {
-        this.segmentationStrategy = segmentationStrategy;
+    public DUUISegmentationReader(Path sourcePath, Path outPath, MongoDBConfig mongoConfig, DUUISegmentationStrategy segmentationStrategy, int workers) throws IOException, InterruptedException {
+        this(sourcePath, outPath, mongoConfig, segmentationStrategy, workers, Integer.MAX_VALUE);
+    }
 
+    public DUUISegmentationReader(Path sourcePath, Path outPath, MongoDBConfig mongoConfig, DUUISegmentationStrategy segmentationStrategy, int workers, int capacity) {
+        this.segmentationStrategy = segmentationStrategy;
+        this.mongoDBConfig = mongoConfig;
+        this.outPath = outPath;
+        this.workers = workers;
+        this.capacity = capacity;
         MongoDBConnectionHandler mongoConnectionHandler = new MongoDBConnectionHandler(mongoConfig);
         this.mongoCollection = mongoConnectionHandler.getCollection(MONGO_BUCKET_NAME_FILES);
+        // TODO: Make this configurable
+        GridFSBuckets.create(mongoConnectionHandler.getDatabase(), MONGO_BUCKET_NAME).drop();
         this.mongoBucket = GridFSBuckets.create(mongoConnectionHandler.getDatabase(), MONGO_BUCKET_NAME);
 
         this.progress = new ProgressMeter(getSize());
@@ -202,20 +314,13 @@ public class DUUISegmentationReader implements DUUICollectionDBReader {
                 System.out.println("Starting " + workers + " workers to segment files...");
                 List<Thread> segmenterThreads = new ArrayList<>();
                 for (int i = 0; i < workers; i++) {
-                    Thread thread = new Thread(new Segmenter(queue, mongoConfig, SerializationUtils.clone(segmentationStrategy)));
+                    Thread thread = new Thread(new Segmenter(queue, this.mongoDBConfig, SerializationUtils.clone(segmentationStrategy)));
                     thread.start();
                     segmenterThreads.add(thread);
                 }
 
                 System.out.println("Collecting files from " + sourcePath + "...");
-                long counter = 0;
-                try (DirectoryStream<Path> stream = Files.newDirectoryStream(sourcePath)) {
-                    for (Path entry : stream) {
-                        //System.out.println("Adding " + entry);
-                        queue.put(new PathMessage(entry));
-                        counter++;
-                    }
-                }
+                long counter = addFilesInFolder(sourcePath, queue);
                 System.out.println("Added " + counter + " files to the queue.");
 
                 System.out.println("Waiting for workers to finish...");
@@ -226,15 +331,30 @@ public class DUUISegmentationReader implements DUUICollectionDBReader {
                     thread.join();
                 }
                 System.out.println("All workers finished.");
-            }
-            catch (Exception e) {
+            } catch (Exception e) {
                 e.printStackTrace();
                 System.err.println("CollectionReader failed!");
-            }
-            finally {
+            } finally {
                 loadingFinished.set(true);
             }
         }).start();
+    }
+
+    private int addFilesInFolder(Path sourcePath, BlockingQueue<PathMessage> queue) {
+        int counter = 0;
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(sourcePath)) {
+            for (Path entry : stream) {
+                if (entry.toFile().isDirectory()) {
+                    counter += addFilesInFolder(entry, queue);
+                } else {
+                    queue.put(new PathMessage(entry));
+                    counter++;
+                }
+            }
+        } catch (InterruptedException | IOException e) {
+            throw new RuntimeException(e);
+        }
+        return counter;
     }
 
     @Override
@@ -257,14 +377,13 @@ public class DUUISegmentationReader implements DUUICollectionDBReader {
     public boolean getNextCas(JCas pCas, String toolUUID, int pipelinePosition) {
         pCas.reset();
 
-        // TODO document locking
-
         // Not finished, has n tools processed, and not own tool
         Bson notFinishedFilter = Filters.ne("finished", true);
         Bson sizeCondition = Filters.expr(new Document("$gte", Arrays.asList(new Document("$size", "$metadata.duui_status_tools"), pipelinePosition)));
         Bson toolExistsCondition = Filters.ne("metadata.duui_status_tools", toolUUID);
-        Bson query = Filters.and(notFinishedFilter, sizeCondition, toolExistsCondition);
-        Document next = (Document) mongoCollection.find(query).first();
+        Bson notLockedCondition = Filters.ne("metadata.duui_locked", true);
+        Bson query = Filters.and(notFinishedFilter, sizeCondition, toolExistsCondition, notLockedCondition);
+        Document next = mongoCollection.findOneAndUpdate(query, new Document("$set", new Document("metadata.duui_locked", true)));
         // TODO fehlerhandling!
         if (next == null) {
             return false;
@@ -272,7 +391,7 @@ public class DUUISegmentationReader implements DUUICollectionDBReader {
 
         String segmentId = next.getString("filename");
         GridFSDownloadOptions options = new GridFSDownloadOptions();
-        try(GridFSDownloadStream download = mongoBucket.openDownloadStream(segmentId, options)) {
+        try (GridFSDownloadStream download = mongoBucket.openDownloadStream(segmentId, options)) {
             try (GZIPInputStream gzip = new GZIPInputStream(download)) {
                 XmiCasDeserializer.deserialize(gzip, pCas.getCas());
             }
@@ -308,16 +427,53 @@ public class DUUISegmentationReader implements DUUICollectionDBReader {
         boolean finished = new HashSet<>(toolUUIDs).containsAll(pipelineUUIDs);
         docMeta.append("duui_status_finished", finished);
 
+        docMeta.append("duui_locked", false);
+
         GridFSUploadOptions options = new GridFSUploadOptions()
                 .metadata(docMeta);
 
-        try(GridFSUploadStream upload = this.mongoBucket.openUploadStream(segmentId, options)) {
+        try (GridFSUploadStream upload = this.mongoBucket.openUploadStream(segmentId, options)) {
             try (GZIPOutputStream gzip = new GZIPOutputStream(upload)) {
                 XmiCasSerializer.serialize(pCas.getCas(), gzip);
             }
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+    }
+
+    // TODO: Create a separate thread that merges files
+    public void merge() {
+        Bson sort = new Document("metadata.duui_document_id", 1).append("metadata.duui_segment_index", 1);
+        Bson group = new Document("_id", "$metadata.duui_document_id").append("ids", new Document("$push", "$_id"));
+
+        try {
+            // TODO: Capacity
+            BlockingQueue<MergeMessage> queue = new LinkedBlockingDeque<>(this.capacity);
+
+            System.out.println("Starting " + this.workers + " workers to merge files...");
+            List<Thread> mergerThreads = new ArrayList<>();
+            for (int i = 0; i < this.workers; i++) {
+                Thread thread = new Thread(new Merger(queue, this.outPath, this.mongoDBConfig, SerializationUtils.clone(segmentationStrategy)));
+                thread.start();
+                mergerThreads.add(thread);
+            }
+            for (Document doc : mongoCollection.aggregate(List.of(new Document("$sort", sort), new Document("$group", group)))) {
+                queue.put(new MergeMessage(doc.getString("_id"), doc.getList("ids", ObjectId.class)));
+            }
+            // Add termination messages
+            for (Thread ignored : mergerThreads) {
+                queue.put(new MergeMessage(null, null));
+            }
+            System.out.println("Waiting for workers to finish...");
+            for (Thread thread : mergerThreads) {
+                thread.join();
+            }
+            System.out.println("All workers finished.");
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.err.println("CollectionReader failed!");
+        }
+
     }
 
     @Override
@@ -333,5 +489,67 @@ public class DUUISegmentationReader implements DUUICollectionDBReader {
     @Override
     public long getDone() {
         return mongoCollection.countDocuments(new Document("metadata.duui_status_finished", true));
+    }
+
+    protected static String getRelativePath(JCas aJCas, boolean stripExtension, boolean escapeFilename) {
+        DocumentMetaData meta = DocumentMetaData.get(aJCas);
+        String baseUri = meta.getDocumentBaseUri();
+        String docUri = meta.getDocumentUri();
+
+        if (baseUri != null && baseUri.length() != 0) {
+            // In some cases, the baseUri may not end with a slash - if so, we add one
+            if (baseUri.length() > 0 && !baseUri.endsWith("/")) {
+                baseUri += '/';
+            }
+
+            if ((docUri == null) || !docUri.startsWith(baseUri)) {
+                throw new IllegalStateException("Base URI [" + baseUri
+                        + "] is not a prefix of document URI [" + docUri + "]");
+            }
+            String relativeDocumentPath = docUri.substring(baseUri.length());
+            if (stripExtension) {
+                relativeDocumentPath = FilenameUtils.removeExtension(relativeDocumentPath);
+            }
+
+            // relativeDocumentPath must not start with as slash - if there are any, remove them
+            while (relativeDocumentPath.startsWith("/")) {
+                relativeDocumentPath = relativeDocumentPath.substring(1);
+            }
+
+            if (!escapeFilename) {
+                try {
+                    relativeDocumentPath = URLDecoder.decode(relativeDocumentPath, "UTF-8");
+                } catch (UnsupportedEncodingException e) {
+                    // UTF-8 must be supported on all Java platforms per specification. This should
+                    // not happen.
+                    throw new IllegalStateException(e);
+                }
+            }
+
+            return relativeDocumentPath;
+        } else {
+            if (meta.getDocumentId() == null) {
+                throw new IllegalStateException(
+                        "Neither base URI/document URI nor document ID set");
+            }
+
+            String relativeDocumentPath = meta.getDocumentId();
+
+            if (stripExtension) {
+                relativeDocumentPath = FilenameUtils.removeExtension(relativeDocumentPath);
+            }
+
+            if (escapeFilename) {
+                try {
+                    relativeDocumentPath = URLEncoder.encode(relativeDocumentPath, "UTF-8");
+                } catch (UnsupportedEncodingException e) {
+                    // UTF-8 must be supported on all Java platforms per specification. This should
+                    // not happen.
+                    throw new IllegalStateException(e);
+                }
+            }
+
+            return relativeDocumentPath;
+        }
     }
 }
