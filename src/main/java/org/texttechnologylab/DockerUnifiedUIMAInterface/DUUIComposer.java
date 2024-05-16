@@ -19,11 +19,13 @@ import org.apache.uima.util.CasCreationUtils;
 import org.apache.uima.util.InvalidXMLException;
 import org.luaj.vm2.Globals;
 import org.luaj.vm2.lib.jse.JsePlatform;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.composer.DUUISegmentedWorker;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.IDUUIConnectionHandler;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.document_handler.DUUIDocument;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.*;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.AsyncCollectionReader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.DUUIAsynchronousProcessor;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.io.DUUICollectionDBReader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.reader.DUUIDocumentReader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.DUUIEvent;
@@ -974,6 +976,76 @@ public class DUUIComposer {
             e.printStackTrace();
             System.out.println("[Composer] Something went wrong, shutting down remaining components...");
             shutdown_pipeline();
+            throw e;
+        }
+    }
+
+    public void runSegmented(DUUICollectionDBReader collectionReader, String name) throws Exception {
+        try {
+            _shutdownAtomic.set(false);
+
+            if(_storage != null) {
+                _storage.addNewRun(name, this);
+            }
+
+            TypeSystemDescription desc = instantiate_pipeline();
+
+            List<String> pipelineUUIDs = _instantiatedPipeline.stream().map(PipelinePart::getUUID).collect(Collectors.toList());
+
+            int threadsPerTool = _workers / _instantiatedPipeline.size();
+            System.out.printf("[Composer] Running in segmented mode, %d threads with %d threads per tool!\n", _workers, threadsPerTool);
+
+            List<Thread> threads = new ArrayList<>();
+            int tId = 0;
+            for (PipelinePart part : _instantiatedPipeline) {
+                for (int i = 0; i < threadsPerTool; i++) {
+                    System.out.printf("[Composer] Starting worker thread for pipeline part %s [%d/%d]\n", part.getUUID(), tId+1, _workers);
+                    Thread thread = new Thread(new DUUISegmentedWorker(
+                            tId,
+                            _shutdownAtomic,
+                            part,
+                            collectionReader,
+                            desc,
+                            _storage,
+                            name,
+                            pipelineUUIDs
+                    ));
+                    thread.start();
+                    threads.add(thread);
+                    tId += 1;
+                }
+            }
+
+            Instant starttime = Instant.now();
+            while(!collectionReader.finishedLoading() || collectionReader.getDone() < collectionReader.getSize()) {
+                System.out.println(collectionReader.getProgress());
+                Thread.sleep(500L);
+            }
+
+            System.out.println("[Composer] All documents have been processed. Signaling threads to shut down now...");
+            _shutdownAtomic.set(true);
+            for(int i = 0; i < threads.size(); i++) {
+                System.out.printf("[Composer] Waiting for thread [%d/%d] to shut down\n", i+1, threads.size());
+                threads.get(i).join();
+                System.out.printf("[Composer] Thread %d returned.\n", i);
+            }
+
+            System.out.println("[Composer] Merging documents...");
+            collectionReader.merge();
+
+            if(_storage != null) {
+                _storage.finalizeRun(name, starttime, Instant.now());
+            }
+
+            System.out.println("[Composer] All threads returned.");
+            shutdown_pipeline();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+
+            System.out.println("[Composer] Something went wrong, shutting down remaining components...");
+            shutdown_pipeline();
+
             throw e;
         }
     }
