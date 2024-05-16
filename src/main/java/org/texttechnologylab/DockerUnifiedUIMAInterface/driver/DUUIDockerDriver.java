@@ -42,6 +42,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Logger;
 
 import static java.lang.String.format;
@@ -57,6 +58,7 @@ interface ResponsiveMessageCallback {
 
 /**
  * Driver for the use of Docker
+ *
  * @author Alexander Leonhardt
  */
 public class DUUIDockerDriver implements IDUUIDriverInterface {
@@ -89,6 +91,7 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
 
     /**
      * Constructor with built-in timeout
+     *
      * @param timeout
      * @throws IOException
      * @throws UIMAException
@@ -105,6 +108,7 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
 
     /**
      * Creation of the communication layer based on the Driver
+     *
      * @param url
      * @param jc
      * @param timeout_ms
@@ -121,48 +125,45 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
         boolean fatal_error = false;
 
         int iError = 0;
-        while(true) {
+        while (true) {
             HttpRequest request = HttpRequest.newBuilder()
-                            .uri(URI.create(url + DUUIComposer.V1_COMPONENT_ENDPOINT_COMMUNICATION_LAYER))
-                            .version(HttpClient.Version.HTTP_1_1)
-                            .timeout(Duration.ofSeconds(timeout_ms))
-                            .GET()
-                            .build();
+                .uri(URI.create(url + DUUIComposer.V1_COMPONENT_ENDPOINT_COMMUNICATION_LAYER))
+                .version(HttpClient.Version.HTTP_1_1)
+                .timeout(Duration.ofSeconds(timeout_ms))
+                .GET()
+                .build();
 
             try {
                 HttpResponse<byte[]> resp = null;
 
                 boolean connectionError = true;
                 int iCount = 0;
-                while(connectionError && iCount<10) {
+                while (connectionError && iCount < 10) {
 
                     try {
                         // Das hier geht beim KubernetesDriver nicht
                         resp = client.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray()).join();
                         connectionError = false;
-                    }
-                    catch (Exception e){
-                        System.out.println(e.getMessage()+"\t"+url);
-                        if(e instanceof java.net.ConnectException){
+                    } catch (Exception e) {
+                        System.out.println(e.getMessage() + "\t" + url);
+                        if (e instanceof java.net.ConnectException) {
                             Thread.sleep(timeout_ms);
                             iCount++;
-                        }
-                        else if(e instanceof CompletionException){
+                        } else if (e instanceof CompletionException) {
                             Thread.sleep(timeout_ms);
                             iCount++;
                         }
                     }
                 }
-                if (resp.statusCode()== 200) {
+                if (resp.statusCode() == 200) {
                     String body2 = new String(resp.body(), Charset.defaultCharset());
                     try {
                         printfunc.operation("Component lua communication layer, loading...");
-                        IDUUICommunicationLayer lua_com = new DUUILuaCommunicationLayer(body2,"requester",context);
+                        IDUUICommunicationLayer lua_com = new DUUILuaCommunicationLayer(body2, "requester", context);
                         layer = lua_com;
                         printfunc.operation("Component lua communication layer, loaded.");
                         break;
-                    }
-                    catch(Exception e) {
+                    } catch (Exception e) {
                         fatal_error = true;
                         e.printStackTrace();
                         throw new Exception("Component provided a lua script which is not runnable.");
@@ -174,61 +175,58 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
                 long finish = System.currentTimeMillis();
                 long timeElapsed = finish - start;
                 if (timeElapsed > timeout_ms) {
-                    throw new TimeoutException(format("The Container did not provide one succesful answer in %d milliseconds",timeout_ms));
+                    throw new TimeoutException(format("The Container did not provide one succesful answer in %d milliseconds", timeout_ms));
                 }
 
             } catch (Exception e) {
 
-                if(fatal_error) {
+                if (fatal_error) {
                     throw e;
-                }
-                else{
+                } else {
                     Thread.sleep(2000l);
                     iError++;
                 }
 
-                if(iError>10){
+                if (iError > 10) {
                     throw e;
                 }
             }
         }
-        if(skipVerification) {
+        if (skipVerification) {
             return layer;
         }
         ByteArrayOutputStream stream = new ByteArrayOutputStream();
         try {
             //TODO: Make this accept options to better check the instantiation!
-            layer.serialize(jc, stream,null);
-        }
-        catch(Exception e) {
+            layer.serialize(jc, stream, null);
+        } catch (Exception e) {
             e.printStackTrace();
             throw new Exception(format("The serialization step of the communication layer fails for implementing class %s", layer.getClass().getCanonicalName()));
         }
 
         HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(url + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS))
-                .version(HttpClient.Version.HTTP_1_1)
-                .POST(HttpRequest.BodyPublishers.ofByteArray(stream.toByteArray()))
-                .build();
-                HttpResponse<byte[]> resp = client.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray()).join();
-                if (resp.statusCode() == 200) {
-                    ByteArrayInputStream inputStream = new ByteArrayInputStream(resp.body());
-                    try {
-                        layer.deserialize(jc, inputStream);
-                    }
-                    catch(Exception e) {
-                        System.err.printf("Caught exception printing response %s\n",new String(resp.body(), StandardCharsets.UTF_8));
-                        throw e;
-                    }
-                    return layer;
-                }
-                else {
-                    throw new Exception(format("The container returned response with code != 200\nResponse %s",resp.body().toString()));
-                }
+            .uri(URI.create(url + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS))
+            .version(HttpClient.Version.HTTP_1_1)
+            .POST(HttpRequest.BodyPublishers.ofByteArray(stream.toByteArray()))
+            .build();
+        HttpResponse<byte[]> resp = client.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray()).join();
+        if (resp.statusCode() == 200) {
+            ByteArrayInputStream inputStream = new ByteArrayInputStream(resp.body());
+            try {
+                layer.deserialize(jc, inputStream);
+            } catch (Exception e) {
+                System.err.printf("Caught exception printing response %s\n", new String(resp.body(), StandardCharsets.UTF_8));
+                throw e;
+            }
+            return layer;
+        } else {
+            throw new Exception(format("The container returned response with code != 200\nResponse %s", resp.body().toString()));
+        }
     }
 
     /**
      * Set Lua-Context
+     *
      * @param luaContext
      */
     public void setLuaContext(DUUILuaContext luaContext) {
@@ -237,6 +235,7 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
 
     /**
      * Set Timeout
+     *
      * @param container_timeout_ms
      * @return
      */
@@ -247,22 +246,24 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
 
     /**
      * Check whether the image is available.
+     *
      * @param comp
      * @return
      */
     public boolean canAccept(DUUIPipelineComponent comp) {
-        return comp.getDockerImageName()!=null;
+        return comp.getDockerImageName() != null;
     }
 
     /**
      * Instantiate the component
+     *
      * @param component
      * @param jc
      * @param skipVerification
      * @return
      * @throws Exception
      */
-    public String instantiate(DUUIPipelineComponent component, JCas jc, boolean skipVerification) throws Exception {
+    public String instantiate(DUUIPipelineComponent component, JCas jc, boolean skipVerification, AtomicBoolean shutdown) throws Exception {
         String uuid = UUID.randomUUID().toString();
         while (_active_components.containsKey(uuid.toString())) {
             uuid = UUID.randomUUID().toString();
@@ -271,29 +272,36 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
 
         InstantiatedComponent comp = new InstantiatedComponent(component);
 
-
-        if (!comp.getImageFetching()) {
-            if(comp.getUsername() != null) {
-                System.out.printf("[DockerLocalDriver] Attempting image %s download from secure remote registry\n",comp.getImageName());
+        // Inverted if check because images will never be pulled if !comp.getImageFetching() is checked.
+        if (comp.getImageFetching()) {
+            if (comp.getUsername() != null) {
+                System.out.printf("[DockerLocalDriver] Attempting image %s download from secure remote registry\n", comp.getImageName());
             }
-            _interface.pullImage(comp.getImageName(),comp.getUsername(),comp.getPassword());
-            System.out.printf("[DockerLocalDriver] Pulled image with id %s\n",comp.getImageName());
-        }
-        else {
+            _interface.pullImage(comp.getImageName(), comp.getUsername(), comp.getPassword(), shutdown);
+            if (shutdown.get()) {
+                return null;
+            }
+
+            System.out.printf("[DockerLocalDriver] Pulled image with id %s\n", comp.getImageName());
+        } else {
 //            _interface.pullImage(comp.getImageName());
-            if(!_interface.hasLocalImage(comp.getImageName())) {
-                throw new InvalidParameterException(format("Could not find local docker image \"%s\". Did you misspell it or forget with .withImageFetching() to fetch it from remote registry?",comp.getImageName()));
+            if (!_interface.hasLocalImage(comp.getImageName())) {
+                throw new InvalidParameterException(format("Could not find local docker image \"%s\". Did you misspell it or forget with .withImageFetching() to fetch it from remote registry?", comp.getImageName()));
             }
         }
         System.out.printf("[DockerLocalDriver] Assigned new pipeline component unique id %s\n", uuid);
         String digest = _interface.getDigestFromImage(comp.getImageName());
-        comp.getPipelineComponent().__internalPinDockerImage(comp.getImageName(),digest);
-        System.out.printf("[DockerLocalDriver] Transformed image %s to pinnable image name %s\n", comp.getImageName(),comp.getPipelineComponent().getDockerImageName());
+        comp.getPipelineComponent().__internalPinDockerImage(comp.getImageName(), digest);
+        System.out.printf("[DockerLocalDriver] Transformed image %s to pinnable image name %s\n", comp.getImageName(), comp.getPipelineComponent().getDockerImageName());
 
         _active_components.put(uuid, comp);
         // TODO: Fragen, was hier genau gemacht wird.
         for (int i = 0; i < comp.getScale(); i++) {
-            String containerid = _interface.run(comp.getPipelineComponent().getDockerImageName(), comp.usesGPU(), true, 9714,false);
+            if (shutdown.get()) {
+                return null;
+            }
+
+            String containerid = _interface.run(comp.getPipelineComponent().getDockerImageName(), comp.usesGPU(), true, 9714, false);
             int port = _interface.extract_port_mapping(containerid);  // Dieser port hier ist im allgemeinen nicht (bzw nie) der Port 9714 aus dem Input.
 
             try {
@@ -302,9 +310,9 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
                 }
                 final int iCopy = i;
                 final String uuidCopy = uuid;
-                IDUUICommunicationLayer layer = responsiveAfterTime("http://127.0.0.1:" + String.valueOf(port), jc, _container_timeout, _client,(msg) -> {
+                IDUUICommunicationLayer layer = responsiveAfterTime("http://127.0.0.1:" + String.valueOf(port), jc, _container_timeout, _client, (msg) -> {
                     System.out.printf("[DockerLocalDriver][%s][Docker Replication %d/%d] %s\n", uuidCopy, iCopy + 1, comp.getScale(), msg);
-                },_luaContext, skipVerification);
+                }, _luaContext, skipVerification);
                 System.out.printf("[DockerLocalDriver][%s][Docker Replication %d/%d] Container for image %s is online (URL http://127.0.0.1:%d) and seems to understand DUUI V1 format!\n", uuid, i + 1, comp.getScale(), comp.getImageName(), port);
 
                 /**
@@ -317,9 +325,8 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
                 if (comp.isWebsocket()) {
                     String url = "ws://127.0.0.1:" + String.valueOf(port);
                     _wsclient = new DUUIWebsocketAlt(
-                            url + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS_WEBSOCKET, comp.getWebsocketElements());
-                }
-                else {
+                        url + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS_WEBSOCKET, comp.getWebsocketElements());
+                } else {
                     _wsclient = null;
                 }
                 /**
@@ -331,17 +338,17 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
                  * retrieval in process_handler-function.
                  */
                 comp.addInstance(new ComponentInstance(containerid, port, layer, _wsclient));
-            }
-            catch(Exception e) {
+            } catch (Exception e) {
                 //_interface.stop_container(containerid);
                 //throw e;
             }
         }
-        return uuid;
+        return shutdown.get() ? null : uuid;
     }
 
     /**
      * Show the maximum parallelism
+     *
      * @param uuid
      */
     public void printConcurrencyGraph(String uuid) {
@@ -349,11 +356,12 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
         if (component == null) {
             throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
         }
-        System.out.printf("[DockerLocalDriver][%s]: Maximum concurrency %d\n",uuid,component.getInstances().size());
+        System.out.printf("[DockerLocalDriver][%s]: Maximum concurrency %d\n", uuid, component.getInstances().size());
     }
 
     /**
      * Return the TypeSystem used by the given Component
+     *
      * @param uuid
      * @return
      * @throws InterruptedException
@@ -367,21 +375,23 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
         if (comp == null) {
             throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
         }
-        return IDUUIInstantiatedPipelineComponent.getTypesystem(uuid,comp);
+        return IDUUIInstantiatedPipelineComponent.getTypesystem(uuid, comp);
     }
 
     /**
      * Execute a component in the driver
+     *
      * @param uuid
      * @param aCas
      * @param perf
+     * @param composer
      * @throws InterruptedException
      * @throws IOException
      * @throws SAXException
      * @throws CompressorException
      * @throws CASException
      */
-    public void run(String uuid, JCas aCas, DUUIPipelineDocumentPerformance perf) throws InterruptedException, IOException, SAXException, CompressorException, CASException {
+    public void run(String uuid, JCas aCas, DUUIPipelineDocumentPerformance perf, DUUIComposer composer) throws InterruptedException, IOException, SAXException, CompressorException, CASException {
         long mutexStart = System.nanoTime();
         InstantiatedComponent comp = _active_components.get(uuid);
         if (comp == null) {
@@ -389,14 +399,14 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
         }
         if (comp.isWebsocket()) {
             IDUUIInstantiatedPipelineComponent.process_handler(aCas, comp, perf);
-        }
-        else {
+        } else {
             IDUUIInstantiatedPipelineComponent.process(aCas, comp, perf);
         }
     }
 
     /**
      * Shutdown of the Docker-Driver
+     *
      * @hidden
      */
     public void shutdown() {
@@ -405,9 +415,10 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
 
     /**
      * Terminate a component
+     *
      * @param uuid
      */
-    public void destroy(String uuid) {
+    public boolean destroy(String uuid) {
         InstantiatedComponent comp = _active_components.remove(uuid);
         if (comp == null) {
             throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
@@ -415,11 +426,13 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
         if (!comp.getRunningAfterExit()) {
             int counter = 1;
             for (ComponentInstance inst : comp.getInstances()) {
-                System.out.printf("[DockerLocalDriver][Replication %d/%d] Stopping docker container %s...\n",counter,comp.getInstances().size(),inst.getContainerId());
+                System.out.printf("[DockerLocalDriver][Replication %d/%d] Stopping docker container %s...\n", counter, comp.getInstances().size(), inst.getContainerId());
                 _interface.stop_container(inst.getContainerId());
-                counter+=1;
+                counter += 1;
             }
         }
+
+        return true;
     }
 
     public static class ComponentInstance implements IDUUIUrlAccessible {
@@ -461,7 +474,9 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
             return format("http://127.0.0.1:%d", _port);
         }
 
-        public IDUUIConnectionHandler getHandler() {return _handler;}
+        public IDUUIConnectionHandler getHandler() {
+            return _handler;
+        }
     }
 
     static class InstantiatedComponent implements IDUUIInstantiatedPipelineComponent {
@@ -477,18 +492,18 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
         private String _reg_password;
         private String _reg_username;
         private String _uniqueComponentKey;
-        private Map<String,String> _parameters;
+        private Map<String, String> _parameters;
         private DUUIPipelineComponent _component;
 
 
-        public Triplet<IDUUIUrlAccessible,Long,Long> getComponent() {
+        public Triplet<IDUUIUrlAccessible, Long, Long> getComponent() {
             long mutexStart = System.nanoTime();
             ComponentInstance inst = _instances.poll();
-            while(inst == null) {
+            while (inst == null) {
                 inst = _instances.poll();
             }
             long mutexEnd = System.nanoTime();
-            return Triplet.with(inst,mutexStart,mutexEnd);
+            return Triplet.with(inst, mutexStart, mutexEnd);
         }
 
         public void addComponent(IDUUIUrlAccessible access) {
@@ -526,12 +541,21 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
             return _component;
         }
 
-        public String getUniqueComponentKey() {return _uniqueComponentKey;}
-        public String getPassword() {return _reg_password;}
+        public String getUniqueComponentKey() {
+            return _uniqueComponentKey;
+        }
 
-        public String getUsername() {return _reg_username;}
+        public String getPassword() {
+            return _reg_password;
+        }
 
-        public boolean getImageFetching() {return _withImageFetching;}
+        public String getUsername() {
+            return _reg_username;
+        }
+
+        public boolean getImageFetching() {
+            return _withImageFetching;
+        }
 
         public String getImageName() {
             return _image_name;
@@ -549,26 +573,32 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
             _instances.add(inst);
         }
 
-        public boolean usesGPU() {return _gpu;}
+        public boolean usesGPU() {
+            return _gpu;
+        }
 
         public ConcurrentLinkedQueue<ComponentInstance> getInstances() {
             return _instances;
         }
 
-        public Map<String,String> getParameters() {return _parameters;}
+        public Map<String, String> getParameters() {
+            return _parameters;
+        }
 
         public boolean isWebsocket() {
             return _websocket;
         }
 
-        public int getWebsocketElements() { return _ws_elements; }
+        public int getWebsocketElements() {
+            return _ws_elements;
+        }
     }
 
     public static class Component {
         private DUUIPipelineComponent _component;
 
         public Component withParameter(String key, String value) {
-            _component.withParameter(key,value);
+            _component.withParameter(key, value);
             return this;
         }
 
@@ -592,12 +622,16 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
         }
 
         public Component withRegistryAuth(String username, String password) {
-            _component.withDockerAuth(username,password);
+            _component.withDockerAuth(username, password);
             return this;
         }
 
         public Component withImageFetching() {
-            _component.withDockerImageFetching(true);
+            return withImageFetching(true);
+        }
+
+        public Component withImageFetching(boolean imageFetching) {
+            _component.withDockerImageFetching(imageFetching);
             return this;
         }
 
@@ -634,6 +668,11 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
         public DUUIPipelineComponent build() {
             _component.withDriver(DUUIDockerDriver.class);
             return _component;
+        }
+
+        public Component withName(String name) {
+            _component.withName(name);
+            return this;
         }
     }
 }

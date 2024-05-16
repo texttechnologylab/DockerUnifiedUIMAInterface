@@ -256,8 +256,8 @@ public class DUUIFileReaderLazy implements DUUICollectionReader {
     }
 
     @Override
-    public ProgressMeter getProgress() {
-        return null;
+    public AdvancedProgressMeter getProgress() {
+        return this.progress;
     }
 
     private static final Pattern XMLCharInvalidPattern =
