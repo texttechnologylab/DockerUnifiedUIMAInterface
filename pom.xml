@@ -281,6 +281,12 @@
             <version>2.1.1</version>
         </dependency>
 
+        <!-- https://mvnrepository.com/artifact/org.aarboard.nextcloud/nextcloud-api -->
+        <dependency>
+            <groupId>org.aarboard.nextcloud</groupId>
+            <artifactId>nextcloud-api</artifactId>
+            <version>13.0.1</version>
+        </dependency>
 
         <dependency>
             <groupId>org.mongodb</groupId>
