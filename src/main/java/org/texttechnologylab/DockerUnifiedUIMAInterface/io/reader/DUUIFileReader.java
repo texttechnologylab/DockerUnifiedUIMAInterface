@@ -297,11 +297,11 @@ public class DUUIFileReader implements DUUICollectionReader {
         InputStream decodedFile;
         try {
             if (result.endsWith(".xz")) {
-                ByteArrayOutputStream out = new ByteArrayOutputStream();
                 decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.XZ, new ByteArrayInputStream(file));
             } else if (result.endsWith(".gz")) {
-                ByteArrayOutputStream out = new ByteArrayOutputStream();
                 decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.GZIP, new ByteArrayInputStream(file));
+            } else if (result.endsWith(".bz2")) {
+                decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.BZIP2, new ByteArrayInputStream(file));
             } else {
                 decodedFile = new ByteArrayInputStream(file);
             }
