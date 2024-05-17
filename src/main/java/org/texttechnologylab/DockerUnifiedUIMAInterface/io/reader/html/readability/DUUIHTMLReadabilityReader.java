@@ -19,8 +19,10 @@ public class DUUIHTMLReadabilityReader extends JCasResourceCollectionReader_Impl
         initCas(jCas, res);
         try (InputStream is = CompressionUtils.getInputStream(res.getLocation(), res.getInputStream())) {
             HTMLReadabilityLoader.load(is, jCas);
-        } catch (ParserConfigurationException | UIMAException | SAXException e) {
-            throw new CollectionException(e);
+        } catch (Exception e) {
+            //throw new CollectionException(e);
+	    System.err.println("Fehler bei: " + res.getLocation());
+	    jCas.setDocumentText("");
         }
     }
 }

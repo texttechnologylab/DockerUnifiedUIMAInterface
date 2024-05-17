@@ -41,10 +41,10 @@ public class HTMLReadabilityLoader extends DefaultHandler {
 
         StringBuilder sofa = new StringBuilder();
         for (String text : texts) {
-            int begin = sofa.length();
-            if (begin > 0) {
+            if (sofa.length() > 0) {
                 sofa.append(" ");
             }
+            int begin = sofa.length();
             sofa.append(text);
             int end = sofa.length();
 
