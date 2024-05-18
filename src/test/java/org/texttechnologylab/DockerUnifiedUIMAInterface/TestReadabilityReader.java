@@ -8,10 +8,13 @@ import org.apache.uima.jcas.JCas;
 import org.apache.uima.util.XMLSerializer;
 import org.dkpro.core.io.xmi.XmiWriter;
 import org.junit.jupiter.api.Test;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIUIMADriver;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.*;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.io.reader.DUUIFileReader;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.io.DUUIAsynchronousProcessor;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.reader.html.readability.DUUIHTMLReadabilityReader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.reader.html.readability.HTMLReadabilityLoader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.segmentation.DUUISegmentationStrategyByAnnotation;
 import org.xml.sax.SAXException;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.OutputKeys;
@@ -45,6 +48,62 @@ public class TestReadabilityReader {
         }
     }
 
+    
+    @Test
+    public void testSpacy() throws Exception {    
+        Path sourceLocation = Paths.get("/storage/projects/CORE/azure/core-edutec-fileshare/texts_xmi");
+        Path targetLocation = Paths.get("/storage/projects/CORE/azure/core-edutec-fileshare/texts_xmi_spacy");
+	int scale = 10;
+
+        DUUIAsynchronousProcessor processor = new DUUIAsynchronousProcessor(
+                new DUUIFileReader(
+                        sourceLocation.toString(),
+                        "xmi.gz"
+                )
+        );
+
+        DUUIComposer composer = new DUUIComposer()
+                .withSkipVerification(true)
+                .withWorkers(scale)
+                .withLuaContext(new DUUILuaContext().withJsonLibrary());
+
+        DUUIUIMADriver uimaDriver = new DUUIUIMADriver();
+        DUUISwarmDriver swarmDriver = new DUUISwarmDriver();
+	DUUIDockerDriver dockerDriver = new DUUIDockerDriver();
+        composer.addDriver(uimaDriver, swarmDriver, dockerDriver);
+
+	DUUIPipelineComponent componentLang = new DUUISwarmDriver
+		.Component("docker.texttechnologylab.org/languagedetection:0.5")
+		.withScale(scale)
+		.withConstraintHost("isengart")
+		.build();
+	composer.add(componentLang);
+
+	DUUISegmentationStrategyByAnnotation strategy = new DUUISegmentationStrategyByAnnotation()
+		.withSegmentationClass(Paragraph.class)
+		.withMaxAnnotationsPerSegment(1)
+		.withMaxCharsPerSegment(1000000);
+	
+       	DUUIPipelineComponent componentSpacy = new DUUISwarmDriver.Component("docker.texttechnologylab.org/duui-spacy:0.4.3")
+        //DUUIPipelineComponent componentSpacy = new DUUISwarmDriver.Component("docker.texttechnologylab.org/duui-spacy-de_core_news_lg:0.4.1")
+                .withScale(scale)
+		.withConstraintHost("isengart")
+		.build();
+        componentSpacy.withSegmentationStrategy(strategy);
+	composer.add(componentSpacy);
+	
+	composer.add(new DUUIUIMADriver.Component(createEngineDescription(XmiWriter.class,
+		XmiWriter.PARAM_TARGET_LOCATION, targetLocation.toString(),
+		XmiWriter.PARAM_PRETTY_PRINT, true,
+		XmiWriter.PARAM_OVERWRITE, true,
+		XmiWriter.PARAM_VERSION, "1.1",
+		XmiWriter.PARAM_COMPRESSION, "GZIP"
+	)).build());
+
+	composer.run(processor, "spacy");
+	composer.shutdown();
+    }
+
     @Test
     public void testReader() throws Exception {
         Path sourceLocation = Paths.get("/storage/projects/CORE/azure/core-edutec-fileshare/texts");
@@ -60,7 +119,6 @@ public class TestReadabilityReader {
         CollectionReaderDescription reader = createReaderDescription(DUUIHTMLReadabilityReader.class
                 , DUUIHTMLReadabilityReader.PARAM_SOURCE_LOCATION, sourceLocation.toString()
                 , DUUIHTMLReadabilityReader.PARAM_PATTERNS, "[+]**/*.html.gz"
-                , DUUIHTMLReadabilityReader.PARAM_LANGUAGE, "de"
         );
 
         composer.add(new DUUIUIMADriver.Component(
