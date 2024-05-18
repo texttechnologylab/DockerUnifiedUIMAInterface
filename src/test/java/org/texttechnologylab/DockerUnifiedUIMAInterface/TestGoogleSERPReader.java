@@ -18,6 +18,7 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.segmentation.DUUISegment
 import org.xml.sax.SAXException;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.OutputKeys;
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -92,6 +93,46 @@ public class TestGoogleSERPReader {
 
         composer.run(processor, "spacy");
         composer.shutdown();
+    }
+
+    @Test
+    public void testReader2() throws ParserConfigurationException, IOException, UIMAException, SAXException {
+        Path listFile = Paths.get("/storage/projects/CORE/erhebungen/t0/db/tasks/assessment_urls_html_Funkmast.csv");
+        try (BufferedReader reader =  Files.newBufferedReader(listFile, StandardCharsets.UTF_8)) {
+            long counter = 0;
+            boolean skipFirstLine = true;
+            String line;
+            while ((line = reader.readLine()) != null) {
+                counter += 1;
+                if (counter % 50 == 0) {
+                    System.out.println(counter);
+                }
+
+                if (skipFirstLine) {
+                    skipFirstLine = false;
+                    continue;
+                }
+
+                line = line.trim();
+                String[] fields = line.split(",", -1);
+
+                String user = fields[9];
+                String session = fields[4];
+                String html = fields[10];
+
+                Path filename = Paths.get("/storage/projects/CORE/azure/core-edutec-fileshare/html/" + user + "/" + session + "/" + html + ".html.gz");
+                JCas jCas = HTMLGoogleSERPLoader.load(filename, null);
+
+                Path output = Paths.get("/storage/projects/CORE/azure/core-edutec-fileshare/html_xmi_google_serps/" + user + "/" + session + "/" + html + ".html.gz");
+                try(GZIPOutputStream outputStream = new GZIPOutputStream(Files.newOutputStream(output))) {
+                    XMLSerializer xmlSerializer = new XMLSerializer(outputStream, true);
+                    xmlSerializer.setOutputProperty(OutputKeys.VERSION, "1.1");
+                    xmlSerializer.setOutputProperty(OutputKeys.ENCODING, StandardCharsets.UTF_8.toString());
+                    XmiCasSerializer xmiCasSerializer = new XmiCasSerializer(null);
+                    xmiCasSerializer.serialize(jCas.getCas(), xmlSerializer.getContentHandler());
+                }
+            }
+        }
     }
 
     @Test

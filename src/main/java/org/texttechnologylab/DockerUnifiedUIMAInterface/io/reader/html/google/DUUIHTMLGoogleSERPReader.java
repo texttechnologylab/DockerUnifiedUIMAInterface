@@ -14,16 +14,13 @@ import java.io.InputStream;
 public class DUUIHTMLGoogleSERPReader extends JCasResourceCollectionReader_ImplBase {
     @Override
     public void getNext(JCas jCas) throws IOException, CollectionException {
-        while (hasNext()) {
-            Resource res = nextFile();
-            initCas(jCas, res);
-            try (InputStream is = CompressionUtils.getInputStream(res.getLocation(), res.getInputStream())) {
-                HTMLGoogleSERPLoader.load(is, jCas);
-                return;
-            } catch (ParserConfigurationException | UIMAException | SAXException e) {
-                //throw new CollectionException(e);
-                e.printStackTrace();
-            }
+        Resource res = nextFile();
+        initCas(jCas, res);
+        try (InputStream is = CompressionUtils.getInputStream(res.getLocation(), res.getInputStream())) {
+            HTMLGoogleSERPLoader.load(is, jCas);
+        } catch (ParserConfigurationException | UIMAException | SAXException e) {
+            //throw new CollectionException(e);
+            e.printStackTrace();
         }
     }
 }

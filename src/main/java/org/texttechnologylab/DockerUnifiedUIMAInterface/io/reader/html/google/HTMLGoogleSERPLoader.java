@@ -25,7 +25,10 @@ import java.util.zip.GZIPInputStream;
 public class HTMLGoogleSERPLoader extends DefaultHandler {
     public static JCas load(Path filename, String language) throws ParserConfigurationException, SAXException, IOException, UIMAException {
         JCas jCas = JCasFactory.createJCas();
-        jCas.setDocumentLanguage(language);
+
+        if (language != null) {
+            jCas.setDocumentLanguage(language);
+        }
 
         if (filename.toString().endsWith(".gz")) {
             load(new GZIPInputStream(Files.newInputStream(filename)), jCas);
