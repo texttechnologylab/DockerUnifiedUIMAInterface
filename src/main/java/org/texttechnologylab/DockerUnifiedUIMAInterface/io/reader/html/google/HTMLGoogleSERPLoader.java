@@ -72,6 +72,12 @@ public class HTMLGoogleSERPLoader extends DefaultHandler {
             Paragraph paragraph = new Paragraph(jCas, begin, end);
             paragraph.addToIndexes();
 
+		AnnotationComment originalUrl = new AnnotationComment(jCas);
+		originalUrl.setKey("google_serp_link");
+		originalUrl.setValue(link);
+		originalUrl.setReference(paragraph);
+		originalUrl.addToIndexes();
+
             try {
                 java.net.URL url = new URI(link).toURL();
                 URL urlAnno = new URL(jCas, begin, end);
@@ -96,13 +102,8 @@ public class HTMLGoogleSERPLoader extends DefaultHandler {
                 urlAnno.setFragment(url.getRef());
                 urlAnno.addToIndexes();
 
-                AnnotationComment originalUrl = new AnnotationComment(jCas);
-                originalUrl.setKey("google_serp_link");
-                originalUrl.setValue(link);
-                originalUrl.setReference(urlAnno);
-                originalUrl.addToIndexes();
             }
-            catch (URISyntaxException e) {
+            catch (Exception e) {
                 // ignored
             }
         }

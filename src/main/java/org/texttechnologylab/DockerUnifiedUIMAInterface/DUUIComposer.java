@@ -309,7 +309,7 @@ class DUUIWorkerAsyncReader extends Thread {
 
                 } catch (Exception e) {
                     //Ignore errors at the moment
-                    //e.printStackTrace();
+                    e.printStackTrace();
                     System.err.println(e.getMessage());
                     System.out.println("Thread continues work with next document!");
                     break;
@@ -422,7 +422,7 @@ class DUUIWorkerAsyncProcessor extends Thread {
 
                 } catch (Exception e) {
                     //Ignore errors at the moment
-                    //e.printStackTrace();
+                    e.printStackTrace();
                     if (!(e instanceof IOException)) {
                         System.err.println(e.getMessage());
                         System.out.println("Thread continues work with next document!");

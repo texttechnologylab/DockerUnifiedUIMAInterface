@@ -1,6 +1,7 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface;
 
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Paragraph;
+import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import org.apache.uima.UIMAException;
 import org.apache.uima.cas.impl.XmiCasSerializer;
 import org.apache.uima.collection.CollectionReaderDescription;
@@ -18,6 +19,7 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.segmentation.DUUISegment
 import org.xml.sax.SAXException;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.OutputKeys;
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -102,6 +104,71 @@ public class TestReadabilityReader {
 
 	composer.run(processor, "spacy");
 	composer.shutdown();
+    }
+
+    @Test
+    public void testReader2() throws ParserConfigurationException, IOException, UIMAException, SAXException {
+        Path listFile = Paths.get("/storage/projects/CORE/erhebungen/t0/db/tasks/assessment_urls_texts_Nudging-Aufgabe.csv");
+        try (BufferedReader reader =  Files.newBufferedReader(listFile, StandardCharsets.UTF_8)) {
+            long counter = 0;
+            boolean skipFirstLine = true;
+            String line;
+            while ((line = reader.readLine()) != null) {
+		try {
+			counter += 1;
+			if (counter % 50 == 0) {
+			    System.out.println(counter);
+			}
+
+			if (skipFirstLine) {
+			    skipFirstLine = false;
+			    continue;
+			}
+
+			line = line.trim();
+			String[] fields = line.split(",", -1);
+
+			String user = fields[9];
+			String session = fields[4];
+			String html = fields[10];
+
+			String title = html + ".html.gz";
+			String docId = user + "/" + session + "/" + title;
+			String collectionId = "file:/storage/projects/CORE/azure/core-edutec-fileshare/texts/";
+			String docBaseUri = collectionId;
+			String docUri = docBaseUri + docId;
+
+			Path filename = Paths.get("/storage/projects/CORE/azure/core-edutec-fileshare/texts/" + docId);
+			Path output = Paths.get("/storage/projects/CORE/azure/core-edutec-fileshare/texts_xmi/" + docId + ".xmi.gz");
+			if (Files.exists(output)) {
+				System.out.println("exists: " + output.toString());
+				continue;
+			}
+
+			JCas jCas = HTMLReadabilityLoader.load(filename, null);
+			
+			DocumentMetaData dmd = new DocumentMetaData(jCas);
+			dmd.setDocumentTitle(title);
+			dmd.setDocumentId(docId);
+			dmd.setDocumentUri(docUri);
+			dmd.setCollectionId(collectionId);
+			dmd.setDocumentBaseUri(docBaseUri);
+			dmd.addToIndexes();
+
+			Files.createDirectories(output.getParent());
+			try(GZIPOutputStream outputStream = new GZIPOutputStream(Files.newOutputStream(output))) {
+			    XMLSerializer xmlSerializer = new XMLSerializer(outputStream, true);
+			    xmlSerializer.setOutputProperty(OutputKeys.VERSION, "1.1");
+			    xmlSerializer.setOutputProperty(OutputKeys.ENCODING, StandardCharsets.UTF_8.toString());
+			    XmiCasSerializer xmiCasSerializer = new XmiCasSerializer(null);
+			    xmiCasSerializer.serialize(jCas.getCas(), xmlSerializer.getContentHandler());
+			}
+		}
+		catch (Exception e) {
+			e.printStackTrace();
+		}
+            }
+        }
     }
 
     @Test

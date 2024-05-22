@@ -1,6 +1,7 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface;
 
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Paragraph;
+import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import org.apache.uima.UIMAException;
 import org.apache.uima.cas.impl.XmiCasSerializer;
 import org.apache.uima.collection.CollectionReaderDescription;
@@ -72,13 +73,23 @@ public class TestGoogleSERPReader {
         DUUIDockerDriver dockerDriver = new DUUIDockerDriver();
         composer.addDriver(uimaDriver, swarmDriver, dockerDriver);
 
+	DUUIPipelineComponent componentLang = new DUUISwarmDriver
+		.Component("docker.texttechnologylab.org/languagedetection:0.5")
+		.withScale(scale)
+		.withConstraintHost("isengart")
+		.build();
+	composer.add(componentLang);
+
         DUUISegmentationStrategyByAnnotation strategy = new DUUISegmentationStrategyByAnnotation()
                 .withSegmentationClass(Paragraph.class)
                 .withMaxAnnotationsPerSegment(1)
-                .withMaxCharsPerSegment(1000000);
+                .withMaxCharsPerSegment(1000000)
+		.withPrintStatistics(false);
 
-        DUUIPipelineComponent componentSpacy = new DUUISwarmDriver.Component("docker.texttechnologylab.org/duui-spacy-de_core_news_lg:0.4.1")
+       	DUUIPipelineComponent componentSpacy = new DUUISwarmDriver.Component("docker.texttechnologylab.org/duui-spacy:0.4.3")
+        //DUUIPipelineComponent componentSpacy = new DUUISwarmDriver.Component("docker.texttechnologylab.org/duui-spacy-de_core_news_lg:0.4.1")
                 .withScale(scale)
+		.withConstraintHost("isengart")
                 .build();
         componentSpacy.withSegmentationStrategy(strategy);
         composer.add(componentSpacy);
@@ -103,34 +114,60 @@ public class TestGoogleSERPReader {
             boolean skipFirstLine = true;
             String line;
             while ((line = reader.readLine()) != null) {
-                counter += 1;
-                if (counter % 50 == 0) {
-                    System.out.println(counter);
-                }
+		try {
+			counter += 1;
+			if (counter % 50 == 0) {
+			    System.out.println(counter);
+			}
 
-                if (skipFirstLine) {
-                    skipFirstLine = false;
-                    continue;
-                }
+			if (skipFirstLine) {
+			    skipFirstLine = false;
+			    continue;
+			}
 
-                line = line.trim();
-                String[] fields = line.split(",", -1);
+			line = line.trim();
+			String[] fields = line.split(",", -1);
 
-                String user = fields[9];
-                String session = fields[4];
-                String html = fields[10];
+			String url = fields[7];
+			//if (!url.contains("google.com/search") && !url.contains("google.de/search")) {
+			if (!url.contains("google.de/search")) {
+				continue;
+			}
 
-                Path filename = Paths.get("/storage/projects/CORE/azure/core-edutec-fileshare/html/" + user + "/" + session + "/" + html + ".html.gz");
-                JCas jCas = HTMLGoogleSERPLoader.load(filename, null);
+			String user = fields[9];
+			String session = fields[4];
+			String html = fields[10];
 
-                Path output = Paths.get("/storage/projects/CORE/azure/core-edutec-fileshare/html_xmi_google_serps/" + user + "/" + session + "/" + html + ".html.gz");
-                try(GZIPOutputStream outputStream = new GZIPOutputStream(Files.newOutputStream(output))) {
-                    XMLSerializer xmlSerializer = new XMLSerializer(outputStream, true);
-                    xmlSerializer.setOutputProperty(OutputKeys.VERSION, "1.1");
-                    xmlSerializer.setOutputProperty(OutputKeys.ENCODING, StandardCharsets.UTF_8.toString());
-                    XmiCasSerializer xmiCasSerializer = new XmiCasSerializer(null);
-                    xmiCasSerializer.serialize(jCas.getCas(), xmlSerializer.getContentHandler());
-                }
+			String title = html + ".html.gz";
+			String docId = user + "/" + session + "/" + title;
+			String collectionId = "file:/storage/projects/CORE/azure/core-edutec-fileshare/html/";
+			String docBaseUri = collectionId;
+			String docUri = docBaseUri + docId;
+
+			Path filename = Paths.get("/storage/projects/CORE/azure/core-edutec-fileshare/html/" + docId);
+			JCas jCas = HTMLGoogleSERPLoader.load(filename, null);
+			
+			DocumentMetaData dmd = new DocumentMetaData(jCas);
+			dmd.setDocumentTitle(title);
+			dmd.setDocumentId(docId);
+			dmd.setDocumentUri(docUri);
+			dmd.setCollectionId(collectionId);
+			dmd.setDocumentBaseUri(docBaseUri);
+			dmd.addToIndexes();
+
+			Path output = Paths.get("/storage/projects/CORE/azure/core-edutec-fileshare/html_xmi_google_serps/" + docId + ".xmi.gz");
+			Files.createDirectories(output.getParent());
+			try(GZIPOutputStream outputStream = new GZIPOutputStream(Files.newOutputStream(output))) {
+			    XMLSerializer xmlSerializer = new XMLSerializer(outputStream, true);
+			    xmlSerializer.setOutputProperty(OutputKeys.VERSION, "1.1");
+			    xmlSerializer.setOutputProperty(OutputKeys.ENCODING, StandardCharsets.UTF_8.toString());
+			    XmiCasSerializer xmiCasSerializer = new XmiCasSerializer(null);
+			    xmiCasSerializer.serialize(jCas.getCas(), xmlSerializer.getContentHandler());
+			}
+		}
+		catch (Exception e) {
+			e.printStackTrace();
+		}
             }
         }
     }
