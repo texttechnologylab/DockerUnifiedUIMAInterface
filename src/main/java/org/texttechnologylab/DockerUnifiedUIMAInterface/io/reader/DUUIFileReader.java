@@ -27,6 +27,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
+import static org.texttechnologylab.DockerUnifiedUIMAInterface.io.AsyncCollectionReader.removeIfInTarget;
 
 
 public class DUUIFileReader implements DUUICollectionReader {
@@ -138,7 +139,7 @@ public class DUUIFileReader implements DUUICollectionReader {
         // remove files that are already in the target location
         // NOTE we do this after saving the file list, as we do not want to change anything but only avoid processing files multiple times
         if (this.targetLocation != null) {
-//            _filePaths = removeIfInTarget(_filePaths, this.targetLocation, targetEnding, this._path, ending);
+            _filePaths = removeIfInTarget(_filePaths, this.targetLocation, targetEnding, this._path, ending);
         }
 
         _filePathsBackup.addAll(_filePaths);
