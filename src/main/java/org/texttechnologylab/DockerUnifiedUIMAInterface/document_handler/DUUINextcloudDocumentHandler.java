@@ -151,7 +151,6 @@ public class DUUINextcloudDocumentHandler implements IDUUIDocumentHandler {
         return connector.listFolderContent(path, recursive ? -1 : 1, true, true)
                 .stream()
                 .map(this::removeWebDavFromPath)
-                .peek(System.out::println)
                 .map(fileName -> {
                     try {
                         return Pair.with(fileName, connector.getProperties(fileName, true));

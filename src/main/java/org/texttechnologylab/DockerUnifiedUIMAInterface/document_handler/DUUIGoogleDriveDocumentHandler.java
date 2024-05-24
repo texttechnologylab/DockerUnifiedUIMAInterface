@@ -21,13 +21,15 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.security.GeneralSecurityException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 
 public class DUUIGoogleDriveDocumentHandler implements IDUUIDocumentHandler{
 
-    private static final String APPLICATION_NAME = "Google Drive API Java Quickstart";
+    private static final String APPLICATION_NAME = "DriveDocumentHandler";
     private static final JsonFactory JSON_FACTORY = JacksonFactory.getDefaultInstance();
     private static final String TOKENS_DIRECTORY_PATH = "tokens";
 
@@ -37,6 +39,16 @@ public class DUUIGoogleDriveDocumentHandler implements IDUUIDocumentHandler{
      */
     private static final List<String> SCOPES = Collections.singletonList(DriveScopes.DRIVE_METADATA_READONLY);
     private static final String CREDENTIALS_FILE_PATH = "/credentials.json";
+
+    private Drive service;
+
+    public DUUIGoogleDriveDocumentHandler() throws GeneralSecurityException, IOException {
+        final NetHttpTransport HTTP_TRANSPORT = GoogleNetHttpTransport.newTrustedTransport();
+        service = new Drive.Builder(HTTP_TRANSPORT, JSON_FACTORY, getCredentials(HTTP_TRANSPORT))
+                .setApplicationName(APPLICATION_NAME)
+                .build();
+    }
+
 
     /**
      * Creates an authorized Credential object.
@@ -73,8 +85,10 @@ public class DUUIGoogleDriveDocumentHandler implements IDUUIDocumentHandler{
 
 
         FileList result = service.files().list()
-                .setPageSize(50)
-                .setFields("nextPageToken, files(id, name)")
+                .setOrderBy("folder, modifiedTime, name")
+                .setQ("parents In '1KqAYa-YLPBSRpv1y7LTYS0OV115CphiD'")
+//                .setPageSize(10)
+                .setFields("files(parents, id, name)")
                 .execute();
         List<File> files = result.getFiles();
         if (files == null || files.isEmpty()) {
@@ -82,8 +96,11 @@ public class DUUIGoogleDriveDocumentHandler implements IDUUIDocumentHandler{
         } else {
             System.out.println("Files:");
             for (File file : files) {
-                System.out.printf("%s (%s)\n", file.getName(), file.getId());
+//                System.out.printf("%s (%s)\n", file.getName(), file.getId());
+
+                System.out.printf("%s (%s)\n", file.getName(), file.getParents() == null ? " " : String.join(", ", file.getParents()));
             }
+
         }
     }
 
@@ -91,7 +108,6 @@ public class DUUIGoogleDriveDocumentHandler implements IDUUIDocumentHandler{
 
     @Override
     public void writeDocument(DUUIDocument document, String path) throws IOException {
-
     }
 
     @Override
@@ -101,6 +117,9 @@ public class DUUIGoogleDriveDocumentHandler implements IDUUIDocumentHandler{
 
     @Override
     public DUUIDocument readDocument(String path) throws IOException {
+//        File file = service.files().get(path).executeMediaAsInputStream().execute();
+//        file.get
+//        return new DUUIDocument(file.getId(), file.getParents().get(0), file.getSize());
         return null;
     }
 
@@ -109,8 +128,53 @@ public class DUUIGoogleDriveDocumentHandler implements IDUUIDocumentHandler{
         return List.of();
     }
 
+    private String getAllSubFolders(String parent)  {
+
+        FileList result = null;
+        try {
+            result = service.files().list()
+                    .setQ(String.format("'%s' in parents", parent) + " and mimeType = 'application/vnd.google-apps.folder'")
+                    .setFields("files(parents, id, name)")
+                    .execute();
+        } catch (IOException e) {
+            return String.format("'%s' in parents ", parent);
+        }
+
+        List<File> files =  result.getFiles();
+
+        String subfolders = files.stream()
+                .map(File::getId)
+                .map(this::getAllSubFolders)
+                .collect(Collectors.joining(" or "));
+
+        String addOn = !files.isEmpty() ? " or " + subfolders : "";
+
+        return String.format("'%s' in parents", parent) + addOn;
+    }
+
     @Override
     public List<DUUIDocument> listDocuments(String path, String fileExtension, boolean recursive) throws IOException {
-        return List.of();
+
+        String searchPath = recursive ? getAllSubFolders(path) : String.format("'%s' in parents ", path);
+
+        FileList result = service.files().list()
+                .setQ(searchPath + " mimeType != 'application/vnd.google-apps.folder' "
+                        + String.format("fileExtension = '%s'", fileExtension))
+                .setFields("files(parents, id, name, size)")
+                .execute();
+
+        List<File> files =  result.getFiles();
+
+        List<DUUIDocument> documents;
+
+        if (files == null || files.size() != 1) {
+            documents = List.of();
+        } else {
+            documents = files.stream()
+                .map(f -> new DUUIDocument(f.getId(), f.getParents().get(0), f.getSize()))
+                .collect(Collectors.toList());
+        }
+
+        return documents;
     }
 }

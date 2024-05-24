@@ -1,7 +1,10 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.document_handler;
 
+import com.github.tmyroadctfig.icloud4j.DriveNode;
+import com.github.tmyroadctfig.icloud4j.DriveService;
 import com.github.tmyroadctfig.icloud4j.ICloudService;
 import com.github.tmyroadctfig.icloud4j.json.TrustedDevice;
+import org.apache.http.StatusLine;
 
 import java.io.IOException;
 import java.util.List;
@@ -17,21 +20,28 @@ public class DUUIiCloudDocumentHandler implements IDUUIDocumentHandler {
         this.username = username;
         this.password = password.toCharArray();
 
-        iCloudService = new ICloudService("auth-a372dc6c-136f-11ef-a7a3-635e3064edee");
+        iCloudService = new ICloudService("");
+        StatusLine statusLine =  iCloudService.getIdmsaService().authenticateViaIdmsa(username, this.password);
 
-        iCloudService.authenticate(username, this.password);
+        System.out.println("Code eingeben:");
+        Scanner scanner = new Scanner(System.in);
+        String code = scanner.nextLine();
 
-        if (iCloudService.isTwoFactorEnabled()) {
-            List<TrustedDevice> devices = iCloudService.getTrustedDevices();
-            TrustedDevice device = devices.get(0);
-            iCloudService.sendManualVerificationCode(device);
+        iCloudService.getIdmsaService().validateAutomaticVerificationCode(code);
 
-            System.out.println("Code eingeben:");
-            Scanner scanner = new Scanner(System.in);
-            String code = scanner.nextLine();
+        DriveService driveService = new DriveService(iCloudService);
 
-            iCloudService.validateManualVerificationCode(device, code, this.password);
-        }
+
+        // Act
+        DriveNode root = driveService.getRoot();
+
+        System.out.println(root.getNodeDetails());
+        System.out.println(root.getType());
+
+        List<DriveNode> children = root.getChildren();
+//        System.out.println(String.join("\n", children));
+        children.forEach(System.out::println);
+
     }
 
     public static void main(String[] args) {
