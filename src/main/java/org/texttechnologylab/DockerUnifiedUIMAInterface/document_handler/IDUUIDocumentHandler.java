@@ -1,6 +1,7 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.document_handler;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 public interface IDUUIDocumentHandler {
@@ -21,7 +22,11 @@ public interface IDUUIDocumentHandler {
      * @param path      The full path to the destination where the documents should be written.
      * @author Cedric Borkowski
      */
-    void writeDocuments(List<DUUIDocument> documents, String path) throws IOException;
+    default void writeDocuments(List<DUUIDocument> documents, String path) throws IOException {
+        for (DUUIDocument document : documents) {
+            writeDocument(document, path);
+        }
+    }
 
     /**
      * Read the content from the specified path and return a document.
@@ -37,7 +42,14 @@ public interface IDUUIDocumentHandler {
      * @param paths A list of full paths to the documents that should be read.
      * @author Cedric Borkowski
      */
-    List<DUUIDocument> readDocuments(List<String> paths) throws IOException;
+    default List<DUUIDocument> readDocuments(List<String> paths) throws IOException {
+
+        List<DUUIDocument> documents = new ArrayList<DUUIDocument>();
+        for (String path : paths) {
+            documents.add(readDocument(path));
+        }
+        return documents;
+    }
 
     /**
      * Retrieve a List of documents containing only metadata like name, path and size.

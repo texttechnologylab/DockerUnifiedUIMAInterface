@@ -6,6 +6,7 @@ import com.google.api.client.extensions.jetty.auth.oauth2.LocalServerReceiver;
 import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeFlow;
 import com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets;
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
+import com.google.api.client.http.InputStreamContent;
 import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.jackson2.JacksonFactory;
@@ -16,10 +17,9 @@ import com.google.api.services.drive.model.File;
 import com.google.api.services.drive.model.FileList;
 import com.google.api.services.drive.model.User;
 
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
+import java.io.*;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Paths;
 import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -37,7 +37,7 @@ public class DUUIGoogleDriveDocumentHandler implements IDUUIDocumentHandler{
      * Global instance of the scopes required by this quickstart.
      * If modifying these scopes, delete your previously saved tokens/ folder.
      */
-    private static final List<String> SCOPES = Collections.singletonList(DriveScopes.DRIVE_METADATA_READONLY);
+    private static final List<String> SCOPES = Collections.singletonList(DriveScopes.DRIVE);
     private static final String CREDENTIALS_FILE_PATH = "/credentials.json";
 
     private Drive service;
@@ -68,64 +68,92 @@ public class DUUIGoogleDriveDocumentHandler implements IDUUIDocumentHandler{
         GoogleAuthorizationCodeFlow flow = new GoogleAuthorizationCodeFlow.Builder(
                 HTTP_TRANSPORT, JSON_FACTORY, clientSecrets, SCOPES)
                 .setDataStoreFactory(new FileDataStoreFactory(new java.io.File(TOKENS_DIRECTORY_PATH)))
-                .setAccessType("offline")
+                .setAccessType("online")
                 .build();
         LocalServerReceiver receiver = new LocalServerReceiver.Builder().setPort(8888).build();
         return new AuthorizationCodeInstalledApp(flow, receiver).authorize("user");
     }
 
     public static void main(String... args) throws IOException, GeneralSecurityException {
-        // Build a new authorized API client service.
-        final NetHttpTransport HTTP_TRANSPORT = GoogleNetHttpTransport.newTrustedTransport();
-        Drive service = new Drive.Builder(HTTP_TRANSPORT, JSON_FACTORY, getCredentials(HTTP_TRANSPORT))
-                .setApplicationName(APPLICATION_NAME)
-                .build();
 
-        // Print the names and IDs for up to 10 files.
+        DUUIGoogleDriveDocumentHandler handler = new DUUIGoogleDriveDocumentHandler();
+        DUUIDocument doc = handler.readDocument(handler.getFileId("firstpdf.pdf"));
 
+        doc.setName("secondpdf.pdf");
 
-        FileList result = service.files().list()
-                .setOrderBy("folder, modifiedTime, name")
-                .setQ("parents In '1KqAYa-YLPBSRpv1y7LTYS0OV115CphiD'")
-//                .setPageSize(10)
-                .setFields("files(parents, id, name)")
-                .execute();
-        List<File> files = result.getFiles();
-        if (files == null || files.isEmpty()) {
-            System.out.println("No files found.");
-        } else {
-            System.out.println("Files:");
-            for (File file : files) {
-//                System.out.printf("%s (%s)\n", file.getName(), file.getId());
-
-                System.out.printf("%s (%s)\n", file.getName(), file.getParents() == null ? " " : String.join(", ", file.getParents()));
-            }
-
-        }
+        handler.writeDocument(doc, handler.getFolderId("first"));
     }
 
 
 
     @Override
     public void writeDocument(DUUIDocument document, String path) throws IOException {
+
+        File file = new File();
+        file.setParents(Collections.singletonList(path));
+        file.setName(document.getName());
+
+
+        service.files().create(file, new InputStreamContent(null, document.toInputStream()))
+            .execute();
     }
 
-    @Override
-    public void writeDocuments(List<DUUIDocument> documents, String path) throws IOException {
-
-    }
 
     @Override
     public DUUIDocument readDocument(String path) throws IOException {
-//        File file = service.files().get(path).executeMediaAsInputStream().execute();
-//        file.get
-//        return new DUUIDocument(file.getId(), file.getParents().get(0), file.getSize());
-        return null;
+
+        File file = service.files().get(path).execute();
+
+        DUUIDocument document = new DUUIDocument(file.getName(), path);
+
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        service.files().get(path).executeMediaAndDownloadTo(out);
+
+        document.setBytes(out.toByteArray());
+
+        return document;
     }
 
-    @Override
-    public List<DUUIDocument> readDocuments(List<String> paths) throws IOException {
-        return List.of();
+    private String getFolderId(String folderName) {
+
+        FileList result = null;
+
+        try {
+            result = service.files().list()
+                    .setQ(String.format("name = '%s' and mimeType = 'application/vnd.google-apps.folder'", folderName))
+                    .setFields("files(parents, id, name)")
+                    .execute();
+
+        } catch (IOException e) {
+            return "";
+        }
+
+        List<File> files = result.getFiles();
+
+        if (files.isEmpty()) return "";
+
+        return files.get(0).getId();
+    }
+
+    private String getFileId(String fileName) {
+
+        FileList result = null;
+
+        try {
+            result = service.files().list()
+                    .setQ(String.format("name = '%s'", fileName))
+                    .setFields("files(parents, id, name)")
+                    .execute();
+
+        } catch (IOException e) {
+            return "";
+        }
+
+        List<File> files = result.getFiles();
+
+        if (files.isEmpty()) return "";
+
+        return files.get(0).getId();
     }
 
     private String getAllSubFolders(String parent)  {
