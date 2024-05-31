@@ -15,19 +15,16 @@ import com.google.api.services.drive.Drive;
 import com.google.api.services.drive.DriveScopes;
 import com.google.api.services.drive.model.File;
 import com.google.api.services.drive.model.FileList;
-import com.google.api.services.drive.model.User;
 
 import java.io.*;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Paths;
 import java.security.GeneralSecurityException;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 
-public class DUUIGoogleDriveDocumentHandler implements IDUUIDocumentHandler{
+public class DUUIGoogleDriveDocumentHandler implements IDUUIDocumentHandler, IDUUIFolderPickerApi {
 
     private static final String APPLICATION_NAME = "DriveDocumentHandler";
     private static final JsonFactory JSON_FACTORY = JacksonFactory.getDefaultInstance();
@@ -77,11 +74,14 @@ public class DUUIGoogleDriveDocumentHandler implements IDUUIDocumentHandler{
     public static void main(String... args) throws IOException, GeneralSecurityException {
 
         DUUIGoogleDriveDocumentHandler handler = new DUUIGoogleDriveDocumentHandler();
-        DUUIDocument doc = handler.readDocument(handler.getFileId("firstpdf.pdf"));
+//        DUUIDocument doc = handler.readDocument(handler.getFileId("firstpdf.pdf"));
+//
+//        doc.setName("secondpdf.pdf");
+//
+//        handler.writeDocument(doc, handler.getFolderId("first"));
 
-        doc.setName("secondpdf.pdf");
+        System.out.println(handler.getFolderStructure().toJson().toString());
 
-        handler.writeDocument(doc, handler.getFolderId("first"));
     }
 
 
@@ -204,5 +204,36 @@ public class DUUIGoogleDriveDocumentHandler implements IDUUIDocumentHandler{
         }
 
         return documents;
+    }
+
+    @Override
+    public DUUIFolder getFolderStructure() {
+
+        DUUIFolder root = new DUUIFolder("root", "Files");
+
+        return getFolderStructure(root);
+    }
+
+    public DUUIFolder getFolderStructure(DUUIFolder root) {
+
+        FileList result = null;
+        try {
+            result = service.files().list()
+                    .setQ(String.format("'%s' in parents", root.id) + " and mimeType = 'application/vnd.google-apps.folder'")
+                    .setFields("files(parents, id, name)")
+                    .execute();
+        } catch (IOException e) {
+            return root;
+        }
+
+        List<File> files =  result.getFiles();
+
+        for (File file : files) {
+            DUUIFolder f = new DUUIFolder(file.getId(), file.getName());
+            root.addChild(f);
+            getFolderStructure(f);
+        }
+
+        return root;
     }
 }

@@ -14,7 +14,7 @@ import java.util.stream.Collectors;
 import org.aarboard.nextcloud.api.webdav.ResourceProperties;
 import org.javatuples.Pair;
 
-public class DUUINextcloudDocumentHandler implements IDUUIDocumentHandler {
+public class DUUINextcloudDocumentHandler implements IDUUIDocumentHandler, IDUUIFolderPickerApi {
 
     private NextcloudConnector connector;
     private String loginName;
@@ -169,6 +169,36 @@ public class DUUINextcloudDocumentHandler implements IDUUIDocumentHandler {
                                 metadata.getValue0(),
                                 metadata.getSize())
                 ).collect(Collectors.toList());
+
+    }
+
+
+    @Override
+    public DUUIFolder getFolderStructure() {
+
+        DUUIFolder root = new DUUIFolder("/", "Files");
+
+        return getFolderStructure(root);
+    }
+
+    public DUUIFolder getFolderStructure(DUUIFolder root) {
+
+        connector.listFolderContent("/", -1, false, true)
+            .stream()
+            .map(this::removeWebDavFromPath)
+            .filter(connector::folderExists)
+            .map( f -> new DUUIFolder(f, getFolderName(f)))
+            .peek(root::addChild)
+            .forEach(this::getFolderStructure);
+
+        return root;
+    }
+
+    private String getFolderName(String f) {
+
+        if (!f.contains("/")) return f;
+
+        return f.substring(f.lastIndexOf("/"));
 
     }
 }
