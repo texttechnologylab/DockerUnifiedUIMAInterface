@@ -182,7 +182,7 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
      * Each label must be given in the format "key=value".
      *
      * @param rawLabels
-     * @return List<NodeSelectorTerm>
+     * @return {@code List<NodeSelectorTerm>}
      */
     public static List<NodeSelectorTerm> getNodeSelectorTerms(List<String> rawLabels) {
         List<NodeSelectorTerm> terms = new ArrayList<>();
