@@ -1,5 +1,6 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.segmentation;
 
+import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import org.apache.uima.UIMAException;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.fit.util.JCasUtil;
@@ -63,6 +64,14 @@ public class DUUISegmentationStrategyByDelemiter extends DUUISegmentationStrateg
 
         if(currentOffset.size()==0){
             return null;
+        }
+
+        // TODO
+        try {
+            DocumentMetaData.copy(jCasInput, emptyCas);
+        }
+        catch (Exception e) {
+            // ignore
         }
 
         String sOffset = currentOffset.stream().findFirst().get();
