@@ -81,6 +81,21 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
             return this;
         }
 
+        public Component withView(String viewName) {
+            component.withView(viewName);
+            return this;
+        }
+
+        public Component withSourceView(String viewName) {
+            component.withSourceView(viewName);
+            return this;
+        }
+
+        public Component withTargetView(String viewName) {
+            component.withTargetView(viewName);
+            return this;
+        }
+
         public Component withWebsocket(boolean b) {
             component.withWebsocket(b);
             return this;
@@ -152,6 +167,8 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         private ConcurrentLinkedQueue<ComponentInstance> _components;
         private String _uniqueComponentKey;
         private Map<String, String> _parameters;
+        private String _sourceView;
+        private String _targetView;
         private DUUIPipelineComponent _component;
         private boolean _websocket;
         private int _ws_elements;
@@ -179,6 +196,8 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
             }
 
             _parameters = comp.getParameters();
+            _targetView = comp.getTargetView();
+            _sourceView = comp.getSourceView();
 
             _uniqueComponentKey = "";
 
@@ -207,6 +226,10 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         public Map<String, String> getParameters() {
             return _parameters;
         }
+
+        public String getSourceView() {return _sourceView; }
+
+        public String getTargetView() {return _targetView; }
 
         public boolean isWebsocket() {
             return _websocket;

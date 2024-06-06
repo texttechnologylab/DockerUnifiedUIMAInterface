@@ -65,6 +65,8 @@ public class DUUIPipelineComponent {
     private static String driverName = "driver";
     private static String descriptionName = "description";
 
+    private static String sourceView = "sourceView";
+    private static String targetView = "targetView";
 
     private String getVersion() throws URISyntaxException, IOException {
         ClassLoader classLoader = DUUIPipelineComponent.class.getClassLoader();
@@ -80,6 +82,7 @@ public class DUUIPipelineComponent {
         _options = new HashMap<>();
         _finalizedEncoded = null;
         _parameters = new HashMap<>();
+
         String version = getVersion();
         if(version == null) {
             _options.put(versionInformation,"Unknown");
@@ -487,6 +490,22 @@ public class DUUIPipelineComponent {
         return this;
     }
 
+    public DUUIPipelineComponent withView(String viewName){
+        withSourceView(viewName);
+        withTargetView(viewName);
+        return this;
+    }
+
+    public DUUIPipelineComponent withSourceView(String viewName) {
+        _options.put(sourceView, viewName);
+        return this;
+    }
+
+    public DUUIPipelineComponent withTargetView(String viewName) {
+        _options.put(targetView, viewName);
+        return this;
+    }
+
     public static DUUIPipelineComponent fromJson(String json) throws URISyntaxException, IOException {
         JSONObject jobj = new JSONObject(json);
 
@@ -503,6 +522,9 @@ public class DUUIPipelineComponent {
             String key = it.next();
             parametersMap.put(key,parameters.getString(key));
         }
+
+        String sourceView = jobj.getString("sourceView");
+        String targetView = jobj.getString("targetView");
 
         DUUIPipelineComponent comp = new DUUIPipelineComponent();
         comp._options = optionsMap;
@@ -558,6 +580,22 @@ public class DUUIPipelineComponent {
 
     public final Map<String,String> getParameters() {
         return _parameters;
+    }
+
+    public String getSourceView() {
+        String result = _options.get(sourceView);
+        if(result == null) {
+            return "_InitialView";
+        }
+        return result;
+    }
+
+    public String getTargetView() {
+        String result = _options.get(targetView);
+        if(result == null) {
+            return "_InitialView";
+        }
+        return result;
     }
 
     public DUUIPipelineComponent clearParameters() {

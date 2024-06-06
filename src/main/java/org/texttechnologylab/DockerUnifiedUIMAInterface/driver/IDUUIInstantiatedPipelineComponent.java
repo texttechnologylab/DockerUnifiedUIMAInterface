@@ -41,6 +41,8 @@ public interface IDUUIInstantiatedPipelineComponent {
     public void addComponent(IDUUIUrlAccessible item);
 
     public Map<String,String> getParameters();
+    public String getSourceView();
+    public String getTargetView();
     public String getUniqueComponentKey();
 
     public static TypeSystemDescription getTypesystem(String uuid, IDUUIInstantiatedPipelineComponent comp) throws ResourceInitializationException {
@@ -110,7 +112,7 @@ public interface IDUUIInstantiatedPipelineComponent {
             }
         }
 
-        layer.serialize(viewJc,out,comp.getParameters());
+        layer.serialize(viewJc,out,comp.getParameters(), comp.getSourceView());
         // lua serialize call()
 
         byte[] ok = out.toByteArray();
@@ -147,7 +149,7 @@ public interface IDUUIInstantiatedPipelineComponent {
             long deserializeStart = annotatorEnd;
 
             try {
-                layer.deserialize(viewJc, st);
+                layer.deserialize(viewJc, st, comp.getTargetView());
             }
             catch(Exception e) {
                 System.err.printf("Caught exception printing response %s\n",new String(resp.body(), StandardCharsets.UTF_8));
@@ -228,7 +230,7 @@ public interface IDUUIInstantiatedPipelineComponent {
             }
         }
         // lua serialize call()
-        layer.serialize(viewJc,out,comp.getParameters());
+        layer.serialize(viewJc,out,comp.getParameters(), comp.getSourceView());
 
         // ok is the message.
         byte[] ok = out.toByteArray();
@@ -265,7 +267,7 @@ public interface IDUUIInstantiatedPipelineComponent {
                  * Merging results before deserializing.
                  */
                 result = layer.merge(results);
-                layer.deserialize(finalViewJc, result);
+                layer.deserialize(finalViewJc, result, comp.getTargetView());
             }
             catch(Exception e) {
                 e.printStackTrace();

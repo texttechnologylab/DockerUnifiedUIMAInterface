@@ -821,4 +821,59 @@ public class TestDUUI {
         composer.run(pCorpusReader, "sentence");
     }
 
+    @Test
+    public void differentViewsTest() throws Exception{
+        JCas aCas = JCasFactory.createJCas();
+
+        File videoFile = new File("D:/DUUIVideos/read/TBBT.mp4");
+        if (videoFile.exists()) {
+            JCas vView = aCas.createView("video_view");
+
+            String encoded = org.apache.commons.codec.binary.Base64.encodeBase64String(org.apache.commons.io.FileUtils.readFileToByteArray(videoFile));
+            String mimeType = Files.probeContentType(videoFile.toPath());
+            System.out.println(mimeType);
+            aCas.setSofaDataString(encoded, mimeType);
+        }else{
+            System.out.println(videoFile.getAbsolutePath() + " not found");
+            return;
+        }
+
+        int iWorkers = 1;
+
+        DUUILuaContext ctx = new DUUILuaContext().withJsonLibrary();
+
+        DUUIComposer composer = new DUUIComposer()
+                .withSkipVerification(true)     // wir überspringen die Verifikation aller Componenten =)
+                .withLuaContext(ctx)            // wir setzen den definierten Kontext
+                .withWorkers(iWorkers);         // wir geben dem Composer eine Anzahl an Threads mit.
+
+        DUUIUIMADriver uima_driver = new DUUIUIMADriver();
+        DUUIRemoteDriver remoteDriver = new DUUIRemoteDriver();
+
+        // Hinzufügen der einzelnen Driver zum Composer
+        composer.addDriver(uima_driver, remoteDriver);
+
+        composer.add(new DUUIRemoteDriver.Component("http://localhost:9714")  // Video to audio
+                .withScale(iWorkers)
+                .withTargetView("audio_view")
+                .build());
+
+        composer.add(new DUUIRemoteDriver.Component("http://localhost:9718")  // Audio to text
+                .withScale(iWorkers)
+                .withSourceView("audio_view")
+                .withTargetView("text_view")
+                .build());
+
+        composer.add(new DUUIUIMADriver.Component(createEngineDescription(XmiWriter.class,
+                XmiWriter.PARAM_TARGET_LOCATION, "C:/test/temp",
+                XmiWriter.PARAM_PRETTY_PRINT, true,
+                XmiWriter.PARAM_OVERWRITE, true,
+                XmiWriter.PARAM_VERSION, "1.1",
+                XmiWriter.PARAM_COMPRESSION, "GZIP"))
+                .build());
+
+
+        composer.run(aCas);
+    }
+
 }
