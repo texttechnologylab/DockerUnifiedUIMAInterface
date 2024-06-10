@@ -885,7 +885,7 @@ public class TestDUUI {
 
                 File destinationFile = new File("C:/test/" + token.getTimeStart() + "-" + token.getTimeEnd() + ".wav");
 
-                byte[] audioSegment = token.getCoveredMultimedia(aCas.getView("audio_view").getSofaDataString(), "wav");
+                byte[] audioSegment = token.getCoveredMultimedia(aCas.getView("audio_view").getSofaDataString());
 
                 InputStream targetStream = new ByteArrayInputStream(audioSegment);
                 AudioInputStream audioStream = AudioSystem.getAudioInputStream(targetStream);

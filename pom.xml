@@ -538,7 +538,7 @@
         <dependency>
             <groupId>com.github.mocretion</groupId>
             <artifactId>UIMATypeSystem</artifactId>
-            <version>6895277</version>
+            <version>503bfef</version>
         </dependency>
 
         <dependency>
