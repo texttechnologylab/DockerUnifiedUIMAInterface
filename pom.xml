@@ -536,9 +536,9 @@
 
 
         <dependency>
-            <groupId>com.github.texttechnologylab</groupId>
+            <groupId>com.github.mocretion</groupId>
             <artifactId>UIMATypeSystem</artifactId>
-            <version>${typesystem.version}</version>
+            <version>6895277</version>
         </dependency>
 
         <dependency>
@@ -561,6 +561,22 @@
             <artifactId>all</artifactId>
             <version>3.1.0</version>
             <type>pom</type>
+        </dependency>
+
+        <dependency>
+            <groupId>org.bytedeco</groupId>
+            <artifactId>javacv</artifactId>
+            <version>1.5.7</version>
+        </dependency>
+        <dependency>
+            <groupId>org.bytedeco</groupId>
+            <artifactId>javacv-platform</artifactId>
+            <version>1.5.7</version>
+        </dependency>
+        <dependency>
+            <groupId>org.bytedeco</groupId>
+            <artifactId>ffmpeg-platform</artifactId>
+            <version>6.1.1-1.5.10</version>
         </dependency>
 
     </dependencies>

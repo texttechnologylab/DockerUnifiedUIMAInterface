@@ -3,6 +3,7 @@ import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.UIMAException;
 import org.apache.uima.analysis_engine.AnalysisEngineDescription;
+import org.apache.uima.cas.CASException;
 import org.apache.uima.cas.SerialFormat;
 import org.apache.uima.cas.impl.XmiCasSerializer;
 import org.apache.uima.fit.factory.AnalysisEngineFactory;
@@ -15,6 +16,7 @@ import org.apache.uima.jcas.cas.TOP;
 import org.apache.uima.jcas.tcas.Annotation;
 import org.apache.uima.util.CasIOUtils;
 import org.apache.uima.util.XmlCasSerializer;
+import org.bytedeco.javacv.FFmpegFrameGrabber;
 import org.dkpro.core.io.text.TextReader;
 import org.dkpro.core.io.xmi.XmiReader;
 import org.dkpro.core.io.xmi.XmiWriter;
@@ -36,16 +38,18 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaSandbox;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.LuaConsts;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIMockStorageBackend;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.sqlite.DUUISqliteStorageBackend;
+import org.texttechnologylab.annotation.type.AudioToken;
+import org.texttechnologylab.annotation.type.MultimediaElement;
 import org.xml.sax.SAXException;
 
 import javax.script.*;
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.IOException;
+import javax.sound.sampled.*;
+import java.io.*;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.stream.Collectors;
 
 import static org.apache.uima.fit.factory.AnalysisEngineFactory.createEngineDescription;
@@ -872,8 +876,33 @@ public class TestDUUI {
                 XmiWriter.PARAM_COMPRESSION, "GZIP"))
                 .build());
 
-
         composer.run(aCas);
+
+
+        JCasUtil.select(aCas.getView("text_view"), AudioToken.class).forEach(token -> {
+
+            try {
+
+                File destinationFile = new File("C:/test/" + token.getTimeStart() + "-" + token.getTimeEnd() + ".wav");
+
+                byte[] audioSegment = token.getCoveredMultimedia(aCas.getView("audio_view").getSofaDataString(), "wav");
+
+                InputStream targetStream = new ByteArrayInputStream(audioSegment);
+                AudioInputStream audioStream = AudioSystem.getAudioInputStream(targetStream);
+
+                if(AudioSystem.getAudioFileTypes(audioStream).length > 0){
+                    AudioSystem.write(audioStream, AudioSystem.getAudioFileTypes(audioStream)[0], destinationFile);
+                }
+
+            } catch (CASException e) {
+                e.printStackTrace();
+            } catch (IOException e) {
+                e.printStackTrace();
+            } catch (UnsupportedAudioFileException e) {
+                e.printStackTrace();
+            }
+
+        });
     }
 
 }
