@@ -71,6 +71,10 @@ public class DUUIFileReaderLazy implements DUUICollectionReader {
         this(folder, ending, 25, -1, null, "", false, null, 0);
     }
 
+    public DUUIFileReaderLazy(String folder, String ending, int debugCount) {
+        this(folder, ending, debugCount, -1, null, "", false, null, 0);
+    }
+
     public DUUIFileReaderLazy(String folder, String ending, String sTargetPath) {
         this(folder, ending, 500, -1, false, "", true, null, 0, sTargetPath, ending);
     }
