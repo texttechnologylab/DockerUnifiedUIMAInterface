@@ -38,6 +38,7 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaSandbox;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.LuaConsts;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIMockStorageBackend;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.sqlite.DUUISqliteStorageBackend;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.tools.MultimodalUtil;
 import org.texttechnologylab.annotation.type.AudioToken;
 import org.texttechnologylab.annotation.type.MultimediaElement;
 import org.xml.sax.SAXException;
@@ -878,31 +879,10 @@ public class TestDUUI {
 
         composer.run(aCas);
 
-
-        JCasUtil.select(aCas.getView("text_view"), AudioToken.class).forEach(token -> {
-
-            try {
-
-                File destinationFile = new File("C:/test/" + token.getTimeStart() + "-" + token.getTimeEnd() + ".wav");
-
-                byte[] audioSegment = token.getCoveredMultimedia(aCas.getView("audio_view").getSofaDataString());
-
-                InputStream targetStream = new ByteArrayInputStream(audioSegment);
-                AudioInputStream audioStream = AudioSystem.getAudioInputStream(targetStream);
-
-                if(AudioSystem.getAudioFileTypes(audioStream).length > 0){
-                    AudioSystem.write(audioStream, AudioSystem.getAudioFileTypes(audioStream)[0], destinationFile);
-                }
-
-            } catch (CASException e) {
-                e.printStackTrace();
-            } catch (IOException e) {
-                e.printStackTrace();
-            } catch (UnsupportedAudioFileException e) {
-                e.printStackTrace();
-            }
-
+        JCasUtil.select(aCas.getView("text_view"), AudioToken.class).forEach(t ->{
+                File f = MultimodalUtil.getCoveredAudio(aCas, t, "audio_view", "wav");
+                File destFile = new File("C:/test/" + f.getName());
+                f.renameTo(destFile);
         });
     }
-
 }
