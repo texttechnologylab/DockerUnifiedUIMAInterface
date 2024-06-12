@@ -1,6 +1,7 @@
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Sentence;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
 import org.apache.commons.compress.compressors.CompressorException;
+import org.apache.commons.io.FileUtils;
 import org.apache.uima.UIMAException;
 import org.apache.uima.analysis_engine.AnalysisEngineDescription;
 import org.apache.uima.cas.CASException;
@@ -879,10 +880,23 @@ public class TestDUUI {
 
         composer.run(aCas);
 
-        JCasUtil.select(aCas.getView("text_view"), AudioToken.class).forEach(t ->{
-                File f = MultimodalUtil.getCoveredAudio(aCas, t, "audio_view", "wav");
-                File destFile = new File("C:/test/" + f.getName());
-                f.renameTo(destFile);
-        });
+        /*MultimodalUtil.getAllCoveredAudio(aCas.getView("text_view"), AudioToken.class, "audio_view", "wav").forEach(file -> {
+                    try {
+                        FileUtils.moveFile(new File(file.getAbsolutePath()), new File("C:/test/" + file.getName()));
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
+        );*/
+
+        MultimodalUtil.getAllCoveredVideo(aCas, aCas.getView("text_view"), AudioToken.class, "mp4").forEach(file -> {
+                try {
+                    FileUtils.moveFile(new File(file.getAbsolutePath()), new File("C:/test/" + file.getName()));
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        );
+
     }
 }
