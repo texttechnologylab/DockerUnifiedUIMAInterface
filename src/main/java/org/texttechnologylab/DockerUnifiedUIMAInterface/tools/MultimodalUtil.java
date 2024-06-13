@@ -115,13 +115,11 @@ public class MultimodalUtil {
                 }
             }
 
-            System.out.println("Created File!");
         }
 
         File inputFile = new File(inputFileName);
         inputFile.deleteOnExit();
 
-        System.out.println("Running ffmpeg");
         executeFFMpeg(inputFile.getAbsolutePath(), commands);
     }
 
