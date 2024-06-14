@@ -9,19 +9,25 @@ import org.apache.uima.jcas.JCas;
 import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.util.InvalidXMLException;
 import org.dkpro.core.io.xmi.XmiWriter;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Element;
+import org.jsoup.nodes.TextNode;
+import org.jsoup.select.Elements;
 import org.junit.jupiter.api.Test;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIDockerDriver;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUISwarmDriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIUIMADriver;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.io.AsyncCollectionReader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.DUUIAsynchronousProcessor;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.DUUICollectionReader;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.io.reader.DUUIFileReader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.reader.DUUIFileReaderLazy;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.io.reader.DUUIWikipediaExtractorReader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.tools.AnnotationRemover;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.tools.CountAnnotations;
 import org.texttechnologylab.annotation.semaf.isobase.Entity;
 import org.texttechnologylab.annotation.semaf.semafsr.SrLink;
+import org.texttechnologylab.utilities.helper.FileUtils;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
@@ -40,6 +46,198 @@ import static org.apache.uima.fit.factory.AnalysisEngineFactory.createEngineDesc
 
 public class NegLab {
 
+    @Test
+    public void sketchEngine() throws Exception {
+
+        File pFile = new File("/home/staff_homes/abrami/Downloads/federlesen.txt");
+
+        String sValue = FileUtils.getContentFromFile(pFile);
+
+        String[] lSplit = sValue.split("\n");
+
+        StringBuilder sb = new StringBuilder();
+        StringBuilder sbLocal = new StringBuilder();
+        Set<String> eSet = new HashSet<>(0);
+        for (String s : lSplit) {
+            if (s.contains("<s>")) {
+                sbLocal = new StringBuilder();
+                String sContent = s.split("\\|")[1];
+                sContent = sContent.replace(" <s> ", "<s>");
+                sContent = sContent.replace("<s> ", "<s>");
+                sContent = sContent.replace(" </s>", "</s>");
+
+                org.jsoup.nodes.Document pDocument = Jsoup.parse(sContent);
+
+                Elements nSet = pDocument.select("s");
+                for (Element element : nSet) {
+                    List<org.jsoup.nodes.Node> nList = element.childNodes();
+                    for (org.jsoup.nodes.Node tNode : nList) {
+
+                        switch (tNode.nodeName()) {
+
+                            case "#text":
+
+                                sbLocal.append(((TextNode) tNode).text());
+
+                                break;
+
+                            case "coll":
+                                String sText = ((Element) tNode).text();
+
+                                eSet.add("Entity|" + (sb.length() + sbLocal.length()) + "|" + (sb.length() + sbLocal.length() + sText.length()));
+                                sbLocal.append(sText);
+
+                                break;
+
+                        }
+                    }
+
+                    sb.append(sbLocal.toString());
+                    int iStart = sb.indexOf(sbLocal.toString());
+                    int iEnd = iStart + sbLocal.toString().length();
+                    eSet.add("Sentence|" + iStart + "|" + iEnd);
+
+                }
+
+            }
+
+        }
+
+        JCas tCas = JCasFactory.createText(sb.toString(), "de");
+
+        eSet.stream().forEach(a -> {
+            String[] annoSplit = a.split("\\|");
+
+            String sType = annoSplit[0];
+            int iStart = Integer.valueOf(annoSplit[1]);
+            int iEnd = Integer.valueOf(annoSplit[2]);
+
+            switch (sType) {
+
+                case "Sentence":
+                    Paragraph pParagraph = new Paragraph(tCas, iStart, iEnd);
+                    pParagraph.addToIndexes();
+                    break;
+
+                case "Entity":
+                    Entity nEntity = new Entity(tCas, iStart, iEnd);
+                    nEntity.addToIndexes();
+                    SrLink srLink = new SrLink(tCas);
+                    srLink.setGround(nEntity);
+                    srLink.setFigure(nEntity);
+                    srLink.setRel_type("Cue");
+                    srLink.addToIndexes();
+
+                    break;
+
+            }
+
+        });
+
+//        JCasUtil.select(tCas, Entity.class).stream().forEach(t->{
+//            System.out.println(t.getCoveredText());
+//        });
+//
+
+        DocumentMetaData dmd = new DocumentMetaData(tCas);
+        dmd.setDocumentId("preloaded_detenten20_rft3__Federlesen");
+        dmd.setDocumentTitle("preloaded_detenten20_rft3__Federlesen");
+        dmd.addToIndexes();
+
+
+//                CasIOUtils.save(tCas.getCas(), new FileOutputStream(new File("/tmp/FReND.xmi")), SerialFormat.XMI_1_1_PRETTY);
+
+// docker.texttechnologylab.org/duui-spacy-fr_core_news_sm:0.4.3
+
+        DUUILuaContext ctx = new DUUILuaContext().withJsonLibrary();
+
+        // Instanziierung des Composers, mit einigen Parametern
+        DUUIComposer composer = new DUUIComposer()
+                .withSkipVerification(true)     // wir überspringen die Verifikation aller Componenten =)
+                .withLuaContext(ctx)            // wir setzen den definierten Kontext
+                .withWorkers(1);         // wir geben dem Composer eine Anzahl an Threads mit.
+
+        DUUIDockerDriver docker_driver = new DUUIDockerDriver();
+        DUUIUIMADriver uima_driver = new DUUIUIMADriver()
+                .withDebug(true);
+
+        // Hinzufügen der einzelnen Driver zum Composer
+        composer.addDriver(docker_driver, uima_driver);  // remote_driver und swarm_driver scheint nicht benötigt zu werden.
+
+
+        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
+                .withScale(1)
+                .build());
+
+        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/bfsrl:latest")
+                .withScale(1)
+                .build());
+
+
+        composer.add(new DUUIUIMADriver.Component(createEngineDescription(AnnotationRemover.class)).build());
+//        composer.add(new DUUIUIMADriver.Component(createEngineDescription(AnnotationMapper.class,
+//                AnnotationMapper.PARAM_MAPPING, )).build());
+
+        composer.add(new DUUIUIMADriver.Component(createEngineDescription(XmiWriter.class,
+                XmiWriter.PARAM_TARGET_LOCATION, "/tmp/",
+                XmiWriter.PARAM_PRETTY_PRINT, true,
+                XmiWriter.PARAM_OVERWRITE, true,
+                XmiWriter.PARAM_VERSION, "1.1"//,
+//                        XmiWriter.PARAM_COMPRESSION, "GZIP"
+        )).build());
+
+        composer.run(tCas, "spacy");
+
+    }
+
+    @Test
+    public void wikipediaExtractor() throws Exception {
+
+        int iWorker = 50;
+
+        String sInputPath = "/storage/xmi/BigCorpus/wikipedia/2024-05-01/output/";
+        String sOutputPath = "/storage/xmi/BigCorpus/wikipedia/2024-05-01/xmi/";
+//        String sOutputPath = "/tmp/wiki/";
+        String sSuffix = "";
+
+
+        DUUICollectionReader pReader = new DUUIWikipediaExtractorReader(sInputPath, sSuffix, 1000, "de", sOutputPath, "xmi.gz");
+
+        // Asynchroner reader für die Input-Dateien
+        DUUIAsynchronousProcessor pProcessor = new DUUIAsynchronousProcessor(pReader);
+        new File(sOutputPath).mkdir();
+
+        DUUILuaContext ctx = new DUUILuaContext().withJsonLibrary();
+
+        // Instanziierung des Composers, mit einigen Parametern
+        DUUIComposer composer = new DUUIComposer()
+                .withSkipVerification(true)     // wir überspringen die Verifikation aller Componenten =)
+                .withLuaContext(ctx)            // wir setzen den definierten Kontext
+                .withWorkers(iWorker);         // wir geben dem Composer eine Anzahl an Threads mit.
+
+        DUUIDockerDriver docker_driver = new DUUIDockerDriver();
+        DUUISwarmDriver swarm_driver = new DUUISwarmDriver();
+        DUUIUIMADriver uima_driver = new DUUIUIMADriver()
+                .withDebug(true);
+
+        // Hinzufügen der einzelnen Driver zum Composer
+        composer.addDriver(docker_driver, uima_driver, swarm_driver);  // remote_driver und swarm_driver scheint nicht benötigt zu werden.
+
+        composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
+                .withScale(iWorker)
+                .build());
+
+        composer.add(new DUUIUIMADriver.Component(createEngineDescription(XmiWriter.class,
+                XmiWriter.PARAM_TARGET_LOCATION, sOutputPath,
+                XmiWriter.PARAM_PRETTY_PRINT, true,
+                XmiWriter.PARAM_OVERWRITE, true,
+                XmiWriter.PARAM_VERSION, "1.1",
+                XmiWriter.PARAM_COMPRESSION, "GZIP"
+        )).build());
+
+        composer.run(pProcessor, "wikipedia");
+
+    }
 
     @Test
     public void countAnnotations() throws Exception {

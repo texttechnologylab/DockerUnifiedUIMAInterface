@@ -9,6 +9,7 @@ import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.javaync.io.AsyncFiles;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.AsyncCollectionReader;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.io.ByteReadFuture;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.DUUICollectionReader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.AdvancedProgressMeter;
 import org.texttechnologylab.utilities.helper.StringUtils;
@@ -385,24 +386,6 @@ public class DUUIFileReader implements DUUICollectionReader {
         RANDOM,
         SMALLEST,
         LARGEST
-    }
-
-    class ByteReadFuture {
-        private String _path;
-        private byte[] _bytes;
-
-        public ByteReadFuture(String path, byte[] bytes) {
-            _path = path;
-            _bytes = bytes;
-        }
-
-        public String getPath() {
-            return _path;
-        }
-
-        public byte[] getBytes() {
-            return _bytes;
-        }
     }
 
 }

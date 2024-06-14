@@ -358,6 +358,7 @@ class DUUIWorkerAsyncProcessor extends Thread {
                     return;
                 }
                 try {
+                    _jc.reset();
                     if (!_processor.getNextCAS(_jc)) {
                         //Give the main IO Thread time to finish work
                         Thread.sleep(300);
@@ -429,6 +430,7 @@ class DUUIWorkerAsyncProcessor extends Thread {
                         break;
                     }
                 }
+
             }
 
             if (_backend != null) {

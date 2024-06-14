@@ -10,6 +10,7 @@ import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.javaync.io.AsyncFiles;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.AsyncCollectionReader;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.io.ByteReadFuture;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.DUUICollectionReader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.AdvancedProgressMeter;
 import org.texttechnologylab.utilities.helper.ArchiveUtils;
@@ -40,31 +41,32 @@ import java.util.stream.Collectors;
  */
 public class DUUIFileReaderLazy implements DUUICollectionReader {
 
-    private String _path;
-    private ConcurrentLinkedQueue<String> _filePaths;
-    private ConcurrentLinkedQueue<String> _filePathsBackup;
-    private ConcurrentLinkedQueue<ByteReadFuture> _loadedFiles;
+    protected String _path;
+    protected ConcurrentLinkedQueue<String> _filePaths;
+    protected ConcurrentLinkedQueue<String> _filePathsBackup;
+    protected ConcurrentLinkedQueue<ByteReadFuture> _loadedFiles;
 
-    private AtomicInteger _docNumber;
+    protected AtomicInteger _docNumber;
 
-    private AtomicInteger _skipNumber;
-    private AtomicInteger _repairedNumber;
-    private long _maxMemory;
-    private AtomicLong _currentMemorySize;
+    protected int _initialSize;
+    protected AtomicInteger _skipNumber;
+    protected AtomicInteger _repairedNumber;
+    protected long _maxMemory;
+    protected AtomicLong _currentMemorySize;
 
-    private AtomicInteger _collectionSize;
+    protected AtomicInteger _collectionSize;
 
-    private boolean _addMetadata = true;
+    protected boolean _addMetadata = true;
 
-    private String _targetPath = null;
-    private String _targetEnding;
-    private String _language = null;
+    protected String _targetPath = null;
+    protected String _targetEnding;
+    protected String _language = null;
 
-    private AdvancedProgressMeter progress = null;
+    protected AdvancedProgressMeter progress = null;
 
-    private int debugCount = 25;
+    protected int debugCount = 25;
 
-    private String targetLocation = null;
+    protected String targetLocation = null;
 
 
     public DUUIFileReaderLazy(String folder, String ending) {
@@ -494,21 +496,5 @@ public class DUUIFileReaderLazy implements DUUICollectionReader {
 
     }
 
-    class ByteReadFuture {
-        private String _path;
-        private byte[] _bytes;
 
-        public ByteReadFuture(String path, byte[] bytes) {
-            _path = path;
-            _bytes = bytes;
-        }
-
-        public String getPath() {
-            return _path;
-        }
-
-        public byte[] getBytes() {
-            return _bytes;
-        }
-    }
 }

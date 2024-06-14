@@ -27,25 +27,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-//@Deprecated
-class ByteReadFuture {
-    private String _path;
-    private byte[] _bytes;
-
-    public ByteReadFuture(String path, byte[] bytes) {
-        _path = path;
-        _bytes = bytes;
-    }
-
-    public String getPath() {
-        return _path;
-    }
-
-    public byte[] getBytes() {
-        return _bytes;
-    }
-}
-
 @Deprecated
 public class AsyncCollectionReader {
     private String _path;
