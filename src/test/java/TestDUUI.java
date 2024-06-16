@@ -47,6 +47,8 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.sqlite.
 import org.texttechnologylab.DockerUnifiedUIMAInterface.tools.MultimodalUtil;
 import org.texttechnologylab.annotation.type.AudioToken;
 import org.texttechnologylab.annotation.type.MultimediaElement;
+import org.texttechnologylab.annotation.type.Speaker;
+import org.texttechnologylab.annotation.type.Speech;
 import org.xml.sax.SAXException;
 
 import javax.script.*;
@@ -951,13 +953,14 @@ public class TestDUUI {
                 .withTargetView("audio_view")
                 .build());
 
-        /*
+
         composer.add(new DUUIRemoteDriver.Component("http://localhost:9717")  // Audio to speaker
                 .withScale(iWorkers)
-                .withParameter("inputView", "audio_view")
-                .withParameter("outputView", "speaker_view")
+                .withSourceView("audio_view")
+                .withTargetView("text_view")
+                        .withParameter("token", "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")
                 .build());
-        */
+
 
         composer.add(new DUUIRemoteDriver.Component("http://localhost:9718")  // Audio to text
                 .withScale(iWorkers)
@@ -965,11 +968,21 @@ public class TestDUUI {
                 .withTargetView("text_view")
                 .build());
 
-        composer.add(new DUUIUIMADriver.Component(createEngineDescription(AudioSegmentWriter.class,
+        composer.add(new DUUIUIMADriver.Component(createEngineDescription(XmiWriter.class,
+                XmiWriter.PARAM_TARGET_LOCATION, "C:/test/temp",
+                XmiWriter.PARAM_PRETTY_PRINT, true,
+                XmiWriter.PARAM_OVERWRITE, true,
+                XmiWriter.PARAM_VERSION, "1.1",
+                XmiWriter.PARAM_COMPRESSION, "GZIP"))
+                .build());
+
+        /*composer.add(new DUUIUIMADriver.Component(createEngineDescription(AudioSegmentWriter.class,
                 AudioSegmentWriter.PARAM_TARGET_LOCATION, "C:/test",
                 AudioSegmentWriter.PARAM_AUDIO_CONTENT_VIEW, "audio_view",
                 AudioSegmentWriter.PARAM_AUDIO_TOKEN_VIEW, "text_view"))
                 .build());
+        */
+
 
         composer.run(processor, "test");
         //composer.run(aCas);

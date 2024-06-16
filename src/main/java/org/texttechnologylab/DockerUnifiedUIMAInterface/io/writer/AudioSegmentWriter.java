@@ -28,7 +28,7 @@ public class AudioSegmentWriter extends JCasFileWriter_ImplBase {
 
         try {
             DocumentMetaData meta = DocumentMetaData.get(jCas);
-            MultimodalUtil.getAllCoveredAudio(jCas.getView(audioTokenView), AudioToken.class, audioView, "wav").forEach(file -> {
+            MultimodalUtil.getAllCoveredAudio(jCas.getView(audioTokenView), AudioToken.class, jCas.getView(audioView), "wav").forEach(file -> {
 
                     String moveTo = getTargetLocation();
 
