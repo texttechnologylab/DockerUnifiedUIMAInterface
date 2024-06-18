@@ -23,11 +23,11 @@ import java.io.StringWriter;
 
 /**
  * Pretty-prints xml, supplied as a string.
- * <p/>
+ *
  * eg.
- * <code>
- * String formattedXml = new XmlFormatter().format("<tag><nested>hello</nested></tag>");
- * </code>
+ * <pre>
+ * {@code String formattedXml = new XmlFormatter().format("<tag><nested>hello</nested></tag>");}
+ * </pre>
  */
 public class XMLFormatter {
 

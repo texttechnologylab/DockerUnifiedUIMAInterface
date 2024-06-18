@@ -58,6 +58,9 @@ import java.util.stream.Collectors;
 
 import static java.lang.String.format;
 
+/**
+ * Worker thread processing a CAS following an execution plan.
+ */
 class DUUIWorker extends Thread {
     Vector<DUUIComposer.PipelinePart> _flow;
     ConcurrentLinkedQueue<JCas> _instancesToBeLoaded;
@@ -71,6 +74,20 @@ class DUUIWorker extends Thread {
 
     DUUIComposer composer;
 
+    /**
+     * Worker constructor, only stores parameters.
+     *
+     * @param engineFlow Pipeline
+     * @param emptyInstance CAS queue
+     * @param loadedInstances CAS queue
+     * @param shutdown Shutdown indicator
+     * @param error Signal if thread is still active
+     * @param backend Storage backend used for statistics and error reporting
+     * @param runKey Key identifying this run
+     * @param reader CAS collection reader
+     * @param generator Execution plan generator
+     * @param composer Reference to the composer instance
+     */
     DUUIWorker(Vector<DUUIComposer.PipelinePart> engineFlow, ConcurrentLinkedQueue<JCas> emptyInstance, ConcurrentLinkedQueue<JCas> loadedInstances, AtomicBoolean shutdown, AtomicInteger error,
                IDUUIStorageBackend backend, String runKey, AsyncCollectionReader reader, IDUUIExecutionPlanGenerator generator, DUUIComposer composer) {
         super();
@@ -86,6 +103,11 @@ class DUUIWorker extends Thread {
         this.composer = composer;
     }
 
+    /**
+     * Runs the DUUI worker as a thread.
+     * <p>
+     * This processes all CAS objects based on an execution plan.
+     */
     @Override
     public void run() {
         int num = _threadsAlive.addAndGet(1);
@@ -206,6 +228,9 @@ class DUUIWorker extends Thread {
     }
 }
 
+/**
+ * DUUI worker thread that processes CAS objects using a defined pipeline of components.
+ */
 class DUUIWorkerAsyncReader extends Thread {
     Vector<DUUIComposer.PipelinePart> _flow;
     AtomicInteger _threadsAlive;
@@ -216,6 +241,18 @@ class DUUIWorkerAsyncReader extends Thread {
     AsyncCollectionReader _reader;
     DUUIComposer composer;
 
+    /**
+     * Worker constructor, only stores parameters.
+     *
+     * @param engineFlow Pipeline
+     * @param jc Current CAS to process
+     * @param shutdown Shutdown indicator
+     * @param error Signal if thread is still active
+     * @param backend Storage backend used for statistics and error reporting
+     * @param runKey Key identifying this run
+     * @param reader CAS collection reader
+     * @param composer Reference to the composer instance
+     */
     DUUIWorkerAsyncReader(Vector<DUUIComposer.PipelinePart> engineFlow, JCas jc, AtomicBoolean shutdown, AtomicInteger error,
                           IDUUIStorageBackend backend, String runKey, AsyncCollectionReader reader, DUUIComposer composer) {
         super();
@@ -229,6 +266,9 @@ class DUUIWorkerAsyncReader extends Thread {
         this.composer = composer;
     }
 
+    /**
+     * Runs the pipeline processing CAS.
+     */
     @Override
     public void run() {
         int num = _threadsAlive.addAndGet(1);
@@ -311,7 +351,7 @@ class DUUIWorkerAsyncReader extends Thread {
 
                 } catch (Exception e) {
                     //Ignore errors at the moment
-                    //e.printStackTrace();
+                    e.printStackTrace();
                     System.err.println(e.getMessage());
                     System.out.println("Thread continues work with next document!");
                     break;
@@ -325,6 +365,9 @@ class DUUIWorkerAsyncReader extends Thread {
     }
 }
 
+/**
+ * DUUI worker for processing a pipeline based on async reader processor.
+ */
 class DUUIWorkerAsyncProcessor extends Thread {
     Vector<DUUIComposer.PipelinePart> _flow;
     AtomicInteger _threadsAlive;
@@ -335,6 +378,18 @@ class DUUIWorkerAsyncProcessor extends Thread {
     DUUIAsynchronousProcessor _processor;
     DUUIComposer composer;
 
+    /**
+     * Worker constructor, only stores parameters.
+     *
+     * @param engineFlow Pipeline
+     * @param jc Current CAS to process
+     * @param shutdown Shutdown indicator
+     * @param error Signal if thread is still active
+     * @param backend Storage backend used for statistics and error reporting
+     * @param runKey Key identifying this run
+     * @param processor CAS async reader
+     * @param composer Reference to the composer instance
+     */
     DUUIWorkerAsyncProcessor(Vector<DUUIComposer.PipelinePart> engineFlow, JCas jc, AtomicBoolean shutdown, AtomicInteger error,
                              IDUUIStorageBackend backend, String runKey, DUUIAsynchronousProcessor processor, DUUIComposer composer) {
         super();
@@ -348,6 +403,9 @@ class DUUIWorkerAsyncProcessor extends Thread {
         this.composer = composer;
     }
 
+    /**
+     * Runs the pipeline to process CAS.
+     */
     @Override
     public void run() {
         int num = _threadsAlive.addAndGet(1);
@@ -424,7 +482,7 @@ class DUUIWorkerAsyncProcessor extends Thread {
 
                 } catch (Exception e) {
                     //Ignore errors at the moment
-                    //e.printStackTrace();
+                    e.printStackTrace();
                     if (!(e instanceof IOException)) {
                         System.err.println(e.getMessage());
                         System.out.println("Thread continues work with next document!");
@@ -442,6 +500,9 @@ class DUUIWorkerAsyncProcessor extends Thread {
     }
 }
 
+/**
+ * DUUI worker based on document reader
+ */
 class DUUIWorkerDocumentReader extends Thread {
     Vector<DUUIComposer.PipelinePart> flow;
     AtomicInteger threadsAlive;
@@ -452,6 +513,18 @@ class DUUIWorkerDocumentReader extends Thread {
     DUUIDocumentReader reader;
     DUUIComposer composer;
 
+    /**
+     * Worker constructor, only stores parameters.
+     *
+     * @param flow Pipeline
+     * @param cas Current CAS to process
+     * @param shutdown Shutdown indicator
+     * @param threadsAlive Signal if thread is still active
+     * @param backend Storage backend used for statistics and error reporting
+     * @param runKey Key identifying this run
+     * @param reader CAS collection reader
+     * @param composer Reference to the composer instance
+     */
     DUUIWorkerDocumentReader(
         Vector<DUUIComposer.PipelinePart> flow,
         JCas cas,
@@ -474,6 +547,9 @@ class DUUIWorkerDocumentReader extends Thread {
         this.composer = composer;
     }
 
+    /**
+     * Runs the pipeline.
+     */
     @Override
     public void run() {
 
@@ -669,7 +745,11 @@ class DUUIWorkerDocumentReader extends Thread {
 
 }
 
-
+/**
+ * DUUI composer.
+ * <p>
+ * This is the main class used to control and use DUUI.
+ */
 public class DUUIComposer {
     private final Map<String, IDUUIDriverInterface> _drivers;
     private final Vector<DUUIPipelineComponent> _pipeline;
@@ -718,7 +798,10 @@ public class DUUIComposer {
     private long instantiationDuration;
     private AtomicInteger progress = new AtomicInteger(0);
 
-
+    /**
+     * Composer constructor.
+     * @throws URISyntaxException
+     */
     public DUUIComposer() throws URISyntaxException {
         _drivers = new HashMap<>();
         _pipeline = new Vector<>();
@@ -760,48 +843,107 @@ public class DUUIComposer {
         Runtime.getRuntime().addShutdownHook(_shutdownHook);
     }
 
+    /**
+     * Attach InfluxDB for monitoring.
+     * @param monitor DUUI monitor object
+     * @return this, for method chaining
+     * @throws UnknownHostException
+     * @throws InterruptedException
+     */
     public DUUIComposer withMonitor(DUUIMonitor monitor) throws UnknownHostException, InterruptedException {
         _monitor = monitor;
         _monitor.setup();
         return this;
     }
 
+    /**
+     * Enable or disable DUUI API verification step, by default verification is enabled.
+     * <p>
+     * If enabled, DUUI tries to process sample data via every component in the pipeline to check for DUUI API compatibility before processing the actual CAS objects.
+     * @param skipVerification true for skipping, else false
+     * @return this, for method chaining
+     */
     public DUUIComposer withSkipVerification(boolean skipVerification) {
         _skipVerification = skipVerification;
         return this;
     }
 
+    /**
+     * Attach a storage backend to collect metrics and errors of a run in a database.
+     * @param storage Storage backend, e.g. SQLite.
+     * @return this, for method chaining
+     */
     public DUUIComposer withStorageBackend(IDUUIStorageBackend storage) {
         _storage = storage;
         return this;
     }
 
+    /**
+     * Set Lua context to use.
+     * <p>
+     * This enables the configuration of sandbox features or globally usable libraries for Lua scripts.
+     * @param context Lua context
+     * @return this, for method chaining
+     */
     public DUUIComposer withLuaContext(DUUILuaContext context) {
         _context = context;
         return this;
     }
 
+    /**
+     * Set CAS poolsize.
+     * <p>
+     * This is calculated by default (or if explicitly set to null) based on amount of workers.
+     * @param poolsize CAS poolsize
+     * @return this, for method chaining
+     */
     public DUUIComposer withCasPoolsize(int poolsize) {
         _cas_poolsize = poolsize;
         return this;
     }
 
+    /**
+     * Set the amount of DUUI worker threads for processing, defaults to 1 if not set.
+     * @param workers Amount of workers to use.
+     * @return this, for method chaining
+     */
     public DUUIComposer withWorkers(int workers) {
         _workers = workers;
         return this;
     }
 
+    /**
+     *
+     * @param open
+     * @return this, for method chaining
+     */
     public DUUIComposer withOpenConnection(boolean open) {
         _connection_open = open;
         return this;
     }
 
+    /**
+     * Register a driver to use with the DUUI composer.
+     * <p>
+     * By default, no driver is setup. To use the composer, at least one driver has to be added. Components depending on drivers that have not been added can not be processed.
+     * @see IDUUIDriverInterface
+     * @param driver The driver to register.
+     * @return this, for method chaining
+     */
     public DUUIComposer addDriver(IDUUIDriverInterface driver) {
         driver.setLuaContext(_context);
         _drivers.put(driver.getClass().getCanonicalName(), driver);
         return this;
     }
 
+    /**
+     * Register multiple drivers to use with the DUUI controller.
+     * <p>
+     * By default, no driver is setup. To use the composer, at least one driver has to be added. Components depending on drivers that have not been added can not be processed.
+     * @see IDUUIDriverInterface
+     * @param drivers The drivers to register.
+     * @return this, for method chaining
+     */
     public DUUIComposer addDriver(IDUUIDriverInterface... drivers) {
         for (IDUUIDriverInterface driver : drivers) {
             driver.setLuaContext(_context);
@@ -822,22 +964,67 @@ public class DUUIComposer {
         return _pipeline.lastElement();
     }*/
 
+    /**
+     * Adds a Docker component to the pipeline.
+     * @param object Docker component
+     * @return this, for method chaining
+     * @throws InvalidXMLException
+     * @throws IOException
+     * @throws SAXException
+     * @throws CompressorException
+     */
     public DUUIComposer add(DUUIDockerDriver.Component object) throws InvalidXMLException, IOException, SAXException, CompressorException {
         return add(object.build());
     }
 
+    /**
+     * Adds a UIMA component to the pipeline.
+     * @param object UIMA component
+     * @return this, for method chaining
+     * @throws InvalidXMLException
+     * @throws IOException
+     * @throws SAXException
+     * @throws CompressorException
+     */
     public DUUIComposer add(DUUIUIMADriver.Component object) throws InvalidXMLException, IOException, SAXException, CompressorException {
         return add(object.build());
     }
 
+    /**
+     * Adds a Docker component to the pipeline.
+     * @param object Docker component
+     * @return this, for method chaining
+     * @throws InvalidXMLException
+     * @throws IOException
+     * @throws SAXException
+     * @throws CompressorException
+     */
     public DUUIComposer add(DUUIRemoteDriver.Component object) throws InvalidXMLException, IOException, SAXException, CompressorException {
         return add(object.build());
     }
 
+    /**
+     * Adds a Docker Swarm component to the pipeline.
+     * @param object Docker Swarm component
+     * @return this, for method chaining
+     * @throws InvalidXMLException
+     * @throws IOException
+     * @throws SAXException
+     * @throws CompressorException
+     */
     public DUUIComposer add(DUUISwarmDriver.Component object) throws InvalidXMLException, IOException, SAXException, CompressorException {
         return add(object.build());
     }
 
+    /**
+     * Adds a component to the pipeline.
+     * @param object component
+     * @return this, for method chaining
+     * @throws InvalidXMLException
+     * @throws IOException
+     * @throws SAXException
+     * @throws CompressorException
+     */
     public DUUIComposer add(DUUIPipelineComponent object) throws InvalidXMLException, IOException, SAXException, CompressorException {
         IDUUIDriverInterface driver = _drivers.get(object.getDriver());
         if (driver == null) {
@@ -854,6 +1041,15 @@ public class DUUIComposer {
         return this;
     }
 
+    /**
+     * Adds a component to the pipeline.
+     * @param desc component
+     * @return this, for method chaining
+     * @throws InvalidXMLException
+     * @throws IOException
+     * @throws SAXException
+     * @throws CompressorException
+     */
     public DUUIComposer add(DUUIPipelineDescription desc) throws InvalidXMLException, IOException, SAXException, CompressorException {
         for (DUUIPipelineAnnotationComponent ann : desc.getComponents()) {
             add(ann.getComponent());
@@ -861,13 +1057,22 @@ public class DUUIComposer {
         return this;
     }
 
-
+    /**
+     * Represents a tool in the pipeline.
+     */
     public static class PipelinePart {
         private final IDUUIDriverInterface _driver;
         private final String _uuid;
         private final String name;
         private final DUUISegmentationStrategy segmentationStrategy;
 
+        /**
+         * Construct pipeline part.
+         * @param driver DUUI driver to use
+         * @param uuid Unique ID of this part
+         * @param name Part name
+         * @param segmentationStrategy Segmentation strategy to use
+         */
         PipelinePart(IDUUIDriverInterface driver, String uuid, String name, DUUISegmentationStrategy segmentationStrategy) {
             _driver = driver;
             _uuid = uuid;
@@ -900,7 +1105,8 @@ public class DUUIComposer {
     }
 
     /**
-     * Added new members for clean up.
+     * Resets the DUUI pipeline to prepare a new run.
+     * @return this, for method chaining
      */
     public DUUIComposer resetPipeline() {
         events.clear();
@@ -911,6 +1117,12 @@ public class DUUIComposer {
         return this;
     }
 
+    /**
+     * Run the composer pipeline.
+     * @param collectionReader CAS reader based on an async processor
+     * @param name Name for this run.
+     * @throws Exception
+     */
     public void run(DUUIAsynchronousProcessor collectionReader, String name) throws Exception {
         ConcurrentLinkedQueue<JCas> emptyCasDocuments = new ConcurrentLinkedQueue<>();
         AtomicInteger aliveThreads = new AtomicInteger(0);
@@ -980,6 +1192,14 @@ public class DUUIComposer {
         }
     }
 
+    /**
+     * Run the pipeline.
+     * <p>
+     * This runs the pipeline by segmenting all CAS using a database-backed collection reader and segment storage.
+     * @param collectionReader Collection reader providing segmentation and merge functionality.
+     * @param name Run name.
+     * @throws Exception
+     */
     public void runSegmented(DUUICollectionDBReader collectionReader, String name) throws Exception {
         try {
             _shutdownAtomic.set(false);
@@ -1050,6 +1270,12 @@ public class DUUIComposer {
         }
     }
 
+    /**
+     * Runs the DUUI pipeline.
+     * @param collectionReader CAS collection reader
+     * @param name Run name
+     * @throws Exception
+     */
     public void run(AsyncCollectionReader collectionReader, String name) throws Exception {
         ConcurrentLinkedQueue<JCas> emptyCasDocuments = new ConcurrentLinkedQueue<>();
         ConcurrentLinkedQueue<JCas> loadedCasDocuments = new ConcurrentLinkedQueue<>();
@@ -1136,6 +1362,12 @@ public class DUUIComposer {
         }
     }
 
+    /**
+     * Runs the DUUI pipeline.
+     * @param collectionReader CAS collection reader
+     * @param name Run name
+     * @throws Exception
+     */
     private void run_async(CollectionReader collectionReader, String name) throws Exception {
         ConcurrentLinkedQueue<JCas> emptyCasDocuments = new ConcurrentLinkedQueue<>();
         ConcurrentLinkedQueue<JCas> loadedCasDocuments = new ConcurrentLinkedQueue<>();
@@ -1211,6 +1443,11 @@ public class DUUIComposer {
         }
     }
 
+    /**
+     * Runs the pipeline.
+     * @param reader CAS collection reader
+     * @throws Exception
+     */
     public void run(CollectionReaderDescription reader) throws Exception {
         run(reader, null);
     }
@@ -1219,6 +1456,12 @@ public class DUUIComposer {
         return _pipeline;
     }
 
+    /**
+     * Runs the pipeline.
+     * @param reader CAS collection reader
+     * @param name Run name
+     * @throws Exception
+     */
     public void run(CollectionReaderDescription reader, String name) throws Exception {
         Exception catched = null;
         if (_storage != null && name == null) {
@@ -1295,6 +1538,13 @@ public class DUUIComposer {
         }
     }
 
+    /**
+     * Instantiates the DUUI pipeline.
+     * <p>
+     * This setups, starts and checks every pipeline component and requests their UIMA typesystem to merge all types needed to process the full pipeline.
+     * @return Merged typesystem based on all components
+     * @throws Exception
+     */
     public TypeSystemDescription instantiate_pipeline() throws Exception {
         if (isServiceStarted)
             return fromInstantiatedPipeline();
@@ -1415,6 +1665,15 @@ public class DUUIComposer {
         return instantiatedTypeSystem;
     }
 
+    /**
+     * Runs the pipeline for a single CAS object.
+     * @param name Run name
+     * @param jc CAS to process
+     * @param documentWaitTime Time waited for document, for metrics
+     * @param pipeline Component pipeline
+     * @return Processed CAS object
+     * @throws Exception
+     */
     private JCas run_pipeline(String name, JCas jc, long documentWaitTime, Vector<PipelinePart> pipeline) throws Exception {
         progress.set(0);
 
@@ -1530,6 +1789,10 @@ public class DUUIComposer {
         return jc;
     }
 
+    /**
+     * Shuts down the pipeline to stop all components.
+     * @throws Exception
+     */
     private void shutdown_pipeline() throws Exception {
         if (!_instantiatedPipeline.isEmpty()) {
             for (PipelinePart comp : _instantiatedPipeline) {
@@ -1558,6 +1821,10 @@ public class DUUIComposer {
 
     }
 
+    /**
+     * Prints the concurrency graph to std output.
+     * @throws Exception
+     */
     public void printConcurrencyGraph() throws Exception {
         Exception catched = null;
         try {
@@ -1590,10 +1857,21 @@ public class DUUIComposer {
         }
     }
 
+    /**
+     * Run the pipeline for a single CAS object.
+     * @param jc CAS object to process
+     * @throws Exception
+     */
     public void run(JCas jc) throws Exception {
         run(jc, null);
     }
 
+    /**
+     * Run the pipeline for a single CAS object.
+     * @param jc CAS object to process
+     * @param name Run name
+     * @throws Exception
+     */
     public void run(JCas jc, String name) throws Exception {
         if (_storage != null && name == null) {
             throw new RuntimeException("[Composer] When a storage backend is specified a run name is required, since it is the primary key");
@@ -1643,6 +1921,10 @@ public class DUUIComposer {
         return _workers;
     }
 
+    /**
+     * Shuts down the DUUI controller by signaling every worker and stopping all components.
+     * @throws UnknownHostException
+     */
     public void shutdown() throws UnknownHostException {
         if (isService) {
             addEvent(
@@ -1868,12 +2150,26 @@ public class DUUIComposer {
         return _instantiatedPipeline;
     }
 
+    /**
+     * Directly sets the instantiated pipeline.
+     * @param pipeline Instantiated pipeline
+     * @return this, for method chaining
+     */
     public DUUIComposer withInstantiatedPipeline(Vector<PipelinePart> pipeline) {
         this._instantiatedPipeline = pipeline;
         this.isServiceStarted = true;
         return this;
     }
 
+    /**
+     * Generates merged typesystem of all components from already instantiated pipeline.
+     * @return Merged typesystem
+     * @throws ResourceInitializationException
+     * @throws CompressorException
+     * @throws IOException
+     * @throws InterruptedException
+     * @throws SAXException
+     */
     public TypeSystemDescription fromInstantiatedPipeline() throws ResourceInitializationException, CompressorException, IOException, InterruptedException, SAXException {
         List<TypeSystemDescription> descriptions = new LinkedList<>();
         descriptions.add(_minimalTypesystem);
@@ -1913,6 +2209,7 @@ public class DUUIComposer {
      *
      * @param sender  The class or object adding the event.
      * @param message The message of the event.
+     * @param debugLevel Debug level.
      */
     public void addEvent(DUUIEvent.Sender sender, String message, DebugLevel debugLevel) {
         DUUIEvent event = new DUUIEvent(sender, message, debugLevel);
@@ -1923,6 +2220,11 @@ public class DUUIComposer {
         }
     }
 
+    /**
+     * Adds an event to the composer.
+     * @param sender DUUI module emitting the event
+     * @param message Event message
+     */
     public void addEvent(DUUIEvent.Sender sender, String message) {
         addEvent(sender, message, DebugLevel.DEBUG);
     }
@@ -1931,6 +2233,11 @@ public class DUUIComposer {
         return new HashSet<>(documents.values());
     }
 
+    /**
+     * Finds a {@link DUUIDocument} based on its path.
+     * @param path Document path
+     * @return Document
+     */
     public DUUIDocument findDocumentByPath(String path) {
         return documents.get(path);
     }
@@ -1955,12 +2262,20 @@ public class DUUIComposer {
         return document;
     }
 
+    /**
+     * Adds multiple {@link DUUIDocument} for processing.
+     * @param documents List of documents
+     */
     public void addDocuments(Collection<DUUIDocument> documents) {
         for (DUUIDocument document : documents) {
             DUUIDocument ignored = addDocument(document);
         }
     }
 
+    /**
+     * Collects all {@link DUUIDocument} paths
+     * @return Set of document paths
+     */
     public Set<String> getDocumentPaths() {
         return documents
             .values()
@@ -1991,6 +2306,11 @@ public class DUUIComposer {
         return ignoreErrors;
     }
 
+    /**
+     * Enable error ignore.
+     * @param ignoreErrors true to ignore errors, false by default
+     * @return this, for method chaining
+     */
     public DUUIComposer withIgnoreErrors(boolean ignoreErrors) {
         this.ignoreErrors = ignoreErrors;
         return this;

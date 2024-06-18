@@ -458,7 +458,7 @@ public class DUUIPipelineComponent {
     }
 
     /**
-     * @edited Dawit Terefe
+     * @author Dawit Terefe (edited)
      *
      * Option to choose websocket as protocol.
      * Default is false.
