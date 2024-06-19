@@ -1,9 +1,11 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.tools;
 
+import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.uima.cas.CASException;
 import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
+import org.apache.uima.jcas.tcas.Annotation;
 import org.texttechnologylab.annotation.type.AudioToken;
 
 import java.io.*;
@@ -14,51 +16,53 @@ public class MultimodalUtil {
     /**
      * Converts each AudioTokens into its own audio snippet.
      * @param audioTokenView The view in which the audio tokens are stored
-     * @param audioToken The audio token class (like AudioToken)
+     * @param annotationClass TThe annotation the covered elements are derived from
      * @return List of files, each file containing the audio content.
      * @throws CASException
      */
-    public static <T extends AudioToken> List<File> getAllCoveredAudio(JCas audioTokenView, Class<T> audioToken) throws CASException {
-        return getAllCoveredAudio(audioTokenView, audioToken, null, "wav");
+    public static <T extends Annotation> List<File> getAllCoveredAudio(JCas audioTokenView, Class<T> annotationClass) throws CASException {
+        return getAllCoveredAudio(audioTokenView, null, annotationClass, "wav");
     }
 
     /**
      * Converts each AudioTokens into its own audio snippet.
      * @param audioTokenView The view in which the audio tokens are stored
-     * @param audioToken The audio token class (like AudioToken)
+     * @param annotationClass The annotation the covered elements are derived from
      * @param targetFormat File format for the output file. (like "wav" or "mp3")
      * @return List of files, each file containing the audio content.
      * @throws CASException
      */
-    public static <T extends AudioToken> List<File> getAllCoveredAudio(JCas audioTokenView, Class<T> audioToken, String targetFormat) throws CASException {
-        return getAllCoveredAudio(audioTokenView, audioToken, null, targetFormat);
+    public static <T extends Annotation> List<File> getAllCoveredAudio(JCas audioTokenView, Class<T> annotationClass, String targetFormat) throws CASException {
+        return getAllCoveredAudio(audioTokenView, null, annotationClass, targetFormat);
     }
 
     /**
      * Converts each AudioTokens into its own audio snippet.
      * @param audioTokenView The view in which the audio tokens are stored
-     * @param audioToken The audio token class (like AudioToken)
+     * @param annotationClass The annotation the covered elements are derived from
      * @param audioFileView The view containing the entire audio file in its sofa string (If null, tries to auto-detect)
      * @param targetFormat File format for the output file. (like "wav" or "mp3")
      * @return List of files, each file containing the audio content.
      * @throws CASException
      */
-    public static <T extends AudioToken> List<File> getAllCoveredAudio(JCas audioTokenView, Class<T> audioToken, JCas audioFileView, String targetFormat) throws CASException {
+    public static <T extends Annotation> List<File> getAllCoveredAudio(JCas audioTokenView, JCas audioFileView, Class<T> annotationClass, String targetFormat) throws CASException {
 
         List<File> files = new ArrayList<>();
         List<String> commands = new LinkedList<>();
 
-        JCasUtil.select(audioTokenView, audioToken).forEach(token -> {
-            commands.add(String.format("-ss %s -t %s %s",
-                    token.getTimeStart(),
-                    token.getTimeEnd() - token.getTimeStart(),
-                    getOutputName(token, targetFormat)));
+        JCasUtil.select(audioTokenView, annotationClass).forEach(annotation -> {
+                    JCasUtil.selectCovered(AudioToken.class, annotation).forEach(token -> {
+                        commands.add(String.format("-ss %s -t %s %s",
+                                token.getTimeStart(),
+                                token.getTimeEnd() - token.getTimeStart(),
+                                getOutputName(audioTokenView, token, targetFormat)));
 
 
-            File file = new File(getOutputName(token, targetFormat));
-            file.deleteOnExit();
-            files.add(file);
-        });
+                        File file = new File(getOutputName(audioTokenView, token, targetFormat));
+                        file.deleteOnExit();
+                        files.add(file);
+                    });
+                });
 
         MultimodalUtil.getEveryAudioSegment(audioTokenView, audioFileView, commands);
 
@@ -73,7 +77,7 @@ public class MultimodalUtil {
      * @throws CASException
      */
     public static File getCoveredAudio(JCas audioTokenView, AudioToken audioToken) throws CASException {
-        return getCoveredAudio(audioTokenView, audioToken, null, "wav");
+        return getCoveredAudio(audioTokenView, null, audioToken, "wav");
     }
 
     /**
@@ -85,7 +89,7 @@ public class MultimodalUtil {
      * @throws CASException
      */
     public static File getCoveredAudio(JCas audioTokenView, AudioToken audioToken, String targetFormat) throws CASException {
-        return getCoveredAudio(audioTokenView, audioToken, null, targetFormat);
+        return getCoveredAudio(audioTokenView, null, audioToken, targetFormat);
     }
 
     /**
@@ -97,13 +101,13 @@ public class MultimodalUtil {
      * @return A file containing the audio segment
      * @throws CASException
      */
-    public static File getCoveredAudio(JCas audioTokenView, AudioToken audioToken, JCas audioFileView, String targetFormat) throws CASException {
+    public static File getCoveredAudio(JCas audioTokenView, JCas audioFileView, AudioToken audioToken, String targetFormat) throws CASException {
 
         if(audioFileView == null)
-            audioFileView = predictAudioView(audioTokenView);
+            audioFileView = findAudioView(audioTokenView);
 
         String inputFileName = "temp_" + audioFileView.getViewName();
-        String outputFileName = getOutputName(audioToken, targetFormat);
+        String outputFileName = getOutputName(audioTokenView, audioToken, targetFormat);
 
         if(!new File(inputFileName).exists()) {
             // Convert encoded string to file
@@ -138,7 +142,7 @@ public class MultimodalUtil {
     private static void getEveryAudioSegment(JCas audioTokenCas, JCas audioFileView, List<String> commands) throws CASException {
 
         if(audioFileView == null)
-            audioFileView = predictAudioView(audioTokenCas);
+            audioFileView = findAudioView(audioTokenCas);
 
         String inputFileName = "temp_" + audioFileView.getViewName();
 
@@ -147,7 +151,7 @@ public class MultimodalUtil {
             OutputStream stream = null;
             try {
                 stream = new FileOutputStream(inputFileName);
-                stream.write(Base64.decodeBase64(audioTokenCas.getSofaDataString()));
+                stream.write(Base64.decodeBase64(audioFileView.getSofaDataString()));
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -173,7 +177,7 @@ public class MultimodalUtil {
      * @param fromJCas JCas to search the views in
      * @throws CASException
      */
-    public static JCas predictAudioView(JCas fromJCas) throws CASException {
+    public static JCas findAudioView(JCas fromJCas) throws CASException {
         Iterator<JCas> iter = fromJCas.getViewIterator();
 
         while(iter.hasNext()){
@@ -191,54 +195,56 @@ public class MultimodalUtil {
     /**
      * Converts each AudioToken into its own video snippet.
      * @param audioTokenView The view in which the audio tokens are stored
-     * @param audioToken The audio token class (like AudioToken)
+     * @param annotationClass The annotation the covered elements are derived from
      * @return List of files, each file containing the video content.
      * @throws CASException
      */
-    public static <T extends AudioToken>List<File> getAllCoveredVideo(JCas audioTokenView, Class<T> audioToken) throws CASException {
-        return getAllCoveredVideo(null, audioTokenView, audioToken);
+    public static <T extends Annotation> List<File> getAllCoveredVideo(JCas audioTokenView, Class<T> annotationClass) throws CASException {
+        return getAllCoveredVideo(null, audioTokenView, annotationClass);
     }
 
     /**
      * Converts each AudioToken into its own audio snippet.
      * @param videoFileView The view containing the entire video file in its sofa string (If null, tries to auto-detect)
      * @param audioTokenView The view in which the audio tokens are stored
-     * @param audioToken The audio token class (like AudioToken)
+     * @param annotationClass The annotation the covered elements are derived from
      * @return List of files, each file containing the audio content.
      * @throws CASException
      */
-    public static <T extends AudioToken>List<File> getAllCoveredVideo(JCas videoFileView, JCas audioTokenView, Class<T> audioToken) throws CASException {
-        return getAllCoveredVideo(videoFileView, audioTokenView, audioToken, "mp4");
+    public static <T extends Annotation> List<File> getAllCoveredVideo(JCas audioTokenView, JCas videoFileView, Class<T> annotationClass) throws CASException {
+        return getAllCoveredVideo(videoFileView, audioTokenView, annotationClass, "mp4");
     }
 
     /**
      * Converts each AudioToken into its own audio snippet.
      * @param videoFileView The view containing the entire video file in its sofa string (If null, tries to auto-detect)
      * @param audioTokenView The view in which the audio tokens are stored
-     * @param audioToken The audio token class (like AudioToken)
+     * @param annotationClass The annotation the covered elements are derived from
      * @param targetFormat File format for the output file. (like "mp4" or "webm")
      * @return List of files, each file containing the audio content.
      * @throws CASException
      */
-    public static <T extends AudioToken>List<File> getAllCoveredVideo(JCas videoFileView, JCas audioTokenView, Class<T> audioToken, String targetFormat) throws CASException {
+    public static <T extends Annotation> List<File> getAllCoveredVideo(JCas audioTokenView, JCas videoFileView, Class<T> annotationClass, String targetFormat) throws CASException {
 
         if(videoFileView == null){
-            videoFileView = predictVideoView(audioTokenView);
+            videoFileView = findVideoView(audioTokenView);
         }
 
         List<File> files = new ArrayList<>();
         List<String> commands = new LinkedList<>();
 
-        JCasUtil.select(audioTokenView, audioToken).forEach(token -> {
-            commands.add(String.format("-ss %s -t %s %s",
-                    token.getTimeStart(),
-                    token.getTimeEnd() - token.getTimeStart(),
-                    getOutputName(token, targetFormat)));
+        JCasUtil.select(audioTokenView, annotationClass).forEach(annotation -> {
+            JCasUtil.selectCovered(AudioToken.class, annotation).forEach(token -> {
+                commands.add(String.format("-ss %s -t %s %s",
+                        token.getTimeStart(),
+                        token.getTimeEnd() - token.getTimeStart(),
+                        getOutputName(audioTokenView, token, targetFormat)));
 
 
-            File file = new File(getOutputName(token, targetFormat));
-            file.deleteOnExit();
-            files.add(file);
+                File file = new File(getOutputName(audioTokenView, token, targetFormat));
+                file.deleteOnExit();
+                files.add(file);
+            });
         });
 
         MultimodalUtil.getEveryVideoSegment(videoFileView, commands);
@@ -269,7 +275,7 @@ public class MultimodalUtil {
     public static File getCoveredVideo(JCas videoFileView, AudioToken audioToken, String targetFormat){
 
         String inputFileName = "temp_" + videoFileView.getViewName();
-        String outputFileName = getOutputName(audioToken, targetFormat);
+        String outputFileName = getOutputName(videoFileView, audioToken, targetFormat);
 
         if(!new File("temp_" + videoFileView.getViewName()).exists()) {
             // Convert encoded string to file
@@ -335,7 +341,7 @@ public class MultimodalUtil {
      * @param fromJCas JCas to search the views in
      * @throws CASException
      */
-    public static JCas predictVideoView(JCas fromJCas) throws CASException {
+    public static JCas findVideoView(JCas fromJCas) throws CASException {
         Iterator<JCas> iter = fromJCas.getViewIterator();
 
         while(iter.hasNext()){
@@ -389,12 +395,18 @@ public class MultimodalUtil {
         }
     }
 
-    private static String getOutputName(AudioToken audioToken, String format){
+    private static String getOutputName(JCas jCas, AudioToken audioToken, String format){
         if(format.startsWith(".")){
             format = format.substring(1);
         }
 
-        return audioToken._id() + "_" + audioToken.getTimeStart() + "-" + audioToken.getTimeEnd() + "." + format;
+        String dokumentId = "";
+        if (JCasUtil.select(jCas, DocumentMetaData.class).size() > 0) {
+            DocumentMetaData meta = DocumentMetaData.get(jCas);
+            dokumentId = meta.getDocumentId() + "_";
+        }
+
+        return dokumentId + audioToken._id() + "_" + audioToken.getTimeStart() + "-" + audioToken.getTimeEnd() + "." + format;
     }
 
 }

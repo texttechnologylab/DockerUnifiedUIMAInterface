@@ -4,10 +4,8 @@ import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.commons.io.FileUtils;
 import org.apache.uima.UIMAException;
 import org.apache.uima.analysis_engine.AnalysisEngineDescription;
-import org.apache.uima.cas.CASException;
 import org.apache.uima.cas.SerialFormat;
 import org.apache.uima.cas.impl.XmiCasSerializer;
-import org.apache.uima.fit.factory.AnalysisEngineFactory;
 import org.apache.uima.fit.factory.CollectionReaderFactory;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.fit.pipeline.SimplePipeline;
@@ -17,7 +15,6 @@ import org.apache.uima.jcas.cas.TOP;
 import org.apache.uima.jcas.tcas.Annotation;
 import org.apache.uima.util.CasIOUtils;
 import org.apache.uima.util.XmlCasSerializer;
-import org.bytedeco.javacv.FFmpegFrameGrabber;
 import org.dkpro.core.io.text.TextReader;
 import org.dkpro.core.io.xmi.XmiReader;
 import org.dkpro.core.io.xmi.XmiWriter;
@@ -35,7 +32,6 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.*;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.AsyncCollectionReader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.DUUIAsynchronousProcessor;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.DUUICollectionReader;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.io.reader.DUUIMultimodalCollectionReader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.reader.DUUIYouTubeReader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.writer.AudioSegmentWriter;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaCommunicationLayer;
@@ -45,20 +41,15 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.LuaConsts;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIMockStorageBackend;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.sqlite.DUUISqliteStorageBackend;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.tools.MultimodalUtil;
-import org.texttechnologylab.annotation.type.AudioToken;
-import org.texttechnologylab.annotation.type.MultimediaElement;
-import org.texttechnologylab.annotation.type.Speaker;
-import org.texttechnologylab.annotation.type.Speech;
+import org.texttechnologylab.annotation.type.*;
 import org.xml.sax.SAXException;
 
 import javax.script.*;
-import javax.sound.sampled.*;
 import java.io.*;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -898,14 +889,14 @@ public class TestDUUI {
                 }
         );*/
 
-        /*MultimodalUtil.getAllCoveredVideo(aCas, aCas.getView("text_view"), AudioToken.class, "mp4").forEach(file -> {
+        MultimodalUtil.getAllCoveredVideo(aCas, aCas.getView("text_view"), VideoToken.class, "mp4").forEach(file -> {
                 try {
                     FileUtils.moveFile(new File(file.getAbsolutePath()), new File("C:/test/" + file.getName()));
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
             }
-        );*/
+        );
 
     }
 
@@ -958,7 +949,7 @@ public class TestDUUI {
                 .withScale(iWorkers)
                 .withSourceView("audio_view")
                 .withTargetView("text_view")
-                        .withParameter("token", "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")
+                .withParameter("token", "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")
                 .build());
 
 
@@ -968,20 +959,19 @@ public class TestDUUI {
                 .withTargetView("text_view")
                 .build());
 
-        composer.add(new DUUIUIMADriver.Component(createEngineDescription(XmiWriter.class,
+        /*composer.add(new DUUIUIMADriver.Component(createEngineDescription(XmiWriter.class,
                 XmiWriter.PARAM_TARGET_LOCATION, "C:/test/temp",
                 XmiWriter.PARAM_PRETTY_PRINT, true,
                 XmiWriter.PARAM_OVERWRITE, true,
                 XmiWriter.PARAM_VERSION, "1.1",
                 XmiWriter.PARAM_COMPRESSION, "GZIP"))
-                .build());
+                .build());*/
 
-        /*composer.add(new DUUIUIMADriver.Component(createEngineDescription(AudioSegmentWriter.class,
+        composer.add(new DUUIUIMADriver.Component(createEngineDescription(AudioSegmentWriter.class,
                 AudioSegmentWriter.PARAM_TARGET_LOCATION, "C:/test",
                 AudioSegmentWriter.PARAM_AUDIO_CONTENT_VIEW, "audio_view",
                 AudioSegmentWriter.PARAM_AUDIO_TOKEN_VIEW, "text_view"))
                 .build());
-        */
 
 
         composer.run(processor, "test");

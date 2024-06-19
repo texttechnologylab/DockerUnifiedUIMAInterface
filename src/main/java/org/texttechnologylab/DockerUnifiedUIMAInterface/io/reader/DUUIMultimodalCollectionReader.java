@@ -55,11 +55,11 @@ public class DUUIMultimodalCollectionReader implements DUUICollectionReader {
     private String targetLocation = null;
 
     public DUUIMultimodalCollectionReader(String folder, String ending) {
-        this(folder, ending, "_InitialView", 25, getRandomFromMode(null, -1), getSortFromMode(null), "", false, null, 0, "", null);
+        this(folder, ending, "_InitialView", 25, getRandomFromMode(null, -1), getSortFromMode(null), "", true, null, 0, "", null);
     }
 
     public DUUIMultimodalCollectionReader(String folder, String ending, String viewName) {
-        this(folder, ending, viewName, 25, getRandomFromMode(null, -1), getSortFromMode(null), "", false, null, 0, "", null);
+        this(folder, ending, viewName, 25, getRandomFromMode(null, -1), getSortFromMode(null), "", true, null, 0, "", null);
     }
 
     public DUUIMultimodalCollectionReader(String folder, String ending, String viewName, int debugCount, int iRandom, boolean bSort, String savePath, boolean bAddMetadata, String language, int skipSmallerFiles, String targetLocation, String targetEnding) {
