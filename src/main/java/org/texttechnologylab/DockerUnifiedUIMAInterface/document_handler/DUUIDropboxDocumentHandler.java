@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 
-public class DUUIDropboxDocumentHandler implements IDUUIDocumentHandler {
+public class DUUIDropboxDocumentHandler implements IDUUIDocumentHandler, IDUUIFolderPickerApi {
 
     private static final long CHUNK_SIZE = 8L << 20; // 8MiB
     private static final long MAX_RETRIES = 5;
@@ -275,5 +275,31 @@ public class DUUIDropboxDocumentHandler implements IDUUIDocumentHandler {
                 ((FileMetadata) metadata).getSize()))
             .collect(Collectors.toList());
 
+    }
+
+    @Override
+    public DUUIFolder getFolderStructure() {
+
+        DUUIFolder root = new DUUIFolder("/", "Files");
+
+        ListFolderResult result;
+
+        try {
+            result = client
+                    .files()
+                    .listFolderBuilder("/")
+                    .withRecursive(true)
+                    .start();
+
+        } catch (DbxException e) {
+//            throw new IOException(e);
+        }
+
+        result.getEntries().stream()
+                .filter(f -> f instanceof FolderMetadata)
+                .map(f -> new DUUIFolder(((FolderMetadata) f).getId(), f.getName()))
+
+
+        return null;
     }
 }
