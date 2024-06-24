@@ -304,6 +304,9 @@ public class DUUIFileReaderLazy implements DUUICollectionReader {
                 } else if (result.endsWith(".gz")) {
                     ByteArrayOutputStream out = new ByteArrayOutputStream();
                     decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.GZIP, new ByteArrayInputStream(file));
+                } else if (result.endsWith(".bz2")) {
+                    ByteArrayOutputStream out = new ByteArrayOutputStream();
+                    decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.BZIP2, new ByteArrayInputStream(file));
                 } else {
                     decodedFile = new ByteArrayInputStream(file);
                 }
