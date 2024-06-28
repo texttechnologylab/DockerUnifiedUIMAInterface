@@ -1,6 +1,7 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.io.writer;
 
 import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
+import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Sentence;
 import org.apache.commons.io.FileUtils;
 import org.apache.uima.cas.CASException;
 import org.apache.uima.fit.descriptor.ConfigurationParameter;
@@ -26,6 +27,7 @@ public class AudioSegmentWriter extends JCasFileWriter_ImplBase {
     @Override
     public void process(JCas jCas) {
 
+        System.out.println("1");
         try {
             DocumentMetaData meta = null;
             if (JCasUtil.select(jCas, DocumentMetaData.class).size() > 0) {
@@ -37,10 +39,12 @@ public class AudioSegmentWriter extends JCasFileWriter_ImplBase {
             JCas audioFileView = null;
 
             if(!audioView.equals("")){
-                audioFileView.getView(audioView);
+                audioFileView = jCas.getView(audioView);
             }
 
-            MultimodalUtil.getAllCoveredAudio(jCas.getView(audioTokenView), audioFileView, AudioToken.class, "wav").forEach(file -> {
+            System.out.println("2");
+
+            MultimodalUtil.getAllCoveredAudio(jCas.getView(audioTokenView), audioFileView, Sentence.class, "wav").forEach(file -> {
 
                     String moveTo = getTargetLocation();
 

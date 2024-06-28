@@ -51,17 +51,31 @@ public class MultimodalUtil {
         List<String> commands = new LinkedList<>();
 
         JCasUtil.select(audioTokenView, annotationClass).forEach(annotation -> {
-                    JCasUtil.selectCovered(AudioToken.class, annotation).forEach(token -> {
-                        commands.add(String.format("-ss %s -t %s %s",
-                                token.getTimeStart(),
-                                token.getTimeEnd() - token.getTimeStart(),
-                                getOutputName(audioTokenView, token, targetFormat)));
+                    float startTime = Integer.MAX_VALUE;
+                    float endTime = 0;
+
+                    List<AudioToken> tokens = JCasUtil.selectCovering(AudioToken.class, annotation).stream().toList();
+
+                    for(AudioToken token : tokens){
+                        if(token.getTimeStart() < startTime)
+                            startTime = token.getTimeStart();
+
+                        if(token.getTimeEnd() > endTime)
+                            endTime = token.getTimeEnd();
+                    }
+
+                    if(startTime == Integer.MAX_VALUE)
+                        return;
+
+                    commands.add(String.format("-ss %s -t %s %s",
+                            startTime,
+                            endTime - startTime,
+                            getOutputName(audioTokenView, annotation, targetFormat)));
 
 
-                        File file = new File(getOutputName(audioTokenView, token, targetFormat));
-                        file.deleteOnExit();
-                        files.add(file);
-                    });
+                    File file = new File(getOutputName(audioTokenView, annotation, targetFormat));
+                    file.deleteOnExit();
+                    files.add(file);
                 });
 
         MultimodalUtil.getEveryAudioSegment(audioTokenView, audioFileView, commands);
@@ -133,6 +147,8 @@ public class MultimodalUtil {
 
         executeFFMpeg(inputFile.getAbsolutePath(), outputFileName, audioToken.getTimeStart(), audioToken.getTimeEnd());
 
+        inputFile.delete();
+
         File outputFile = new File(outputFileName);
         outputFile.deleteOnExit();
 
@@ -170,6 +186,7 @@ public class MultimodalUtil {
         inputFile.deleteOnExit();
 
         executeFFMpeg(inputFile.getAbsolutePath(), commands);
+        inputFile.delete();
     }
 
     /**
@@ -234,18 +251,35 @@ public class MultimodalUtil {
         List<String> commands = new LinkedList<>();
 
         JCasUtil.select(audioTokenView, annotationClass).forEach(annotation -> {
-            JCasUtil.selectCovered(AudioToken.class, annotation).forEach(token -> {
-                commands.add(String.format("-ss %s -t %s %s",
-                        token.getTimeStart(),
-                        token.getTimeEnd() - token.getTimeStart(),
-                        getOutputName(audioTokenView, token, targetFormat)));
+
+            float startTime = Integer.MAX_VALUE;
+            float endTime = 0;
+
+            List<AudioToken> tokens = JCasUtil.selectCovering(AudioToken.class, annotation).stream().toList();
+
+            for(AudioToken token : tokens){
+                if(token.getTimeStart() < startTime)
+                    startTime = token.getTimeStart();
+
+                if(token.getTimeEnd() > endTime)
+                    endTime = token.getTimeEnd();
+            }
+
+            if(startTime == Integer.MAX_VALUE)
+                return;
+
+            commands.add(String.format("-ss %s -t %s %s",
+                    startTime,
+                    endTime - startTime,
+                    getOutputName(audioTokenView, annotation, targetFormat)));
 
 
-                File file = new File(getOutputName(audioTokenView, token, targetFormat));
-                file.deleteOnExit();
-                files.add(file);
-            });
+            File file = new File(getOutputName(audioTokenView, annotation, targetFormat));
+            file.deleteOnExit();
+            files.add(file);
         });
+
+
 
         MultimodalUtil.getEveryVideoSegment(videoFileView, commands);
 
@@ -406,7 +440,22 @@ public class MultimodalUtil {
             dokumentId = meta.getDocumentId() + "_";
         }
 
+        System.out.println("OUTPUT FILE: " + dokumentId + audioToken._id() + "_" + audioToken.getTimeStart() + "-" + audioToken.getTimeEnd() + "." + format);
         return dokumentId + audioToken._id() + "_" + audioToken.getTimeStart() + "-" + audioToken.getTimeEnd() + "." + format;
+    }
+
+    private static String getOutputName(JCas jCas, Annotation annotation, String format){
+        if(format.startsWith(".")){
+            format = format.substring(1);
+        }
+
+        String dokumentId = "";
+        if (JCasUtil.select(jCas, DocumentMetaData.class).size() > 0) {
+            DocumentMetaData meta = DocumentMetaData.get(jCas);
+            dokumentId = meta.getDocumentId() + "_";
+        }
+
+        return dokumentId + annotation._id() + "_" + annotation.getBegin()+ "-" + annotation.getEnd() + "." + format;
     }
 
 }

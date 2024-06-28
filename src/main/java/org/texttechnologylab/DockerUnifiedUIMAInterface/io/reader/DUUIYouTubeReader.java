@@ -330,7 +330,6 @@ public class DUUIYouTubeReader implements DUUICollectionReader {
             e.printStackTrace();
         }
 
-
         if (_addMetadata) {
             if (JCasUtil.select(empty, DocumentMetaData.class).size() == 0) {
                 DocumentMetaData dmd = DocumentMetaData.create(empty);

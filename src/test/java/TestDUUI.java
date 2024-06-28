@@ -47,6 +47,7 @@ import org.xml.sax.SAXException;
 import javax.script.*;
 import java.io.*;
 import java.net.URISyntaxException;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -889,7 +890,7 @@ public class TestDUUI {
                 }
         );*/
 
-        MultimodalUtil.getAllCoveredVideo(aCas, aCas.getView("text_view"), VideoToken.class, "mp4").forEach(file -> {
+        MultimodalUtil.getAllCoveredAudio(aCas.getView("text_view"), aCas.getView("audio_view"), VideoToken.class, "mp4").forEach(file -> {
                 try {
                     FileUtils.moveFile(new File(file.getAbsolutePath()), new File("C:/test/" + file.getName()));
                 } catch (IOException e) {
@@ -897,11 +898,24 @@ public class TestDUUI {
                 }
             }
         );
-
     }
 
     @Test
     public void youtubeReaderTest() throws Exception{
+
+        ClassLoader classLoader = getClass().getClassLoader();
+        URL resource = classLoader.getResource("hf_key.txt");
+
+        File file = new File(resource.toURI());;
+
+        String content = "";
+        try {
+            content += Files.readAllLines(file.toPath(), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        String hfKey = content.substring(1, content.length() - 1);
 
         //CasIOUtils.save(aCas.getCas(), new FileOutputStream(new File("/tmp/audiotest.xmi")), SerialFormat.XMI_1_1);
         int iWorkers = 1;
@@ -944,19 +958,27 @@ public class TestDUUI {
                 .withTargetView("audio_view")
                 .build());
 
-
-        composer.add(new DUUIRemoteDriver.Component("http://localhost:9717")  // Audio to speaker
-                .withScale(iWorkers)
-                .withSourceView("audio_view")
-                .withTargetView("text_view")
-                .withParameter("token", "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")
-                .build());
-
-
         composer.add(new DUUIRemoteDriver.Component("http://localhost:9718")  // Audio to text
                 .withScale(iWorkers)
                 .withSourceView("audio_view")
                 .withTargetView("text_view")
+                .withParameter("device", "cuda")
+                .build());
+
+        /*composer.add(new DUUIRemoteDriver.Component("http://localhost:9717")  // Audio to speaker
+                .withScale(iWorkers)
+                .withSourceView("audio_view")
+                .withTargetView("text_view")
+                .withParameter("token", hfKey)
+                .withParameter("device", "cuda")
+                .build());*/
+
+        composer.add(new DUUIRemoteDriver.Component("http://localhost:9720")  // Spacy
+                .withScale(iWorkers)
+                .withSourceView("text_view")
+                .withTargetView("text_view")
+                .withParameter("use_existing_sentences", "false")
+                .withParameter("use_existing_tokens", "false")
                 .build());
 
         /*composer.add(new DUUIUIMADriver.Component(createEngineDescription(XmiWriter.class,
@@ -975,6 +997,8 @@ public class TestDUUI {
 
 
         composer.run(processor, "test");
+
+
         //composer.run(aCas);
     }
 }
