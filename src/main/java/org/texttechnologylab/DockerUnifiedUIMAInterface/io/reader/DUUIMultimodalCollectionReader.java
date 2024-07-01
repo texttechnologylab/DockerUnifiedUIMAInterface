@@ -3,7 +3,10 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface.io.reader;
 import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.compress.compressors.CompressorException;
+import org.apache.commons.compress.compressors.CompressorInputStream;
+import org.apache.commons.compress.compressors.CompressorStreamFactory;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.IOUtils;
 import org.apache.uima.cas.impl.XmiCasDeserializer;
 import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
@@ -324,6 +327,15 @@ public class DUUIMultimodalCollectionReader implements DUUICollectionReader {
             File fFile = new File(result);
             String mimeType = Files.probeContentType(fFile.toPath());
 
+
+            if(mimeType == null){
+                if(fileExtension.equals("xmi")){
+                    mimeType = "application/xmi";
+                }
+            }
+
+            System.out.println(mimeType);
+
             String sofaString = "";
 
             switch(mimeType.split("/")[0]){
@@ -341,6 +353,15 @@ public class DUUIMultimodalCollectionReader implements DUUICollectionReader {
                 case "application":
                     if(fileExtension.equals("xmi")) {
                         InputStream decodedFile = new ByteArrayInputStream(Files.readAllBytes(fFile.toPath()));
+                        XmiCasDeserializer.deserialize(decodedFile, mView.getCas(), true);
+                        break;
+                    }
+                    else if(mimeType.split("/")[1].equals("x-gzip")){
+                        CompressorInputStream decodedFile = new CompressorStreamFactory(true).createCompressorInputStream(CompressorStreamFactory.GZIP, new ByteArrayInputStream(Files.readAllBytes(fFile.toPath())));
+                        XmiCasDeserializer.deserialize(decodedFile, mView.getCas(), true);
+                        break;
+                    }else if(mimeType.split("/")[1].equals("x-xz")){
+                        CompressorInputStream decodedFile = new CompressorStreamFactory(true).createCompressorInputStream(CompressorStreamFactory.XZ, new ByteArrayInputStream(Files.readAllBytes(fFile.toPath())));
                         XmiCasDeserializer.deserialize(decodedFile, mView.getCas(), true);
                         break;
                     }

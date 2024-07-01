@@ -32,6 +32,7 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.*;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.AsyncCollectionReader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.DUUIAsynchronousProcessor;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.DUUICollectionReader;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.io.reader.DUUIMultimodalCollectionReader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.reader.DUUIYouTubeReader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.writer.AudioSegmentWriter;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaCommunicationLayer;
@@ -830,12 +831,25 @@ public class TestDUUI {
 
     @Test
     public void differentViewsTest() throws Exception{
+
+        ClassLoader classLoader = getClass().getClassLoader();
+        URL resource = classLoader.getResource("hf_key.txt");
+
+        File keyFile = new File(resource.toURI());;
+
+        String content = "";
+        try {
+            content += Files.readAllLines(keyFile.toPath(), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        String hfKey = content.substring(1, content.length() - 1);
+
         JCas aCas = JCasFactory.createJCas();
 
         File videoFile = new File("D:/DUUIVideos/read/TBBT.mp4");
         if (videoFile.exists()) {
-            JCas vView = aCas.createView("video_view");
-
             String encoded = org.apache.commons.codec.binary.Base64.encodeBase64String(org.apache.commons.io.FileUtils.readFileToByteArray(videoFile));
             String mimeType = Files.probeContentType(videoFile.toPath());
             System.out.println(mimeType);
@@ -865,10 +879,18 @@ public class TestDUUI {
                 .withTargetView("audio_view")
                 .build());
 
-        composer.add(new DUUIRemoteDriver.Component("http://localhost:9718")  // Audio to text
+        /*composer.add(new DUUIRemoteDriver.Component("http://localhost:9718")  // Audio to text
                 .withScale(iWorkers)
                 .withSourceView("audio_view")
                 .withTargetView("text_view")
+                .build());*/
+
+        composer.add(new DUUIRemoteDriver.Component("http://localhost:9717")  // Audio to speaker
+                .withScale(iWorkers)
+                .withSourceView("audio_view")
+                .withTargetView("text_view")
+                .withParameter("token", hfKey)
+                .withParameter("device", "cuda")
                 .build());
 
         composer.add(new DUUIUIMADriver.Component(createEngineDescription(XmiWriter.class,
@@ -881,16 +903,8 @@ public class TestDUUI {
 
         composer.run(aCas);
 
-        /*MultimodalUtil.getAllCoveredAudio(aCas.getView("text_view"), AudioToken.class, "audio_view", "wav").forEach(file -> {
-                    try {
-                        FileUtils.moveFile(new File(file.getAbsolutePath()), new File("C:/test/" + file.getName()));
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                }
-        );*/
 
-        MultimodalUtil.getAllCoveredAudio(aCas.getView("text_view"), aCas.getView("audio_view"), VideoToken.class, "mp4").forEach(file -> {
+        MultimodalUtil.getAllCoveredAudio(aCas.getView("text_view"), aCas.getView("audio_view"), AudioToken.class, "mp3").forEach(file -> {
                 try {
                     FileUtils.moveFile(new File(file.getAbsolutePath()), new File("C:/test/" + file.getName()));
                 } catch (IOException e) {
@@ -1001,4 +1015,90 @@ public class TestDUUI {
 
         //composer.run(aCas);
     }
+
+    @Test
+    public void multimodalFileReaderTest() throws Exception{
+
+
+        int iWorkers = 1;
+
+        DUUILuaContext ctx = new DUUILuaContext().withJsonLibrary();
+
+        // Instanziierung des Composers, mit einigen Parametern
+        DUUIComposer composer = new DUUIComposer()
+                .withSkipVerification(true)     // wir überspringen die Verifikation aller Componenten =)
+                .withLuaContext(ctx)            // wir setzen den definierten Kontext
+                .withWorkers(iWorkers);         // wir geben dem Composer eine Anzahl an Threads mit.
+
+        DUUIUIMADriver uima_driver = new DUUIUIMADriver();
+        DUUIRemoteDriver remoteDriver = new DUUIRemoteDriver();
+
+
+        DUUIMultimodalCollectionReader multiReader = new DUUIMultimodalCollectionReader("D:/DUUIVideos/read", "gz");
+
+        Set<DUUICollectionReader> readers = new HashSet<>();
+
+        readers.add(multiReader);
+
+        DUUIAsynchronousProcessor processor = new DUUIAsynchronousProcessor(readers);
+
+        // Hinzufügen der einzelnen Driver zum Composer
+        composer.addDriver(uima_driver, remoteDriver);
+
+        /*composer.add(new DUUIRemoteDriver.Component("http://localhost:9713")  // Youtube downloader
+                .withScale(iWorkers)
+                .withTargetView("video_view")
+                .withParameter("withTranscription", "false")
+                .build());
+
+        composer.add(new DUUIRemoteDriver.Component("http://localhost:9714")  // Video to audio
+                .withScale(iWorkers)
+                .withSourceView("video_view")
+                .withTargetView("audio_view")
+                .build());
+
+        composer.add(new DUUIRemoteDriver.Component("http://localhost:9718")  // Audio to text
+                .withScale(iWorkers)
+                .withSourceView("audio_view")
+                .withTargetView("text_view")
+                .withParameter("device", "cuda")
+                .build());
+
+        composer.add(new DUUIRemoteDriver.Component("http://localhost:9717")  // Audio to speaker
+                .withScale(iWorkers)
+                .withSourceView("audio_view")
+                .withTargetView("text_view")
+                .withParameter("token", hfKey)
+                .withParameter("device", "cuda")
+                .build());
+
+        composer.add(new DUUIRemoteDriver.Component("http://localhost:9720")  // Spacy
+                .withScale(iWorkers)
+                .withSourceView("text_view")
+                .withTargetView("text_view")
+                .withParameter("use_existing_sentences", "false")
+                .withParameter("use_existing_tokens", "false")
+                .build());*/
+
+        /*composer.add(new DUUIUIMADriver.Component(createEngineDescription(XmiWriter.class,
+                XmiWriter.PARAM_TARGET_LOCATION, "C:/test/temp",
+                XmiWriter.PARAM_PRETTY_PRINT, true,
+                XmiWriter.PARAM_OVERWRITE, true,
+                XmiWriter.PARAM_VERSION, "1.1",
+                XmiWriter.PARAM_COMPRESSION, "GZIP"))
+                .build());*/
+
+        composer.add(new DUUIUIMADriver.Component(createEngineDescription(AudioSegmentWriter.class,
+                AudioSegmentWriter.PARAM_TARGET_LOCATION, "C:/test",
+                AudioSegmentWriter.PARAM_AUDIO_CONTENT_VIEW, "audio_view",
+                AudioSegmentWriter.PARAM_AUDIO_TOKEN_VIEW, "text_view"))
+                .build());
+
+
+        composer.run(processor, "test");
+
+
+        //composer.run(aCas);
+    }
+
 }

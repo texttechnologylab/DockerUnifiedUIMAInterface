@@ -27,7 +27,6 @@ public class AudioSegmentWriter extends JCasFileWriter_ImplBase {
     @Override
     public void process(JCas jCas) {
 
-        System.out.println("1");
         try {
             DocumentMetaData meta = null;
             if (JCasUtil.select(jCas, DocumentMetaData.class).size() > 0) {
@@ -42,9 +41,7 @@ public class AudioSegmentWriter extends JCasFileWriter_ImplBase {
                 audioFileView = jCas.getView(audioView);
             }
 
-            System.out.println("2");
-
-            MultimodalUtil.getAllCoveredAudio(jCas.getView(audioTokenView), audioFileView, Sentence.class, "wav").forEach(file -> {
+            MultimodalUtil.getAllCoveredAudio(jCas.getView(audioTokenView), audioFileView, AudioToken.class, "wav").forEach(file -> {
 
                     String moveTo = getTargetLocation();
 
