@@ -486,6 +486,7 @@ class DUUIWorkerAsyncProcessor extends Thread {
                     e.printStackTrace();
                     if (!(e instanceof IOException)) {
                         System.err.println(e.getMessage());
+                        e.printStackTrace();
                         System.out.println("Thread continues work with next document!");
                         break;
                     }

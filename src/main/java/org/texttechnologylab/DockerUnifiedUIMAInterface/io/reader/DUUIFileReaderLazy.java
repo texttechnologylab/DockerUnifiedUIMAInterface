@@ -12,7 +12,6 @@ import org.javaync.io.AsyncFiles;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.AsyncCollectionReader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.ByteReadFuture;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.DUUICollectionReader;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.io.ProgressMeter;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.AdvancedProgressMeter;
 import org.texttechnologylab.utilities.helper.ArchiveUtils;
 import org.texttechnologylab.utilities.helper.StringUtils;
@@ -80,10 +79,6 @@ public class DUUIFileReaderLazy implements DUUICollectionReader {
 
     public DUUIFileReaderLazy(String folder, String ending, String sTargetPath) {
         this(folder, ending, 500, -1, false, "", true, null, 0, sTargetPath, ending);
-    }
-
-    public DUUIFileReaderLazy(String folder, String ending, int iDebugCount) {
-        this(folder, ending, iDebugCount, -1, null, "", false, null, 0);
     }
 
     public DUUIFileReaderLazy(String folder, String ending, String sTargetPath, int iDebugCount) {
@@ -308,13 +303,10 @@ public class DUUIFileReaderLazy implements DUUICollectionReader {
             InputStream decodedFile = null;
             try {
                 if (result.endsWith(".xz")) {
-                    ByteArrayOutputStream out = new ByteArrayOutputStream();
                     decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.XZ, new ByteArrayInputStream(file));
                 } else if (result.endsWith(".gz")) {
-                    ByteArrayOutputStream out = new ByteArrayOutputStream();
                     decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.GZIP, new ByteArrayInputStream(file));
                 } else if (result.endsWith(".bz2")) {
-                    ByteArrayOutputStream out = new ByteArrayOutputStream();
                     decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.BZIP2, new ByteArrayInputStream(file));
                 } else {
                     decodedFile = new ByteArrayInputStream(file);

@@ -24,11 +24,11 @@ import org.bson.types.ObjectId;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.mongodb.MongoDBConfig;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.mongodb.MongoDBConnectionHandler;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.DUUICollectionDBReader;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.io.ProgressMeter;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.format.IDUUIFormat;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.format.XmiLoader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.transport.GZIPLocalFile;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.transport.IDUUITransport;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.AdvancedProgressMeter;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.segmentation.DUUISegmentationStrategy;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.segmentation.DUUISegmentationStrategyNone;
 import org.texttechnologylab.annotation.AnnotationComment;
@@ -59,7 +59,7 @@ public class DUUISegmentationReader implements DUUICollectionDBReader {
     private final MongoCollection<Document> mongoCollection;
     private final GridFSBucket mongoBucket;
     private final DUUISegmentationStrategy segmentationStrategy;
-    private final ProgressMeter progress;
+    private final AdvancedProgressMeter progress;
     private final AtomicBoolean loadingFinished;
     private final Path outPath;
     private final int workers;
@@ -303,7 +303,7 @@ public class DUUISegmentationReader implements DUUICollectionDBReader {
         GridFSBuckets.create(mongoConnectionHandler.getDatabase(), MONGO_BUCKET_NAME).drop();
         this.mongoBucket = GridFSBuckets.create(mongoConnectionHandler.getDatabase(), MONGO_BUCKET_NAME);
 
-        this.progress = new ProgressMeter(getSize());
+        this.progress = new AdvancedProgressMeter(getSize());
 
         this.loadingFinished = new AtomicBoolean(false);
 
@@ -363,8 +363,8 @@ public class DUUISegmentationReader implements DUUICollectionDBReader {
     }
 
     @Override
-    public ProgressMeter getProgress() {
-        return progress;
+    public AdvancedProgressMeter getProgress() {
+        return this.progress;
     }
 
     @Override
@@ -399,7 +399,7 @@ public class DUUISegmentationReader implements DUUICollectionDBReader {
             throw new RuntimeException(e);
         }
 
-        progress.setLimit(getSize());
+        progress.setMax(getSize());
         progress.setDone(getDone());
         return true;
     }
