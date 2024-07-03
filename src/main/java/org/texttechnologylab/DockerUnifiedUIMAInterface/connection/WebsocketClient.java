@@ -106,8 +106,7 @@ public class WebsocketClient extends WebSocketClient{
     }
 
     /***
-     * @edited
-     * Givara Ebo
+     * @author Givara Ebo (edited)
      */
     @Override
     public void onMessage(ByteBuffer b) {
