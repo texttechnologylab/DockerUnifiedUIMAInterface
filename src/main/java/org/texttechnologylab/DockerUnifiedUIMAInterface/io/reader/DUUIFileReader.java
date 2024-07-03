@@ -1,6 +1,5 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.io.reader;
 
-import de.tudarmstadt.ukp.dkpro.core.api.io.ProgressMeter;
 import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.commons.compress.compressors.CompressorStreamFactory;
@@ -10,7 +9,10 @@ import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.javaync.io.AsyncFiles;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.AsyncCollectionReader;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.io.ByteReadFuture;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.DUUICollectionReader;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.io.ProgressMeter;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.AdvancedProgressMeter;
 import org.texttechnologylab.utilities.helper.StringUtils;
 import org.xml.sax.SAXException;
 
@@ -27,6 +29,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
+import static org.texttechnologylab.DockerUnifiedUIMAInterface.io.AsyncCollectionReader.removeIfInTarget;
 
 
 public class DUUIFileReader implements DUUICollectionReader {
@@ -47,7 +50,7 @@ public class DUUIFileReader implements DUUICollectionReader {
 
     private String _language = null;
 
-    private ProgressMeter progress = null;
+    private AdvancedProgressMeter progress = null;
 
     private int debugCount = 25;
 
@@ -138,7 +141,7 @@ public class DUUIFileReader implements DUUICollectionReader {
         // remove files that are already in the target location
         // NOTE we do this after saving the file list, as we do not want to change anything but only avoid processing files multiple times
         if (this.targetLocation != null) {
-//            _filePaths = removeIfInTarget(_filePaths, this.targetLocation, targetEnding, this._path, ending);
+            _filePaths = removeIfInTarget(_filePaths, this.targetLocation, targetEnding, this._path, ending);
         }
 
         _filePathsBackup.addAll(_filePaths);
@@ -152,7 +155,7 @@ public class DUUIFileReader implements DUUICollectionReader {
         // 500 MB
         _maxMemory = 500 * 1024 * 1024;
 
-        progress = new ProgressMeter(_initialSize);
+        progress = new AdvancedProgressMeter(_initialSize);
     }
 
     private static int getRandomFromMode(AsyncCollectionReader.DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE sampleMode, int sampleSize) {
@@ -251,13 +254,12 @@ public class DUUIFileReader implements DUUICollectionReader {
     }
 
     @Override
-    public ProgressMeter getProgress() {
-        return null;
+    public AdvancedProgressMeter getProgress() {
+        return this.progress;
     }
 
     @Override
     public void getNextCas(JCas empty) {
-
         ByteReadFuture future = _loadedFiles.poll();
 
         byte[] file = null;
@@ -298,11 +300,11 @@ public class DUUIFileReader implements DUUICollectionReader {
         InputStream decodedFile;
         try {
             if (result.endsWith(".xz")) {
-                ByteArrayOutputStream out = new ByteArrayOutputStream();
                 decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.XZ, new ByteArrayInputStream(file));
             } else if (result.endsWith(".gz")) {
-                ByteArrayOutputStream out = new ByteArrayOutputStream();
                 decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.GZIP, new ByteArrayInputStream(file));
+            } else if (result.endsWith(".bz2")) {
+                decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.BZIP2, new ByteArrayInputStream(file));
             } else {
                 decodedFile = new ByteArrayInputStream(file);
             }
@@ -333,7 +335,7 @@ public class DUUIFileReader implements DUUICollectionReader {
     public void reset() {
         _filePaths = _filePathsBackup;
         _docNumber.set(0);
-        progress = new ProgressMeter(_initialSize);
+        progress = new AdvancedProgressMeter(_initialSize);
     }
 
     @Override
@@ -386,24 +388,6 @@ public class DUUIFileReader implements DUUICollectionReader {
         RANDOM,
         SMALLEST,
         LARGEST
-    }
-
-    class ByteReadFuture {
-        private String _path;
-        private byte[] _bytes;
-
-        public ByteReadFuture(String path, byte[] bytes) {
-            _path = path;
-            _bytes = bytes;
-        }
-
-        public String getPath() {
-            return _path;
-        }
-
-        public byte[] getBytes() {
-            return _bytes;
-        }
     }
 
 }

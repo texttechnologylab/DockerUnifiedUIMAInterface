@@ -50,7 +50,7 @@ public class MongoDBConnectionHandler {
     private void init() {
 
         // defind credentials (Username, database, password)
-        MongoCredential credential = MongoCredential.createScramSha1Credential(pConfig.getMongoUsername(), pConfig.getMongoDatabase(), pConfig.getMongoPassword().toCharArray());
+        MongoCredential credential = MongoCredential.createScramSha1Credential(pConfig.getMongoUsername(), pConfig.getAuthDatabase(), pConfig.getMongoPassword().toCharArray());
         // defining Hostname and Port
         ServerAddress seed = new ServerAddress(pConfig.getMongoHostname(), pConfig.getMongoPort());
         List<ServerAddress> seeds = new ArrayList(0);

@@ -1,7 +1,7 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.io;
 
-import de.tudarmstadt.ukp.dkpro.core.api.io.ProgressMeter;
 import org.apache.uima.jcas.JCas;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.AdvancedProgressMeter;
 
 /**
  * Interface for a CollectionReader
@@ -14,7 +14,7 @@ public interface DUUICollectionReader {
      *
      * @return
      */
-    ProgressMeter getProgress();
+    AdvancedProgressMeter getProgress();
 
     /**
      * Fill and get the next JCas

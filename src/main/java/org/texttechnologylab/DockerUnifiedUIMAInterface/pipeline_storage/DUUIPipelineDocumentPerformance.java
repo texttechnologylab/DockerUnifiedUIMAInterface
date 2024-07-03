@@ -91,12 +91,12 @@ public class DUUIPipelineDocumentPerformance {
         _durationTotalMutexWait += durationMutexWait;
         _durationTotal += durationComponentTotal;
 
-        for (Annotation annotation : jc.getAnnotationIndex()) {
-            annotationTypesCount.put(
-                    annotation.getClass().getCanonicalName(),
-                    JCasUtil.select(jc, annotation.getClass()).size()
-            );
-        }
+//        for (Annotation annotation : jc.getAnnotationIndex()) {
+//            annotationTypesCount.put(
+//                    annotation.getClass().getCanonicalName(),
+//                    JCasUtil.select(jc, annotation.getClass()).size()
+//            );
+//        }
 
         _points.add(new DUUIPipelinePerformancePoint(durationSerialize,durationDeserialize,durationAnnotator,durationMutexWait,durationComponentTotal,componentKey,serializeSize, jc, error, document));
     }

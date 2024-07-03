@@ -1,18 +1,10 @@
-import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
-import de.tudarmstadt.ukp.dkpro.core.api.ner.type.NamedEntity;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Sentence;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
-import de.tudarmstadt.ukp.dkpro.core.io.text.TextReader;
-import de.tudarmstadt.ukp.dkpro.core.io.text.TextWriter;
-import de.tudarmstadt.ukp.dkpro.core.opennlp.OpenNlpPosTagger;
-import de.tudarmstadt.ukp.dkpro.core.tokit.BreakIteratorSegmenter;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.UIMAException;
 import org.apache.uima.analysis_engine.AnalysisEngineDescription;
 import org.apache.uima.cas.SerialFormat;
 import org.apache.uima.cas.impl.XmiCasSerializer;
-import org.apache.uima.collection.CollectionReaderDescription;
-import org.apache.uima.fit.factory.AggregateBuilder;
 import org.apache.uima.fit.factory.AnalysisEngineFactory;
 import org.apache.uima.fit.factory.CollectionReaderFactory;
 import org.apache.uima.fit.factory.JCasFactory;
@@ -23,13 +15,12 @@ import org.apache.uima.jcas.cas.TOP;
 import org.apache.uima.jcas.tcas.Annotation;
 import org.apache.uima.util.CasIOUtils;
 import org.apache.uima.util.XmlCasSerializer;
+import org.dkpro.core.io.text.TextReader;
 import org.dkpro.core.io.xmi.XmiReader;
 import org.dkpro.core.io.xmi.XmiWriter;
-import org.hucompute.textimager.uima.type.GerVaderSentiment;
-import org.hucompute.textimager.uima.type.category.CategoryCoveredTagged;
+import org.dkpro.core.opennlp.OpenNlpPosTagger;
+import org.dkpro.core.tokit.BreakIteratorSegmenter;
 import org.json.JSONArray;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.msgpack.core.MessageBufferPacker;
 import org.msgpack.core.MessagePack;
@@ -37,38 +28,29 @@ import org.msgpack.core.MessageUnpacker;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIPipelineAnnotationComponent;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIPipelineDescription;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.data_reader.DUUIDropboxDataReader;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.data_reader.DUUIInputStream;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.*;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.AsyncCollectionReader;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.io.writer.TTLabXmiWriter;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaCommunicationLayer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaSandbox;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.LuaConsts;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIMockStorageBackend;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.sqlite.DUUISqliteStorageBackend;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.tools.AnnotationRemover;
-import org.texttechnologylab.annotation.AnnotationComment;
-import org.texttechnologylab.annotation.type.Taxon;
-import org.texttechnologylab.annotation.type.Time;
-import org.texttechnologylab.utilities.helper.FileUtils;
 import org.xml.sax.SAXException;
 
 import javax.script.*;
-import java.io.*;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.*;
 import java.util.stream.Collectors;
 
 import static org.apache.uima.fit.factory.AnalysisEngineFactory.createEngineDescription;
-import static org.apache.uima.fit.factory.CollectionReaderFactory.createReaderDescription;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.texttechnologylab.DockerUnifiedUIMAInterface.io.AsyncCollectionReader.getFilesInDirectoryRecursive;
 
 
 public class TestDUUI {
@@ -231,7 +213,7 @@ public class TestDUUI {
         JCas jc = JCasFactory.createJCas();
         jc.setDocumentText("Hallo Welt! Wie geht es dir?");
         jc.setDocumentLanguage("de");
-        AnalysisEngineDescription desc = AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class);
+        AnalysisEngineDescription desc = createEngineDescription(BreakIteratorSegmenter.class);
         SimplePipeline.runPipeline(jc, desc);
         for (Sentence i : JCasUtil.select(jc, Sentence.class)) {
             System.out.println(JCasUtil.selectCovered(Token.class, i).stream().collect(Collectors.toList()));
@@ -253,7 +235,7 @@ public class TestDUUI {
         String val2 = Files.readString(Path.of(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/large_texts/1000.txt").toURI()));
         jc.setDocumentText(val2);
         jc.setDocumentLanguage("de");
-        AnalysisEngineDescription desc = AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class);
+        AnalysisEngineDescription desc = createEngineDescription(BreakIteratorSegmenter.class);
         SimplePipeline.runPipeline(jc, desc);
 
         int expectedNumberOfTokens = 0;
@@ -282,7 +264,7 @@ public class TestDUUI {
         String val2 = Files.readString(Path.of(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/large_texts/1000.txt").toURI()));
         jc.setDocumentText(val2);
         jc.setDocumentLanguage("de");
-        AnalysisEngineDescription desc = AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class);
+        AnalysisEngineDescription desc = createEngineDescription(BreakIteratorSegmenter.class);
         SimplePipeline.runPipeline(jc, desc);
 
 
@@ -315,9 +297,9 @@ public class TestDUUI {
         jc.setDocumentText(val2);
         jc.setDocumentLanguage("de");
         long time = System.nanoTime();
-        AnalysisEngineDescription desc = AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class);
+        AnalysisEngineDescription desc = createEngineDescription(BreakIteratorSegmenter.class);
         SimplePipeline.runPipeline(jc, desc,
-            AnalysisEngineFactory.createEngineDescription(OpenNlpPosTagger.class));
+            createEngineDescription(OpenNlpPosTagger.class));
         long endtime = System.nanoTime() - time;
         System.out.printf("Annotator time %d ms\n", (endtime) / 1000000);
 
@@ -358,7 +340,7 @@ public class TestDUUI {
         String val2 = Files.readString(Path.of(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/large_texts/1000.txt").toURI()));
         jc.setDocumentText(val2);
         jc.setDocumentLanguage("de");
-        AnalysisEngineDescription desc = AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class);
+        AnalysisEngineDescription desc = createEngineDescription(BreakIteratorSegmenter.class);
         SimplePipeline.runPipeline(jc, desc);
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -376,7 +358,7 @@ public class TestDUUI {
         String val2 = Files.readString(Path.of(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/large_texts/1000.txt").toURI()));
         jc.setDocumentText(val2);
         jc.setDocumentLanguage("de");
-        AnalysisEngineDescription desc = AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class);
+        AnalysisEngineDescription desc = createEngineDescription(BreakIteratorSegmenter.class);
         SimplePipeline.runPipeline(jc, desc);
 
         int expectedNumberOfTokens = 0;
@@ -411,7 +393,7 @@ public class TestDUUI {
         String val2 = Files.readString(Path.of(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/large_texts/1000.txt").toURI()));
         jc.setDocumentText(val2);
         jc.setDocumentLanguage("de");
-        AnalysisEngineDescription desc = AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class);
+        AnalysisEngineDescription desc = createEngineDescription(BreakIteratorSegmenter.class);
         SimplePipeline.runPipeline(jc, desc);
 
         int expectedNumberOfTokens = 0;
@@ -447,7 +429,7 @@ public class TestDUUI {
         String val2 = Files.readString(Path.of(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/large_texts/1000.txt").toURI()));
         jc.setDocumentText(val2);
         jc.setDocumentLanguage("de");
-        AnalysisEngineDescription desc = AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class);
+        AnalysisEngineDescription desc = createEngineDescription(BreakIteratorSegmenter.class);
         SimplePipeline.runPipeline(jc, desc);
 
         int expectedNumberOfTokens = 0;
@@ -473,13 +455,13 @@ public class TestDUUI {
         JCas jc = JCasFactory.createJCas();
         jc.setDocumentText("Dies ist der erste Testatz. Hier ist der zweite Testsatz!");
         jc.setDocumentLanguage("de");
-        AnalysisEngineDescription desc = AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class);
+        AnalysisEngineDescription desc = createEngineDescription(BreakIteratorSegmenter.class);
         SimplePipeline.runPipeline(jc, desc);
 
         JCas jc2 = JCasFactory.createJCas();
         jc2.setDocumentText("Dies ist der erste Testatz. Hier ist der zweite Testsatz!");
         jc2.setDocumentLanguage("de");
-        AnalysisEngineDescription desc2 = AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class);
+        AnalysisEngineDescription desc2 = createEngineDescription(BreakIteratorSegmenter.class);
         DUUIComposer composer = new DUUIComposer();
         composer.addDriver(new DUUIUIMADriver());
         composer.add(new DUUIUIMADriver.Component(desc2).build());
@@ -499,7 +481,7 @@ public class TestDUUI {
         JCas jc2 = JCasFactory.createJCas();
         jc2.setDocumentText("Dies ist der erste Testatz. Hier ist der zweite Testsatz!");
         jc2.setDocumentLanguage("de");
-        AnalysisEngineDescription desc2 = AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class);
+        AnalysisEngineDescription desc2 = createEngineDescription(BreakIteratorSegmenter.class);
         DUUIMockStorageBackend mock = new DUUIMockStorageBackend();
         DUUIComposer composer = new DUUIComposer().withStorageBackend(mock);
         composer.addDriver(new DUUIUIMADriver());
@@ -521,14 +503,14 @@ public class TestDUUI {
         composer.addDriver(new DUUIDockerDriver());
 
         composer.add(new DUUIUIMADriver.Component(
-            AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class))
+            createEngineDescription(BreakIteratorSegmenter.class))
             .withScale(4).build());
         composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
             .withScale(4)
             .withImageFetching()
             .build());
         composer.add(new DUUIUIMADriver.Component(
-            AnalysisEngineFactory.createEngineDescription(XmiWriter.class,
+            createEngineDescription(XmiWriter.class,
                 XmiWriter.PARAM_TARGET_LOCATION, "/home/alexander/Documents/Corpora/German-Political-Speeches-Corpus/test_benchmark/",
                 XmiWriter.PARAM_PRETTY_PRINT, true,
                 XmiWriter.PARAM_OVERWRITE, true,
@@ -577,7 +559,7 @@ public class TestDUUI {
       /*  composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
                         .withImageFetching()
                 , DUUIDockerDriver.class);*/
-        composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class))
+        composer.add(new DUUIUIMADriver.Component(createEngineDescription(BreakIteratorSegmenter.class))
             .build());
 
 
@@ -595,7 +577,7 @@ public class TestDUUI {
 
         DUUIComposer composer = new DUUIComposer();
         composer.addDriver(new DUUIUIMADriver());
-        composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class)).build());
+        composer.add(new DUUIUIMADriver.Component(createEngineDescription(BreakIteratorSegmenter.class)).build());
         composer.run(jc, "pipeline");
         composer.shutdown();
 
@@ -616,14 +598,14 @@ public class TestDUUI {
         {
             DUUIComposer composer = new DUUIComposer();
             composer.addDriver(new DUUIUIMADriver());
-            composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class)).build());
+            composer.add(new DUUIUIMADriver.Component(createEngineDescription(BreakIteratorSegmenter.class)).build());
             composer.run(jc, "pipeline");
             composer.shutdown();
         }
         {
             DUUIComposer composer = new DUUIComposer();
             composer.addDriver(new DUUIUIMADriver());
-            composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(OpenNlpPosTagger.class)).build());
+            composer.add(new DUUIUIMADriver.Component(createEngineDescription(OpenNlpPosTagger.class)).build());
             composer.run(jc, "pos_tagger");
             composer.shutdown();
         }
@@ -667,7 +649,7 @@ public class TestDUUI {
         {
             DUUIComposer composer = new DUUIComposer();
             composer.addDriver(new DUUIUIMADriver());
-            composer.add(new DUUIUIMADriver.Component(AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class)).build());
+            composer.add(new DUUIUIMADriver.Component(createEngineDescription(BreakIteratorSegmenter.class)).build());
             composer.run(jc, "pipeline");
             composer.shutdown();
         }
@@ -722,7 +704,7 @@ public class TestDUUI {
         String val2 = Files.readString(Path.of(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/large_texts/1000.txt").toURI()));
         jc.setDocumentText(val2);
         jc.setDocumentLanguage("de");
-        AnalysisEngineDescription desc = AnalysisEngineFactory.createEngineDescription(BreakIteratorSegmenter.class);
+        AnalysisEngineDescription desc = createEngineDescription(BreakIteratorSegmenter.class);
         SimplePipeline.runPipeline(jc, desc);
 
         int expectedNumberOfTokens = 0;

@@ -4,7 +4,6 @@ import com.mongodb.client.MongoCursor;
 import com.mongodb.client.gridfs.GridFSBucket;
 import com.mongodb.client.gridfs.GridFSBuckets;
 import com.mongodb.client.gridfs.GridFSDownloadStream;
-import de.tudarmstadt.ukp.dkpro.core.api.io.ProgressMeter;
 import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
@@ -14,6 +13,8 @@ import org.bson.Document;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.mongodb.MongoDBConfig;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.mongodb.MongoDBConnectionHandler;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.DUUICollectionReader;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.io.ProgressMeter;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.AdvancedProgressMeter;
 import org.texttechnologylab.annotation.AnnotationComment;
 import org.texttechnologylab.utilities.helper.ArchiveUtils;
 import org.texttechnologylab.utilities.helper.TempFileHandler;
@@ -33,7 +34,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class DUUIGerParCorReader implements DUUICollectionReader {
 
 
-    private ProgressMeter progress;
+    private AdvancedProgressMeter progress;
     private ConcurrentLinkedQueue<Document> loadedItems = new ConcurrentLinkedQueue();
     private ConcurrentLinkedQueue<Document> items = new ConcurrentLinkedQueue();
 
@@ -65,10 +66,11 @@ public class DUUIGerParCorReader implements DUUICollectionReader {
         this.sQuery = sFilter;
         System.out.println("Init connection to " + dbConfig.getMongoDatabase() + "\t" + dbConfig.getMongoCollection());
         init();
+
     }
 
     @Override
-    public ProgressMeter getProgress() {
+    public AdvancedProgressMeter getProgress() {
         return null;
     }
 
@@ -88,7 +90,7 @@ public class DUUIGerParCorReader implements DUUICollectionReader {
         this.gridFS = GridFSBuckets.create(mongoDBConnectionHandler.getDatabase(), "grid");
         results = mongoDBConnectionHandler.getCollection().find(BsonDocument.parse(sQuery)).limit(iLimit).cursor();
         _maxItems = mongoDBConnectionHandler.getCollection().countDocuments(BsonDocument.parse(sQuery));
-        progress = new ProgressMeter(_maxItems);
+        progress = new AdvancedProgressMeter(_maxItems);
 
         Runnable r = new Runnable() {
             @Override

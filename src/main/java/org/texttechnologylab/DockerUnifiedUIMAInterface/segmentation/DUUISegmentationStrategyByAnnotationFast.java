@@ -1,5 +1,6 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.segmentation;
 
+import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import org.apache.uima.UIMAException;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.fit.util.JCasUtil;
@@ -10,10 +11,8 @@ import org.apache.uima.util.CasCopier;
 import org.texttechnologylab.annotation.AnnotationComment;
 
 import java.lang.reflect.InvocationTargetException;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.text.SimpleDateFormat;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class DUUISegmentationStrategyByAnnotationFast extends DUUISegmentationStrategy {
@@ -63,6 +62,7 @@ public class DUUISegmentationStrategyByAnnotationFast extends DUUISegmentationSt
         if (currentOffset.size() == 0) {
             return null;
         }
+        long iStartTime = System.currentTimeMillis();
 
         String sOffset = currentOffset.stream().findFirst().get();
         String[] sSplit = sOffset.split("-");
@@ -74,17 +74,20 @@ public class DUUISegmentationStrategyByAnnotationFast extends DUUISegmentationSt
         emptyCas.setDocumentLanguage(jCasInput.getDocumentLanguage());
 
 
-        JCasUtil.selectCovered(jCasInput, pClass, iStart, iEnde).forEach(a -> {
+        JCasUtil.selectCovered(jCasInput, Annotation.class, iStart, iEnde).forEach(a -> {
             try {
-                TOP fs = (TOP) pClass.getConstructor(JCas.class).newInstance(emptyCas);
-                fs.getType().getFeatures().forEach(f -> {
-                    try {
-                        fs.setFeatureValueFromString(f, ((TOP) a).getFeatureValueAsString(f));
-                    } catch (Exception e) {
+                if (!(a instanceof DocumentMetaData)) {
+                    TOP fs = (TOP) a.getClass().getConstructor(JCas.class).newInstance(emptyCas);
+                    fs.getType().getFeatures().forEach(f -> {
+                        try {
+                            fs.setFeatureValueFromString(f, ((TOP) a).getFeatureValueAsString(f));
+                        } catch (Exception e) {
 //                        System.out.println(e.getMessage());
-                    }
-                });
-                fs.addToIndexes();
+                        }
+                    });
+                    fs.addToIndexes();
+                }
+
             } catch (NoSuchMethodException e) {
                 throw new RuntimeException(e);
             } catch (InvocationTargetException e) {
@@ -95,9 +98,11 @@ public class DUUISegmentationStrategyByAnnotationFast extends DUUISegmentationSt
                 throw new RuntimeException(e);
             }
         });
-        JCasUtil.select(emptyCas, pClass).stream().forEach(a -> {
-            ((Annotation) a).setBegin(((Annotation) a).getBegin() - iStart);
-            ((Annotation) a).setEnd(((Annotation) a).getEnd() - iStart);
+
+
+        JCasUtil.select(emptyCas, Annotation.class).stream().forEach(a -> {
+            a.setBegin(a.getBegin() - iStart);
+            a.setEnd(a.getEnd() - iStart);
         });
 
         AnnotationComment da = new AnnotationComment(emptyCas);
@@ -106,7 +111,11 @@ public class DUUISegmentationStrategyByAnnotationFast extends DUUISegmentationSt
         da.addToIndexes();
 
         currentOffset.remove(sOffset);
-
+        long iEndTime = System.currentTimeMillis();
+        SimpleDateFormat df = new SimpleDateFormat("mm:ss:SSS");
+        if (hasDebug()) {
+            System.out.println("Duration Split: " + df.format(new Date(iEndTime - iStartTime)) + " (" + currentOffset.size() + " left)");
+        }
         return emptyCas;
     }
 
@@ -142,6 +151,7 @@ public class DUUISegmentationStrategyByAnnotationFast extends DUUISegmentationSt
 
     @Override
     public void merge(JCas jCasSegment) {
+        long iStartTime = System.currentTimeMillis();
         int iOffset;
         AnnotationComment offset = JCasUtil.select(jCasSegment, AnnotationComment.class).stream().filter(ac -> {
             return ac.getKey().equalsIgnoreCase("offset");
@@ -161,6 +171,11 @@ public class DUUISegmentationStrategyByAnnotationFast extends DUUISegmentationSt
             });
         }
         CasCopier.copyCas(jCasSegment.getCas(), jCasInput.getCas(), false);
+        long iEndTime = System.currentTimeMillis();
+        SimpleDateFormat df = new SimpleDateFormat("mm:ss:SSS");
+        if (hasDebug()) {
+            System.out.println("Duration Merge: " + df.format(new Date(iEndTime - iStartTime)));
+        }
     }
 
     @Override
