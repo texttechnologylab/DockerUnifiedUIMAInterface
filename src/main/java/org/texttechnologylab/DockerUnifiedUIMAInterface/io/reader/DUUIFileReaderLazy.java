@@ -81,6 +81,14 @@ public class DUUIFileReaderLazy implements DUUICollectionReader {
         this(folder, ending, 500, -1, false, "", true, null, 0, sTargetPath, ending);
     }
 
+    public DUUIFileReaderLazy(String folder, String ending, String sTargetPath, String sTargetEnding) {
+        this(folder, ending, 500, -1, false, "", true, null, 0, sTargetPath, sTargetEnding);
+    }
+
+    public DUUIFileReaderLazy(String folder, String ending, String sTargetPath, String sTargetEnding, int iDebugCount) {
+        this(folder, ending, iDebugCount, -1, false, "", true, null, 0, sTargetPath, sTargetEnding);
+    }
+
     public DUUIFileReaderLazy(String folder, String ending, String sTargetPath, int iDebugCount) {
         this(folder, ending, iDebugCount, -1, false, "", true, null, 0, sTargetPath, ending);
     }
@@ -361,13 +369,16 @@ public class DUUIFileReaderLazy implements DUUICollectionReader {
                         String sNewOutput = sURI.replace(sBase, this.targetLocation)+this._targetEnding;
                         File tFile = new File(sNewOutput);
                         if(tFile.exists()){
-                                bSkip = true;
-                                _skipNumber.incrementAndGet();
+                            bSkip = true;
+                            _skipNumber.incrementAndGet();
+                            if (_skipNumber.get() % 100 == 0) {
+                                System.out.println("Skip: (" + _skipNumber.get() + ")\t" + sNewOutput);
+                            }
                         }
                     }
                 }
                 catch (Exception e){
-
+                    e.printStackTrace();
                 }
             }
 
@@ -474,6 +485,8 @@ public class DUUIFileReaderLazy implements DUUICollectionReader {
 
     class LazyFileReader {
 
+        boolean bRunning = true;
+
         File pFile = null;
         String sEnding = "";
 
@@ -496,7 +509,102 @@ public class DUUIFileReaderLazy implements DUUICollectionReader {
             Thread pThread = new Thread(r);
             pThread.start();
 
+
         }
+
+//        public LazyFileReader(File fl, String ending, String sTargetPath, String sTargetEnding, ConcurrentLinkedQueue<String> _filePaths, AtomicInteger iCounter) {
+//
+//            this(fl, ending, _filePaths, iCounter);
+//
+////            try {
+////                Thread.sleep(1000l);
+////            } catch (InterruptedException e) {
+////                throw new RuntimeException(e);
+////            }
+//
+//            if(sTargetPath.length()>0) {
+//
+//                try {
+//                    JCas checkCas = JCasFactory.createJCas();
+//                    Set<String> checkString = new HashSet<>(0);
+//                    Runnable r = new Runnable() {
+//                        @Override
+//                        public void run() {
+//                            String result = null;
+//                            byte[] file = null;
+//
+//                            while (hasNext()) {
+//                                checkCas.reset();
+//                                String sPath = _filePaths.poll();
+//
+//                                if(checkString.contains(sPath)){
+//                                    continue;
+//                                }
+//
+//                                checkString.add(sPath);
+//
+//                                try {
+//                                    file = Files.readAllBytes(Path.of(sPath));
+//                                } catch (IOException e) {
+//                                    throw new RuntimeException(e);
+//                                }
+//
+//                                InputStream decodedFile = null;
+//                                try {
+//                                    if (sPath.endsWith(".xz")) {
+//                                        decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.XZ, new ByteArrayInputStream(file));
+//                                    } else if (sPath.endsWith(".gz")) {
+//                                        decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.GZIP, new ByteArrayInputStream(file));
+//                                    } else if (sPath.endsWith(".bz2")) {
+//                                        decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.BZIP2, new ByteArrayInputStream(file));
+//                                    } else {
+//                                        decodedFile = new ByteArrayInputStream(file);
+//                                    }
+//
+//                                    XmiCasDeserializer.deserialize(decodedFile, checkCas.getCas(), true);
+//                                } catch (CompressorException ex) {
+//                                    throw new RuntimeException(ex);
+//                                } catch (IOException ex) {
+//                                    throw new RuntimeException(ex);
+//                                } catch (SAXException ex) {
+//                                    throw new RuntimeException(ex);
+//                                }
+//
+//
+//                                if (sTargetPath.length() > 0) {
+//                                    try {
+//                                        DocumentMetaData dmd = DocumentMetaData.get(checkCas);
+//                                        if (dmd != null) {
+//                                            String sURI = dmd.getDocumentUri();
+//                                            String sBase = dmd.getDocumentBaseUri();
+//                                            String sNewOutput = sURI.replace(sBase, sTargetPath) + sTargetEnding;
+//                                            File tFile = new File(sNewOutput);
+//                                            if (!tFile.exists()) {
+//                                                _filePaths.add(sPath);
+//                                            }
+//                                        }
+//                                    } catch (Exception e) {
+//                                        e.printStackTrace();
+//                                    }
+//                                }
+//
+//                            }
+//                        }
+//
+//                    };
+//
+//                    Thread pThread = new Thread(r);
+//                    pThread.start();
+//                } catch (ResourceInitializationException ex) {
+//                    throw new RuntimeException(ex);
+//                } catch (CASException ex) {
+//                    throw new RuntimeException(ex);
+//                }
+//
+//            }
+//
+//
+//        }
 
     }
 

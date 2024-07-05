@@ -22,16 +22,16 @@ public class BigCorpus {
     @Test
     public void EUBooks() throws Exception {
 
-        int iWorker = 50;
+        int iWorker = 1;
 
-        String sInputPath = "/mnt/NegLab/corpora/BigCorpus/EUBookshop";
-        String sOutputPath = "/tmp/EUBookshopSpaCy";
-//        String sInputPath = "/tmp/EUBook/input";
-//        String sOutputPath = "/tmp/EUBook/output";
+//        String sInputPath = "/mnt/NegLab/corpora/BigCorpus/EUBookshop";
+//        String sOutputPath = "/tmp/EUBookshopSpaCy";
+        String sInputPath = "/tmp/EUBook/input";
+        String sOutputPath = "/tmp/EUBook/output";
 ////        String sOutputPath = "/tmp/wiki/";
         String sSuffix = "xmi.bz2";
 
-        DUUICollectionReader pReader = new DUUIFileReaderLazy(sInputPath, sSuffix, 1);
+        DUUICollectionReader pReader = new DUUIFileReaderLazy(sInputPath, sSuffix, sOutputPath, ".xmi.bz2", 1);
 
         // Asynchroner reader für die Input-Dateien
         DUUIAsynchronousProcessor pProcessor = new DUUIAsynchronousProcessor(pReader);
@@ -60,11 +60,11 @@ public class BigCorpus {
         DUUIPipelineComponent componentLang = new DUUISwarmDriver
                 //DUUIPipelineComponent componentLang = new DUUIDockerDriver
                 .Component("docker.texttechnologylab.org/languagedetection:0.5")
-                .withScale(iWorker / 2)
+                .withScale(iWorker)
                 .build();
         composer.add(componentLang);
 
-        composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/duui-spacy-de_core_news_lg:0.4.4")
+        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/duui-spacy-de_core_news_lg:0.4.4")
                 .withParameter("use_existing_tokens", String.valueOf(true))
                 .withParameter("use_existing_sentences", String.valueOf(true))
                 .withScale(iWorker)
@@ -77,7 +77,7 @@ public class BigCorpus {
                 XmiWriter.PARAM_OVERWRITE, true,
                 XmiWriter.PARAM_VERSION, "1.1",
                 XmiWriter.PARAM_COMPRESSION, CompressionMethod.BZIP2
-        )).withScale(iWorker / 2).build());
+        )).withScale(iWorker).build());
 
         composer.run(pProcessor, "eubook");
     }
