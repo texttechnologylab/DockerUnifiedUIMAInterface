@@ -230,8 +230,8 @@ public class DUUIGoogleDriveDocumentHandler implements IDUUIDocumentHandler, IDU
 
         for (File file : files) {
             DUUIFolder f = new DUUIFolder(file.getId(), file.getName());
-            root.addChild(f);
             getFolderStructure(f);
+            root.addChild(f);
         }
 
         return root;

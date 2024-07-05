@@ -3,6 +3,8 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface.document_handler;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 public interface IDUUIDocumentHandler {
 
@@ -72,4 +74,16 @@ public interface IDUUIDocumentHandler {
      */
     List<DUUIDocument> listDocuments(String path, String fileExtension, boolean recursive) throws IOException;
 
+    default List<DUUIDocument> listDocuments(List<String> paths, String fileExtension, boolean recursive) throws IOException {
+        return paths.stream()
+                .flatMap(p -> {
+                    try {
+                        return listDocuments(p, fileExtension, recursive).stream();
+                    } catch (IOException e) {
+                        return null;
+                    }
+                })
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+    }
 }
