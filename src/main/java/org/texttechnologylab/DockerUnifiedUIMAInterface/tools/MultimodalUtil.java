@@ -267,6 +267,11 @@ public class MultimodalUtil {
 
             if(startTime == Integer.MAX_VALUE)
                 return;
+/*
+            System.out.println("============================");
+            System.out.println(getOutputName(audioTokenView, annotation, targetFormat));
+            System.out.println(startTime + " " + endTime);
+ */
 
             commands.add(String.format("-ss %s -t %s %s",
                     startTime,
@@ -278,8 +283,6 @@ public class MultimodalUtil {
             file.deleteOnExit();
             files.add(file);
         });
-
-
 
         MultimodalUtil.getEveryVideoSegment(videoFileView, commands);
 

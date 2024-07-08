@@ -58,9 +58,9 @@ public class DUUILuaCommunicationLayer implements IDUUICommunicationLayer {
         JCas tJc;
 
         try{
-            tJc = jc.createView(targetView);
-        }catch (Exception e){
             tJc = jc.getView(targetView);
+        }catch (Exception e){
+            tJc = jc.createView(targetView);
         }
 
         _file.call("deserialize",CoerceJavaToLua.coerce(tJc),CoerceJavaToLua.coerce(input));

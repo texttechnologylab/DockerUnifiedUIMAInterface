@@ -523,9 +523,6 @@ public class DUUIPipelineComponent {
             parametersMap.put(key,parameters.getString(key));
         }
 
-        String sourceView = jobj.getString("sourceView");
-        String targetView = jobj.getString("targetView");
-
         DUUIPipelineComponent comp = new DUUIPipelineComponent();
         comp._options = optionsMap;
         comp._parameters = parametersMap;
