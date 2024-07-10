@@ -8,10 +8,41 @@ import java.io.*;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Interface for communication between the DUUI composer {@link DUUIComposer} and the components {@link org.texttechnologylab.DockerUnifiedUIMAInterface.driver.IDUUIDriverInterface}.
+ */
 public interface IDUUICommunicationLayer {
+    /**
+     * Serializes a JCas to a byte array output stream by using the LUA script provided by the component.
+     * @param jc Input JCas.
+     * @param out Output stream, i.e. the input to the component.
+     * @param parameters Parameters for use in the LUA script.
+     * @throws CompressorException
+     * @throws IOException
+     * @throws SAXException
+     */
     public void serialize(JCas jc, ByteArrayOutputStream out, Map<String,String> parameters) throws CompressorException, IOException, SAXException;
+
+    /**
+     * Deserializes a byte array input stream to a JCas by using the LUA script provided by the component.
+     * @param jc Output JCas, note that the CAS is not reset before deserialization.
+     * @param input Input stream, i.e. the output of the component.
+     * @throws IOException
+     * @throws SAXException
+     */
     public void deserialize(JCas jc, ByteArrayInputStream input) throws IOException, SAXException;
+
+    /**
+     *
+     * @return
+     */
     public IDUUICommunicationLayer copy();
+
+    /**
+     *
+     * @param results
+     * @return
+     */
     public ByteArrayInputStream merge(List<ByteArrayInputStream> results);
 
     String myLuaTestMerging();
