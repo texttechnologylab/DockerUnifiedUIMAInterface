@@ -10,13 +10,24 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.Vector;
 
+/**
+ * Description of a pipeline for the DUUI composer that holds all components.
+ */
 public class DUUIPipelineDescription {
     private Vector<DUUIPipelineAnnotationComponent> _components;
 
+    /**
+     * Constructor
+     * @param components List of components of the pipeline.
+     */
     public DUUIPipelineDescription(Vector<DUUIPipelineAnnotationComponent> components) {
         _components = components;
     }
 
+    /**
+     * Get the components of the pipeline.
+     * @return List of components.
+     */
     public Vector<DUUIPipelineAnnotationComponent> getComponents() {
         return _components;
     }
