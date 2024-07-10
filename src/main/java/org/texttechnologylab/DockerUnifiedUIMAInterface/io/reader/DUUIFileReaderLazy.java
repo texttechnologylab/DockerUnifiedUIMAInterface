@@ -310,6 +310,8 @@ public class DUUIFileReaderLazy implements DUUICollectionReader {
 
             InputStream decodedFile = null;
             try {
+
+
                 if (result.endsWith(".xz")) {
                     decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.XZ, new ByteArrayInputStream(file));
                 } else if (result.endsWith(".gz")) {

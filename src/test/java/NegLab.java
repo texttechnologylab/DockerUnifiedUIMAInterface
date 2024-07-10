@@ -1,11 +1,14 @@
 import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Paragraph;
+import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Sentence;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.UIMAException;
 import org.apache.uima.cas.CASException;
+import org.apache.uima.cas.SofaFS;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
+import org.apache.uima.jcas.cas.Sofa;
 import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.util.InvalidXMLException;
 import org.dkpro.core.io.xmi.XmiWriter;
@@ -49,7 +52,7 @@ public class NegLab {
     @Test
     public void sketchEngine() throws Exception {
 
-        File pFile = new File("/home/staff_homes/abrami/Downloads/federlesen.txt");
+        File pFile = new File("/home/gabrami/Downloads/federlesen.txt");
 
         String sValue = FileUtils.getContentFromFile(pFile);
 
@@ -165,11 +168,12 @@ public class NegLab {
         composer.addDriver(docker_driver, uima_driver);  // remote_driver und swarm_driver scheint nicht benötigt zu werden.
 
 
+
         composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
                 .withScale(1)
                 .build());
 
-        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/bfsrl:latest")
+        composer.add(new DUUIDockerDriver.Component("bfsrl:0.1.1")
                 .withScale(1)
                 .build());
 
