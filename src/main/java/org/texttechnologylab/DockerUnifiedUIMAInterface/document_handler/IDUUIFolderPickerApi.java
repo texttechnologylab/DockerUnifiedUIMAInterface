@@ -28,7 +28,7 @@ public interface IDUUIFolderPickerApi {
             Map<String, Object> map = new HashMap<>();
 
             map.put("id", id);
-            map.put("label", name);
+            map.put("content", name);
             map.put("children", children.stream().map(DUUIFolder::toJson).collect(Collectors.toList()));
 
             return map;

@@ -70,6 +70,10 @@ public class DUUINextcloudDocumentHandler implements IDUUIDocumentHandler, IDUUI
 //        handler.connector.shutdown();
     }
 
+    private boolean isFolder(String path) {
+        return path.endsWith("/");
+    }
+
     /**
      * Removes part of the path.
      * e.g.: From "remote.php/[username]/files/document.txt" to "document.txt"
@@ -125,9 +129,6 @@ public class DUUINextcloudDocumentHandler implements IDUUIDocumentHandler, IDUUI
         document.setSize(metaData.getSize());
 
         connector.downloadFile(path, tempPath);
-        File f = new File(tempPath + metaData.getDisplayName());
-        document.setBytes(Files.readAllBytes(f.toPath()));
-        f.delete();
 
         return document;
     }
@@ -182,13 +183,14 @@ public class DUUINextcloudDocumentHandler implements IDUUIDocumentHandler, IDUUI
     }
 
     public DUUIFolder getFolderStructure(DUUIFolder root) {
-
-        connector.listFolderContent("/", -1, false, true)
+        connector.listFolderContent(root.id, 1, false, true)
             .stream()
-            .map(this::removeWebDavFromPath)
-            .filter(connector::folderExists)
-            .map( f -> new DUUIFolder(f, getFolderName(f)))
-            .peek(root::addChild)
+                .map(this::removeWebDavFromPath)
+                .map(f -> f.startsWith("/") ? f: "/" + f)
+                .filter(this::isFolder)
+                .filter(f -> !f.equals(root.id))
+                .map( f -> new DUUIFolder(f, getFolderName(f)))
+                .peek(root::addChild)
             .forEach(this::getFolderStructure);
 
         return root;
@@ -196,9 +198,9 @@ public class DUUINextcloudDocumentHandler implements IDUUIDocumentHandler, IDUUI
 
     private String getFolderName(String f) {
 
-        if (!f.contains("/")) return f;
-
-        return f.substring(f.lastIndexOf("/"));
+        if (f.length() <= 1) return f;
+        String[] split = f.substring(0, f.length() - 1).split("/");
+        return split[split.length - 1];
 
     }
 }
