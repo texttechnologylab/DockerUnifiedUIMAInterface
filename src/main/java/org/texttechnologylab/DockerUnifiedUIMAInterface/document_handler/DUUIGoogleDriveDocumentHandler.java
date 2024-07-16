@@ -145,9 +145,25 @@ public class DUUIGoogleDriveDocumentHandler implements IDUUIDocumentHandler, IDU
 
         String searchPath = recursive ? getAllSubFolders(path) : String.format("'%s' in parents ", path);
 
+        return listDocuments_(searchPath, fileExtension);
+    }
+
+    @Override
+    public List<DUUIDocument> listDocuments(List<String> paths, String fileExtension, boolean recursive) throws IOException {
+
+        String searchPath = paths.stream()
+                .map(path -> String.format("'%s' in parents ", path))
+                .collect(Collectors.joining(" or "));
+
+        return listDocuments_(searchPath, fileExtension);
+    }
+
+    public List<DUUIDocument> listDocuments_(String searchPath, String fileExtension) throws IOException {
+
+        String fileExtension_ = fileExtension.isEmpty() ? "" : String.format("fileExtension = '%s'", fileExtension);
         FileList result = service.files().list()
                 .setQ(searchPath + " mimeType != 'application/vnd.google-apps.folder' "
-                        + String.format("fileExtension = '%s'", fileExtension))
+                        + fileExtension_)
                 .setFields("files(parents, id, name, size)")
                 .execute();
 
@@ -159,8 +175,8 @@ public class DUUIGoogleDriveDocumentHandler implements IDUUIDocumentHandler, IDU
             documents = List.of();
         } else {
             documents = files.stream()
-                .map(f -> new DUUIDocument(f.getId(), f.getParents().get(0), f.getSize()))
-                .collect(Collectors.toList());
+                    .map(f -> new DUUIDocument(f.getId(), f.getParents().get(0), f.getSize()))
+                    .collect(Collectors.toList());
         }
 
         return documents;
