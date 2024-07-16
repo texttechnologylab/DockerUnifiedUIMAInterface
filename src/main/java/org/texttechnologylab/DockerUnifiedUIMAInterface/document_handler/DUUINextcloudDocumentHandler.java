@@ -1,24 +1,34 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.document_handler;
 
+import com.github.sardine.DavResource;
+import com.github.sardine.Sardine;
+import com.github.sardine.SardineFactory;
+import com.github.sardine.impl.SardineImpl;
+import org.aarboard.nextcloud.api.AuthenticationConfig;
 import org.aarboard.nextcloud.api.NextcloudConnector;
 
-import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
+import org.aarboard.nextcloud.api.ServerConfig;
 import org.aarboard.nextcloud.api.webdav.ResourceProperties;
 import org.javatuples.Pair;
 
 public class DUUINextcloudDocumentHandler implements IDUUIDocumentHandler, IDUUIFolderPickerApi {
 
-    private NextcloudConnector connector;
-    private String loginName;
-    private String tempPath;
+    private final NextcloudConnector connector;
+    private final String loginName;
+    private final String tempPath;
+    ServerConfig _serverConfig;
+    Sardine _sardine;
 
     /**
      * Create a new NextCloudDocumentHandler
@@ -27,22 +37,36 @@ public class DUUINextcloudDocumentHandler implements IDUUIDocumentHandler, IDUUI
      * @param loginName       The username used to log in to a NextCloud account.
      * @param password       The password for the user.
      */
-    public DUUINextcloudDocumentHandler(String serverName, String loginName, String password)  {
+    public DUUINextcloudDocumentHandler(String serverName, String loginName, String password) {
         connector = new NextcloudConnector(serverName, loginName, password);
         this.loginName = loginName;
         tempPath = System.getProperty("java.io.tmpdir") + "/";
+        URL _serviceUrl = null;
+        try {
+            _serviceUrl = new URL(serverName);
+        } catch (MalformedURLException e) {
+            throw new RuntimeException(e);
+        }
+        _serverConfig = new ServerConfig(_serviceUrl.getHost(), true, _serviceUrl.getPort(),
+                new AuthenticationConfig(loginName, password));
+//        Folders folders = new Folders(_serverConfig);
+        _sardine = buildAuthSardine();
+
     }
+
 
     public static void main(String[] args) throws IOException {
 
 //        String serverName = "https://nextcloud.texttechnologylab.org/";
-//        String loginName = "[USERNAME]";
-//        String password = "[PASSWORD]";
-
+//        String loginName = [USERNAME];
+//        String password = [PASSWORD];
+//
 //        DUUINextcloudDocumentHandler handler =
 //                new DUUINextcloudDocumentHandler(serverName, loginName, password);
-
-//        System.out.println(handler.connector.getCurrentUser().getDisplayname());
+//
+//
+//
+//        System.out.println(handler.getFolderStructure().toJson());
 //        handler.connector.downloadFile("/apps/files/Readme.md", "/");
 
 //        List<DUUIDocument> docs = handler.listDocuments("/", "", false)
@@ -68,6 +92,18 @@ public class DUUINextcloudDocumentHandler implements IDUUIDocumentHandler, IDUUI
 //        System.out.println(out);
 //
 //        handler.connector.shutdown();
+    }
+
+    Sardine buildAuthSardine()
+    {
+        if (_serverConfig.getAuthenticationConfig().usesBasicAuthentication()) {
+            Sardine sardine = SardineFactory.begin();
+            sardine.setCredentials(_serverConfig.getUserName(),
+                    _serverConfig.getAuthenticationConfig().getPassword());
+            sardine.enablePreemptiveAuthentication(_serverConfig.getServerName());
+            return sardine;
+        }
+        return new SardineImpl(_serverConfig.getAuthenticationConfig().getBearerToken());
     }
 
     private boolean isFolder(String path) {
@@ -179,19 +215,24 @@ public class DUUINextcloudDocumentHandler implements IDUUIDocumentHandler, IDUUI
 
         DUUIFolder root = new DUUIFolder("/", "Files");
 
-        return getFolderStructure(root);
-    }
-
-    public DUUIFolder getFolderStructure(DUUIFolder root) {
-        connector.listFolderContent(root.id, 1, false, true)
+        Map<String, DUUIFolder> parentMap = new HashMap<>();
+        parentMap.put("/", root);
+        connector.listFolderContent("/", -1, false, true)
             .stream()
-                .map(this::removeWebDavFromPath)
-                .map(f -> f.startsWith("/") ? f: "/" + f)
-                .filter(this::isFolder)
-                .filter(f -> !f.equals(root.id))
-                .map( f -> new DUUIFolder(f, getFolderName(f)))
-                .peek(root::addChild)
-            .forEach(this::getFolderStructure);
+            .map(this::removeWebDavFromPath)
+            .map(f -> f.startsWith("/") ? f: "/" + f)
+            .filter(this::isFolder)
+            .forEach(f -> {
+                if (f.equals("/")) return;
+
+                String[] splitPath = f.split("/");
+                String folderName = this.getFolderName(f);
+                DUUIFolder folder = new DUUIFolder(f, folderName);
+                String parent = splitPath.length > 2 ? splitPath[splitPath.length - 2] : "/";
+
+                parentMap.put(folderName, folder);
+                parentMap.get(parent).addChild(folder);
+            });
 
         return root;
     }
