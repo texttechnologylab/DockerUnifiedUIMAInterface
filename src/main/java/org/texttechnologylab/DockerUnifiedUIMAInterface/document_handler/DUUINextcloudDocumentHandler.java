@@ -1,6 +1,5 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.document_handler;
 
-import com.github.sardine.DavResource;
 import com.github.sardine.Sardine;
 import com.github.sardine.SardineFactory;
 import com.github.sardine.impl.SardineImpl;
@@ -15,6 +14,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -41,7 +42,7 @@ public class DUUINextcloudDocumentHandler implements IDUUIDocumentHandler, IDUUI
         connector = new NextcloudConnector(serverName, loginName, password);
         this.loginName = loginName;
         tempPath = System.getProperty("java.io.tmpdir") + "/";
-        URL _serviceUrl = null;
+        URL _serviceUrl;
         try {
             _serviceUrl = new URL(serverName);
         } catch (MalformedURLException e) {
@@ -138,7 +139,7 @@ public class DUUINextcloudDocumentHandler implements IDUUIDocumentHandler, IDUUI
     }
 
     @Override
-    public void writeDocument(DUUIDocument document, String path) throws IOException {
+    public void writeDocument(DUUIDocument document, String path) {
         if (!connector.folderExists(path)) {
             connector.createFolder(path);
         }
@@ -149,7 +150,7 @@ public class DUUINextcloudDocumentHandler implements IDUUIDocumentHandler, IDUUI
     }
 
     @Override
-    public void writeDocuments(List<DUUIDocument> documents, String path) throws IOException {
+    public void writeDocuments(List<DUUIDocument> documents, String path) {
         for (DUUIDocument document : documents) {
             writeDocument(document, path);
         }
@@ -183,29 +184,31 @@ public class DUUINextcloudDocumentHandler implements IDUUIDocumentHandler, IDUUI
     }
 
     @Override
-    public List<DUUIDocument> listDocuments(String path, String fileExtension, boolean recursive) throws IOException {
+    public List<DUUIDocument> listDocuments(String path, String fileExtension, boolean recursive) {
 
-        return connector.listFolderContent(path, recursive ? -1 : 1, true, true)
-                .stream()
-                .map(this::removeWebDavFromPath)
-                .map(fileName -> {
-                    try {
-                        return Pair.with(fileName, connector.getProperties(fileName, true));
-                    } catch (IOException e) {
-                        System.err.println("File not found: " + fileName);
-                        return null;
-                    }
-                })
-                .filter(Predicate.not(Predicate.isEqual(null)))
-                .filter( metadata ->
-                        metadata.getValue1().getDisplayName().endsWith(fileExtension) || fileExtension.isEmpty()
-                )
-                .map(metadata ->
-                        new DUUIDocument(
-                                metadata.getValue1().getDisplayName(),
-                                metadata.getValue0(),
-                                metadata.getSize())
-                ).collect(Collectors.toList());
+        try {
+            return CompletableFuture.supplyAsync(() -> connector.listFolderContent(path, recursive ? -1 : 1, true, true)
+                    .stream()
+                    .filter( f -> f.endsWith(fileExtension) || fileExtension.isEmpty())
+                    .map(this::removeWebDavFromPath)
+                    .map(fileName -> {
+                        try {
+                            return Pair.with(fileName, connector.getProperties(fileName, true));
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
+                    })
+                    .filter(Predicate.not(Predicate.isEqual(null)))
+
+                    .map(metadata ->
+                            new DUUIDocument(
+                                    metadata.getValue1().getDisplayName(),
+                                    metadata.getValue0(),
+                                    metadata.getSize())
+                    ).collect(Collectors.toList())).get();
+        } catch (InterruptedException | ExecutionException e) {
+            throw new RuntimeException(e);
+        }
 
     }
 
