@@ -5,10 +5,14 @@ import com.github.sardine.SardineFactory;
 import com.github.sardine.impl.SardineImpl;
 import org.aarboard.nextcloud.api.AuthenticationConfig;
 import org.aarboard.nextcloud.api.NextcloudConnector;
+import org.aarboard.nextcloud.api.ServerConfig;
+import org.javatuples.Pair;
 
+import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -18,10 +22,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
-
-import org.aarboard.nextcloud.api.ServerConfig;
-import org.aarboard.nextcloud.api.webdav.ResourceProperties;
-import org.javatuples.Pair;
 
 public class DUUINextcloudDocumentHandler implements IDUUIDocumentHandler, IDUUIFolderPickerApi {
 
@@ -41,7 +41,7 @@ public class DUUINextcloudDocumentHandler implements IDUUIDocumentHandler, IDUUI
     public DUUINextcloudDocumentHandler(String serverName, String loginName, String password) {
         connector = new NextcloudConnector(serverName, loginName, password);
         this.loginName = loginName;
-        tempPath = System.getProperty("java.io.tmpdir") + "/";
+        tempPath = "." + System.getProperty("java.io.tmpdir") + "/";
         URL _serviceUrl;
         try {
             _serviceUrl = new URL(serverName);
@@ -158,14 +158,14 @@ public class DUUINextcloudDocumentHandler implements IDUUIDocumentHandler, IDUUI
 
     @Override
     public DUUIDocument readDocument(String path) throws IOException {
+        String displayName = Paths.get(path).getFileName().toString();
+        DUUIDocument document = new DUUIDocument(displayName, path);
 
-        DUUIDocument document = new DUUIDocument(Paths.get(path).getFileName().toString(), path);
-
-        ResourceProperties metaData = connector.getProperties(path, true);
-        document.setName(metaData.getDisplayName());
-        document.setSize(metaData.getSize());
-
-        connector.downloadFile(path, tempPath);
+        if (connector.downloadFile(path, tempPath)) {
+            byte[] bytes = Files.readAllBytes(new File(tempPath + displayName).toPath());
+            document.setBytes(bytes);
+            document.setSize(bytes.length);
+        }
 
         return document;
     }
