@@ -7,9 +7,17 @@ import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.jcas.tcas.Annotation;
 import org.texttechnologylab.annotation.type.AudioToken;
+import org.texttechnologylab.annotation.type.Coordinate;
+import org.texttechnologylab.annotation.type.SubImage;
 
+import javax.imageio.ImageIO;
+import java.awt.*;
+import java.awt.geom.Path2D;
+import java.awt.image.BufferedImage;
+import java.awt.image.RenderedImage;
 import java.io.*;
 import java.util.*;
+import java.util.List;
 
 public class MultimodalUtil {
 
@@ -432,19 +440,84 @@ public class MultimodalUtil {
         }
     }
 
+    public static List<File> getSubImages(JCas jCas){
+        return getSubImages(jCas, null);
+    }
+
+    public static List<File> getSubImages(JCas jCas, String overrideExtension) {
+
+        List<File> subImages = new ArrayList<>();
+
+        JCasUtil.select(jCas, SubImage.class).forEach(subImage -> {
+            byte[] base64Image = Base64.decodeBase64(subImage.getParent().getSrc());
+            try {
+                BufferedImage bImage = ImageIO.read(new ByteArrayInputStream(base64Image));
+
+                Polygon polygon = new Polygon();
+
+                for(int i = 0; i < subImage.getCoordinates().size(); i++){
+
+                        Coordinate coordniate = subImage.getCoordinates().get(i);
+                        polygon.addPoint(coordniate.getX(), coordniate.getY());
+                }
+
+                Rectangle bounds = polygon.getBounds();
+
+                BufferedImage bSubImage = new BufferedImage(bounds.width, bounds.height, BufferedImage.TYPE_INT_RGB);
+
+                Graphics2D graphics = bSubImage.createGraphics();
+
+                polygon.translate(-bounds.x, -bounds.y);
+
+                graphics.setClip(polygon);
+                graphics.drawImage(bImage, -bounds.x, -bounds.y, null);
+
+                // Create file
+                String mimeType = jCas.getSofaMimeType();
+                String subType = "";
+
+                if(overrideExtension == null){
+                    if(mimeType != null && !mimeType.isEmpty()){
+                        subType = mimeType.split("/")[1];
+                    }else{
+                        subType = "png";
+                    }
+                }else{
+                    subType = overrideExtension;
+                    if(subType.startsWith(".")){
+                        if(subType.length() > 1)
+                            subType = subType.substring(1);
+                    }
+                }
+
+                File outputFile = new File(getOutputName(jCas, subImage, subType));
+                outputFile.deleteOnExit();
+
+                RenderedImage rendImage = bSubImage;
+                System.out.println(ImageIO.write(rendImage, subType, outputFile));
+
+                subImages.add(outputFile);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        });
+
+        return subImages;
+    }
+
     private static String getOutputName(JCas jCas, AudioToken audioToken, String format){
         if(format.startsWith(".")){
             format = format.substring(1);
         }
 
-        String dokumentId = "";
+        String documentId = "";
         if (JCasUtil.select(jCas, DocumentMetaData.class).size() > 0) {
             DocumentMetaData meta = DocumentMetaData.get(jCas);
-            dokumentId = meta.getDocumentId() + "_";
+            documentId = meta.getDocumentId() + "_";
         }
 
-        System.out.println("OUTPUT FILE: " + dokumentId + audioToken._id() + "_" + audioToken.getTimeStart() + "-" + audioToken.getTimeEnd() + "." + format);
-        return dokumentId + audioToken._id() + "_" + audioToken.getTimeStart() + "-" + audioToken.getTimeEnd() + "." + format;
+        System.out.println("OUTPUT FILE: " + documentId + audioToken._id() + "_" + audioToken.getTimeStart() + "-" + audioToken.getTimeEnd() + "." + format);
+        return documentId + audioToken._id() + "_" + audioToken.getTimeStart() + "-" + audioToken.getTimeEnd() + "." + format;
     }
 
     private static String getOutputName(JCas jCas, Annotation annotation, String format){
@@ -452,13 +525,24 @@ public class MultimodalUtil {
             format = format.substring(1);
         }
 
-        String dokumentId = "";
+        String documentId = "";
         if (JCasUtil.select(jCas, DocumentMetaData.class).size() > 0) {
             DocumentMetaData meta = DocumentMetaData.get(jCas);
-            dokumentId = meta.getDocumentId() + "_";
+            documentId = meta.getDocumentId() + "_";
         }
 
-        return dokumentId + annotation._id() + "_" + annotation.getBegin()+ "-" + annotation.getEnd() + "." + format;
+        return documentId + annotation._id() + "_" + annotation.getBegin()+ "-" + annotation.getEnd() + "." + format;
+    }
+
+    private static String getOutputName(JCas jCas, SubImage subImage, String format){
+
+        String documentId = "";
+        if (JCasUtil.select(jCas, DocumentMetaData.class).size() > 0) {
+            DocumentMetaData meta = DocumentMetaData.get(jCas);
+            documentId = meta.getDocumentId() + "_";
+        }
+
+        return documentId + subImage.getParent()._id() + "_" + subImage._id() + "." + format;
     }
 
 }

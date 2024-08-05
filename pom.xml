@@ -77,7 +77,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
-        <typesystem.version>54df096</typesystem.version>
+        <typesystem.version>3.0.3</typesystem.version>
         <utilities.version>3.0.0</utilities.version>
         <uima.version>3.5.0</uima.version>
         <dkpro.core.version>2.4.0</dkpro.core.version>
