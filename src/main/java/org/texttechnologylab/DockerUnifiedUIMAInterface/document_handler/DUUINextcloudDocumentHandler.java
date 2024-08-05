@@ -58,14 +58,13 @@ public class DUUINextcloudDocumentHandler implements IDUUIDocumentHandler, IDUUI
 
     public static void main(String[] args) throws IOException {
 
-        String serverName = "https://nextcloud.texttechnologylab.org/";
-        String loginName = "terefe";
-        String password = "AqV-rtto5z";
-
-        DUUINextcloudDocumentHandler handler =
-                new DUUINextcloudDocumentHandler(serverName, loginName, password);
-
-        handler.readDocument("/Documents/Folder/3713534.xmi");
+//        String serverName = "https://nextcloud.texttechnologylab.org/";
+//        String loginName = [USERNAME];
+//        String password = [PASSWORD];
+//
+//        DUUINextcloudDocumentHandler handler =
+//                new DUUINextcloudDocumentHandler(serverName, loginName, password);
+//
 //
 //
 //        System.out.println(handler.getFolderStructure().toJson());
