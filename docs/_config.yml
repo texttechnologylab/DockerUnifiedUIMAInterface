@@ -24,7 +24,7 @@ url: "" # the base hostname & protocol for your site, e.g. http://example.com
 
 domain: duui.github.io
 #url: https://duui.github.io
-baseurl: /docs/
+baseurl: /DockerUnifiedUIMAInterface/docs/
 
 # Build settings
 markdown: kramdown
