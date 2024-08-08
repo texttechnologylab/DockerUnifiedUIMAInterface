@@ -22,8 +22,8 @@ url: "" # the base hostname & protocol for your site, e.g. http://example.com
 #twitter_username: jekyllrb
 #github_username:  jekyll
 
-domain: duui.github.io
-#url: https://duui.github.io
+domain: texttechnologylab.github.io
+url: https://texttechnologylab.github.io
 baseurl: /DockerUnifiedUIMAInterface/docs/
 
 # Build settings
