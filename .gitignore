@@ -4,3 +4,4 @@ target/*
 *.pgf
 *.db
 *.iml
+Gemfile.lock
