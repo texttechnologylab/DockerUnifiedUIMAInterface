@@ -12,7 +12,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public class DUUILocalDocumentHandler implements IDUUIDocumentHandler {
+public class DUUILocalDocumentHandler implements IDUUIDocumentHandler{
 
     @Override
     public void writeDocument(DUUIDocument document, String path) throws IOException {
