@@ -199,7 +199,7 @@ public class DUUIGoogleDriveDocumentHandler implements IDUUIDocumentHandler, IDU
 
         List<DUUIDocument> documents;
 
-        if (files == null || files.size() != 1) {
+        if (files == null || files.isEmpty()) {
             documents = List.of();
         } else {
             documents = files.stream()
