@@ -35,24 +35,24 @@ public class DUUIGoogleDriveDocumentHandler implements IDUUIDocumentHandler, IDU
 
     public static void main(String... args) throws IOException, GeneralSecurityException {
 
-        String accessToken = "ya29.a0AcM612z-hCa5UOFIZzoW0PPSMoChsSG2v8DR87k18h4HMWO4ileNMUIUy_C1jiIKpOFe38lTLuFKFqXEMODHDAoGGWBkngVWyesbIIVWQLTEz5nqpw00vu55xKa-MqtA0QkrFOIabP7iEWZEx6RJ3Wbo3sLibVmU-J9SaCgYKAR0SARMSFQHGX2MiJ49Fic5jxj2xPuaiPMijsg0171";
-        GoogleCredential credential = new GoogleCredential()
-                .setAccessToken(accessToken);
-
-        DUUIGoogleDriveDocumentHandler handler = new DUUIGoogleDriveDocumentHandler(credential);
-
-        System.out.println(handler.getFolderStructure().toJson());
-        handler.listDocuments("1JpyqWuWCXLK4Y5DI6mmKyddY1h-BWww8", "txt").stream()
-                .map(DUUIDocument::getPath)
-                .map(d -> {
-                    try {
-                        return handler.readDocument(d);
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
-                    }
-                })
-                .map(d -> new String(d.getBytes(), StandardCharsets.UTF_8))
-                .forEach(System.out::println);
+//        String accessToken = "";
+//        GoogleCredential credential = new GoogleCredential()
+//                .setAccessToken(accessToken);
+//
+//        DUUIGoogleDriveDocumentHandler handler = new DUUIGoogleDriveDocumentHandler(credential);
+//
+//        System.out.println(handler.getFolderStructure().toJson());
+//        handler.listDocuments("1JpyqWuWCXLK4Y5DI6mmKyddY1h-BWww8", "txt").stream()
+//                .map(DUUIDocument::getPath)
+//                .map(d -> {
+//                    try {
+//                        return handler.readDocument(d);
+//                    } catch (IOException e) {
+//                        throw new RuntimeException(e);
+//                    }
+//                })
+//                .map(d -> new String(d.getBytes(), StandardCharsets.UTF_8))
+//                .forEach(System.out::println);
 
 //        DUUIDocument doc = handler.readDocument(handler.getFileId("firstpdf.pdf"));
             //
