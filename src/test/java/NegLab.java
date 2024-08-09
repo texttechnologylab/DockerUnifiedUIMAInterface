@@ -1,4 +1,5 @@
 import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
+import de.tudarmstadt.ukp.dkpro.core.api.ner.type.NamedEntity;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Paragraph;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.UIMAException;
@@ -49,7 +50,7 @@ public class NegLab {
     @Test
     public void sketchEngine() throws Exception {
 
-        File pFile = new File("/home/staff_homes/abrami/Downloads/federlesen.txt");
+        File pFile = new File("/home/gabrami/Downloads/federlesen.txt");
 
         String sValue = FileUtils.getContentFromFile(pFile);
 
@@ -165,11 +166,12 @@ public class NegLab {
         composer.addDriver(docker_driver, uima_driver);  // remote_driver und swarm_driver scheint nicht benötigt zu werden.
 
 
+
         composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
                 .withScale(1)
                 .build());
 
-        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/bfsrl:latest")
+        composer.add(new DUUIDockerDriver.Component("bfsrl:0.1.1")
                 .withScale(1)
                 .build());
 
@@ -187,6 +189,43 @@ public class NegLab {
         )).build());
 
         composer.run(tCas, "spacy");
+
+    }
+
+    @Test
+    public void testNERSpacy() throws Exception {
+
+        int iWorker = 1;
+
+        JCas pCas = JCasFactory.createText("Born in Scranton, Pennsylvania, Biden moved with his family to Delaware in 1953. He graduated from the University of Delaware in 1965 before earning his law degree from Syracuse University in 1968. He was elected to the New Castle County Council in 1970 and the U.S. Senate in 1972, as one of the youngest Senators in history. As a senator, Biden drafted and led the effort to pass the Violent Crime Control and Law Enforcement Act and the Violence Against Women Act. He also oversaw six U.S. Supreme Court confirmation hearings, including the contentious hearings for Robert Bork and Clarence Thomas. Biden ran unsuccessfully for the 1988 and 2008 Democratic presidential nominations. In 2008, Obama chose Biden as his running mate, and he was a close counselor to Obama during his two terms as vice president. In the 2020 presidential election, the Democratic Party nominated Biden for president. He selected Kamala Harris as his running mate and defeated Republican incumbent Donald Trump. He is the oldest president in U.S. history and the first to have a female vice president. ", "en");
+
+        DUUILuaContext ctx = new DUUILuaContext().withJsonLibrary();
+
+        // Instanziierung des Composers, mit einigen Parametern
+        DUUIComposer composer = new DUUIComposer()
+                .withSkipVerification(true)     // wir überspringen die Verifikation aller Componenten =)
+                .withLuaContext(ctx)            // wir setzen den definierten Kontext
+                .withWorkers(iWorker);         // wir geben dem Composer eine Anzahl an Threads mit.
+
+        DUUIDockerDriver docker_driver = new DUUIDockerDriver();
+        DUUIUIMADriver uima_driver = new DUUIUIMADriver()
+                .withDebug(true);
+
+        // Hinzufügen der einzelnen Driver zum Composer
+        composer.addDriver(docker_driver, uima_driver);  // remote_driver und swarm_driver scheint nicht benötigt zu werden.
+
+        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/duui-ner-spacy:v0.1")
+                .withScale(iWorker)
+                .build());
+
+        composer.run(pCas);
+
+        JCasUtil.select(pCas, NamedEntity.class).forEach(ne -> {
+            System.out.println("\t" + ne.getCoveredText());
+            System.out.println(ne.getType().getName());
+            System.out.println(ne);
+            System.out.println("============================");
+        });
 
     }
 
