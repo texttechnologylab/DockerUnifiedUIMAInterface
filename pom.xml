@@ -309,15 +309,6 @@
 <!--            <version>1.23.0</version>-->
 <!--        </dependency>-->
 
-
-        <!-- https://mvnrepository.com/artifact/com.github.tmyroadctfig/icloud4j -->
-        <dependency>
-            <groupId>com.github.tmyroadctfig</groupId>
-            <artifactId>icloud4j</artifactId>
-            <version>1.6</version>
-        </dependency>
-
-
         <!-- https://mvnrepository.com/artifact/org.aarboard.nextcloud/nextcloud-api -->
         <dependency>
             <groupId>org.aarboard.nextcloud</groupId>
