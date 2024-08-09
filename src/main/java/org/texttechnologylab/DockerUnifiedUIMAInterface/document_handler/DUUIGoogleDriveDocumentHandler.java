@@ -54,6 +54,7 @@ public class DUUIGoogleDriveDocumentHandler implements IDUUIDocumentHandler, IDU
 //                .map(d -> new String(d.getBytes(), StandardCharsets.UTF_8))
 //                .forEach(System.out::println);
 
+//        DUUIGoogleDriveDocumentHandler handler = new DUUIGoogleDriveDocumentHandler();
 //        DUUIDocument doc = handler.readDocument(handler.getFileId("firstpdf.pdf"));
             //
 //
