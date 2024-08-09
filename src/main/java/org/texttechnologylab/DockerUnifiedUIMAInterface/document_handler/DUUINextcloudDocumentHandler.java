@@ -146,7 +146,9 @@ public class DUUINextcloudDocumentHandler implements IDUUIDocumentHandler, IDUUI
 
         path = addTrailingSlashToPath(path);
 
+        document.setUploadProgress(0);
         connector.uploadFile(document.toInputStream(), path + document.getName());
+        document.setUploadProgress(100);
     }
 
     @Override
@@ -172,10 +174,6 @@ public class DUUINextcloudDocumentHandler implements IDUUIDocumentHandler, IDUUI
 
     @Override
     public List<DUUIDocument> readDocuments(List<String> paths) throws IOException {
-        if (paths.isEmpty()) {
-            return new ArrayList<>();
-        }
-
         List<DUUIDocument> documents = new ArrayList<>();
         for (String path : paths) {
             documents.add(readDocument(path));
