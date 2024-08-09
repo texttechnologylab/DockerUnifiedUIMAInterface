@@ -7,6 +7,7 @@ import org.aarboard.nextcloud.api.AuthenticationConfig;
 import org.aarboard.nextcloud.api.NextcloudConnector;
 import org.aarboard.nextcloud.api.ServerConfig;
 import org.javatuples.Pair;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.DUUIStatus;
 
 import java.io.File;
 import java.io.IOException;
@@ -140,6 +141,9 @@ public class DUUINextcloudDocumentHandler implements IDUUIDocumentHandler, IDUUI
 
     @Override
     public void writeDocument(DUUIDocument document, String path) {
+
+        document.setStatus(DUUIStatus.OUTPUT);
+
         if (!connector.folderExists(path)) {
             connector.createFolder(path);
         }
