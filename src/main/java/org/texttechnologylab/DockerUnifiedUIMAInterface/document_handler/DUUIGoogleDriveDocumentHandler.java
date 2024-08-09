@@ -189,7 +189,8 @@ public class DUUIGoogleDriveDocumentHandler implements IDUUIDocumentHandler, IDU
 
     public List<DUUIDocument> listDocuments_(String searchPath, String fileExtension) throws IOException {
 
-        String fileExtension_ = fileExtension.isEmpty() ? "" : String.format("and fileExtension = '%s'", fileExtension);
+        String fileExtension_ = fileExtension.isEmpty() ?
+                "" : String.format("and fileExtension = '%s'", fileExtension.replace(".", ""));
         FileList result = service.files().list()
                 .setQ(searchPath + " and mimeType != 'application/vnd.google-apps.folder' " + fileExtension_)
                 .setFields("files(id, name, size)")
