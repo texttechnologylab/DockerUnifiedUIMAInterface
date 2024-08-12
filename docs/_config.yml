@@ -22,8 +22,8 @@ url: "" # the base hostname & protocol for your site, e.g. http://example.com
 #twitter_username: jekyllrb
 #github_username:  jekyll
 
-domain: duui.github.io
-url: https://duui.github.io
+#domain: duui.github.io
+#url: https://duui.github.io
 baseurl: /docs/
 
 show_downloads: true
