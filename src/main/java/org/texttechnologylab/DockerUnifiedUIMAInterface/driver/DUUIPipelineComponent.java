@@ -22,6 +22,10 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
 
+/**
+ * Encapsulation of a component for a pipeline.
+ * @author Alexander Leonhardt
+ */
 public class DUUIPipelineComponent {
     private HashMap<String, String> _options;
     private HashMap<String,String> _parameters;
