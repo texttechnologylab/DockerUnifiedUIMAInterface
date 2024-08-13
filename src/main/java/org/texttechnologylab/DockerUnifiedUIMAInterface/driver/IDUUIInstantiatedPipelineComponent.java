@@ -29,6 +29,10 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * The interface for the instance of each component that is executed in a pipeline.
+ * @author Alexander Leonhardt
+ */
 public interface IDUUIInstantiatedPipelineComponent {
     public static HttpClient _client = HttpClient.newBuilder()
             .version(HttpClient.Version.HTTP_1_1)
@@ -43,6 +47,13 @@ public interface IDUUIInstantiatedPipelineComponent {
     public Map<String,String> getParameters();
     public String getUniqueComponentKey();
 
+    /**
+     * Returns the TypeSystem used for the DUUI component used.
+     * @param uuid
+     * @param comp
+     * @return
+     * @throws ResourceInitializationException
+     */
     public static TypeSystemDescription getTypesystem(String uuid, IDUUIInstantiatedPipelineComponent comp) throws ResourceInitializationException {
         Triplet<IDUUIUrlAccessible,Long,Long> queue = comp.getComponent();
         //System.out.printf("Address %s\n",queue.getValue0().generateURL()+ DUUIComposer.V1_COMPONENT_ENDPOINT_TYPESYSTEM);
@@ -80,6 +91,16 @@ public interface IDUUIInstantiatedPipelineComponent {
         throw new ResourceInitializationException(new Exception("Endpoint is unreachable!"));
     }
 
+    /**
+     * Calling the DUUI component
+     * @param jc
+     * @param comp
+     * @param perf
+     * @throws CompressorException
+     * @throws IOException
+     * @throws SAXException
+     * @throws CASException
+     */
     public static void process(JCas jc, IDUUIInstantiatedPipelineComponent comp, DUUIPipelineDocumentPerformance perf) throws CompressorException, IOException, SAXException, CASException {
         Triplet<IDUUIUrlAccessible,Long,Long> queue = comp.getComponent();
 
@@ -195,6 +216,17 @@ public interface IDUUIInstantiatedPipelineComponent {
         }
     }
 
+    /**
+     * The process merchant describes the use of the component as a web socket
+     * @param jc
+     * @param comp
+     * @param perf
+     * @throws CompressorException
+     * @throws IOException
+     * @throws SAXException
+     * @throws CASException
+     * @throws InterruptedException
+     */
     public static void process_handler(JCas jc,
                                        IDUUIInstantiatedPipelineComponent comp,
                                        DUUIPipelineDocumentPerformance perf) throws CompressorException, IOException, SAXException, CASException, InterruptedException {
