@@ -14,7 +14,7 @@ github:
   owner_name: Texttechnology Lab
 
 #Others
-markdown: kramdown
+markdown: GFM
 
 theme: jekyll-theme-architect
 
