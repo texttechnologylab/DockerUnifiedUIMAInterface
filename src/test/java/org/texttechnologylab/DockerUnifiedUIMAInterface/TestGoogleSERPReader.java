@@ -26,6 +26,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.zip.GZIPOutputStream;
+import java.util.List;
+import java.util.ArrayList;
 
 import static org.apache.uima.fit.factory.AnalysisEngineFactory.createEngineDescription;
 import static org.apache.uima.fit.factory.CollectionReaderFactory.createReaderDescription;
@@ -59,7 +61,16 @@ public class TestGoogleSERPReader {
         DUUIAsynchronousProcessor processor = new DUUIAsynchronousProcessor(
                 new DUUIFileReader(
                         sourceLocation.toString(),
-                        "xmi.gz"
+                        "html.gz.xmi.gz",
+			1,
+			-1,
+			false,
+			"",
+			false,
+			null,
+			-1,
+			targetLocation.toString(),
+			"html.gz.xmi.gz"
                 )
         );
 
@@ -108,68 +119,94 @@ public class TestGoogleSERPReader {
 
     @Test
     public void testReader2() throws ParserConfigurationException, IOException, UIMAException, SAXException {
-        Path listFile = Paths.get("/storage/projects/CORE/erhebungen/t0/db/tasks/assessment_urls_html_Funkmast.csv");
-        try (BufferedReader reader =  Files.newBufferedReader(listFile, StandardCharsets.UTF_8)) {
-            long counter = 0;
-            boolean skipFirstLine = true;
-            String line;
-            while ((line = reader.readLine()) != null) {
-		try {
-			counter += 1;
-			if (counter % 50 == 0) {
-			    System.out.println(counter);
+	List<String> tasks = new ArrayList<>();
+	tasks.add("Gruene-Sosse");
+	tasks.add("Hitzestift");
+	tasks.add("Tetra-Pak");
+	tasks.add("Medizin-Atmung");
+	tasks.add("Medizin-Kreislauf");
+	tasks.add("Medizin-Mittelohr");
+	tasks.add("Nudging-Aufgabe");
+	tasks.add("Piloten-Streik-Aufgabe");
+	tasks.add("Startup-Aufgabe");
+	tasks.add("Start-Up-Aufgabe");
+	tasks.add("Windpark-Aufgabe");
+
+	for (String task : tasks) {
+		Path listFile = Paths.get("/storage/projects/CORE/erhebungen/t0/db/tasks/assessment_urls_html_" + task + "_v2.csv");
+		try (BufferedReader reader =  Files.newBufferedReader(listFile, StandardCharsets.UTF_8)) {
+		    long counter = 0;
+		    long countNew = 0;
+		    long countExists = 0;
+		    boolean skipFirstLine = true;
+		    String line;
+		    while ((line = reader.readLine()) != null) {
+			try {
+				counter += 1;
+				if (counter % 50 == 0) {
+				    System.out.println(counter);
+				}
+
+				if (skipFirstLine) {
+				    skipFirstLine = false;
+				    continue;
+				}
+
+				line = line.trim();
+				String[] fields = line.split("\t", -1);
+
+				String url = fields[7];
+				if (!url.contains("google.com/search") && !url.contains("google.de/search")) {
+					continue;
+				}
+
+				String user = fields[9];
+				String session = fields[4];
+				String html = fields[10];
+
+				String title = html + ".html.gz";
+				String docId = user + "/" + session + "/" + title;
+				String collectionId = "file:/storage/projects/CORE/azure/core-edutec-fileshare/html/";
+				String docBaseUri = collectionId;
+				String docUri = docBaseUri + docId;
+
+				Path filename = Paths.get("/storage/projects/CORE/azure/core-edutec-fileshare/html/" + docId);
+				Path output = Paths.get("/storage/projects/CORE/azure/core-edutec-fileshare/html_xmi_google_serps/" + docId + ".xmi.gz");
+				if (Files.exists(output)) {
+					countExists++;
+					continue;
+				}
+
+				JCas jCas = HTMLGoogleSERPLoader.load(filename, null);
+				
+				DocumentMetaData dmd = new DocumentMetaData(jCas);
+				dmd.setDocumentTitle(title);
+				dmd.setDocumentId(docId);
+				dmd.setDocumentUri(docUri);
+				dmd.setCollectionId(collectionId);
+				dmd.setDocumentBaseUri(docBaseUri);
+				dmd.addToIndexes();
+
+				Files.createDirectories(output.getParent());
+				try(GZIPOutputStream outputStream = new GZIPOutputStream(Files.newOutputStream(output))) {
+				    XMLSerializer xmlSerializer = new XMLSerializer(outputStream, true);
+				    xmlSerializer.setOutputProperty(OutputKeys.VERSION, "1.1");
+				    xmlSerializer.setOutputProperty(OutputKeys.ENCODING, StandardCharsets.UTF_8.toString());
+				    XmiCasSerializer xmiCasSerializer = new XmiCasSerializer(null);
+				    xmiCasSerializer.serialize(jCas.getCas(), xmlSerializer.getContentHandler());
+				}
+
+				countNew++;
 			}
-
-			if (skipFirstLine) {
-			    skipFirstLine = false;
-			    continue;
+			catch (Exception e) {
+				e.printStackTrace();
 			}
-
-			line = line.trim();
-			String[] fields = line.split(",", -1);
-
-			String url = fields[7];
-			//if (!url.contains("google.com/search") && !url.contains("google.de/search")) {
-			if (!url.contains("google.de/search")) {
-				continue;
-			}
-
-			String user = fields[9];
-			String session = fields[4];
-			String html = fields[10];
-
-			String title = html + ".html.gz";
-			String docId = user + "/" + session + "/" + title;
-			String collectionId = "file:/storage/projects/CORE/azure/core-edutec-fileshare/html/";
-			String docBaseUri = collectionId;
-			String docUri = docBaseUri + docId;
-
-			Path filename = Paths.get("/storage/projects/CORE/azure/core-edutec-fileshare/html/" + docId);
-			JCas jCas = HTMLGoogleSERPLoader.load(filename, null);
-			
-			DocumentMetaData dmd = new DocumentMetaData(jCas);
-			dmd.setDocumentTitle(title);
-			dmd.setDocumentId(docId);
-			dmd.setDocumentUri(docUri);
-			dmd.setCollectionId(collectionId);
-			dmd.setDocumentBaseUri(docBaseUri);
-			dmd.addToIndexes();
-
-			Path output = Paths.get("/storage/projects/CORE/azure/core-edutec-fileshare/html_xmi_google_serps/" + docId + ".xmi.gz");
-			Files.createDirectories(output.getParent());
-			try(GZIPOutputStream outputStream = new GZIPOutputStream(Files.newOutputStream(output))) {
-			    XMLSerializer xmlSerializer = new XMLSerializer(outputStream, true);
-			    xmlSerializer.setOutputProperty(OutputKeys.VERSION, "1.1");
-			    xmlSerializer.setOutputProperty(OutputKeys.ENCODING, StandardCharsets.UTF_8.toString());
-			    XmiCasSerializer xmiCasSerializer = new XmiCasSerializer(null);
-			    xmiCasSerializer.serialize(jCas.getCas(), xmlSerializer.getContentHandler());
-			}
+		    }
+			System.out.println("Count    " + counter);
+			System.out.println("    New: " + countNew);
+			System.out.println(" Exists: " + countExists);
 		}
-		catch (Exception e) {
-			e.printStackTrace();
-		}
-            }
-        }
+	}
     }
 
     @Test

@@ -781,6 +781,7 @@ public class AsyncCollectionReader {
             addFilesToConcurrentList(targetDir, targetEnding, targetFilePaths);
         }
         System.out.println("Found " + targetFilePaths.size() + " files in target location");
+	System.out.println("Source location has: " + paths.size());
 
         List<String> cleanList = new ArrayList<>();
         if (!targetFilePaths.isEmpty()) {
