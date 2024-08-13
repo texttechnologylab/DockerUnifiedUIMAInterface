@@ -27,10 +27,13 @@ url: https://texttechnologylab.github.io/
 baseurl: /docs/
 
 # Build settings
+show_downloads: true
+
+# Build settings
 markdown: kramdown
-theme: minima
+remote_theme: pages-themes/architect@v0.2.0
 plugins:
-  - jekyll-feed
+  - jekyll-remote-theme # add this line to the plugins list if you already have one
 
 # Exclude from processing.
 # The following items will not be processed, by default. Create a custom list
