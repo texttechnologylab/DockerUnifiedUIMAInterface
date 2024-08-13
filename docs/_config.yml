@@ -14,7 +14,7 @@ github:
   owner_name: Texttechnology Lab
 
 #Others
-markdown: GFM
+markdown: CommonMarkGhPages
 
 theme: jekyll-theme-architect
 
