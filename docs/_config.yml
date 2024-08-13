@@ -13,8 +13,6 @@ github:
   owner_url: https://github.com/texttechnologylab
   owner_name: Texttechnology Lab
 
-baseurl:      ""
-
 #Others
 markdown: kramdown
 
