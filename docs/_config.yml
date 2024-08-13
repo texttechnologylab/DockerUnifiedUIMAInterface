@@ -13,9 +13,10 @@ github:
   owner_url: https://github.com/texttechnologylab
   owner_name: Texttechnology Lab
 
-#domain: texttechnologylab.github.io
-#url: https://texttechnologylab.github.io/
-#baseurl: /docs/
+baseurl:      ""
+
+#Others
+markdown: kramdown
 
 # Build settings
 
