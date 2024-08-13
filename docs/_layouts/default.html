@@ -30,7 +30,7 @@
     <div id="content-wrapper">
       <div class="inner clearfix">
         <section id="main-content">
-          {{ content }}
+          {{ page.content | markdownify | liquify }}
         </section>
 
         <aside id="sidebar">
