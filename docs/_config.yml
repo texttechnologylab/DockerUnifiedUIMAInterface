@@ -1,26 +1,16 @@
-# Welcome to Jekyll!
-#
-# This config file is meant for settings that affect your whole blog, values
-# which you are expected to set up once and rarely edit after that. If you find
-# yourself editing this file very often, consider using Jekyll's data files
-# feature for the data you need to update frequently.
-#
-# For technical reasons, this file is *NOT* reloaded automatically when you use
-# 'bundle exec jekyll serve'. If you change this file, please restart the server process.
-
-# Site settings
-# These are used to personalize your new site. If you look in the HTML files,
-# you will see them accessed via {{ site.title }}, {{ site.email }}, and so on.
-# You can create any custom variable you would like, and they will be accessible
-# in the templates via {{ site.myvariable }}.
-title: Docker Unified UIMA Interface
+title: Docker Unified UIMA Interface (DUUI)
 email: duui@hucompute.org
-description: >- # this means to ignore newlines until "baseurl:"
-  A framework at the dawn of a new era for NLP processing
-baseurl: "" # the subpath of your site, e.g. /blog
-url: "" # the base hostname & protocol for your site, e.g. http://example.com
-#twitter_username: jekyllrb
-#github_username:  jekyll
+
+description: A framework at the dawn of a new era for NLP processing
+show_downloads: true
+google_analytics:
+theme: jekyll-theme-architect
+github:
+  repository_url: https://github.com/texttechnologylab/DockerUnifiedUIMAInterface
+  is_project_page: true
+  repository_name: Docker Unified UIMA Interface
+  owner_url: https://github.com/texttechnologylab
+  owner_name: Texttechnology Lab
 
 domain: texttechnologylab.github.io
 url: https://texttechnologylab.github.io/
@@ -28,12 +18,7 @@ baseurl: /docs/
 
 # Build settings
 
-show_downloads: true
-
 markdown: kramdown
-remote_theme: pages-themes/architect@v0.2.0
-plugins:
-  - jekyll-remote-theme # add this line to the plugins list if you already have one
 
 # Exclude from processing.
 # The following items will not be processed, by default. Create a custom list
