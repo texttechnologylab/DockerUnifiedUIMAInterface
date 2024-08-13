@@ -1,4 +1,3 @@
-markdown: GFM
 
 title: Docker Unified UIMA Interface (DUUI)
 email: duui@hucompute.org
@@ -25,6 +24,9 @@ plugins:
 - jekyll-remote-theme # add this line to the plugins list if you already have one
 
 
+kramdown:
+  math_engine: mathjax
+  syntax_highlighter: rouge
 
 
 # Exclude from processing.
