@@ -54,6 +54,33 @@ A list of existing DUUI components as Docker images can be found [here](https://
 > [!NOTE]
 > Instructions for creating your own DUUI components and detailed explanations can be found under [Tutorials](tutorial/Tutorial).
 
+## Using
+There are basically two ways to use DUUI for preprocessing texts:
+ * Clone the GitHub project.
+ * Include the GitHub project using JitPack via maven (Recommended).
+
+## Using JitPack
+Add the following to your pom file:
+```xml
+<repositories>
+  <repository>
+      <id>jitpack.io</id>
+      <url>https://jitpack.io</url>
+  </repository>
+</repositories>
+```
+After that DUUI can be integrated as a dependency:
+
+```xml
+<dependency>
+  <groupId>com.github.texttechnologylab</groupId>
+  <artifactId>DockerUnifiedUIMAInterface</artifactId>
+  <version>1.3</version>
+</dependency>
+```
+
+
+
 # Cite
 If you want to use the project please quote this as follows:
 
