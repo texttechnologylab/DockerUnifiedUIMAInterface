@@ -21,4 +21,5 @@ Gem::Specification.new do |s|
   s.add_development_dependency "html-proofer", "~> 3.0"
   s.add_development_dependency "rubocop-github", "~> 0.16"
   s.add_development_dependency "w3c_validators", "~> 1.3"
+  s.add_runtime_dependency 'kramdown', '~> 2.0'
 end
