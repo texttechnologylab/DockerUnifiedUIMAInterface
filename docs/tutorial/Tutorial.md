@@ -8,6 +8,7 @@ This documentation is designed as a tutorial for the creation and integration of
 For this purpose, the tutorial is structured in two parts: a general part describing DUUI and the global context as well as several concrete examples for creating your own components based on existing DUUI components.
 
 > <img src="https://raw.githubusercontent.com/FortAwesome/Font-Awesome/6.x/svgs/solid/circle-info.svg" width="15" height="15"> **Note**
+>
 > We recommend reading the following publication before using the tutorial: [![EMNLP-2023](http://img.shields.io/badge/paper-FindingsEMNLP--2023-fb44ce.svg)](https://aclanthology.org/2023.findings-emnlp.29)
 
 # DUUI in a nutshell
@@ -31,7 +32,8 @@ DUUI is implemented in Java and can be used in this way, whereby a [web-based so
 
 Further information as well as the DUUI project, which can be reused under the ![GitHub License](https://img.shields.io/github/license/Texttechnologylab/DockerUnifiedUIMAInterface), can be found in the [![publication](http://img.shields.io/badge/paper-FindingsEMNLP--2023-fb44ce.svg)](https://aclanthology.org/2023.findings-emnlp.29)  as well as in the [![GitHub repository](https://img.shields.io/badge/GitHub_repository-blue)](https://github.com/texttechnologylab/DockerUnifiedUIMAInterface).
 
-> <img src="https://raw.githubusercontent.com/FortAwesome/Font-Awesome/6.x/svgs/solid/info-circle.svg" width="15" height="15"> **Important**
+> <img src="https://raw.githubusercontent.com/FortAwesome/Font-Awesome/6.x/svgs/solid/triangle-exclamation.svg" width="15" height="15"> **Important**
+>
 > For using DUUI as a Java application, a JRE of at least 17 is required.
 
 ## For whom is DUUI?
@@ -51,7 +53,9 @@ TypeSystem | Lua-Script | Programm |
 The TypeSystem (as part of UIMA) defines the schema of the types of annotations which are created by the component. This TypeSystem is necessary for DUUI to understand the annotated document. | The Lua script enables any component to (de)serialize annotations from a UIMA document in a programming language-independent approach without the need for native UIMA support in the respective programming language. | The analysis is a script / program which operates as a REST interface and uses or reuses an existing analysis or an existing program to perform the actual NLP analysis.  |
 
 > <img src="https://raw.githubusercontent.com/FortAwesome/Font-Awesome/6.x/svgs/solid/lightbulb.svg" width="15" height="15"> **Tip**
+>
 > Generally, the complete [TypeSystem from Texttechnologylab](https://github.com/texttechnologylab/UIMATypeSystem) can be integrated in a DUUI tool. But this normally contains far more Types or Typesytems than might be needed for a specific tool. However, the idea of DUUI is that each component only returns the TypeSystem that can be created by the component.
+
 
 ### Pipeline
 The DUUI Pipeline for a component starts with reading the document and ends with writing the annotations back to the document.
