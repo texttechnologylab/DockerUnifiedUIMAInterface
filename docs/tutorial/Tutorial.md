@@ -98,7 +98,7 @@ The REST interface is used as a standardized way to communicate with the DUUI.
 # Tutorials
 
 We have prepared three tutorials with different levels of complexity. All tutorials use Python as the programming platform, however, all languages where a REST service can be created could be used as base for a DUUI tool.
-[![](https://mermaid.ink/img/pako:eNptkDFvwyAQhf8KuiVLIu-ui5Taqrp0craQ4QJnG8Vgi0LVKsp_75lWHiozIHh3993Tu4OeDEEJfcB5EKfmSXnB53g-pTgFi-PlcJAv5wrFEKh73sU_uWjJR-v42snqKlvr5pHEKlbFVVYFyssWrtnAvWGkeiB9y7ij-USvSSyqyPIK3DRYbxBfUcc8an2fofW0ePwSS-E_FPbgKDi0hrO4LysUxIEcKSj5aajDNEYFyj-4FXlH--01lDEk2kOYUj9A2eH4wb80G7bdWORM3aqSsWzs_TftHPrjB1xuf0M?type=png)](https://mermaid.live/edit#pako:eNptkDFvwyAQhf8KuiVLIu-ui5Taqrp0craQ4QJnG8Vgi0LVKsp_75lWHiozIHh3993Tu4OeDEEJfcB5EKfmSXnB53g-pTgFi-PlcJAv5wrFEKh73sU_uWjJR-v42snqKlvr5pHEKlbFVVYFyssWrtnAvWGkeiB9y7ij-USvSSyqyPIK3DRYbxBfUcc8an2fofW0ePwSS-E_FPbgKDi0hrO4LysUxIEcKSj5aajDNEYFyj-4FXlH--01lDEk2kOYUj9A2eH4wb80G7bdWORM3aqSsWzs_TftHPrjB1xuf0M)
+[![](https://mermaid.ink/img/pako:eNo9kD1PwzAQhv-KdQNTOwBbBqSQCFHRLoROmOGwL42Ffa4cmw9V_e9cGqUeLN_73IffO4GJlqCC3scfM2DKavuqWcmp3zW8lRyTQ6_hQ63XD-pRtM6FoyfVEWcX5JrYjWqF1PYb2ZB6xkyqGch8zawR1sSp6lc9oclXNg_iW-Htfr9ZptRqAZeQ74RveMypmOwiL2l8L_pL-aTElGkUGVYQKAV0VhydpiYa8kCBNFTytNRj8fJhzWdJRTHX_bGBSjrTClIshwGqHv0oUTlasdE6PCQMV5Wsk43s5p1dVnf-B-NyZwk?type=png)](https://mermaid.live/edit#pako:eNo9kD1PwzAQhv-KdQNTOwBbBqSQCFHRLoROmOGwL42Ffa4cmw9V_e9cGqUeLN_73IffO4GJlqCC3scfM2DKavuqWcmp3zW8lRyTQ6_hQ63XD-pRtM6FoyfVEWcX5JrYjWqF1PYb2ZB6xkyqGch8zawR1sSp6lc9oclXNg_iW-Htfr9ZptRqAZeQ74RveMypmOwiL2l8L_pL-aTElGkUGVYQKAV0VhydpiYa8kCBNFTytNRj8fJhzWdJRTHX_bGBSjrTClIshwGqHv0oUTlasdE6PCQMV5Wsk43s5p1dVnf-B-NyZwk)
 
 * [Simple Sentiment](Sentiment)
 * [Advance Hate Check](HateCheck)
