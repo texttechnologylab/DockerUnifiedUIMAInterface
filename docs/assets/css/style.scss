@@ -48,6 +48,6 @@ aside a.emptyButton {
   background: transparent url(../images/empty_button.png) 0 0 no-repeat;
 }
 aside a.emptyButton img{
-   padding-left:5px;
-   display:inline;
+   margin-left:-1em;
+   display:inline-block;
 }
