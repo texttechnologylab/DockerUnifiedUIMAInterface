@@ -56,6 +56,7 @@ The TypeSystem (as part of UIMA) defines the schema of the types of annotations 
 The DUUI Pipeline for a component starts with reading the document and ends with writing the annotations back to the document.
 The graph below shows the flow of the pipeline. After reading the document, they are passed to a Lua script which extracts the needed information and passes it to the analysis tool. The analysis tool then returns the annotations which will be deserialized by the Lua script and written back to the document.
 For a complete pipeline you can check the tutorials.
+[![](https://mermaid.ink/img/pako:eNqFUUtrwzAM_itG52Y_IINCmwcMsks22CPuwYuVxhDbwbEZW-l_n5KwtOkO00nW9xLyCWorEWJoOvtZt8J5VpT33DCqIXwcnehbtjPGeuGVNSyxurcGjZ8pY-UVhyvGs7UdhwO7EDIiFEHQcJ6hkTcBk-uA7qJZoHcSs0X6W1I5rKe4olwjuyq1ddC04YFF0ZbtqxKFRHdjsOywCnv7J6ws1khSvTjlyXyKSqvXx4cr7ZKxNH_X3rPojqTZ_MrIh9EdlOjUN06m-YzkIyJxjV2ptiyBDWh0WihJ33kaIQ6-RY0cYmolNiJ0ngM3Z6KK4O3Tl6kh9i7gBpwNxxbiRnQDvUIvhcdUCbqLninnH4ldoPU?type=png)](https://mermaid.live/edit#pako:eNqFUUtrwzAM_itG52Y_IINCmwcMsks22CPuwYuVxhDbwbEZW-l_n5KwtOkO00nW9xLyCWorEWJoOvtZt8J5VpT33DCqIXwcnehbtjPGeuGVNSyxurcGjZ8pY-UVhyvGs7UdhwO7EDIiFEHQcJ6hkTcBk-uA7qJZoHcSs0X6W1I5rKe4olwjuyq1ddC04YFF0ZbtqxKFRHdjsOywCnv7J6ws1khSvTjlyXyKSqvXx4cr7ZKxNH_X3rPojqTZ_MrIh9EdlOjUN06m-YzkIyJxjV2ptiyBDWh0WihJ33kaIQ6-RY0cYmolNiJ0ngM3Z6KK4O3Tl6kh9i7gBpwNxxbiRnQDvUIvhcdUCbqLninnH4ldoPU)
 ```mermaid
 flowchart LR;
     subgraph Annotation Component
