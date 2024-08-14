@@ -2,13 +2,17 @@
 layout: default
 ---
 
+# Introduction
+This guide is for the script-based setup and configuration of a Kubernetes cluster in order to be used later by DUUI and the associated Kubernetes cluster.
+
 # Simple Kubernetes Install Scripts
-These shell-scripts were made and used for an easier installation of a Kubernetes cluster on a network of Ubuntu 20.04 systems. I recommend to start on a fresh installation of Ubuntu 20.04.
+These shell-scripts were made and used for an easier installation of a Kubernetes cluster on a network of Ubuntu 22.04 systems. I recommend to start on a fresh installation of Ubuntu 22.04.
+
 
 # TLDR
-- **Create cluster**: Run `init_master_node.sh` to create the cluster and make the system a master node.
-- **Add worker node**: Run `init_worker_node.sh` to prepare the system to be added as a worker node. Run `kubeadm_join_command.sh` on the master node and execute output on the to be worker node.
-- **GPU capabilities**: Run `enable_gpu.sh` on a worker node with an NVIDIA GPU to make its gpu usable by the cluster. Change files depending on the chosen container runtime; more on this in the section [Configure Docker or Containerd](#configure-docker-or-containerd-for-gpu).
+- **Create cluster**: Run `init_master_node.sh` <a href="https://github.com/texttechnologylab/DockerUnifiedUIMAInterface/blob/main/instructions/kubernetes/init_master_node.sh"><img src="https://raw.githubusercontent.com/FortAwesome/Font-Awesome/6.x/svgs/solid/scroll.svg" width="15" height="15"></a> to create the cluster and make the system a master node.
+- **Add worker node**: Run `init_worker_node.sh` <a href="https://github.com/texttechnologylab/DockerUnifiedUIMAInterface/blob/main/instructions/kubernetes/init_worker_node.sh"><img src="https://raw.githubusercontent.com/FortAwesome/Font-Awesome/6.x/svgs/solid/scroll.svg" width="15" height="15"></a> to prepare the system to be added as a worker node. Run `kubeadm_join_command.sh` <a href="https://github.com/texttechnologylab/DockerUnifiedUIMAInterface/blob/main/instructions/kubernetes/kubeadm_join_command.sh"><img src="https://raw.githubusercontent.com/FortAwesome/Font-Awesome/6.x/svgs/solid/scroll.svg" width="15" height="15"></a>  on the master node and execute output on the to be worker node.
+- **GPU capabilities**: Run `enable_gpu.sh` <a href="https://github.com/texttechnologylab/DockerUnifiedUIMAInterface/blob/main/instructions/kubernetes/gpu/enable_gpu.sh"><img src="https://raw.githubusercontent.com/FortAwesome/Font-Awesome/6.x/svgs/solid/scroll.svg" width="15" height="15"></a> on a worker node with an NVIDIA GPU to make its gpu usable by the cluster. Change files depending on the chosen container runtime; more on this in the section [Configure Docker or Containerd](#configure-docker-or-containerd-for-gpu).
 
 
 
