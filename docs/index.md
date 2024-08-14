@@ -62,6 +62,10 @@ A list of existing DUUI components as Docker images can be found [here](https://
 > [!NOTE]
 > Instructions for creating your own DUUI components and detailed explanations can be found under [Tutorials](tutorial/Tutorial).
 
+| :point_up:    | Instructions for creating your own DUUI components and detailed explanations can be found under [Tutorials](tutorial/Tutorial). |
+|---------------|:------------------------|
+
+
 # Using
 There are basically two ways to use DUUI for preprocessing texts:
  * Clone the GitHub project.
