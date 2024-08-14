@@ -17,11 +17,7 @@ Automatic analysis of large text corpora is a complex task. This complexity part
 [![tutorials](https://img.shields.io/badge/Tutorials-red)](tutorial/Tutorial)
 
 
-
-
-
-
-## Features
+# Features
 Using DUUI, NLP preprocessing on texts can be performed using the following features:
 * Horizontal and vertical scaling
 * Capturing heterogeneous annotation landscapes
@@ -30,43 +26,43 @@ Using DUUI, NLP preprocessing on texts can be performed using the following feat
 * Monitoring and error-reporting
 * Lightweight usability
 
-## Functions
+# Functions
 DUUI has different components which are distinguished into Drivers and Components.
 
-### Components
+## Components
 Components represent the actual analysis methods for recognizing (among others) tokens, named entities, POS and other ingredients of the NLP. All components must be analysis methods in the definition of UIMA. Of course, existing analysis methods based on Java can also be used directly (e.g. dkpro).
 
 Independently of this, Components can also be implemented in alternative programming languages, as long as the interface of DUUI is used, they can be targeted and used.
 
-### Driver
+## Driver
 DUUI has a variety of drivers that enable communication as well as the execution of Components in different runtime environments.
 
-#### UIMADriver
+### UIMADriver
 The UIMADriver runs a UIMA Analysis Engine (AE) on the local machine (using local memory and processor) in the same process within the JRE and allows scaling on that machine by replicating the underlying Analysis Engine. This enables the use of all previous analysis methods based on UIMA AE without further adjustments.
 
-#### DockerDriver
+### DockerDriver
 The DUUI core driver runs Components on the local Docker daemon and enables machine-specific resource management. This requires that the AEs are available as Docker images according to DUUI to run as Docker containers. It is not relevant whether the Docker image is stored locally or in a remote registry, since the Docker container is built on startup. This makes it very easy to test new AEs (as local containers) before being released. The distinction between local and remote Docker images is achieved by the URI of the Docker image used
 
-#### RemoteDriver
+### RemoteDriver
 AEs that are not available as containers and whose models can or should not be shared can still be used if they are available via REST. Since DUUI communicates via RESTful, remote endpoints can be used for pre-processing. In general, AEs implemented based on DUUI can be accessed and used via REST, but the scaling is limited regarding request and processing capabilities of the hosting system. In addition, Components addressed via the RemoteDRiver can be used as services. This has advantages for AEs that need to hold large models in memory and thus require a long startup time. To avoid continuous reloading, it may be necessary to start a service once or twice in a dedicated mode and then use a RemoteDriver to access it. To use services, their URL must be specified to enable horizontal scaling.
 
-#### SwarmDriver
+### SwarmDriver
 The SwarmDriver complements the DockerDriver; it uses the same function alities, but its AEs are used as Docker images distributed within the Docker Swarm network. A swarm consists of n nodes and is controlled by a leader node within the Docker framework. However, if an application using DUUI is executed on a Docker leader node, the individual AEs can be executed on multiple swarm nodes.
 
-#### KubernetesDriver
+### KubernetesDriver
 The KubernetesDriver works similarly to the SwarmDriver, but Kubernetes is used as the runtime environment instead of Docker Swarm.
 
-## Requirements
+# Requirements
 ![Java](https://img.shields.io/badge/Java-17-blue)
 ![Docker](https://img.shields.io/badge/Docker-22.10-green)
 
-## UIMA-Components
+# UIMA-Components
 A list of existing DUUI components as Docker images can be found [here](https://github.com/texttechnologylab/duui-uima).
 
 > [!NOTE]
 > Instructions for creating your own DUUI components and detailed explanations can be found under [Tutorials](tutorial/Tutorial).
 
-## Using
+# Using
 There are basically two ways to use DUUI for preprocessing texts:
  * Clone the GitHub project.
  * Include the GitHub project using JitPack via maven (Recommended).
