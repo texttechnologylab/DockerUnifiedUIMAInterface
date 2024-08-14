@@ -37,7 +37,7 @@ header a.emptyButton {
   position: absolute;
   top: 0;
   right: 0;
-  background: transparent url(../images/empty-button.png) 0 0 no-repeat;
+  background: transparent url(../images/empty_button.png) 0 0 no-repeat;
 }
 aside a.emptyButton {
   display: block;
@@ -45,5 +45,9 @@ aside a.emptyButton {
   padding-left: 64px;
   margin-bottom: 20px;
   font-size: 21px;
-  background: transparent url(../images/empty-button.png) 0 0 no-repeat;
+  background: transparent url(../images/empty_button.png) 0 0 no-repeat;
+}
+aside a.emptyButton img{
+   padding-left:5px;
+   display:inline;
 }
