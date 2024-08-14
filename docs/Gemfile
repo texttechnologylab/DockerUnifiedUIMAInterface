@@ -4,7 +4,7 @@ source "https://rubygems.org"
 
 gemspec
 
-gem install kramdown-parser-gfm
+gem 'kramdown-parser-gfm', '~> 1.1'
 gem 'github-pages'
 
 group :jekyll_plugins do
