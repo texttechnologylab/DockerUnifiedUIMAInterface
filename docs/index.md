@@ -15,6 +15,7 @@ Automatic analysis of large text corpora is a complex task. This complexity part
 
 [![javadoc](https://img.shields.io/badge/javadoc-latest-yellow)](javadoc)
 [![tutorials](https://img.shields.io/badge/Tutorials-red)](tutorial/Tutorial)
+[![kubernetes](https://img.shields.io/badge/Instruction_Kubernetes_Setup-purple)](instructions/Kubernetes)
 
 
 # Features
