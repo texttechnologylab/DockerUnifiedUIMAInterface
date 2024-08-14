@@ -10,8 +10,8 @@ Automatic analysis of large text corpora is a complex task. This complexity part
 ![GitHub last commit](https://img.shields.io/github/last-commit/texttechnologylab/DockerUnifiedUIMAInterface)
 ![GitHub Repo stars](https://img.shields.io/github/stars/texttechnologylab/DockerUnifiedUIMAInterface)
 
-[![Conference](http://img.shields.io/badge/conference-FindingsEMNLP--2023-4b44ce.svg)](https://2023.emnlp.org/)
-[![Paper](http://img.shields.io/badge/paper-FindingsEMNLP--2023-fb44ce.svg)](https://aclanthology.org/2023.findings-emnlp.29)
+[![Conference](https://img.shields.io/badge/conference-FindingsEMNLP--2023-4b44ce.svg)](https://2023.emnlp.org/)
+[![Paper](https://img.shields.io/badge/paper-FindingsEMNLP--2023-fb44ce.svg)](https://aclanthology.org/2023.findings-emnlp.29)
 
 [![javadoc](https://img.shields.io/badge/javadoc-latest-yellow)](javadoc)
 [![tutorials](https://img.shields.io/badge/Tutorials-red)](tutorial/Tutorial)
