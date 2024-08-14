@@ -60,12 +60,9 @@ The KubernetesDriver works similarly to the SwarmDriver, but Kubernetes is used 
 # UIMA-Components
 A list of existing DUUI components as Docker images can be found [here](https://github.com/texttechnologylab/duui-uima).
 
-> [!NOTE]
+> <img src="https://raw.githubusercontent.com/FortAwesome/Font-Awesome/6.x/svgs/solid/circle-info.svg" width="15" height="15"> **Note**
+>
 > Instructions for creating your own DUUI components and detailed explanations can be found under [Tutorials](tutorial/Tutorial).
-
-| :point_up:    | Instructions for creating your own DUUI components and detailed explanations can be found under [Tutorials](tutorial/Tutorial). |
-|---------------|:------------------------|
-
 
 # Using
 There are basically two ways to use DUUI for preprocessing texts:
@@ -138,9 +135,10 @@ composer.add(new DUUIUIMADriver.Component(
 // The document is processed through the pipeline. In addition, files of entire repositories can be processed.
 composer.run(jc);
 ```
-> [!NOTE]
-> Further examples can be found at the [tutorials](tutorial/Tutorial).
 
+> <img src="https://raw.githubusercontent.com/FortAwesome/Font-Awesome/6.x/svgs/solid/circle-info.svg" width="15" height="15"> **Note**
+>
+> Further examples can be found at the [tutorials](tutorial/Tutorial).
 
 
 # Cite
