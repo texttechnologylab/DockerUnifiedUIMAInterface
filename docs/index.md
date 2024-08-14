@@ -3,20 +3,20 @@ layout: default
 ---
 Automatic analysis of large text corpora is a complex task. This complexity particularly concerns the question of time efficiency. Furthermore, efficient, flexible, and extensible textanalysis requires the continuous integration of every new text analysis tools. Since there are currently, in the area of NLP and especially in the application context of UIMA, only very few to no adequate frameworks for these purposes, which are not simultaneously outdated or can no longer be used for security reasons, this work will present a new approach to fill this gap. To this end, we present Docker Unified UIMA Interface (DUUI), a scalable, flexible, lightweight, and featurerich framework for automated and distributed analysis of text corpora that leverages experience in Big Data analytics and virtualization with Docker.
 
-![GitHub forks](https://img.shields.io/github/forks/texttechnologylab/DockerUnifiedUIMAInterface)
+
 [![](https://jitpack.io/v/texttechnologylab/DockerUnifiedUIMAInterface.svg)](https://jitpack.io/#texttechnologylab/DockerUnifiedUIMAInterface)
 ![GitHub License](https://img.shields.io/github/license/Texttechnologylab/DockerUnifiedUIMAInterface)
 ![GitHub release (with filter)](https://img.shields.io/github/v/release/Texttechnologylab/DockerUnifiedUIMAInterface)
 ![GitHub last commit](https://img.shields.io/github/last-commit/texttechnologylab/DockerUnifiedUIMAInterface)
-![GitHub Repo stars](https://img.shields.io/github/stars/texttechnologylab/DockerUnifiedUIMAInterface)
+
 
 [![Conference](https://img.shields.io/badge/conference-FindingsEMNLP--2023-4b44ce.svg)](https://2023.emnlp.org/)
 [![Paper](https://img.shields.io/badge/paper-FindingsEMNLP--2023-fb44ce.svg)](https://aclanthology.org/2023.findings-emnlp.29)
 
-[![javadoc](https://img.shields.io/badge/javadoc-latest-yellow)](javadoc)
-[![tutorials](https://img.shields.io/badge/Tutorials-red)](tutorial/Tutorial)
-[![kubernetes](https://img.shields.io/badge/Instruction_Kubernetes_Setup-purple)](instructions/Kubernetes)
-
+# TLDR
+* [Javadoc](javadoc)
+* [Tutorials](tutorial/Tutorial)
+* [Kubernetes-Setup](instructions/Kubernetes)
 
 # Features
 Using DUUI, NLP preprocessing on texts can be performed using the following features:
