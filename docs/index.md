@@ -16,6 +16,9 @@ Automatic analysis of large text corpora is a complex task. This complexity part
 # TLDR
 * [Javadoc](javadoc)
 * [Tutorials](tutorial/Tutorial)
+  - [Simple Sentiment](tutorial/Sentiment)
+  - [Advance Hate Check](tutorial/HateCheck)
+  - [Complex Fact Check](tutorial/FactChecking)
 * [Kubernetes-Setup](instructions/Kubernetes)
 
 # Features
