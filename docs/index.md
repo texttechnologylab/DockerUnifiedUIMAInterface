@@ -81,7 +81,7 @@ Add the following to your pom file:
   </repository>
 </repositories>
 ```
-After that DUUI can be integrated as a dependency:
+After that DUUI can be integrated as a dependency using [![](https://jitpack.io/v/texttechnologylab/DockerUnifiedUIMAInterface.svg)](https://jitpack.io/#texttechnologylab/DockerUnifiedUIMAInterface)
 
 ```xml
 <dependency>
@@ -90,6 +90,55 @@ After that DUUI can be integrated as a dependency:
   <version>1.3</version>
 </dependency>
 ```
+
+## Use with Java
+
+```java
+int iWorkers = 2; // define the number of workers
+
+JCas jc = JCasFactory.createJCas(); // A empty CAS document is defined.
+
+// load content into jc ...
+
+// Defining LUA-Context for communication
+DUUILuaContext ctx = LuaConsts.getJSON();
+
+// Defining a storage backend based on SQlite.
+DUUISqliteStorageBackend sqlite = new DUUISqliteStorageBackend("loggingSQlite.db")
+            .withConnectionPoolSize(iWorkers);
+
+// The composer is defined and initialized with a standard Lua context as well with a storage backend.
+DUUIComposer composer = new DUUIComposer().withLuaContext(ctx)
+                        .withScale(iWorkers).withStorageBackend(sqlite);
+                
+// Instantiate drivers with options (example)
+DUUIDockerDriver docker_driver = new DUUIDockerDriver()
+        .withTimeout(10000);
+DUUIRemoteDriver remote_driver = new DUUIRemoteDriver(10000);
+DUUIUIMADriver uima_driver = new DUUIUIMADriver().withDebug(true);
+DUUISwarmDriver swarm_driver = new DUUISwarmDriver();
+
+// A driver must be added before components can be added for it in the composer. After that the composer is able to use the individual drivers.
+composer.addDriver(docker_driver, remote_driver, uima_driver, swarm_driver);
+
+// A new component for the composer is added
+composer.add(new DUUIDockerDriver.
+    Component("docker.texttechnologylab.org/gnfinder:latest")
+    .withScale(iWorkers)
+    // The image is reloaded and fetched, regardless of whether it already exists locally (optional)
+    .withImageFetching());
+    
+// Adding a UIMA annotator for writing the result of the pipeline as XMI files.
+composer.add(new DUUIUIMADriver.Component(
+                createEngineDescription(XmiWriter.class,
+                        XmiWriter.PARAM_TARGET_LOCATION, sOutputPath,
+                )).withScale(iWorkers));
+
+// The document is processed through the pipeline. In addition, files of entire repositories can be processed.
+composer.run(jc);
+```
+> [!NOTE]
+> Further examples can be found at the [tutorials](tutorial/Tutorial).
 
 
 
