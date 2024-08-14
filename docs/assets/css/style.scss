@@ -47,7 +47,9 @@ aside a.emptyButton {
   font-size: 21px;
   background: transparent url(../images/empty_button.png) 0 0 no-repeat;
 }
-aside a.emptyButton img{
-   margin-left:-1em;
-   display:inline-block;
+
+.emptyButton i {
+  margin-left: -1.2em;
+  font-size: 2vw;
+  padding-right: 10pt;
 }
