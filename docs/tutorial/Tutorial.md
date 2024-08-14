@@ -82,19 +82,6 @@ The diagram below shows the structure of a Dockerfile:
 
 [![](https://mermaid.ink/img/pako:eNp1kTtrwzAQgP_KoTleO3goxJYNHgqBkqnuoEhnR1Qv9Cg1If-9igSNly7HffqO03F3I9wKJC25KMu_mgtGNhsA4FYlbQK8FDp-zIRmjx4mzVacyScExzhCl83w42xAoOfzBCfr49P22U4mRKYUUHRoBBouMTwrSvua_hd3JeNjDlykQRhM9Juz0uy-G_b6W3prNO49zb63boNRqjJEaV0CHKFpXqGr0BXoK_QFaAVaYKgwFBjJgWj0mkmR93h7qJnEK-q8pjanAheWVB5jNvdcylK075vhpI0-4YF4m9YraRemQqbkBItIJVs903-vKGS0_q1eqhzs_guFyIvu?type=png)](https://mermaid.live/edit#pako:eNp1kTtrwzAQgP_KoTleO3goxJYNHgqBkqnuoEhnR1Qv9Cg1If-9igSNly7HffqO03F3I9wKJC25KMu_mgtGNhsA4FYlbQK8FDp-zIRmjx4mzVacyScExzhCl83w42xAoOfzBCfr49P22U4mRKYUUHRoBBouMTwrSvua_hd3JeNjDlykQRhM9Juz0uy-G_b6W3prNO49zb63boNRqjJEaV0CHKFpXqGr0BXoK_QFaAVaYKgwFBjJgWj0mkmR93h7qJnEK-q8pjanAheWVB5jNvdcylK075vhpI0-4YF4m9YraRemQqbkBItIJVs903-vKGS0_q1eqhzs_guFyIvu)
 
-```mermaid
-block-beta
-   columns 6
-   A["Docker Image"] space B["Expose DUUI Port"] space C["Install Dependencies"] space 
-   space space space space space 
-   space F["Define Entrypoint"] space E["Define Environment"] space D["Copy Files"]
-   
-    A --> B
-    B --> C
-    C --> D
-    D --> E
-    E --> F
-```
 
 # Rest Interface
 
@@ -114,9 +101,9 @@ The REST interface is used as a standardized way to communicate with the DUUI.
 We have prepared three tutorials with different levels of complexity. All tutorials use Python as the programming platform, however, all languages where a REST service can be created could be used as base for a DUUI tool.
 [![](https://mermaid.ink/img/pako:eNptkDFvwyAQhf8KuiVLIu-ui5Taqrp0craQ4QJnG8Vgi0LVKsp_75lWHiozIHh3993Tu4OeDEEJfcB5EKfmSXnB53g-pTgFi-PlcJAv5wrFEKh73sU_uWjJR-v42snqKlvr5pHEKlbFVVYFyssWrtnAvWGkeiB9y7ij-USvSSyqyPIK3DRYbxBfUcc8an2fofW0ePwSS-E_FPbgKDi0hrO4LysUxIEcKSj5aajDNEYFyj-4FXlH--01lDEk2kOYUj9A2eH4wb80G7bdWORM3aqSsWzs_TftHPrjB1xuf0M?type=png)](https://mermaid.live/edit#pako:eNptkDFvwyAQhf8KuiVLIu-ui5Taqrp0craQ4QJnG8Vgi0LVKsp_75lWHiozIHh3993Tu4OeDEEJfcB5EKfmSXnB53g-pTgFi-PlcJAv5wrFEKh73sU_uWjJR-v42snqKlvr5pHEKlbFVVYFyssWrtnAvWGkeiB9y7ij-USvSSyqyPIK3DRYbxBfUcc8an2fofW0ePwSS-E_FPbgKDi0hrO4LysUxIEcKSj5aajDNEYFyj-4FXlH--01lDEk2kOYUj9A2eH4wb80G7bdWORM3aqSsWzs_TftHPrjB1xuf0M)
 
-* [Simple Sentiment](tutorial/Sentiment)
-* [Advance Hate Check](tutorial/HateCheck)
-* [Complex Fact Check](tutorial/FactChecking)
+* [Simple Sentiment](Sentiment)
+* [Advance Hate Check](HateCheck)
+* [Complex Fact Check](FactChecking)
 
 # Autors
 - [Giuseppe Abrami](https://www.texttechnologylab.org/team/giuseppe-abrami/)
