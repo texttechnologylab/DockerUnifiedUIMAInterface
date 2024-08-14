@@ -7,6 +7,8 @@ In this section, we will explain how to integrate a fact-checking tool into the 
 The fact-checking module is a part of the DUUI pipeline that is responsible for calculating how strong the claim is supported by the fact.
 We use UniEval ([Zhong et al. 2022](https://aclanthology.org/2022.emnlp-main.131/)) as the tool, which allows us to check whether a claim is supported by a fact.
 
+The full example code can be found in the (GitHub repository)[https://github.com/texttechnologylab/duui-uima/tree/main/duui-FactChecking].
+
 ## Typeystem for Fact-Checking
 The first step is to define the typesystem for the fact-checking tool, if the needed types are not already defined in the typesystem repository ([UIMATypeSystem](https://github.com/texttechnologylab/UIMATypeSystem)).
 The typesystem for the fact-checking tool is defined in the following XML format:
@@ -678,3 +680,11 @@ function deserialize(inputCas, inputStream)
     end
 end
 ```
+
+
+
+# Author
+
+[Mevlüt Bağcı](https://www.texttechnologylab.org/team/mevl%C3%BCt-bagci/)
+
+If you have any questions or need more information, feel free to reach out to the author.
