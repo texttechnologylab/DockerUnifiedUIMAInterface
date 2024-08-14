@@ -88,7 +88,6 @@ The diagram below shows the structure of a Dockerfile:
 The DUUI is designed to be used with REST interface, which is defined as:
 [![](https://mermaid.ink/img/pako:eNpV0MtqwzAQBdBfEQPZJYRuXSiksZNuSkJtuqlKGaRJbLAe6FEwIf_eqUKKu9PMPTDiXkA5TVDBOaDvRVc_Srv5kPDWtJ2ET7FaPYlnnvdNJ9bfD-s0eYpTTGQ4ZVrAdga0U9mQTZgGZ2emnhnljMl2UMV8jThRmMmG5fHQ3qgPTlGMJV4stgXsGGysdXzDhX_JnpN3CvF--r5_4f3B_17DURwxoKHEjA0swVAwOGju4CKtEBJST4YkVPzUdMI8JgnSXpliTq6drIIqhUxLCC6fe6hOOEaesteYqB6QuzR_W9IDf_P11nIp-_oDP5h3lg?type=png)](https://mermaid.live/edit#pako:eNpV0MtqwzAQBdBfEQPZJYRuXSiksZNuSkJtuqlKGaRJbLAe6FEwIf_eqUKKu9PMPTDiXkA5TVDBOaDvRVc_Srv5kPDWtJ2ET7FaPYlnnvdNJ9bfD-s0eYpTTGQ4ZVrAdga0U9mQTZgGZ2emnhnljMl2UMV8jThRmMmG5fHQ3qgPTlGMJV4stgXsGGysdXzDhX_JnpN3CvF--r5_4f3B_17DURwxoKHEjA0swVAwOGju4CKtEBJST4YkVPzUdMI8JgnSXpliTq6drIIqhUxLCC6fe6hOOEaesteYqB6QuzR_W9IDf_P11nIp-_oDP5h3lg)
 
-```
 The REST interface is used as a standardized way to communicate with the DUUI.
 -  **GET /v1/typesystem** is the TypeSystem that is used by the analysis tool, which contains all UIMA types.
 -  **GET /v1/documentation** is the documentation of the analysis tool, which should contain at least the annotator name and the version as fields. Optional parameters can be added.
