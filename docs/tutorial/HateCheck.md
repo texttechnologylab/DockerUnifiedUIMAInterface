@@ -1,7 +1,7 @@
 ---
 layout: default
 ---
-# Integration of HateCheck into DUUI
+# Integration of HateCheck
 The Integration for this example is with python, because the HateCheck tool is implemented in python.
 In this section, we will explain how to integrate a HateCheck tool into the DUUI pipeline step by step.
 The HateCheck module is a part of the DUUI pipeline that is responsible for calculating the hate speech score of a given text.
