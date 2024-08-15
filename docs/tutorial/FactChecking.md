@@ -1,7 +1,7 @@
 ---
 layout: default
 ---
-# Integration of Fact-Checking Step by Step
+# Integration of Fact-Checking
 The Integration for this example is with python, because the fact-checking tool is implemented in python.
 In this section, we will explain how to integrate a fact-checking tool into the DUUI pipeline step by step.
 The fact-checking module is a part of the DUUI pipeline that is responsible for calculating how strong the claim is supported by the fact.
