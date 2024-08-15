@@ -2,7 +2,7 @@
 layout: default
 ---
 
-# Integration of a Sentiment Tool in DUUI Step by Step
+# Integration of a Sentiment Tool
 
 In this section, we will explain how to integrate a sentiment analysis tool into DUUI step by step.
 The Integration in this example is developed using the  Python programming language, because the underlying sentiment tool is also implemented in Python.
