@@ -17,15 +17,16 @@ import java.io.IOException;
 public class AudioSegmentWriter extends JCasFileWriter_ImplBase {
 
     public static final String PARAM_AUDIO_TOKEN_VIEW = "audioTokenView";
-    @ConfigurationParameter(name = PARAM_AUDIO_TOKEN_VIEW, defaultValue = "_InnitialView")
+    @ConfigurationParameter(name = PARAM_AUDIO_TOKEN_VIEW, defaultValue = "_InitialView")
     private String audioTokenView;
 
     public static final String PARAM_AUDIO_CONTENT_VIEW = "audioView";
-    @ConfigurationParameter(name = PARAM_AUDIO_CONTENT_VIEW, defaultValue = "")
+    @ConfigurationParameter(name = PARAM_AUDIO_CONTENT_VIEW, defaultValue = "_InitialView")
     private String audioView;
 
     @Override
     public void process(JCas jCas) {
+
 
         try {
             DocumentMetaData meta = null;
@@ -35,11 +36,7 @@ public class AudioSegmentWriter extends JCasFileWriter_ImplBase {
 
             DocumentMetaData finalMeta = meta;
 
-            JCas audioFileView = null;
-
-            if(!audioView.equals("")){
-                audioFileView = jCas.getView(audioView);
-            }
+            JCas audioFileView = jCas.getView(audioView);
 
             MultimodalUtil.getAllCoveredAudio(jCas.getView(audioTokenView), audioFileView, AudioToken.class, "wav").forEach(file -> {
 

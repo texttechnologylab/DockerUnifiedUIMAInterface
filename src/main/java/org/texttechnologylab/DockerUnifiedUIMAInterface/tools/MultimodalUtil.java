@@ -6,6 +6,7 @@ import org.apache.uima.cas.CASException;
 import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.jcas.tcas.Annotation;
+import org.texttechnologylab.annotation.AnnotationComment;
 import org.texttechnologylab.annotation.type.AudioToken;
 import org.texttechnologylab.annotation.type.Coordinate;
 import org.texttechnologylab.annotation.type.SubImage;
@@ -16,6 +17,7 @@ import java.awt.geom.Path2D;
 import java.awt.image.BufferedImage;
 import java.awt.image.RenderedImage;
 import java.io.*;
+import java.nio.file.Files;
 import java.util.*;
 import java.util.List;
 
@@ -59,32 +61,35 @@ public class MultimodalUtil {
         List<String> commands = new LinkedList<>();
 
         JCasUtil.select(audioTokenView, annotationClass).forEach(annotation -> {
-                    float startTime = Integer.MAX_VALUE;
-                    float endTime = 0;
 
-                    List<AudioToken> tokens = JCasUtil.selectCovering(AudioToken.class, annotation).stream().toList();
+            float startTime = Integer.MAX_VALUE;
+            float endTime = 0;
 
-                    for(AudioToken token : tokens){
-                        if(token.getTimeStart() < startTime)
-                            startTime = token.getTimeStart();
+            List<AudioToken> tokens = JCasUtil.selectOverlapping(AudioToken.class, annotation).stream().toList();
 
-                        if(token.getTimeEnd() > endTime)
-                            endTime = token.getTimeEnd();
-                    }
+            for(AudioToken token : tokens){
+                System.out.println(token.getTimeStart() + " " + token.getTimeEnd());
+                if(token.getTimeStart() < startTime)
+                    startTime = token.getTimeStart();
 
-                    if(startTime == Integer.MAX_VALUE)
-                        return;
+                if(token.getTimeEnd() > endTime)
+                    endTime = token.getTimeEnd();
+            }
 
-                    commands.add(String.format("-ss %s -t %s %s",
-                            startTime,
-                            endTime - startTime,
-                            getOutputName(audioTokenView, annotation, targetFormat)));
+            if(startTime == Integer.MAX_VALUE) {
+                return;
+            }
+
+            commands.add(String.format("-ss %s -t %s %s",
+                    startTime,
+                    endTime - startTime,
+                    getOutputName(audioTokenView, annotation, targetFormat)));
 
 
-                    File file = new File(getOutputName(audioTokenView, annotation, targetFormat));
-                    file.deleteOnExit();
-                    files.add(file);
-                });
+            File file = new File(getOutputName(audioTokenView, annotation, targetFormat));
+            file.deleteOnExit();
+            files.add(file);
+        });
 
         MultimodalUtil.getEveryAudioSegment(audioTokenView, audioFileView, commands);
 
@@ -263,7 +268,7 @@ public class MultimodalUtil {
             float startTime = Integer.MAX_VALUE;
             float endTime = 0;
 
-            List<AudioToken> tokens = JCasUtil.selectCovering(AudioToken.class, annotation).stream().toList();
+            List<AudioToken> tokens = JCasUtil.selectOverlapping(AudioToken.class, annotation).stream().toList();
 
             for(AudioToken token : tokens){
                 if(token.getTimeStart() < startTime)
@@ -473,14 +478,21 @@ public class MultimodalUtil {
                 graphics.drawImage(bImage, -bounds.x, -bounds.y, null);
 
                 // Create file
-                String mimeType = jCas.getSofaMimeType();
+
+                File tempInputFile = new File("tempInputImage");
+                tempInputFile.deleteOnExit();
+                try (OutputStream stream = new FileOutputStream(tempInputFile)) {
+                    stream.write(base64Image);
+                }
+
+                String mimeType = Files.probeContentType(tempInputFile.toPath());
                 String subType = "";
 
                 if(overrideExtension == null){
                     if(mimeType != null && !mimeType.isEmpty()){
                         subType = mimeType.split("/")[1];
                     }else{
-                        subType = "png";
+                        subType = "jpg";
                     }
                 }else{
                     subType = overrideExtension;
@@ -494,7 +506,7 @@ public class MultimodalUtil {
                 outputFile.deleteOnExit();
 
                 RenderedImage rendImage = bSubImage;
-                System.out.println(ImageIO.write(rendImage, subType, outputFile));
+                ImageIO.write(rendImage, subType, outputFile);
 
                 subImages.add(outputFile);
             } catch (IOException e) {

@@ -909,7 +909,16 @@ public class TestDUUI {
         composer.add(new DUUIDockerDriver.Component("duui-annotheia:latest")  // Annotheia
                 .withScale(iWorkers)
                 .withTargetView("text_view")
+                .withName("annotheia")
+                //.withRunningAfterDestroy(true)
                 //.withParameter("device", "cuda")
+                .build());
+
+        composer.add(new DUUIDockerDriver.Component("duui-spacy:latest")  // Spacy
+                .withScale(iWorkers)
+                .withView("text_view")
+                .withParameter("use_existing_sentences", "false")
+                .withParameter("use_existing_tokens", "false")
                 .build());
 
         /*composer.add(new DUUIRemoteDriver.Component("http://localhost:9717")  // Audio to speaker
@@ -930,14 +939,14 @@ public class TestDUUI {
 
         composer.run(aCas);
 
-        /*MultimodalUtil.getAllCoveredVideo(aCas.getView("text_view"), aCas, AudioToken.class, "mp4").forEach(file -> {
+        MultimodalUtil.getAllCoveredVideo(aCas.getView("text_view"), aCas, Sentence.class, "mp4").forEach(file -> {
                 try {
                     FileUtils.moveFile(new File(file.getAbsolutePath()), new File("C:/test/" + file.getName()));
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
             }
-        );*/
+        );
     }
 
     @Test
@@ -1057,9 +1066,10 @@ public class TestDUUI {
 
         DUUIUIMADriver uima_driver = new DUUIUIMADriver();
         DUUIRemoteDriver remoteDriver = new DUUIRemoteDriver();
+        DUUIDockerDriver dockerDriver = new DUUIDockerDriver();
 
 
-        DUUIMultimodalCollectionReader multiReader = new DUUIMultimodalCollectionReader("D:/DUUIVideos/read", "xmi");
+        DUUIMultimodalCollectionReader multiReader = new DUUIMultimodalCollectionReader("D:/DUUIVideos/read", "gz");
 
         Set<DUUICollectionReader> readers = new HashSet<>();
 
@@ -1068,7 +1078,7 @@ public class TestDUUI {
         DUUIAsynchronousProcessor processor = new DUUIAsynchronousProcessor(readers);
 
         // Hinzufügen der einzelnen Driver zum Composer
-        composer.addDriver(uima_driver, remoteDriver);
+        composer.addDriver(uima_driver, remoteDriver, dockerDriver);
         /*
         composer.add(new DUUIRemoteDriver.Component("http://localhost:9713")  // Youtube downloader
                 .withScale(iWorkers)
@@ -1095,17 +1105,17 @@ public class TestDUUI {
                 .withTargetView("text_view")
                 .withParameter("token", hfKey)
                 .withParameter("device", "cuda")
-                .build());
-
-        composer.add(new DUUIRemoteDriver.Component("http://localhost:9720")  // Spacy
-                .withScale(iWorkers)
-                .withSourceView("text_view")
-                .withTargetView("text_view")
-                .withParameter("use_existing_sentences", "false")
-                .withParameter("use_existing_tokens", "false")
                 .build());*/
 
-        /*composer.add(new DUUIUIMADriver.Component(createEngineDescription(XmiWriter.class,
+       /* composer.add(new DUUIDockerDriver.Component("duui-spacy:latest")  // Spacy
+                .withScale(iWorkers)
+                .withView("text_view")
+                .withRunningAfterDestroy(true)
+                .withParameter("use_existing_sentences", "false")
+                .withParameter("use_existing_tokens", "false")
+                .build());
+
+        composer.add(new DUUIUIMADriver.Component(createEngineDescription(XmiWriter.class,
                 XmiWriter.PARAM_TARGET_LOCATION, "C:/test/temp",
                 XmiWriter.PARAM_PRETTY_PRINT, true,
                 XmiWriter.PARAM_OVERWRITE, true,
@@ -1115,7 +1125,7 @@ public class TestDUUI {
 
         composer.add(new DUUIUIMADriver.Component(createEngineDescription(AudioSegmentWriter.class,
                 AudioSegmentWriter.PARAM_TARGET_LOCATION, "C:/test",
-                AudioSegmentWriter.PARAM_AUDIO_CONTENT_VIEW, "audio_view",
+                //AudioSegmentWriter.PARAM_AUDIO_CONTENT_VIEW, "text_view",
                 AudioSegmentWriter.PARAM_AUDIO_TOKEN_VIEW, "text_view"))
                 .build());
 
@@ -1159,8 +1169,9 @@ public class TestDUUI {
         // Hinzufügen der einzelnen Driver zum Composer
         composer.addDriver(uima_driver, remoteDriver, dockerDriver);
 
-        composer.add(new DUUIRemoteDriver.Component("http://localhost:9715")  // Image detection
+        composer.add(new DUUIDockerDriver.Component("duui-yolo:latest")  // Image detection
                 .withScale(iWorkers)
+                .withRunningAfterDestroy(true)
                 .build());
 
         composer.add(new DUUIUIMADriver.Component(createEngineDescription(XmiWriter.class,
