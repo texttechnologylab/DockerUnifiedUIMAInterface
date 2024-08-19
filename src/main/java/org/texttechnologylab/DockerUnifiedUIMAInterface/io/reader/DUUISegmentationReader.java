@@ -24,7 +24,6 @@ import org.bson.types.ObjectId;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.mongodb.MongoDBConfig;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.mongodb.MongoDBConnectionHandler;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.DUUICollectionDBReader;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.io.ProgressMeter;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.format.IDUUIFormat;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.format.XmiLoader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.transport.GZIPLocalFile;

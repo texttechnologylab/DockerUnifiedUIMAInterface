@@ -11,10 +11,12 @@ import java.io.*;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.stream.Collectors;
 
 
-public class DUUIDropboxDocumentHandler implements IDUUIDocumentHandler {
+public class DUUIDropboxDocumentHandler implements IDUUIDocumentHandler, IDUUIFolderPickerApi {
 
     private static final long CHUNK_SIZE = 8L << 20; // 8MiB
     private static final long MAX_RETRIES = 5;
@@ -274,6 +276,52 @@ public class DUUIDropboxDocumentHandler implements IDUUIDocumentHandler {
                 metadata.getPathLower(),
                 ((FileMetadata) metadata).getSize()))
             .collect(Collectors.toList());
+
+    }
+
+    @Override
+    public DUUIFolder getFolderStructure() {
+
+        DUUIFolder root = new DUUIFolder("", "Files");
+
+        listFolderContents(root);
+
+        return root;
+    }
+
+    /**
+     * Recursively traverses the dropbox directory and saves the directory
+     * tree in the root folder.
+     *
+     * @param root Root folder containing entire directory structure
+     */
+    private void listFolderContents(DUUIFolder root) {
+        try {
+            ListFolderResult result = client.files().listFolderBuilder(root.id)
+                    .withRecursive(false)
+                    .withIncludeMediaInfo(false)
+                    .withIncludeDeleted(false)
+                    .withIncludeHasExplicitSharedMembers(false)
+                    .withIncludeMountedFolders(true)
+                    .withLimit(2000L)
+                    .start();
+
+            do {
+                result.getEntries().parallelStream()
+                        .filter(entry -> entry instanceof FolderMetadata)
+                        .map(entry -> (FolderMetadata) entry)
+                        .map(entry -> new DUUIFolder(entry.getPathDisplay(), entry.getName()))
+                        .peek(root::addChild)
+                        .forEach(this::listFolderContents);
+
+                if (result.getHasMore()) {
+                    result = client.files().listFolderContinue(result.getCursor());
+                } else break;
+
+            } while (true);
+        } catch (Exception e) {
+            new RuntimeException(e);
+        }
 
     }
 }

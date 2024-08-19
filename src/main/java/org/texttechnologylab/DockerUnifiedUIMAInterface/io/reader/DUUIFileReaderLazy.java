@@ -10,8 +10,8 @@ import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.javaync.io.AsyncFiles;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.AsyncCollectionReader;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.io.ByteReadFuture;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.DUUICollectionReader;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.io.ProgressMeter;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.AdvancedProgressMeter;
 import org.texttechnologylab.utilities.helper.ArchiveUtils;
 import org.texttechnologylab.utilities.helper.StringUtils;
@@ -41,43 +41,52 @@ import java.util.stream.Collectors;
  */
 public class DUUIFileReaderLazy implements DUUICollectionReader {
 
-    private String _path;
-    private ConcurrentLinkedQueue<String> _filePaths;
-    private ConcurrentLinkedQueue<String> _filePathsBackup;
-    private ConcurrentLinkedQueue<ByteReadFuture> _loadedFiles;
+    protected String _path;
+    protected ConcurrentLinkedQueue<String> _filePaths;
+    protected ConcurrentLinkedQueue<String> _filePathsBackup;
+    protected ConcurrentLinkedQueue<ByteReadFuture> _loadedFiles;
 
-    private AtomicInteger _docNumber;
+    protected AtomicInteger _docNumber;
 
-    private AtomicInteger _skipNumber;
-    private AtomicInteger _repairedNumber;
-    private long _maxMemory;
-    private AtomicLong _currentMemorySize;
+    protected int _initialSize;
+    protected AtomicInteger _skipNumber;
+    protected AtomicInteger _repairedNumber;
+    protected long _maxMemory;
+    protected AtomicLong _currentMemorySize;
 
-    private AtomicInteger _collectionSize;
+    protected AtomicInteger _collectionSize;
 
-    private boolean _addMetadata = true;
+    protected boolean _addMetadata = true;
 
-    private String _targetPath = null;
-    private String _targetEnding;
-    private String _language = null;
+    protected String _targetPath = null;
+    protected String _targetEnding;
+    protected String _language = null;
 
-    private AdvancedProgressMeter progress = null;
+    protected AdvancedProgressMeter progress = null;
 
-    private int debugCount = 25;
+    protected int debugCount = 25;
 
-    private String targetLocation = null;
+    protected String targetLocation = null;
 
 
     public DUUIFileReaderLazy(String folder, String ending) {
         this(folder, ending, 25, -1, null, "", false, null, 0);
     }
 
+    public DUUIFileReaderLazy(String folder, String ending, int debugCount) {
+        this(folder, ending, debugCount, -1, null, "", false, null, 0);
+    }
+
     public DUUIFileReaderLazy(String folder, String ending, String sTargetPath) {
         this(folder, ending, 500, -1, false, "", true, null, 0, sTargetPath, ending);
     }
 
-    public DUUIFileReaderLazy(String folder, String ending, int iDebugCount) {
-        this(folder, ending, iDebugCount, -1, null, "", false, null, 0);
+    public DUUIFileReaderLazy(String folder, String ending, String sTargetPath, String sTargetEnding) {
+        this(folder, ending, 500, -1, false, "", true, null, 0, sTargetPath, sTargetEnding);
+    }
+
+    public DUUIFileReaderLazy(String folder, String ending, String sTargetPath, String sTargetEnding, int iDebugCount) {
+        this(folder, ending, iDebugCount, -1, false, "", true, null, 0, sTargetPath, sTargetEnding);
     }
 
     public DUUIFileReaderLazy(String folder, String ending, String sTargetPath, int iDebugCount) {
@@ -301,12 +310,14 @@ public class DUUIFileReaderLazy implements DUUICollectionReader {
 
             InputStream decodedFile = null;
             try {
+
+
                 if (result.endsWith(".xz")) {
-                    ByteArrayOutputStream out = new ByteArrayOutputStream();
                     decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.XZ, new ByteArrayInputStream(file));
                 } else if (result.endsWith(".gz")) {
-                    ByteArrayOutputStream out = new ByteArrayOutputStream();
                     decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.GZIP, new ByteArrayInputStream(file));
+                } else if (result.endsWith(".bz2")) {
+                    decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.BZIP2, new ByteArrayInputStream(file));
                 } else {
                     decodedFile = new ByteArrayInputStream(file);
                 }
@@ -360,13 +371,16 @@ public class DUUIFileReaderLazy implements DUUICollectionReader {
                         String sNewOutput = sURI.replace(sBase, this.targetLocation)+this._targetEnding;
                         File tFile = new File(sNewOutput);
                         if(tFile.exists()){
-                                bSkip = true;
-                                _skipNumber.incrementAndGet();
+                            bSkip = true;
+                            _skipNumber.incrementAndGet();
+                            if (_skipNumber.get() % 100 == 0) {
+                                System.out.println("Skip: (" + _skipNumber.get() + ")\t" + sNewOutput);
+                            }
                         }
                     }
                 }
                 catch (Exception e){
-
+                    e.printStackTrace();
                 }
             }
 
@@ -473,6 +487,8 @@ public class DUUIFileReaderLazy implements DUUICollectionReader {
 
     class LazyFileReader {
 
+        boolean bRunning = true;
+
         File pFile = null;
         String sEnding = "";
 
@@ -495,25 +511,104 @@ public class DUUIFileReaderLazy implements DUUICollectionReader {
             Thread pThread = new Thread(r);
             pThread.start();
 
+
         }
+
+//        public LazyFileReader(File fl, String ending, String sTargetPath, String sTargetEnding, ConcurrentLinkedQueue<String> _filePaths, AtomicInteger iCounter) {
+//
+//            this(fl, ending, _filePaths, iCounter);
+//
+////            try {
+////                Thread.sleep(1000l);
+////            } catch (InterruptedException e) {
+////                throw new RuntimeException(e);
+////            }
+//
+//            if(sTargetPath.length()>0) {
+//
+//                try {
+//                    JCas checkCas = JCasFactory.createJCas();
+//                    Set<String> checkString = new HashSet<>(0);
+//                    Runnable r = new Runnable() {
+//                        @Override
+//                        public void run() {
+//                            String result = null;
+//                            byte[] file = null;
+//
+//                            while (hasNext()) {
+//                                checkCas.reset();
+//                                String sPath = _filePaths.poll();
+//
+//                                if(checkString.contains(sPath)){
+//                                    continue;
+//                                }
+//
+//                                checkString.add(sPath);
+//
+//                                try {
+//                                    file = Files.readAllBytes(Path.of(sPath));
+//                                } catch (IOException e) {
+//                                    throw new RuntimeException(e);
+//                                }
+//
+//                                InputStream decodedFile = null;
+//                                try {
+//                                    if (sPath.endsWith(".xz")) {
+//                                        decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.XZ, new ByteArrayInputStream(file));
+//                                    } else if (sPath.endsWith(".gz")) {
+//                                        decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.GZIP, new ByteArrayInputStream(file));
+//                                    } else if (sPath.endsWith(".bz2")) {
+//                                        decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.BZIP2, new ByteArrayInputStream(file));
+//                                    } else {
+//                                        decodedFile = new ByteArrayInputStream(file);
+//                                    }
+//
+//                                    XmiCasDeserializer.deserialize(decodedFile, checkCas.getCas(), true);
+//                                } catch (CompressorException ex) {
+//                                    throw new RuntimeException(ex);
+//                                } catch (IOException ex) {
+//                                    throw new RuntimeException(ex);
+//                                } catch (SAXException ex) {
+//                                    throw new RuntimeException(ex);
+//                                }
+//
+//
+//                                if (sTargetPath.length() > 0) {
+//                                    try {
+//                                        DocumentMetaData dmd = DocumentMetaData.get(checkCas);
+//                                        if (dmd != null) {
+//                                            String sURI = dmd.getDocumentUri();
+//                                            String sBase = dmd.getDocumentBaseUri();
+//                                            String sNewOutput = sURI.replace(sBase, sTargetPath) + sTargetEnding;
+//                                            File tFile = new File(sNewOutput);
+//                                            if (!tFile.exists()) {
+//                                                _filePaths.add(sPath);
+//                                            }
+//                                        }
+//                                    } catch (Exception e) {
+//                                        e.printStackTrace();
+//                                    }
+//                                }
+//
+//                            }
+//                        }
+//
+//                    };
+//
+//                    Thread pThread = new Thread(r);
+//                    pThread.start();
+//                } catch (ResourceInitializationException ex) {
+//                    throw new RuntimeException(ex);
+//                } catch (CASException ex) {
+//                    throw new RuntimeException(ex);
+//                }
+//
+//            }
+//
+//
+//        }
 
     }
 
-    class ByteReadFuture {
-        private String _path;
-        private byte[] _bytes;
 
-        public ByteReadFuture(String path, byte[] bytes) {
-            _path = path;
-            _bytes = bytes;
-        }
-
-        public String getPath() {
-            return _path;
-        }
-
-        public byte[] getBytes() {
-            return _bytes;
-        }
-    }
 }
