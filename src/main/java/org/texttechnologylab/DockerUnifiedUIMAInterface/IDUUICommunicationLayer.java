@@ -1,6 +1,7 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface;
 
 import org.apache.commons.compress.compressors.CompressorException;
+import org.apache.uima.cas.CASException;
 import org.apache.uima.jcas.JCas;
 import org.xml.sax.SAXException;
 
@@ -12,6 +13,11 @@ import java.util.Map;
  * Interface for communication between the DUUI composer {@link DUUIComposer} and the components {@link org.texttechnologylab.DockerUnifiedUIMAInterface.driver.IDUUIDriverInterface}.
  */
 public interface IDUUICommunicationLayer {
+
+  public void serialize(JCas jc, ByteArrayOutputStream out, Map<String,String> parameters, String sourceView) throws CompressorException, IOException, SAXException, CASException;
+
+  public void deserialize(JCas jc, ByteArrayInputStream input, String targetView) throws IOException, SAXException, CASException;
+
     /**
      * Serializes a JCas to a byte array output stream by using the LUA script provided by the component.
      * @param jc Input JCas.

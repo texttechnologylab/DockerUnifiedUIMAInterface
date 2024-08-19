@@ -450,6 +450,7 @@ class DUUIWorkerAsyncProcessor extends Thread {
                     // TODO thread safety needed for here?
                     DUUISegmentationStrategy segmentationStrategy = i.getSegmentationStrategy();
                     if (segmentationStrategy instanceof DUUISegmentationStrategyNone) {
+
                         i.getDriver().run(i.getUUID(), _jc, perf, composer);
                     } else {
                         segmentationStrategy.initialize(_jc);

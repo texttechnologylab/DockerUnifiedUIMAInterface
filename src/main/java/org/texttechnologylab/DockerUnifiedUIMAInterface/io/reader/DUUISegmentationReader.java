@@ -364,7 +364,7 @@ public class DUUISegmentationReader implements DUUICollectionDBReader {
 
     @Override
     public AdvancedProgressMeter getProgress() {
-        return this.progress;
+        return progress;
     }
 
     @Override

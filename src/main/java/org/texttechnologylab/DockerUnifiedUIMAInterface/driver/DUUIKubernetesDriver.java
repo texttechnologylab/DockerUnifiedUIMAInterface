@@ -439,6 +439,8 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
         private int _scale;
         private boolean _withImageFetching;
         private Map<String, String> _parameters;
+        private String _sourceView;
+        private String _targetView;
         private DUUIPipelineComponent _component;
 
         private final boolean _websocket;
@@ -451,6 +453,8 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
             _component = comp;
             _image_name = comp.getDockerImageName();
             _parameters = comp.getParameters();
+            _targetView = comp.getTargetView();
+            _sourceView = comp.getSourceView();
             if (_image_name == null) {
                 throw new InvalidParameterException("The image name was not set! This is mandatory for the DockerLocalDriver Class.");
             }
@@ -522,6 +526,10 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
         public Map<String, String> getParameters() {
             return _parameters;
         }
+
+        public String getSourceView() {return _sourceView; }
+
+        public String getTargetView() {return _targetView; }
 
         @Override
         public String getUniqueComponentKey() {
@@ -630,6 +638,21 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
 
         public Component withParameter(String key, String value) {
             _component.withParameter(key, value);
+            return this;
+        }
+
+        public Component withView(String viewName) {
+            _component.withView(viewName);
+            return this;
+        }
+
+        public Component withSourceView(String viewName) {
+            _component.withSourceView(viewName);
+            return this;
+        }
+
+        public Component withTargetView(String viewName) {
+            _component.withTargetView(viewName);
             return this;
         }
 

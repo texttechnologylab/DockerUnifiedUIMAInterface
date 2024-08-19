@@ -73,8 +73,10 @@ public class DUUISegmentedWorker implements Runnable {
             try {
                 DUUIPipelineDocumentPerformance perf = new DUUIPipelineDocumentPerformance(name, waitTimeEnd - waitTimeStart, jCas, trackErrorDocs);
 
+                pipelinePart.getDriver().run(pipelinePart.getUUID(), jCas, perf, null);
                 // TODO!!!! @Daniel
                 //pipelinePart.getDriver().run(pipelinePart.getUUID(), jCas, perf);
+
 
                 if (backend != null) {
                     backend.addMetricsForDocument(perf);
