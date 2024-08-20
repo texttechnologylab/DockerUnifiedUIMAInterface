@@ -1,6 +1,7 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface;
 
 import org.apache.commons.compress.compressors.CompressorException;
+import org.apache.uima.cas.CASException;
 import org.apache.uima.cas.impl.XmiCasDeserializer;
 import org.apache.uima.cas.impl.XmiCasSerializer;
 import org.apache.uima.jcas.JCas;
@@ -15,10 +16,10 @@ import java.util.List;
 import java.util.Map;
 
 public class DUUIFallbackCommunicationLayer implements IDUUICommunicationLayer {
-    public void serialize(JCas jc, ByteArrayOutputStream out, Map<String,String> parameters) throws CompressorException, IOException, SAXException {
+    public void serialize(JCas jc, ByteArrayOutputStream out, Map<String,String> parameters, String sourceView) throws CompressorException, IOException, SAXException, CASException {
         JSONObject obj = new JSONObject();
         ByteArrayOutputStream arr = new ByteArrayOutputStream();
-        XmiCasSerializer.serialize(jc.getCas(), null, arr);
+        XmiCasSerializer.serialize(jc.getView(sourceView).getCas(), null, arr);
 
         StringWriter writer = new StringWriter();
         TypeSystemUtil.typeSystem2TypeSystemDescription(jc.getTypeSystem()).toXML(writer);
@@ -34,7 +35,7 @@ public class DUUIFallbackCommunicationLayer implements IDUUICommunicationLayer {
         out.write(obj.toString().getBytes(StandardCharsets.UTF_8));
     }
 
-    public void deserialize(JCas jc, ByteArrayInputStream input) throws IOException, SAXException {
+    public void deserialize(JCas jc, ByteArrayInputStream input, String targetView) throws IOException, SAXException {
         String body = new String(input.readAllBytes(), Charset.defaultCharset());
         JSONObject response = new JSONObject(body);
         if (response.has("cas") || response.has("error")) {

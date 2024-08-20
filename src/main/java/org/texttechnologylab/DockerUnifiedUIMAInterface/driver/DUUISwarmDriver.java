@@ -268,6 +268,8 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         private final String _reg_password;
         private final String _reg_username;
         private final Map<String, String> _parameters;
+        private String _sourceView;
+        private String _targetView;
         private DUUIPipelineComponent _component;
 
 
@@ -279,6 +281,8 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
             }
 
             _parameters = comp.getParameters();
+            _targetView = comp.getTargetView();
+            _sourceView = comp.getSourceView();
             _scale = comp.getScale(1);
             _constraints.addAll(comp.getConstraints());
             _components = new ConcurrentLinkedQueue<>();
@@ -378,6 +382,9 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
             return _parameters;
         }
 
+        public String getSourceView() {return _sourceView; }
+
+        public String getTargetView() {return _targetView; }
 
         public Triplet<IDUUIUrlAccessible, Long, Long> getComponent() {
             long mutexStart = System.nanoTime();
@@ -413,6 +420,21 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
 
         public Component withParameter(String key, String value) {
             component.withParameter(key, value);
+            return this;
+        }
+
+        public Component withView(String viewName) {
+            component.withView(viewName);
+            return this;
+        }
+
+        public Component withSourceView(String viewName) {
+            component.withSourceView(viewName);
+            return this;
+        }
+
+        public Component withTargetView(String viewName) {
+            component.withTargetView(viewName);
             return this;
         }
 

@@ -198,7 +198,7 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
         ByteArrayOutputStream stream = new ByteArrayOutputStream();
         try {
             //TODO: Make this accept options to better check the instantiation!
-            layer.serialize(jc, stream, null);
+            layer.serialize(jc, stream, null, "_InitialView");
         } catch (Exception e) {
             e.printStackTrace();
             throw new Exception(format("The serialization step of the communication layer fails for implementing class %s", layer.getClass().getCanonicalName()));
@@ -213,7 +213,7 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
         if (resp.statusCode() == 200) {
             ByteArrayInputStream inputStream = new ByteArrayInputStream(resp.body());
             try {
-                layer.deserialize(jc, inputStream);
+                layer.deserialize(jc, inputStream, "_InitialView");
             } catch (Exception e) {
                 System.err.printf("Caught exception printing response %s\n", new String(resp.body(), StandardCharsets.UTF_8));
                 throw e;
@@ -493,6 +493,8 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
         private String _reg_username;
         private String _uniqueComponentKey;
         private Map<String, String> _parameters;
+        private String _sourceView;
+        private String _targetView;
         private DUUIPipelineComponent _component;
 
 
@@ -514,6 +516,8 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
             _component = comp;
             _image_name = comp.getDockerImageName();
             _parameters = comp.getParameters();
+            _targetView = comp.getTargetView();
+            _sourceView = comp.getSourceView();
             if (_image_name == null) {
                 throw new InvalidParameterException("The image name was not set! This is mandatory for the DockerLocalDriver Class.");
             }
@@ -585,6 +589,10 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
             return _parameters;
         }
 
+        public String getSourceView() {return _sourceView; }
+
+        public String getTargetView() {return _targetView; }
+
         public boolean isWebsocket() {
             return _websocket;
         }
@@ -599,6 +607,21 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
 
         public Component withParameter(String key, String value) {
             _component.withParameter(key, value);
+            return this;
+        }
+
+        public Component withView(String viewName) {
+            _component.withView(viewName);
+            return this;
+        }
+
+        public Component withSourceView(String viewName) {
+            _component.withSourceView(viewName);
+            return this;
+        }
+
+        public Component withTargetView(String viewName) {
+            _component.withTargetView(viewName);
             return this;
         }
 
