@@ -1,0 +1,31 @@
+
+title: Docker Unified UIMA Interface (DUUI)
+email: duui@hucompute.org
+
+description: A framework at the dawn of a new era for NLP processing
+show_downloads: true
+#google_analytics:
+
+github:
+  repository_url: https://github.com/texttechnologylab/DockerUnifiedUIMAInterface
+  is_project_page: true
+  repository_name: Docker Unified UIMA Interface
+  owner_url: https://github.com/texttechnologylab
+  owner_name: Texttechnology Lab
+
+#Others
+markdown: CommonMarkGhPages
+
+theme: jekyll-theme-architect
+
+# Exclude from processing.
+# The following items will not be processed, by default. Create a custom list
+# to override the default setting.
+# exclude:
+#   - Gemfile
+#   - Gemfile.lock
+#   - node_modules
+#   - vendor/bundle/
+#   - vendor/cache/
+#   - vendor/gems/
+#   - vendor/ruby/

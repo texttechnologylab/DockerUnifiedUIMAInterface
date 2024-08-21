@@ -28,25 +28,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Deprecated
-class ByteReadFuture {
-    private String _path;
-    private byte[] _bytes;
-
-    public ByteReadFuture(String path, byte[] bytes) {
-        _path = path;
-        _bytes = bytes;
-    }
-
-    public String getPath() {
-        return _path;
-    }
-
-    public byte[] getBytes() {
-        return _bytes;
-    }
-}
-
-@Deprecated
 public class AsyncCollectionReader {
     private String _path;
     private ConcurrentLinkedQueue<String> _filePaths;
@@ -800,6 +781,7 @@ public class AsyncCollectionReader {
             addFilesToConcurrentList(targetDir, targetEnding, targetFilePaths);
         }
         System.out.println("Found " + targetFilePaths.size() + " files in target location");
+	System.out.println("Source location has: " + paths.size());
 
         List<String> cleanList = new ArrayList<>();
         if (!targetFilePaths.isEmpty()) {

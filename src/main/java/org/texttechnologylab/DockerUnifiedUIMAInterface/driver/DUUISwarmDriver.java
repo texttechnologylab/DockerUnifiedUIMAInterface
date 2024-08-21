@@ -16,9 +16,11 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.DUUIWebsocket
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.IDUUIConnectionHandler;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.segmentation.DUUISegmentationStrategy;
 import org.xml.sax.SAXException;
 
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
 import java.net.URISyntaxException;
 import java.net.http.HttpClient;
 import java.security.InvalidParameterException;
@@ -60,6 +62,7 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
 
         _active_components = new HashMap<>();
     }
+
 
     public DUUISwarmDriver withSwarmVisualizer() throws InterruptedException {
         return withSwarmVisualizer(null);
@@ -433,6 +436,16 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
 
         public Component withScale(int scale) {
             component.withScale(scale);
+            return this;
+        }
+
+        public Component withSegmentationStrategy(DUUISegmentationStrategy strategy) {
+            component.withSegmentationStrategy(strategy);
+            return this;
+        }
+
+        public <T extends DUUISegmentationStrategy> Component withSegmentationStrategy(Class<T> strategyClass) throws InstantiationException, IllegalAccessException, NoSuchMethodException, InvocationTargetException {
+            component.withSegmentationStrategy(strategyClass.getDeclaredConstructor().newInstance());
             return this;
         }
 

@@ -82,12 +82,6 @@ public class CorporaTests {
                             .withScale(1)
                             .build()
             );
-//
-//        composer.add(
-//                new DUUIDockerDriver.Component("docker.texttechnologylab.org/taxonerd_md:0.4")
-//                        .withImageFetching()
-//                        .withScale(1)
-//        );
 
             composer.add(
                     new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-transformers-topic:0.1.3")

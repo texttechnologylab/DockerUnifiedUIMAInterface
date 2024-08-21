@@ -100,6 +100,9 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
 
         List<NodeSelectorTerm> terms = getNodeSelectorTerms(labels);
 
+//        Map tMap = new HashMap();
+//        tMap.put("vke.volcengine.com/container-multiple-gpu", "1");
+
         try (KubernetesClient k8s = new KubernetesClientBuilder().build()) {
             // Load Deployment YAML Manifest into Java object
             Deployment deployment;
@@ -118,7 +121,7 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
                 .withName(name)
                 .withImage(image)
                 .addNewPort()
-                .withContainerPort(80)
+                    .withContainerPort(10001)
                 .endPort()
                 .endContainer()
                 .withNewAffinity()
@@ -129,6 +132,7 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
                 .endNodeAffinity()
                 .endAffinity()
                 .endSpec()
+
                 .endTemplate()
                 .withNewSelector()
                 .addToMatchLabels("pipeline-uid", name)
@@ -158,7 +162,7 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
                 .addNewPort()
                 .withName("k-port")
                 .withProtocol("TCP")
-                .withPort(80)
+                    .withPort(10001)
                 .withTargetPort(new IntOrString(9714))
                 .endPort()
                 .withType("LoadBalancer")
@@ -182,7 +186,7 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
      * Each label must be given in the format "key=value".
      *
      * @param rawLabels
-     * @return List<NodeSelectorTerm>
+     * @return {@code List<NodeSelectorTerm>}
      */
     public static List<NodeSelectorTerm> getNodeSelectorTerms(List<String> rawLabels) {
         List<NodeSelectorTerm> terms = new ArrayList<>();
@@ -262,11 +266,16 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
         if (shutdown.get()) return null;
 
         int port = service.getSpec().getPorts().get(0).getNodePort();  // NodePort
-
+//            service.getSpec().getPorts().forEach(p->{
+//                System.out.println("Node-port: "+p.getNodePort());
+//                System.out.println("Port: "+p.getPort());
+//                System.out.println("Target-port: "+p.getTargetPort());
+//            });
         final String uuidCopy = uuid;
         IDUUICommunicationLayer layer = null;
 
         try {
+            System.out.println("Port " + port);
             layer = DUUIDockerDriver.responsiveAfterTime("http://localhost:" + port, jc, _container_timeout, _client, (msg) -> {
                 System.out.printf("[KubernetesDriver][%s][%d Replicas] %s\n", uuidCopy, comp.getScale(), msg);
             }, _luaContext, skipVerification);
