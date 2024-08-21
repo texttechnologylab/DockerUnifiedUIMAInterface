@@ -445,16 +445,34 @@ public class MultimodalUtil {
         }
     }
 
+    /**
+     * Gets subimages as independent image files
+     * @param jCas The JCas containing SubImage Annotations
+     * @return A List of files, each containing a SubImage. Files get deleted on exit
+     */
     public static List<File> getSubImages(JCas jCas){
         return getSubImages(jCas, null);
     }
 
+    /**
+     * Gets subimages as independent image files
+     * @param jCas The JCas containing SubImage Annotations
+     * @param overrideExtension Changes the main images extension
+     * @return A List of files, each containing a SubImage. Files get deleted on exit
+     */
     public static List<File> getSubImages(JCas jCas, String overrideExtension) {
 
         List<File> subImages = new ArrayList<>();
 
         JCasUtil.select(jCas, SubImage.class).forEach(subImage -> {
-            byte[] base64Image = Base64.decodeBase64(subImage.getParent().getSrc());
+            String mainImageB64 = "";
+            if(subImage.getParent().getSrc() == null){
+                mainImageB64 = jCas.getSofaDataString();
+            }else{
+                mainImageB64 = subImage.getParent().getSrc();
+            }
+
+            byte[] base64Image = Base64.decodeBase64(mainImageB64);
             try {
                 BufferedImage bImage = ImageIO.read(new ByteArrayInputStream(base64Image));
 
