@@ -5,7 +5,9 @@ import org.apache.uima.cas.CASException;
 import org.apache.uima.jcas.JCas;
 import org.xml.sax.SAXException;
 
-import java.io.*;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
@@ -27,7 +29,7 @@ public interface IDUUICommunicationLayer {
      * @throws IOException
      * @throws SAXException
      */
-    public void serialize(JCas jc, ByteArrayOutputStream out, Map<String,String> parameters) throws CompressorException, IOException, SAXException;
+    public void serialize(JCas jc, ByteArrayOutputStream out, Map<String, String> parameters) throws CompressorException, IOException, SAXException, CASException;
 
     /**
      * Deserializes a byte array input stream to a JCas by using the LUA script provided by the component.
@@ -36,7 +38,7 @@ public interface IDUUICommunicationLayer {
      * @throws IOException
      * @throws SAXException
      */
-    public void deserialize(JCas jc, ByteArrayInputStream input) throws IOException, SAXException;
+    public void deserialize(JCas jc, ByteArrayInputStream input) throws IOException, SAXException, CASException;
 
     /**
      *
