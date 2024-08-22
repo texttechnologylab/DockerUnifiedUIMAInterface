@@ -47,6 +47,16 @@ public class DUUIFallbackCommunicationLayer implements IDUUICommunicationLayer {
         }
     }
 
+    @Override
+    public void serialize(JCas jc, ByteArrayOutputStream out, Map<String, String> parameters) throws CompressorException, IOException, SAXException, CASException {
+        serialize(jc, out, parameters, "_InitialView");
+    }
+
+    @Override
+    public void deserialize(JCas jc, ByteArrayInputStream input) throws IOException, SAXException, CASException {
+        deserialize(jc, input, "_InitialView");
+    }
+
     public IDUUICommunicationLayer copy() {
         return new DUUIFallbackCommunicationLayer();
     }

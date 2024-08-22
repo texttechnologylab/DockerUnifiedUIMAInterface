@@ -1,7 +1,7 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface;
 
-import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Paragraph;
 import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
+import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Paragraph;
 import org.apache.uima.UIMAException;
 import org.apache.uima.cas.impl.XmiCasSerializer;
 import org.apache.uima.collection.CollectionReaderDescription;
@@ -10,13 +10,14 @@ import org.apache.uima.util.XMLSerializer;
 import org.dkpro.core.io.xmi.XmiWriter;
 import org.junit.jupiter.api.Test;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.*;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.io.reader.DUUIFileReader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.DUUIAsynchronousProcessor;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.io.reader.DUUIFileReader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.reader.html.readability.DUUIHTMLReadabilityReader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.reader.html.readability.HTMLReadabilityLoader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.segmentation.DUUISegmentationStrategyByAnnotation;
 import org.xml.sax.SAXException;
+
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.OutputKeys;
 import java.io.BufferedReader;
@@ -26,9 +27,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
-import java.util.zip.GZIPOutputStream;
-import java.util.List;
 import java.util.ArrayList;
+import java.util.List;
+import java.util.zip.GZIPOutputStream;
 
 import static org.apache.uima.fit.factory.AnalysisEngineFactory.createEngineDescription;
 import static org.apache.uima.fit.factory.CollectionReaderFactory.createReaderDescription;
@@ -654,7 +655,7 @@ public class TestReadabilityReader {
         DUUIUIMADriver uimaDriver = new DUUIUIMADriver();
         DUUISwarmDriver swarmDriver = new DUUISwarmDriver();
 		DUUIDockerDriver dockerDriver = new DUUIDockerDriver();
-		DUUIKubernetesDriver kubernetesDriver = new DUUIDockerDriver();
+        DUUIKubernetesDriver kubernetesDriver = new DUUIKubernetesDriver();
         composer.addDriver(uimaDriver, swarmDriver, dockerDriver, kubernetesDriver);
 
 
@@ -667,7 +668,6 @@ public class TestReadabilityReader {
                     // .withParameter("selection", "de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Sentence")
 				    .withParameter("selection", "text")
 					.withScale(scale)
-					.withConstraintHost("isengart")
 					.withLabels("hostname=isengart")
 					.build()
 		);
