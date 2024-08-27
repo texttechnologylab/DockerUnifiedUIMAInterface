@@ -9,13 +9,17 @@ import com.github.dockerjava.api.exception.NotModifiedException;
 import com.github.dockerjava.api.model.*;
 import com.github.dockerjava.core.DockerClientBuilder;
 import com.github.dockerjava.core.command.LogContainerResultCallback;
+import com.github.dockerjava.httpclient5.ApacheDockerHttpClient;
+import com.github.dockerjava.transport.DockerHttpClient;
 import com.google.common.collect.ImmutableList;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URI;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.InvalidParameterException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
@@ -162,22 +166,21 @@ public class DUUIDockerInterface {
      */
     public DUUIDockerInterface() throws IOException {
 
-        // GREAT TODO!!!
-        //URI dockerClientURI;
-        //if (System.getProperty("os.name").toLowerCase().contains("windows")) {
-        //    dockerClientURI = URI.create("npipe:////./pipe/docker_engine");
-        //} else {
-        //    dockerClientURI = URI.create("tcp://localhost:2375");
-        //}
+        if (!System.getProperty("os.name").contains("Windows")) {
+            _docker = DockerClientBuilder.getInstance().build();
+        } else {
+            // Windows
+            final DockerHttpClient http = new ApacheDockerHttpClient.Builder()
+                    .connectionTimeout(Duration.ofSeconds(5))
+                    .responseTimeout(Duration.ofMinutes(10))
+                    .dockerHost(URI.create("npipe:////./pipe/docker_engine"))
+                    // .dockerHost(URI.create("tcp://127.0.0.1:2375")) // if npipe doesn't work.
+                    .build();
+            _docker = DockerClientBuilder.getInstance()
+                    .withDockerHttpClient(http)
+                    .build();
 
-        //_docker = DockerClientBuilder.getInstance()
-//            .withDockerHttpClient(new ApacheDockerHttpClient.Builder()
-//                .dockerHost(dockerClientURI).build()).build();
-        _docker = DockerClientBuilder.getInstance().build();
-
-
-//        DockerClientConfig config = DefaultDockerClientConfig.createDefaultConfigBuilder().withDockerHost("tcp://localhost:2375").build();
-//        _docker = DockerClientBuilder.getInstance(config).build();
+        }
     }
 
     /**
