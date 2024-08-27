@@ -280,7 +280,7 @@ public class DUUIDropboxDocumentHandler implements IDUUIDocumentHandler, IDUUIFo
 
     @Override
     public DUUIFolder getFolderStructure() {
-        return getFolderStructure("/", "Files");
+        return getFolderStructure("", "Files");
     }
 
     public DUUIFolder getFolderStructure(String path, String name) {
