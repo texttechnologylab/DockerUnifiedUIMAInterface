@@ -1,6 +1,7 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.document_handler;
 
 import com.google.api.client.auth.oauth2.Credential;
+import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
 import com.google.api.client.http.InputStreamContent;
 import com.google.api.client.http.javanet.NetHttpTransport;
@@ -9,8 +10,10 @@ import com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.api.services.drive.Drive;
 import com.google.api.services.drive.model.File;
 import com.google.api.services.drive.model.FileList;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.DUUIStatus;
 
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.util.Collections;
 import java.util.List;
@@ -32,9 +35,28 @@ public class DUUIGoogleDriveDocumentHandler implements IDUUIDocumentHandler, IDU
 
     public static void main(String... args) throws IOException, GeneralSecurityException {
 
+//        String accessToken = "";
+//        GoogleCredential credential = new GoogleCredential()
+//                .setAccessToken(accessToken);
+//
+//        DUUIGoogleDriveDocumentHandler handler = new DUUIGoogleDriveDocumentHandler(credential);
+//
+//        System.out.println(handler.getFolderStructure().toJson());
+//        handler.listDocuments("1JpyqWuWCXLK4Y5DI6mmKyddY1h-BWww8", "txt").stream()
+//                .map(DUUIDocument::getPath)
+//                .map(d -> {
+//                    try {
+//                        return handler.readDocument(d);
+//                    } catch (IOException e) {
+//                        throw new RuntimeException(e);
+//                    }
+//                })
+//                .map(d -> new String(d.getBytes(), StandardCharsets.UTF_8))
+//                .forEach(System.out::println);
+
 //        DUUIGoogleDriveDocumentHandler handler = new DUUIGoogleDriveDocumentHandler();
 //        DUUIDocument doc = handler.readDocument(handler.getFileId("firstpdf.pdf"));
-
+            //
 //
 //        doc.setName("secondpdf.pdf");
 //
@@ -49,13 +71,16 @@ public class DUUIGoogleDriveDocumentHandler implements IDUUIDocumentHandler, IDU
     @Override
     public void writeDocument(DUUIDocument document, String path) throws IOException {
 
+        document.setStatus(DUUIStatus.OUTPUT);
+
         File file = new File();
         file.setParents(Collections.singletonList(path));
         file.setName(document.getName());
 
-
+        document.setUploadProgress(0);
         service.files().create(file, new InputStreamContent(null, document.toInputStream()))
             .execute();
+        document.setUploadProgress(100);
     }
 
 
@@ -64,12 +89,16 @@ public class DUUIGoogleDriveDocumentHandler implements IDUUIDocumentHandler, IDU
 
         File file = service.files().get(path).execute();
 
-        DUUIDocument document = new DUUIDocument(file.getName(), path);
+        DUUIDocument document = new DUUIDocument(file.getName(), file.getId());
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         service.files().get(path).executeMediaAndDownloadTo(out);
+        byte[] data = out.toByteArray();
 
-        document.setBytes(out.toByteArray());
+        document.setName(file.getName());
+        document.setPath(file.getId());
+        document.setSize(data.length);
+        document.setBytes(data);
 
         return document;
     }
@@ -160,23 +189,23 @@ public class DUUIGoogleDriveDocumentHandler implements IDUUIDocumentHandler, IDU
 
     public List<DUUIDocument> listDocuments_(String searchPath, String fileExtension) throws IOException {
 
-        String fileExtension_ = fileExtension.isEmpty() ? "" : String.format("fileExtension = '%s'", fileExtension);
+        String fileExtension_ = fileExtension.isEmpty() ?
+                "" : String.format("and fileExtension = '%s'", fileExtension.replace(".", ""));
         FileList result = service.files().list()
-                .setQ(searchPath + " mimeType != 'application/vnd.google-apps.folder' "
-                        + fileExtension_)
-                .setFields("files(parents, id, name, size)")
+                .setQ(searchPath + " and mimeType != 'application/vnd.google-apps.folder' " + fileExtension_)
+                .setFields("files(id, name, size)")
                 .execute();
 
         List<File> files =  result.getFiles();
 
         List<DUUIDocument> documents;
 
-        if (files == null || files.size() != 1) {
+        if (files == null || files.isEmpty()) {
             documents = List.of();
         } else {
             documents = files.stream()
-                    .map(f -> new DUUIDocument(f.getId(), f.getParents().get(0), f.getSize()))
-                    .collect(Collectors.toList());
+                .map(f -> new DUUIDocument(f.getName(), f.getId(), f.getSize()))
+                .collect(Collectors.toList());
         }
 
         return documents;
