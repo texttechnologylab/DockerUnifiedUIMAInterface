@@ -132,6 +132,9 @@ public class AnnotationDropper extends JCasAnnotator_ImplBase {
             case DROP:
                 dropTypes(aJCas, this.typeSet);
                 break;
+            case _UNSET:
+            default:
+                throw new IllegalStateException("Mode is unset");
         }
     }
 
