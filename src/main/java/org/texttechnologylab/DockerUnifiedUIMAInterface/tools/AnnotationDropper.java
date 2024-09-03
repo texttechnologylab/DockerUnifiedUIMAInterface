@@ -11,13 +11,12 @@ import org.apache.uima.analysis_engine.AnalysisEngineProcessException;
 import org.apache.uima.cas.Type;
 import org.apache.uima.fit.component.JCasAnnotator_ImplBase;
 import org.apache.uima.fit.descriptor.ConfigurationParameter;
-import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.resource.ResourceInitializationException;
 
 /**
  * @author Manuel Stoeckel
- * @version 0.1.0
+ * @version 0.2.0
  */
 public class AnnotationDropper extends JCasAnnotator_ImplBase {
     /**
@@ -37,12 +36,29 @@ public class AnnotationDropper extends JCasAnnotator_ImplBase {
     private String[] paramTypesToRetain;
 
     enum Mode {
+        _UNSET,
         RETAIN,
         DROP
     }
 
-    private Mode mode;
-    private HashSet<String> typeSet;
+    private Mode mode = Mode._UNSET;
+    private HashSet<String> typeSet = new HashSet<>();
+
+    public Mode getMode() {
+        switch (this.mode) {
+            case RETAIN:
+                return Mode.RETAIN;
+            case DROP:
+                return Mode.DROP;
+            case _UNSET:
+            default:
+                throw new IllegalStateException("Mode is unset");
+        }
+    }
+
+    public Set<String> getTypeSet() {
+        return Set.copyOf(this.typeSet);
+    }
 
     @Override
     public void initialize(UimaContext context) throws ResourceInitializationException {
@@ -77,8 +93,8 @@ public class AnnotationDropper extends JCasAnnotator_ImplBase {
         }
     }
 
-    private void retainTypes(JCas aJCas, Set<String> typesToRetain) {
-        Set<String> typesToDrop = JCasUtil.selectAll(aJCas)
+    static void retainTypes(JCas aJCas, Set<String> typesToRetain) {
+        Set<String> typesToDrop = aJCas.getAnnotationIndex().iterator()
                 .stream()
                 .map(a -> a.getType().getName())
                 .distinct()
@@ -88,13 +104,13 @@ public class AnnotationDropper extends JCasAnnotator_ImplBase {
         dropTypes(aJCas, typesToDrop);
     }
 
-    private void dropTypes(JCas aJCas, Iterable<String> typesToDrop) {
+    static void dropTypes(JCas aJCas, Iterable<String> typesToDrop) {
         for (String typeName : typesToDrop) {
             dropType(aJCas, typeName);
         }
     }
 
-    private static void dropType(JCas aJCas, String typeName) {
+    static void dropType(JCas aJCas, String typeName) {
         Type type = aJCas.getTypeSystem().getType(typeName);
         aJCas.select(type).forEach(a -> a.removeFromIndexes(aJCas));
     }
