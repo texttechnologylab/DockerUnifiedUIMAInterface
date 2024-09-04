@@ -108,10 +108,10 @@ public class AnnotationDropper extends JCasAnnotator_ImplBase {
 
         if (this.paramTypesToDrop.length == 0 && this.paramTypesToRetain.length == 0) {
             throw new ResourceInitializationException(
-                    new IllegalArgumentException("At least one of typesToDrop or typesToRetain must be set"));
+                    new IllegalArgumentException("At least one of PARAM_TYPES_TO_DROP or PARAM_TYPES_TO_RETAIN must be set"));
         } else if (this.paramTypesToDrop.length > 0 && this.paramTypesToRetain.length > 0) {
             throw new ResourceInitializationException(
-                    new IllegalArgumentException("Only one of typesToDrop or typesToRetain can be set"));
+                    new IllegalArgumentException("Only one of PARAM_TYPES_TO_DROP or PARAM_TYPES_TO_RETAIN can be set"));
         }
 
         if (this.paramTypesToDrop.length > 0) {
