@@ -71,6 +71,7 @@ public class DUUIPipelineComponent {
 
     private static String sourceView = "sourceView";
     private static String targetView = "targetView";
+    private static String timeout = "timeout";
 
     private String getVersion() throws URISyntaxException, IOException {
         ClassLoader classLoader = DUUIPipelineComponent.class.getClassLoader();
@@ -505,8 +506,14 @@ public class DUUIPipelineComponent {
         return this;
     }
 
+
     public DUUIPipelineComponent withTargetView(String viewName) {
         _options.put(targetView, viewName);
+        return this;
+    }
+
+    public DUUIPipelineComponent withTimeout(long lLong) {
+        _options.put(timeout, String.valueOf(lLong));
         return this;
     }
 
@@ -655,5 +662,9 @@ public class DUUIPipelineComponent {
 
     public DUUISegmentationStrategy getSegmentationStrategy() {
         return this.segmentationStrategy;
+    }
+
+    public long getTimeout() {
+        return Long.valueOf(_options.getOrDefault(timeout, "60l"));
     }
 }

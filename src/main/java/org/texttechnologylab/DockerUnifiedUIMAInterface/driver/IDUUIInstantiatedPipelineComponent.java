@@ -143,11 +143,12 @@ public interface IDUUIInstantiatedPipelineComponent {
         long annotatorStart = serializeEnd;
         int tries = 0;
         HttpResponse<byte[]> resp = null;
-        while(tries < 10) {
+        while (tries < 3) {
             tries++;
             try {
                 HttpRequest request = HttpRequest.newBuilder()
                         .uri(URI.create(queue.getValue0().generateURL() + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS))
+                        .timeout(Duration.ofSeconds(comp.getPipelineComponent().getTimeout()))
                         .POST(HttpRequest.BodyPublishers.ofByteArray(ok))
                         .version(HttpClient.Version.HTTP_1_1)
                         .build();
@@ -160,7 +161,7 @@ public interface IDUUIInstantiatedPipelineComponent {
             }
         }
         if(resp==null) {
-            throw new IOException("Could not reach endpoint after 10 tries!");
+            throw new IOException("Could not reach endpoint after 3 tries!");
         }
 
 
