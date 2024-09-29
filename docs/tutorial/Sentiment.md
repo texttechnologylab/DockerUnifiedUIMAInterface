@@ -2,7 +2,7 @@
 layout: default
 ---
 
-# Integration of a Sentiment Tool in DUUI Step by Step
+# Integration of a Sentiment Tool
 
 In this section, we will explain how to integrate a sentiment analysis tool into DUUI step by step.
 The Integration in this example is developed using the  Python programming language, because the underlying sentiment tool is also implemented in Python.
@@ -336,3 +336,9 @@ docker tag \
 This automatically builds the Docker image and generates a tag for the latest version. The image can then be pushed to the Text Technology Lab Docker registry.
 
 Finally, see the Java JUnit tests for the sentiment tool in the file `duui-transformers-sentiment-example/src/test/java/org/hucompute/textimager/uima/transformers/sentiment/CardiffnlpTwitterXlmRobertaBaseSentimentTest.java` in the repository. The tests are used to check the functionality of the tool and to ensure that it works as expected.
+
+# Author
+
+[Daniel Baumartz](https://www.texttechnologylab.org/team/daniel-baumartz/)
+
+If you have any questions or need more information, feel free to reach out to the author.

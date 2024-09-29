@@ -21,17 +21,81 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * @author Alexander Leonhardt
  */
 public interface IDUUIDriverInterface {
+    /**
+     * Method for defining the Lua context to be used, which determines the transfer type between Composer and components.
+     * @see DUUILuaContext
+     * @param luaContext
+     */
     public void setLuaContext(DUUILuaContext luaContext);
+
+    /**
+     * Method for checking whether the selected component can be used via the driver.
+     * @param component
+     * @return
+     * @throws InvalidXMLException
+     * @throws IOException
+     * @throws SAXException
+     */
     public boolean canAccept(DUUIPipelineComponent component) throws InvalidXMLException, IOException, SAXException;
+
+    /**
+     * Initialisation method
+     * @param component
+     * @param jc
+     * @param skipVerification
+     * @param shutdown
+     * @return
+     * @throws Exception
+     */
     public String instantiate(DUUIPipelineComponent component, JCas jc, boolean skipVerification, AtomicBoolean shutdown) throws Exception;
+
+    /**
+     * Visualisation of the concurrency
+     * @param uuid
+     */
     public void printConcurrencyGraph(String uuid);
 
     //TODO: public InputOutput get_inputs_and_outputs(String uuid)
     //Example: get_typesystem(...)
+
+    /**
+     * Returns the TypeSystem used for the respective component.
+     * @see TypeSystemDescription
+     * @param uuid
+     * @return
+     * @throws InterruptedException
+     * @throws IOException
+     * @throws SAXException
+     * @throws CompressorException
+     * @throws ResourceInitializationException
+     */
     public TypeSystemDescription get_typesystem(String uuid) throws InterruptedException, IOException, SAXException, CompressorException, ResourceInitializationException;
+
+    /**
+     * Starting a component.
+     * @param uuid
+     * @param aCas
+     * @param perf
+     * @param composer
+     * @throws InterruptedException
+     * @throws IOException
+     * @throws SAXException
+     * @throws AnalysisEngineProcessException
+     * @throws CompressorException
+     * @throws CASException
+     */
     public void run(String uuid, JCas aCas, DUUIPipelineDocumentPerformance perf, DUUIComposer composer) throws InterruptedException, IOException, SAXException, AnalysisEngineProcessException, CompressorException, CASException;
 
+    /**
+     * Destruction of a component
+     * @param uuid
+     * @return
+     */
     public boolean destroy(String uuid);
+
+    /**
+     * Shutting down the driver
+     */
     public void shutdown();
 
 }

@@ -31,6 +31,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static java.lang.String.format;
 
+/**
+ *
+ * @author Alexander Leonhardt
+ */
 public class DUUISwarmDriver implements IDUUIDriverInterface {
     private final DUUIDockerInterface _interface;
     private HttpClient _client;
