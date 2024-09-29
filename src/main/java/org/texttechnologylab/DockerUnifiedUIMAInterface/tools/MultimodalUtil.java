@@ -446,21 +446,26 @@ public class MultimodalUtil {
     }
 
     /**
-     * Gets subimages as independent image files
+     * Gets subimages as independent image files in .png
      * @param jCas The JCas containing SubImage Annotations
      * @return A List of files, each containing a SubImage. Files get deleted on exit
      */
     public static List<File> getSubImages(JCas jCas){
-        return getSubImages(jCas, null);
+        return getSubImages(jCas, "png");
     }
 
     /**
      * Gets subimages as independent image files
      * @param jCas The JCas containing SubImage Annotations
-     * @param overrideExtension Changes the main images extension
+     * @param extension Changes the subimages images file extension
      * @return A List of files, each containing a SubImage. Files get deleted on exit
      */
-    public static List<File> getSubImages(JCas jCas, String overrideExtension) {
+    public static List<File> getSubImages(JCas jCas, String extension) {
+
+        if(extension.startsWith("."))
+            extension = extension.substring(1);
+        String finalExtension = extension;
+
 
         List<File> subImages = new ArrayList<>();
 
@@ -486,45 +491,28 @@ public class MultimodalUtil {
 
                 Rectangle bounds = polygon.getBounds();
 
-                BufferedImage bSubImage = new BufferedImage(bounds.width, bounds.height, BufferedImage.TYPE_INT_RGB);
+                BufferedImage bSubImage;
+                if(finalExtension.equals("png") || finalExtension.equals("tiff") || finalExtension.equals("gif") || finalExtension.equals("apng"))
+                    bSubImage = new BufferedImage(bounds.width, bounds.height, BufferedImage.TYPE_INT_ARGB);  // Alpha channel support
+                else
+                    bSubImage = new BufferedImage(bounds.width, bounds.height, BufferedImage.TYPE_INT_RGB);  // No alpha
 
-                Graphics2D graphics = bSubImage.createGraphics();
-
-                polygon.translate(-bounds.x, -bounds.y);
-
-                graphics.setClip(polygon);
-                graphics.drawImage(bImage, -bounds.x, -bounds.y, null);
-
-                // Create file
-
-                File tempInputFile = new File("tempInputImage");
-                tempInputFile.deleteOnExit();
-                try (OutputStream stream = new FileOutputStream(tempInputFile)) {
-                    stream.write(base64Image);
-                }
-
-                String mimeType = Files.probeContentType(tempInputFile.toPath());
-                String subType = "";
-
-                if(overrideExtension == null){
-                    if(mimeType != null && !mimeType.isEmpty()){
-                        subType = mimeType.split("/")[1];
-                    }else{
-                        subType = "jpg";
-                    }
-                }else{
-                    subType = overrideExtension;
-                    if(subType.startsWith(".")){
-                        if(subType.length() > 1)
-                            subType = subType.substring(1);
+                // Copy pixels form main image to new subimage
+                for (int x = bounds.x; x < bounds.x + bounds.width; x++) {
+                    for (int y = bounds.y; y < bounds.y + bounds.height; y++) {
+                        if(polygon.contains(x, y)){
+                            int iColor = bImage.getRGB(x, y);
+                            bSubImage.setRGB(x - bounds.x, y - bounds.y, iColor);
+                        }
                     }
                 }
 
-                File outputFile = new File(getOutputName(jCas, subImage, subType));
+                // Create output file
+                File outputFile = new File(getOutputName(jCas, subImage, finalExtension));
                 outputFile.deleteOnExit();
 
                 RenderedImage rendImage = bSubImage;
-                ImageIO.write(rendImage, subType, outputFile);
+                ImageIO.write(rendImage, finalExtension, outputFile);
 
                 subImages.add(outputFile);
             } catch (IOException e) {
