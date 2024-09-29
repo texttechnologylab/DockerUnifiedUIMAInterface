@@ -665,6 +665,6 @@ public class DUUIPipelineComponent {
     }
 
     public long getTimeout() {
-        return Long.valueOf(_options.getOrDefault(timeout, "60l"));
+        return Long.valueOf(_options.getOrDefault(timeout, "60"));
     }
 }
