@@ -463,6 +463,7 @@ public class DUUIYouTubeReader implements DUUICollectionReader {
             list.addToIndexes();
         }
 
+        youTube.setName(video._title);
         youTube.setUrl(video.getVideoUrl());
         youTube.setChannelName(video._channelName);
         youTube.setChannelURL(video._channelUrl);
