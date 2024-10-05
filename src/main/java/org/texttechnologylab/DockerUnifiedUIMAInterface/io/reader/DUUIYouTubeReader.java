@@ -461,6 +461,8 @@ public class DUUIYouTubeReader implements DUUICollectionReader {
 
             FSList<Playlist> list = FSList.create(jCas, playlists);
             list.addToIndexes();
+
+            youTube.setPlaylist(list);
         }
 
         youTube.setName(video._title);
