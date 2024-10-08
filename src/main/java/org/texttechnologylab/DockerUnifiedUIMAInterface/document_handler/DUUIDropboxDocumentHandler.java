@@ -12,7 +12,6 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.stream.Collectors;
 
 
@@ -281,47 +280,31 @@ public class DUUIDropboxDocumentHandler implements IDUUIDocumentHandler, IDUUIFo
 
     @Override
     public DUUIFolder getFolderStructure() {
-
-        DUUIFolder root = new DUUIFolder("", "Files");
-
-        listFolderContents(root);
-
-        return root;
+        return getFolderStructure("", "Files");
     }
 
-    /**
-     * Recursively traverses the dropbox directory and saves the directory
-     * tree in the root folder.
-     *
-     * @param root Root folder containing entire directory structure
-     */
-    private void listFolderContents(DUUIFolder root) {
+    public DUUIFolder getFolderStructure(String path, String name) {
+
+        DUUIFolder root = new DUUIFolder(path, name);
+
+        ListFolderResult result = null;
+
         try {
-            ListFolderResult result = client.files().listFolderBuilder(root.id)
-                    .withRecursive(false)
-                    .withIncludeMediaInfo(false)
-                    .withIncludeDeleted(false)
-                    .withIncludeHasExplicitSharedMembers(false)
-                    .withIncludeMountedFolders(true)
-                    .withLimit(2000L)
+            result = client
+                    .files()
+                    .listFolderBuilder(path)
                     .start();
 
-            do {
-                result.getEntries().parallelStream()
-                        .filter(entry -> entry instanceof FolderMetadata)
-                        .map(entry -> (FolderMetadata) entry)
-                        .map(entry -> new DUUIFolder(entry.getPathDisplay(), entry.getName()))
-                        .peek(root::addChild)
-                        .forEach(this::listFolderContents);
-
-                if (result.getHasMore()) {
-                    result = client.files().listFolderContinue(result.getCursor());
-                } else break;
-
-            } while (true);
-        } catch (Exception e) {
-            new RuntimeException(e);
+        } catch (DbxException e) {
+            return null;
         }
 
+        result.getEntries().stream()
+            .filter(f -> f instanceof FolderMetadata)
+            .map(f -> getFolderStructure(((FolderMetadata) f).getId(), f.getName()))
+            .filter(Objects::nonNull)
+            .forEach(root::addChild);
+
+        return root;
     }
 }
