@@ -34,6 +34,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static java.lang.String.format;
 
+/**
+ *
+ * @author Alexander Leonhardt
+ */
 public class DUUIUIMADriver implements IDUUIDriverInterface {
     private HashMap<String, InstantiatedComponent> _engines;
     private boolean _enable_debug;

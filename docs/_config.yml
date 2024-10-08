@@ -13,10 +13,14 @@ github:
   owner_url: https://github.com/texttechnologylab
   owner_name: Texttechnology Lab
 
-#Others
-markdown: CommonMarkGhPages
+highlighter: rouge
+markdown: kramdown
+kramdown:
+  input: GFM
 
 theme: jekyll-theme-architect
+
+mermaid: true
 
 # Exclude from processing.
 # The following items will not be processed, by default. Create a custom list

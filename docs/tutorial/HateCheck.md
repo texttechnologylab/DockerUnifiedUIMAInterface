@@ -1,10 +1,12 @@
 ---
 layout: default
 ---
-# Integration of HateCheck into the DUUI pipeline
+# Integration of HateCheck
 The Integration for this example is with python, because the HateCheck tool is implemented in python.
 In this section, we will explain how to integrate a HateCheck tool into the DUUI pipeline step by step.
 The HateCheck module is a part of the DUUI pipeline that is responsible for calculating the hate speech score of a given text.
+
+The full example code can be found in the [GitHub repository](https://github.com/texttechnologylab/duui-uima/tree/main/duui-Hate).
 
 ## Typeystem for HateCheck
 The first step is to define the typesystem for the HatCheck tool, if the needed types are not already defined in the typesystem repository ([UIMATypeSystem](https://github.com/texttechnologylab/UIMATypeSystem)).
@@ -12,22 +14,16 @@ The typesystem for the HateCheck tool is defined in the following XML format:
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <typeSystemDescription xmlns="http://uima.apache.org/resourceSpecifier">
-
     <name>TypeSystemFactChecking</name>
-
     <description/>
-
     <version>1.0</version>
-
     <vendor/>
-
     <!-- Import the needed types -->
     <imports>
         <import name="desc.type.TextTechnologyAnnotation"/>
         <import name="desc.type.TypeSystemModelMeta"/>
     </imports>
     <types>
-
         <typeDescription>
             <!-- Define the type for HateCheck -->
             <name>org.texttechnologylab.annotation.Hate</name>
@@ -37,21 +33,18 @@ The typesystem for the HateCheck tool is defined in the following XML format:
             <!-- The supertype of HateCheck, get every function of Annotation -->
             <supertypeName>uima.tcas.Annotation</supertypeName>
             <features>
-
                 <featureDescription>
                     <!-- Probability of Hate -->
                     <name>Hate</name>
                     <description>Probability of Hate</description>
                     <rangeTypeName>uima.cas.Double</rangeTypeName>
                 </featureDescription>
-
                 <featureDescription>
                     <!-- Probability of not Hate -->
                     <name>NonHate</name>
                     <description>Probability of not Hate</description>
                     <rangeTypeName>uima.cas.Double</rangeTypeName>
                 </featureDescription>
-
                 <featureDescription>
                     <!-- Used model for the annotation -->
                     <name>model</name>
@@ -721,3 +714,10 @@ public class MultiTestHate {
     }
 }
 ```
+
+
+# Author
+
+[Mevlüt Bağcı](https://www.texttechnologylab.org/team/mevl%C3%BCt-bagci/)
+
+If you have any questions or need more information, feel free to reach out to the author.

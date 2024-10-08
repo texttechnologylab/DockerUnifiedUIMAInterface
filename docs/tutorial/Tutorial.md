@@ -7,7 +7,8 @@ layout: default
 This documentation is designed as a tutorial for the creation and integration of new NLP analysis tools to be used within the **Docker Unified UIMA Interface** (short DUUI).
 For this purpose, the tutorial is structured in two parts: a general part describing DUUI and the global context as well as several concrete examples for creating your own components based on existing DUUI components.
 
-> [!NOTE]
+> <img src="https://raw.githubusercontent.com/FortAwesome/Font-Awesome/6.x/svgs/solid/circle-info.svg" width="15" height="15"> **Note**
+>
 > We recommend reading the following publication before using the tutorial: [![EMNLP-2023](http://img.shields.io/badge/paper-FindingsEMNLP--2023-fb44ce.svg)](https://aclanthology.org/2023.findings-emnlp.29)
 
 # DUUI in a nutshell
@@ -31,7 +32,8 @@ DUUI is implemented in Java and can be used in this way, whereby a [web-based so
 
 Further information as well as the DUUI project, which can be reused under the ![GitHub License](https://img.shields.io/github/license/Texttechnologylab/DockerUnifiedUIMAInterface), can be found in the [![publication](http://img.shields.io/badge/paper-FindingsEMNLP--2023-fb44ce.svg)](https://aclanthology.org/2023.findings-emnlp.29)  as well as in the [![GitHub repository](https://img.shields.io/badge/GitHub_repository-blue)](https://github.com/texttechnologylab/DockerUnifiedUIMAInterface).
 
-> [!IMPORTANT]
+> <img src="https://raw.githubusercontent.com/FortAwesome/Font-Awesome/6.x/svgs/solid/triangle-exclamation.svg" width="15" height="15"> **Important**
+>
 > For using DUUI as a Java application, a JRE of at least 17 is required.
 
 ## For whom is DUUI?
@@ -50,103 +52,42 @@ TypeSystem | Lua-Script | Programm |
 --- | --- | --- |
 The TypeSystem (as part of UIMA) defines the schema of the types of annotations which are created by the component. This TypeSystem is necessary for DUUI to understand the annotated document. | The Lua script enables any component to (de)serialize annotations from a UIMA document in a programming language-independent approach without the need for native UIMA support in the respective programming language. | The analysis is a script / program which operates as a REST interface and uses or reuses an existing analysis or an existing program to perform the actual NLP analysis.  |
 
-> [!TIP]
+> <img src="https://raw.githubusercontent.com/FortAwesome/Font-Awesome/6.x/svgs/solid/lightbulb.svg" width="15" height="15"> **Tip**
+>
 > Generally, the complete [TypeSystem from Texttechnologylab](https://github.com/texttechnologylab/UIMATypeSystem) can be integrated in a DUUI tool. But this normally contains far more Types or Typesytems than might be needed for a specific tool. However, the idea of DUUI is that each component only returns the TypeSystem that can be created by the component.
+
+
 ### Pipeline
 The DUUI Pipeline for a component starts with reading the document and ends with writing the annotations back to the document.
 The graph below shows the flow of the pipeline. After reading the document, they are passed to a Lua script which extracts the needed information and passes it to the analysis tool. The analysis tool then returns the annotations which will be deserialized by the Lua script and written back to the document.
 For a complete pipeline you can check the tutorials.
-```mermaid
-flowchart LR;
-    subgraph Annotation Component
-        F["Annotation Tool"] 
-        E["Lua"]
-    end
-    subgraph Composer
-        subgraph Z[" "]
-            direction LR
-            A[Document] --> B[Reader]
-            end
-        subgraph Y[" "]
-            direction RL
-            C[Writer] --> D[XMI]
-        end
-    end
-    direction LR
-    B -.-> E
-    E -- serialize --> F
-    F -- deserialize --> E
-    E --> C
-```
+![](https://mermaid.ink/img/pako:eNqFUUtrwzAM_itG52Y_IINCmwcMsks22CPuwYuVxhDbwbEZW-l_n5KwtOkO00nW9xLyCWorEWJoOvtZt8J5VpT33DCqIXwcnehbtjPGeuGVNSyxurcGjZ8pY-UVhyvGs7UdhwO7EDIiFEHQcJ6hkTcBk-uA7qJZoHcSs0X6W1I5rKe4olwjuyq1ddC04YFF0ZbtqxKFRHdjsOywCnv7J6ws1khSvTjlyXyKSqvXx4cr7ZKxNH_X3rPojqTZ_MrIh9EdlOjUN06m-YzkIyJxjV2ptiyBDWh0WihJ33kaIQ6-RY0cYmolNiJ0ngM3Z6KK4O3Tl6kh9i7gBpwNxxbiRnQDvUIvhcdUCbqLninnH4ldoPU?type=png)
+
+
 ### Lua script
 The Lua script is used as a communication interface between the annotation tool and the DUUI composer.
 The script contains two parts, the first being the `serialize` function that is called to transform the CAS object into a stream that is sent to the annotation tool.
 The second part is the `deserialize` function that is utilized to transform the output of the annotation tool back into the CAS object.
 For different examples of Lua scripts you can check our tutorials.
-```mermaid
-flowchart LR;
-    subgraph Annotation Component
-      H["Annotation Tool"] 
-      subgraph LUA 
-          subgraph serialize
-              direction LR
-              E["CAS \n Transforming"] --> F[OutputStream]
-          end
-          subgraph deserialize
-              direction RL
-              G["Write annotation"]
-          end
-      end
-    end
-    subgraph Composer
-        subgraph Z[" "]
-            direction LR
-            A[Document] --> B[Reader]
-            end
-        subgraph Y[" "]
-            direction RL
-            C[Writer] --> D[XMI]
-        end
-    end
-    direction LR
-    B -.-> E
-    F -.-> H
-    H -. Output .-> G
-    G -.-> C
-    
-```
+![](https://mermaid.ink/img/pako:eNqNU9luwyAQ_BXEc9IPcKVKjnNVclTJSdXD5IGadYxkwMKgqo3y78VGoY578sTu7O4MAxxxoRjgCJe1ei0qqg1Ks2sikVutfTlo2lQollIZariSKFGiURKk8SUIrXOCB_hOqZrgPTrDYUZ6H4fkBdCC5rTm7zBEu8W4hqIfmmZjbOFYk3iLiAN2msq2VFpweeiop9MbtMzvrGms2RoNVOyH7SDZtzoY_ENJlo6xlVPyoLkBRIMLTsUPjGEbNoG_d9ZJ-OwM0LPjQKOhv_kT53NVWOFuybsxyzOgDPRowIUTgezpD7KxBUneH197qnn-uLkd9H498FfZMzS9cq0LHy19tPbR2kXI3yXq0iufXvmiBE-wAC0oZ-4JHzuMYFOBAIIjt2VQUlsbgok8uVJqjdq-yQJHRluYYK3socJRSevWRbZh1MCcU-eDOJcA40bpjf8j_Vc5fQA4R-qm?type=png)
+
+
 
 # Docker
+
 Docker is used to run the tool.
 Docker containers are used to ensure that the analysis is performed in the same environment, regardless of the underlying host system.
 Also, the Docker container is used to ensure that the analysis is reproducible, because every build of the Docker container is versioned, containing all needed code and data (e.g. model files).
 The diagram below shows the structure of a Dockerfile:
-```mermaid
-block-beta
-   columns 6
-   A["Docker Image"] space B["Expose DUUI Port"] space C["Install Dependencies"] space 
-   space space space space space 
-   space F["Define Entrypoint"] space E["Define Environment"] space D["Copy Files"]
-   
-    A --> B
-    B --> C
-    C --> D
-    D --> E
-    E --> F
-```
+
+![](https://mermaid.ink/img/pako:eNp1kTtrwzAQgP_KoTleO3goxJYNHgqBkqnuoEhnR1Qv9Cg1If-9igSNly7HffqO03F3I9wKJC25KMu_mgtGNhsA4FYlbQK8FDp-zIRmjx4mzVacyScExzhCl83w42xAoOfzBCfr49P22U4mRKYUUHRoBBouMTwrSvua_hd3JeNjDlykQRhM9Juz0uy-G_b6W3prNO49zb63boNRqjJEaV0CHKFpXqGr0BXoK_QFaAVaYKgwFBjJgWj0mkmR93h7qJnEK-q8pjanAheWVB5jNvdcylK075vhpI0-4YF4m9YraRemQqbkBItIJVs903-vKGS0_q1eqhzs_guFyIvu?type=png)
+
 
 # Rest Interface
+
 The DUUI is designed to be used with REST interface, which is defined as:
-```mermaid
-graph TD;
-A["REST"] --> B["GET /v1/typesystem"]
-A --> C["GET /v1/documentation"]
-A --> D["GET /v1/communication_layer"]
-A --> E["POST /v1/process"]
-%%C --> F["Annotator"]
-%%C --> G["Version"]
-%%C --> H["Optional Parameters"]
-```
+![](https://mermaid.ink/img/pako:eNpV0MtqwzAQBdBfEQPZJYRuXSiksZNuSkJtuqlKGaRJbLAe6FEwIf_eqUKKu9PMPTDiXkA5TVDBOaDvRVc_Srv5kPDWtJ2ET7FaPYlnnvdNJ9bfD-s0eYpTTGQ4ZVrAdga0U9mQTZgGZ2emnhnljMl2UMV8jThRmMmG5fHQ3qgPTlGMJV4stgXsGGysdXzDhX_JnpN3CvF--r5_4f3B_17DURwxoKHEjA0swVAwOGju4CKtEBJST4YkVPzUdMI8JgnSXpliTq6drIIqhUxLCC6fe6hOOEaesteYqB6QuzR_W9IDf_P11nIp-_oDP5h3lg?type=png)
+
 The REST interface is used as a standardized way to communicate with the DUUI.
 -  **GET /v1/typesystem** is the TypeSystem that is used by the analysis tool, which contains all UIMA types.
 -  **GET /v1/documentation** is the documentation of the analysis tool, which should contain at least the annotator name and the version as fields. Optional parameters can be added.
@@ -155,15 +96,13 @@ The REST interface is used as a standardized way to communicate with the DUUI.
 
 
 # Tutorials
+
 We have prepared three tutorials with different levels of complexity. All tutorials use Python as the programming platform, however, all languages where a REST service can be created could be used as base for a DUUI tool.
+![](https://mermaid.ink/img/pako:eNo9kD1PwzAQhv-KdQNTOwBbBqSQCFHRLoROmOGwL42Ffa4cmw9V_e9cGqUeLN_73IffO4GJlqCC3scfM2DKavuqWcmp3zW8lRyTQ6_hQ63XD-pRtM6FoyfVEWcX5JrYjWqF1PYb2ZB6xkyqGch8zawR1sSp6lc9oclXNg_iW-Htfr9ZptRqAZeQ74RveMypmOwiL2l8L_pL-aTElGkUGVYQKAV0VhydpiYa8kCBNFTytNRj8fJhzWdJRTHX_bGBSjrTClIshwGqHv0oUTlasdE6PCQMV5Wsk43s5p1dVnf-B-NyZwk?type=png)
 
-```mermaid
-graph TD;
-    A[Tutorial]-->B[<a href='tutorial/Sentiment'><b>Simple Sentiment</b></a>]
-    A[Tutorial]-->D[<a href='tutorial/HateCheck'><b>Advance Hate Check</b></a>];
-    A[Tutorial]-->C[<a href='tutorial/FactChecking'><b>Complex Fact Check</b></a>];
-```
-
+* [Simple Sentiment](Sentiment)
+* [Advance Hate Check](HateCheck)
+* [Complex Fact Check](FactChecking)
 
 # Autors
 - [Giuseppe Abrami](https://www.texttechnologylab.org/team/giuseppe-abrami/)

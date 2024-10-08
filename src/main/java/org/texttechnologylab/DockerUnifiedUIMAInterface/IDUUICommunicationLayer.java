@@ -5,7 +5,9 @@ import org.apache.uima.cas.CASException;
 import org.apache.uima.jcas.JCas;
 import org.xml.sax.SAXException;
 
-import java.io.*;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
@@ -56,4 +58,5 @@ public interface IDUUICommunicationLayer {
   public ByteArrayInputStream merge(List<ByteArrayInputStream> results);
 
   String myLuaTestMerging();
+
 }
