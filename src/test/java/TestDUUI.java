@@ -1171,7 +1171,6 @@ public class TestDUUI {
 
         composer.add(new DUUIDockerDriver.Component("duui-yolo:latest")  // Image detection
                 .withScale(iWorkers)
-                .withRunningAfterDestroy(true)
                 .build());
 
         composer.add(new DUUIUIMADriver.Component(createEngineDescription(XmiWriter.class,
