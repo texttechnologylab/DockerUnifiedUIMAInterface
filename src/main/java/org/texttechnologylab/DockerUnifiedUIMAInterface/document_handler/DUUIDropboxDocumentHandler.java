@@ -301,7 +301,7 @@ public class DUUIDropboxDocumentHandler implements IDUUIDocumentHandler, IDUUIFo
 
         result.getEntries().stream()
             .filter(f -> f instanceof FolderMetadata)
-            .map(f -> getFolderStructure(((FolderMetadata) f).getId(), f.getName()))
+            .map(f -> getFolderStructure(((FolderMetadata) f).getPathLower(), f.getName()))
             .filter(Objects::nonNull)
             .forEach(root::addChild);
 
