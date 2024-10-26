@@ -279,7 +279,7 @@ public class DUUIGoogleDriveDocumentHandler implements IDUUIDocumentHandler, IDU
     @Override
     public DUUIFolder getFolderStructure() {
 
-        DUUIFolder root = new DUUIFolder("root", "Files");
+        DUUIFolder root = new DUUIFolder(this.root, "Files");
 
         return getFolderStructure(root);
     }
