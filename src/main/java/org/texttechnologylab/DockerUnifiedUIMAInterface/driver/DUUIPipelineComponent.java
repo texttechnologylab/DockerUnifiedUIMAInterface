@@ -513,7 +513,7 @@ public class DUUIPipelineComponent {
     }
 
     public DUUIPipelineComponent withTimeout(long lLong) {
-        _options.put(timeout, String.valueOf(lLong));
+        _parameters.put(timeout, String.valueOf(lLong));
         return this;
     }
 
@@ -665,6 +665,6 @@ public class DUUIPipelineComponent {
     }
 
     public long getTimeout() {
-        return Long.valueOf(_options.getOrDefault(timeout, "60"));
+        return Long.valueOf(_parameters.getOrDefault(timeout, "60"));
     }
 }

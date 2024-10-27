@@ -45,6 +45,8 @@ import java.io.OutputStream;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.security.InvalidParameterException;
 import java.time.Instant;
 import java.util.*;
@@ -2483,6 +2485,11 @@ public class DUUIComposer {
         // Merge -> Vereint das in _InitialView
 
 
+        // Engine 1 -> track 1 schreibt
+        // Engine 2 -> track 2 schreibt
+        // Merge -> Vereint das in _InitialView
+
+
         // SpaCy Lemma, POS, NER besser in NER, Precision
         // StanfordNlpNER NER
 
@@ -2503,7 +2510,7 @@ public class DUUIComposer {
                 .withScale(1)
                 , DUUISwarmDriver.class);*/
         composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9715")
-            .withScale(1).withWebsocket(true).build());
+                .withScale(1).withWebsocket(true).build());
 //        composer.add(new SocketIO("http://127.0.0.1:9715"));
 
         // ByteArrayInputStream stream;
@@ -2554,7 +2561,7 @@ public class DUUIComposer {
                 TextReader.PARAM_LANGUAGE, "en"),"next11");*/
         /** @see **/
         composer.shutdown();
-    }
 
+    }
 }
 

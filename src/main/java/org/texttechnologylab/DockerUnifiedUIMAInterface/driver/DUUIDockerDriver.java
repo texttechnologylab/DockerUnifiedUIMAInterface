@@ -46,6 +46,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Logger;
 
 import static java.lang.String.format;
+import static org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer.getLocalhost;
 
 /**
  * Interface for all drivers
@@ -310,7 +311,7 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
                 }
                 final int iCopy = i;
                 final String uuidCopy = uuid;
-                IDUUICommunicationLayer layer = responsiveAfterTime("http://127.0.0.1:" + String.valueOf(port), jc, _container_timeout, _client, (msg) -> {
+                IDUUICommunicationLayer layer = responsiveAfterTime(getLocalhost() + ":" + String.valueOf(port), jc, _container_timeout, _client, (msg) -> {
                     System.out.printf("[DockerLocalDriver][%s][Docker Replication %d/%d] %s\n", uuidCopy, iCopy + 1, comp.getScale(), msg);
                 }, _luaContext, skipVerification);
                 System.out.printf("[DockerLocalDriver][%s][Docker Replication %d/%d] Container for image %s is online (URL http://127.0.0.1:%d) and seems to understand DUUI V1 format!\n", uuid, i + 1, comp.getScale(), comp.getImageName(), port);
@@ -467,11 +468,11 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
         }
 
         public String generateURL() {
-            return format("http://127.0.0.1:%d", _port);
+            return format(getLocalhost() + ":%d", _port);
         }
 
         String getContainerUrl() {
-            return format("http://127.0.0.1:%d", _port);
+            return format(getLocalhost() + ":%d", _port);
         }
 
         public IDUUIConnectionHandler getHandler() {
