@@ -310,7 +310,7 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
                 }
                 final int iCopy = i;
                 final String uuidCopy = uuid;
-                IDUUICommunicationLayer layer = responsiveAfterTime("http://host.docker.internal:" + String.valueOf(port), jc, _container_timeout, _client, (msg) -> {
+                IDUUICommunicationLayer layer = responsiveAfterTime("http://localhost:" + String.valueOf(port), jc, _container_timeout, _client, (msg) -> {
                     System.out.printf("[DockerLocalDriver][%s][Docker Replication %d/%d] %s\n", uuidCopy, iCopy + 1, comp.getScale(), msg);
                 }, _luaContext, skipVerification);
                 System.out.printf("[DockerLocalDriver][%s][Docker Replication %d/%d] Container for image %s is online (URL http://127.0.0.1:%d) and seems to understand DUUI V1 format!\n", uuid, i + 1, comp.getScale(), comp.getImageName(), port);
