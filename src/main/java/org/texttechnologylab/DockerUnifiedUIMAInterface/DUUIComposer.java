@@ -849,12 +849,6 @@ public class DUUIComposer {
         Runtime.getRuntime().addShutdownHook(_shutdownHook);
     }
 
-    public static String getLocalhost() {
-        boolean isDocker = Files.exists(Paths.get("/.dockerenv"));
-
-        return isDocker ? "http://host.docker.internal" : "http://127.0.0.1";
-    }
-
     /**
      * Attach InfluxDB for monitoring.
      * @param monitor DUUI monitor object
@@ -2485,9 +2479,89 @@ public class DUUIComposer {
                         .withScale(1),
                 org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver.class);*/
 
-        System.out.println(getLocalhost());
+
+        // Engine 1 -> track 1 schreibt
+        // Engine 2 -> track 2 schreibt
+        // Merge -> Vereint das in _InitialView
+
+
+        // Engine 1 -> track 1 schreibt
+        // Engine 2 -> track 2 schreibt
+        // Merge -> Vereint das in _InitialView
+
+
+        // SpaCy Lemma, POS, NER besser in NER, Precision
+        // StanfordNlpNER NER
+
+        // ClearNlpPosTagger
+        // OpenNlpPosTagger
+
+        // p
+
+        // Input: [de.org.tudarmstadt.sentence, de.org.tudarmstadt.Token]
+        // Output: []
+        // composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/languagedetection:0.3").withScale(1));
+/*
+        composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
+                .withScale(1)
+                , DUUISwarmDriver.class);
+
+        composer.add(new DUUISwarmDriver.Component("docker.texttechnologylab.org/gnfinder:latest")
+                .withScale(1)
+                , DUUISwarmDriver.class);*/
+        composer.add(new DUUIRemoteDriver.Component("http://127.0.0.1:9715")
+                .withScale(1).withWebsocket(true).build());
+//        composer.add(new SocketIO("http://127.0.0.1:9715"));
+
+        // ByteArrayInputStream stream;
+        // stream.read
+
+        String val = "Dies ist ein kleiner Test Text für Abies!";
+        JCas jc = JCasFactory.createJCas();
+        jc.setDocumentLanguage("de");
+        jc.setDocumentText(val);
+
+        String va2 = "Dies ist ein ganz kleiner Test Text für Abies!";
+        JCas jc2 = JCasFactory.createJCas();
+        jc2.setDocumentLanguage("de");
+        jc2.setDocumentText(val);
+
+        // Run single document
+        composer.run(jc, "fuchs");
+        composer.run(jc2, "fuchs1");
+//        ByteArrayOutputStream out = new ByteArrayOutputStream();
+//        XmlCasSerializer.serialize(jc.getCas(),out);
+//        System.out.println(new String(out.toByteArray()));
+
+
+        /*TypeSystemDescription desc = TypeSystemUtil.typeSystem2TypeSystemDescription(jc.getTypeSystem());
+
+        //CAS: Dependency, Sentence, Token
+        //Bar Chart: Wie viele Dependecies, Wie viele Sentences ....
+        // Named Entity Recognition: 1 Klasse fuer Orte => 10 Annotation vom Typ Ort
+        // 1 Klasse fuer Personen => 100 Annotationen vom Typ Personen
+        //for(Dependency meta : JCasUtil.select(jc, Dependency.class)) {
+        //    meta.getDependent().
+        //}
+
+        /*String val = Files.readString(Path.of(DUUIComposer.class.getClassLoader().getResource("org/texttechnologylab/DockerUnifiedUIMAInterface/uima_xmi_communication_token_only.lua").toURI()));
+        DUUILuaCommunicationLayer lua = new DUUILuaCommunicationLayer(val,"remote");
+        OutputStream out = new ByteArrayOutputStream();
+        lua.serialize(jc,out);
+        System.out.println(out.toString());*/
+
+        OutputStream out2 = new ByteArrayOutputStream();
+        XmiCasSerializer.serialize(jc.getCas(), out2);
+        System.out.println(out2.toString());
+
+        // Run Collection Reader
+
+        /*composer.run(createReaderDescription(TextReader.class,
+                TextReader.PARAM_SOURCE_LOCATION, "test_corpora/**.txt",
+                TextReader.PARAM_LANGUAGE, "en"),"next11");*/
+        /** @see **/
+        composer.shutdown();
 
     }
-
 }
 
