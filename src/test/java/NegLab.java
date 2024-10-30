@@ -26,9 +26,12 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.io.reader.DUUIWikipediaE
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.tools.AnnotationRemover;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.tools.CountAnnotations;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.tools.RemoveSmallSentences;
+import org.texttechnologylab.annotation.AnnotationComment;
 import org.texttechnologylab.annotation.semaf.isobase.Entity;
 import org.texttechnologylab.annotation.semaf.semafsr.SrLink;
 import org.texttechnologylab.utilities.helper.FileUtils;
+import org.texttechnologylab.utilities.helper.StringUtils;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
@@ -580,6 +583,144 @@ public class NegLab {
 
     }
 
+    @Test
+    public void preparingB01() throws Exception {
+
+        String sContent = StringUtils.getContent(new File("/home/gabrami/Downloads/final sample.txt"));
+
+        String[] sSplit = sContent.split("\n");
+        Map<String, String> sourceMap = new HashMap<>(0);
+        String sSource = "";
+        StringBuilder sb = new StringBuilder();
+        StringBuilder global = new StringBuilder();
+        for (String s : sSplit) {
+            if(s.startsWith("<source>")){
+                sSource = s;
+
+                sSource = sSource.replace("<source>", "");
+                sSource = sSource.replace("</source>", "");
+
+            }
+            else if(!s.startsWith("<target>") && s.length()>0){
+                if(sb.length()>0){
+                    sb.append("\n");
+                }
+
+                if (s.endsWith(" ")) {
+                    sb.append(s.substring(0, s.length() - 1));
+                    sb.append(".");
+                }
+                else{
+                    sb.append(s);
+                }
+                if (!sb.toString().endsWith(".")) {
+                    sb.append(".");
+                }
+
+
+            }
+            else {
+                if(s.length()>0) {
+                    if (s.startsWith("<target>")) {
+                        // target
+                        String sNew = s.replace("<target>", "");
+                        sNew = sNew.replace("</target>", "");
+                        if (sb.length() > 0) {
+                            sb.append("\n");
+                        }
+                        sb.append(sNew);
+                        if(!sb.toString().endsWith(".")){
+                            sb.append(".");
+                        }
+
+                    }
+
+                    int iStart = global.length();
+                    int iEnd = sb.length() + iStart;
+
+
+                    if (global.length() > 0) {
+                        global.append("\n");
+                    }
+                    global.append(sb.toString());
+                    int iIndex = global.toString().indexOf(sb.toString());
+                    System.out.println(iIndex);
+                    sourceMap.put(sSource, iIndex + "_" + (iIndex+sb.length()));
+
+                    // clear for next iteration
+                    sb = new StringBuilder();
+                }
+            }
+
+        }
+//        System.out.println(global);
+
+        JCas pCas = JCasFactory.createText(global.toString(), "de");
+
+        sourceMap.keySet().forEach(k->{
+            String sStandoff = sourceMap.get(k);
+            String[] stSplit = sStandoff.split("_");
+            int iStart = Integer.valueOf(stSplit[0]);
+            int iEnd = Integer.valueOf(stSplit[1]);
+
+            Paragraph pParagraph = new Paragraph(pCas);
+            pParagraph.setBegin(iStart);
+            pParagraph.setEnd(iEnd);
+            pParagraph.addToIndexes();
+
+            AnnotationComment pComment = new AnnotationComment(pCas);
+            pComment.setKey("source");
+            pComment.setKey(k);
+            pComment.setReference(pParagraph);
+            pComment.addToIndexes();
+
+        });
+
+//        JCasUtil.select(pCas, Paragraph.class).forEach(p->{
+//            System.out.println(p);
+//            System.out.println(p.getCoveredText());
+//        });
+
+        DocumentMetaData dmd = new DocumentMetaData(pCas);
+        dmd.setDocumentTitle("B01 - Export 2024-09-16");
+        dmd.setDocumentId("B01_E_2024_09_16");
+        dmd.addToIndexes();
+
+        DUUILuaContext ctx = new DUUILuaContext().withJsonLibrary();
+
+        // Instanziierung des Composers, mit einigen Parametern
+        DUUIComposer composer = new DUUIComposer()
+                .withSkipVerification(true)     // wir überspringen die Verifikation aller Componenten =)
+                .withLuaContext(ctx)            // wir setzen den definierten Kontext
+                .withWorkers(1);         // wir geben dem Composer eine Anzahl an Threads mit.
+
+        DUUIDockerDriver docker_driver = new DUUIDockerDriver();
+        DUUIUIMADriver uima_driver = new DUUIUIMADriver()
+                .withDebug(true);
+
+        // Hinzufügen der einzelnen Driver zum Composer
+        composer.addDriver(docker_driver, uima_driver);  // remote_driver und swarm_driver scheint nicht benötigt zu werden.
+
+
+
+        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
+                .withScale(1)
+                .build());
+
+        composer.add(new DUUIUIMADriver.Component(createEngineDescription(RemoveSmallSentences.class)));
+
+        composer.add(new DUUIUIMADriver.Component(createEngineDescription(XmiWriter.class,
+                XmiWriter.PARAM_TARGET_LOCATION, "/tmp/",
+                XmiWriter.PARAM_PRETTY_PRINT, true,
+                XmiWriter.PARAM_OVERWRITE, true,
+                XmiWriter.PARAM_VERSION, "1.1"//,
+//                        XmiWriter.PARAM_COMPRESSION, "GZIP"
+        )).build());
+
+        composer.run(pCas, "spacy");
+
+
+    }
 
     /**
      * List all nodes based on a tag-name as part of a given node
