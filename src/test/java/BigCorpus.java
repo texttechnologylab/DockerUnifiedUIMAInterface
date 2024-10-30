@@ -82,4 +82,62 @@ public class BigCorpus {
         composer.run(pProcessor, "eubook");
     }
 
+
+    @Test
+    public void twitterParser() throws Exception {
+
+        int iWorker = 1;
+
+        String sInputPath = "/tmp/twitter/input";
+        String sOutputPath = "/tmp/twitter/output";
+        String sSuffix = "xmi";
+
+        DUUICollectionReader pReader = new DUUIFileReaderLazy(sInputPath, sSuffix, sOutputPath, ".xmi.gz", 1);
+
+        // Asynchroner reader für die Input-Dateien
+        DUUIAsynchronousProcessor pProcessor = new DUUIAsynchronousProcessor(pReader);
+        new File(sOutputPath).mkdir();
+
+        DUUILuaContext ctx = new DUUILuaContext().withJsonLibrary();
+
+        // Instanziierung des Composers, mit einigen Parametern
+        DUUIComposer composer = new DUUIComposer()
+                .withSkipVerification(true)     // wir überspringen die Verifikation aller Componenten =)
+                .withLuaContext(ctx)            // wir setzen den definierten Kontext
+                .withWorkers(iWorker);         // wir geben dem Composer eine Anzahl an Threads mit.
+
+        DUUIDockerDriver docker_driver = new DUUIDockerDriver();
+        DUUISwarmDriver swarm_driver = new DUUISwarmDriver();
+        DUUIUIMADriver uima_driver = new DUUIUIMADriver()
+                .withDebug(true);
+
+        // Hinzufügen der einzelnen Driver zum Composer
+        composer.addDriver(docker_driver, uima_driver, swarm_driver);  // remote_driver und swarm_driver scheint nicht benötigt zu werden.
+
+        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/duui-spacy-en_core_web_sm:0.4.3")
+                .withScale(iWorker).withImageFetching()
+                .build().withTimeout(120));
+
+        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/duui-slc-corenlp/cu124:latest")
+                .withScale(iWorker).withImageFetching()
+                .withTargetView("corenlp")
+                .build().withTimeout(120));
+
+        composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/duui-slc-stanza/cu124:latest").withImageFetching()
+                .withScale(iWorker)
+                .withTargetView("stanza")
+                .build().withTimeout(120));
+
+
+        composer.add(new DUUIUIMADriver.Component(createEngineDescription(XmiWriter.class,
+                XmiWriter.PARAM_TARGET_LOCATION, sOutputPath,
+                XmiWriter.PARAM_PRETTY_PRINT, true,
+                XmiWriter.PARAM_OVERWRITE, true,
+                XmiWriter.PARAM_VERSION, "1.1",
+                XmiWriter.PARAM_COMPRESSION, CompressionMethod.GZIP
+        )).withScale(iWorker).build());
+
+        composer.run(pProcessor, "twitter");
+    }
+
 }

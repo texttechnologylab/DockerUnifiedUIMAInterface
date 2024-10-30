@@ -1,7 +1,6 @@
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Sentence;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
 import org.apache.commons.compress.compressors.CompressorException;
-import org.apache.commons.io.FileUtils;
 import org.apache.uima.UIMAException;
 import org.apache.uima.analysis_engine.AnalysisEngineDescription;
 import org.apache.uima.cas.SerialFormat;
@@ -43,6 +42,8 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIMoc
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.sqlite.DUUISqliteStorageBackend;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.tools.MultimodalUtil;
 import org.texttechnologylab.annotation.type.*;
+import org.texttechnologylab.utilities.helper.FileUtils;
+import org.texttechnologylab.utilities.helper.RESTUtils;
 import org.xml.sax.SAXException;
 
 import javax.script.*;
@@ -941,7 +942,7 @@ public class TestDUUI {
 
         MultimodalUtil.getAllCoveredVideo(aCas.getView("text_view"), aCas, Sentence.class, "mp4").forEach(file -> {
                 try {
-                    FileUtils.moveFile(new File(file.getAbsolutePath()), new File("C:/test/" + file.getName()));
+                    org.apache.commons.io.FileUtils.moveFile(new File(file.getAbsolutePath()), new File("C:/test/" + file.getName()));
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
@@ -1185,11 +1186,30 @@ public class TestDUUI {
 
         MultimodalUtil.getSubImages(aCas).forEach(file -> {
                     try {
-                        FileUtils.moveFile(new File(file.getAbsolutePath()), new File("C:/test/" + file.getName()));
+                        org.apache.commons.io.FileUtils.moveFile(new File(file.getAbsolutePath()), new File("C:/test/" + file.getName()));
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
                 });
+
+        //composer.run(aCas);
+    }
+
+    @Test
+    public void pdfView() throws Exception{
+
+        JCas aCas = JCasFactory.createJCas();
+
+        File dFile = FileUtils.downloadFile("https://aclanthology.org/2023.findings-emnlp.29.pdf");
+
+        String encoded = org.apache.commons.codec.binary.Base64.encodeBase64String(org.apache.commons.io.FileUtils.readFileToByteArray(dFile));
+            String mimeType = Files.probeContentType(dFile.toPath());
+            System.out.println(mimeType);
+            JCas pdfCas = aCas.createView("pdf");
+            pdfCas.setSofaDataString(encoded, mimeType);
+
+            CasIOUtils.save(aCas.getCas(), new FileOutputStream(new File("/tmp/DUUI.xmi")), SerialFormat.XMI_1_1_PRETTY);
+
 
         //composer.run(aCas);
     }
