@@ -335,22 +335,26 @@ public class DUUIFileReaderLazy implements DUUICollectionReader {
                             File decompressedFile = ArchiveUtils.decompressGZ(new File(result));
                             rString = IOUtils.toString(new FileInputStream(decompressedFile), StandardCharsets.UTF_8);
                             decompressedFile.delete();
-                        }
-                        else {
+                        } else if (result.endsWith(".xmi")) {
                             rString = IOUtils.toString(decodedFile, StandardCharsets.UTF_8);
                         }
+
                         rString = XMLCharInvalidPattern.matcher(rString).replaceAll("");
 
-                        File tFile = TempFileHandler.getTempFile("aaa", ".xmi");
-                        org.texttechnologylab.utilities.helper.FileUtils.writeContent(rString, tFile);
+                        if (!result.endsWith(".txt")) {
+                            File tFile = TempFileHandler.getTempFile("aaa", ".xmi");
+                            org.texttechnologylab.utilities.helper.FileUtils.writeContent(rString, tFile);
 
-                        XmiCasDeserializer.deserialize(new FileInputStream(tFile), empty.getCas(), true);
+                            XmiCasDeserializer.deserialize(new FileInputStream(tFile), empty.getCas(), true);
+                            tFile.delete();
+
+                        } else {
+                            empty.setDocumentText(rString);
+                        }
 
 //                        System.out.println("Repaired File: "+result+"\t"+empty.getDocumentText().length());
 
                         _repairedNumber.incrementAndGet();
-
-                        tFile.delete();
                         bRepair = true;
 
                     } catch (IOException ex) {
