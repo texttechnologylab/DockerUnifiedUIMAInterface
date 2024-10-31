@@ -45,8 +45,6 @@ import java.io.OutputStream;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.security.InvalidParameterException;
 import java.time.Instant;
 import java.util.*;
@@ -847,6 +845,10 @@ public class DUUIComposer {
         });
 
         Runtime.getRuntime().addShutdownHook(_shutdownHook);
+    }
+
+    public static String getLocalhost() {
+        return "http://127.0.0.1/";
     }
 
     /**
