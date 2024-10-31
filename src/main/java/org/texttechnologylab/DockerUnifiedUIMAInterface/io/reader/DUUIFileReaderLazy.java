@@ -425,7 +425,7 @@ public class DUUIFileReaderLazy implements DUUICollectionReader {
 
         if (_addMetadata) {
             if (JCasUtil.select(empty, DocumentMetaData.class).size() == 0) {
-                DocumentMetaData dmd = DocumentMetaData.create(empty);
+                DocumentMetaData dmd = new DocumentMetaData(empty);
                 File pFile = new File(result);
                 dmd.setDocumentId(pFile.getName());
                 dmd.setDocumentTitle(pFile.getName());
