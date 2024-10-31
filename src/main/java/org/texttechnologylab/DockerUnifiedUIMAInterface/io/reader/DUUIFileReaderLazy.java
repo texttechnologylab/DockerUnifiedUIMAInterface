@@ -77,6 +77,10 @@ public class DUUIFileReaderLazy implements DUUICollectionReader {
         this(folder, ending, debugCount, -1, null, "", false, null, 0);
     }
 
+    public DUUIFileReaderLazy(String folder, String ending, int debugCount, boolean bMetadata) {
+        this(folder, ending, debugCount, -1, null, "", bMetadata, null, 0);
+    }
+
     public DUUIFileReaderLazy(String folder, String ending, String sTargetPath) {
         this(folder, ending, 500, -1, false, "", true, null, 0, sTargetPath, ending);
     }
@@ -321,7 +325,7 @@ public class DUUIFileReaderLazy implements DUUICollectionReader {
                 } else if (result.endsWith(".xmi")) {
                     decodedFile = new ByteArrayInputStream(file);
                 } else {
-                    empty.setDocumentText(IOUtils.toString(decodedFile, StandardCharsets.UTF_8));
+                    empty.setDocumentText(IOUtils.toString(new FileInputStream(new File(result)), StandardCharsets.UTF_8));
                 }
                 if (empty.getDocumentText().length() == 0) {
                     XmiCasDeserializer.deserialize(decodedFile, empty.getCas(), true);
@@ -340,6 +344,7 @@ public class DUUIFileReaderLazy implements DUUICollectionReader {
                         } else {
                             rString = org.texttechnologylab.utilities.helper.FileUtils.getContentFromFile(new File(result));
                         }
+                        System.out.println(rString);
 
                         rString = XMLCharInvalidPattern.matcher(rString).replaceAll("");
 
