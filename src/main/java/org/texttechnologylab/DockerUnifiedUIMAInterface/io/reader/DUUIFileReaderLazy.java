@@ -318,11 +318,14 @@ public class DUUIFileReaderLazy implements DUUICollectionReader {
                     decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.GZIP, new ByteArrayInputStream(file));
                 } else if (result.endsWith(".bz2")) {
                     decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.BZIP2, new ByteArrayInputStream(file));
-                } else {
+                } else if (result.endsWith(".xmi")) {
                     decodedFile = new ByteArrayInputStream(file);
+                } else {
+                    empty.setDocumentText(IOUtils.toString(decodedFile, StandardCharsets.UTF_8));
                 }
-
-                XmiCasDeserializer.deserialize(decodedFile, empty.getCas(), true);
+                if (empty.getDocumentText().length() == 0) {
+                    XmiCasDeserializer.deserialize(decodedFile, empty.getCas(), true);
+                }
             } catch (Exception e) {
 
                 if(e instanceof SAXParseException){
