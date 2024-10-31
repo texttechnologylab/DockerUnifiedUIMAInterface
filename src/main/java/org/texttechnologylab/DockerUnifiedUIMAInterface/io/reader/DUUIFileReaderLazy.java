@@ -337,6 +337,8 @@ public class DUUIFileReaderLazy implements DUUICollectionReader {
                             decompressedFile.delete();
                         } else if (result.endsWith(".xmi")) {
                             rString = IOUtils.toString(decodedFile, StandardCharsets.UTF_8);
+                        } else {
+                            rString = org.texttechnologylab.utilities.helper.FileUtils.getContentFromFile(new File(result));
                         }
 
                         rString = XMLCharInvalidPattern.matcher(rString).replaceAll("");
