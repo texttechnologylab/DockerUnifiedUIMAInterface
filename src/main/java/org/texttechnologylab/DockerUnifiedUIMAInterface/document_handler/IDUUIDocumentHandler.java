@@ -86,4 +86,8 @@ public interface IDUUIDocumentHandler {
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
     }
+
+    default void shutdown() {
+
+    }
 }
