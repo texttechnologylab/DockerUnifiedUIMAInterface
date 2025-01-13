@@ -88,7 +88,7 @@ After that DUUI can be integrated as a dependency using [![](https://jitpack.io/
 <dependency>
   <groupId>com.github.texttechnologylab</groupId>
   <artifactId>DockerUnifiedUIMAInterface</artifactId>
-  <version>1.3</version>
+  <version>1.4</version>
 </dependency>
 ```
 
