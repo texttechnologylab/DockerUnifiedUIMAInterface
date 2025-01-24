@@ -8,10 +8,10 @@ Automatic analysis of large text corpora is a complex task. This complexity part
 ![GitHub License](https://img.shields.io/github/license/Texttechnologylab/DockerUnifiedUIMAInterface)
 ![GitHub release (with filter)](https://img.shields.io/github/v/release/Texttechnologylab/DockerUnifiedUIMAInterface)
 ![GitHub last commit](https://img.shields.io/github/last-commit/texttechnologylab/DockerUnifiedUIMAInterface)
-
-
 [![Conference](https://img.shields.io/badge/conference-FindingsEMNLP--2023-4b44ce.svg)](https://2023.emnlp.org/)
-[![Paper](https://img.shields.io/badge/paper-FindingsEMNLP--2023-fb44ce.svg)](https://aclanthology.org/2023.findings-emnlp.29)
+
+[![Paper](http://img.shields.io/badge/paper-FindingsEMNLP--2023-fb44ce.svg)](https://aclanthology.org/2023.findings-emnlp.29)
+[![Paper-Kubernetes](http://img.shields.io/badge/paper-SoftwareX--2025-fb44ce.svg)](https://www.sciencedirect.com/science/article/pii/S2352711024004047)
 
 # TLDR
 * [Javadoc](javadoc)
@@ -88,7 +88,7 @@ After that DUUI can be integrated as a dependency using [![](https://jitpack.io/
 <dependency>
   <groupId>com.github.texttechnologylab</groupId>
   <artifactId>DockerUnifiedUIMAInterface</artifactId>
-  <version>1.3</version>
+  <version>1.4</version>
 </dependency>
 ```
 
@@ -149,6 +149,8 @@ If you want to use the project please quote this as follows:
 
 Alexander Leonhardt, Giuseppe Abrami, Daniel Baumartz and Alexander Mehler. (2023). "Unlocking the Heterogeneous Landscape of Big Data NLP with DUUI." Findings of the Association for Computational Linguistics: EMNLP 2023, 385–399. [[LINK](https://aclanthology.org/2023.findings-emnlp.29)] [[PDF](https://aclanthology.org/2023.findings-emnlp.29.pdf)]
 
+Giuseppe Abrami, Markos Genios, Filip Fitzermann, Daniel Baumartz and Alexander Mehler. (2025). "Docker Unified UIMA Interface: New perspectives for NLP on big data" SoftwareX, Volume 29, 2025, 102033, ISSN 2352-7110, [[LINK](https://doi.org/10.1016/j.softx.2024.102033)]
+
 ## BibTeX
 ```
 @inproceedings{Leonhardt:et:al:2023,
@@ -176,5 +178,17 @@ Alexander Leonhardt, Giuseppe Abrami, Daniel Baumartz and Alexander Mehler. (202
                a state-of-the-art approach and demonstrate its outstanding behavior
                in terms of time efficiency, enabling the analysis of big text
                data.}
+}
+
+@article{Abrami:et:al:2025:a,
+  title     = {Docker Unified UIMA Interface: New perspectives for NLP on big data},
+  journal   = {SoftwareX},
+  volume    = {29},
+  pages     = {102033},
+  year      = {2025},
+  issn      = {2352-7110},
+  doi       = {https://doi.org/10.1016/j.softx.2024.102033},
+  url       = {https://www.sciencedirect.com/science/article/pii/S2352711024004047},
+  author    = {Giuseppe Abrami and Markos Genios and Filip Fitzermann and Daniel Baumartz and Alexander Mehler}
 }
 ```
