@@ -1,7 +1,6 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.document_handler;
 
 import com.google.api.client.auth.oauth2.Credential;
-import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
 import com.google.api.client.http.InputStreamContent;
 import com.google.api.client.http.javanet.NetHttpTransport;
@@ -13,10 +12,10 @@ import com.google.api.services.drive.model.FileList;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.DUUIStatus;
 
 import java.io.*;
-import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 
@@ -26,37 +25,56 @@ public class DUUIGoogleDriveDocumentHandler implements IDUUIDocumentHandler, IDU
     private static final JsonFactory JSON_FACTORY = JacksonFactory.getDefaultInstance();
     private static String root = "";
     private final Drive service;
+
     public DUUIGoogleDriveDocumentHandler(Credential credential) throws GeneralSecurityException, IOException {
         final NetHttpTransport HTTP_TRANSPORT = GoogleNetHttpTransport.newTrustedTransport();
         service = new Drive.Builder(HTTP_TRANSPORT, JSON_FACTORY, credential)
                 .setApplicationName(APPLICATION_NAME)
                 .build();
+        credential.refreshToken();
 
-        if (!folderExists(service)) {
+        createAppFolder(service);
+
+    }
+
+    public static void createAppFolder(Drive service) throws IOException, IllegalStateException {
+        String folderName = "DUUI";
+        String parentFolderName = "Apps";
+
+        // Search for the Docker Unified UIMA Interface folder
+        String parentQuery = "mimeType='application/vnd.google-apps.folder' and name='" + parentFolderName + "'";
+        FileList parentResult = service.files().list()
+                .setQ(parentQuery)
+                .setFields("files(id)")
+                .execute();
+
+        List<File> parentFiles = parentResult.getFiles();
+
+        Optional<File> maybeParentFolder = parentFiles.stream().filter(File::getIsAppAuthorized).findFirst();
+        File parentFolder;
+        if (maybeParentFolder.isEmpty()) {
             File appsFolder = new File()
                     .setName("Apps")
                     .setMimeType("application/vnd.google-apps.folder");
 
             File createdAppsFolder = service.files().create(appsFolder).setFields("id").execute();
+            createdAppsFolder.setIsAppAuthorized(true);
 
             File duuiFolder = new File()
-                    .setName("Docker Unified UIMA Interface")
+                    .setName(folderName)
                     .setMimeType("application/vnd.google-apps.folder")
                     .setParents(Collections.singletonList(createdAppsFolder.getId()));
 
             File createdDuuiFolder = service.files().create(duuiFolder).setFields("id").execute();
-
+            createdDuuiFolder.setIsAppAuthorized(true);
             root = createdDuuiFolder.getId();
+            return;
+        } else {
+            parentFolder = maybeParentFolder.get();
         }
 
-    }
-
-    public static boolean folderExists(Drive service) throws IOException, IllegalStateException {
-        String folderName = "Docker Unified UIMA Interface";
-        String parentFolderName = "Apps";
-
-        // Search for the Docker Unified UIMA Interface folder
-        String query = "mimeType='application/vnd.google-apps.folder' and name='" + folderName + "'";
+        String query =
+            "mimeType='application/vnd.google-apps.folder' and name='" + folderName + "' and '" + maybeParentFolder.get().getId() + "' in parents";
         FileList result = service.files().list()
                 .setQ(query)
                 .setFields("files(id, name, parents)")
@@ -64,36 +82,21 @@ public class DUUIGoogleDriveDocumentHandler implements IDUUIDocumentHandler, IDU
 
         List<File> files = result.getFiles();
 
-        if (files.isEmpty()) {
-            return false;
+        Optional<File> maybeFolder = files.stream().filter(File::getIsAppAuthorized).findFirst();
+
+        if (maybeFolder.isEmpty()) {
+
+            File duuiFolder = new File()
+                    .setName(folderName)
+                    .setMimeType("application/vnd.google-apps.folder")
+                    .setParents(Collections.singletonList(parentFolder.getId()));
+
+            File createdDuuiFolder = service.files().create(duuiFolder).setFields("id").execute();
+            createdDuuiFolder.setIsAppAuthorized(true);
+            root = createdDuuiFolder.getId();
+        } else {
+            root = maybeFolder.get().getId();
         }
-
-        if (files.size() > 1) {
-            throw new IllegalStateException("Multiple folders named '" + folderName + "' found. Please delete all (including the ones contained in the trash) but one.");
-        }
-
-        File duuiFolder = files.get(0);
-
-        if (duuiFolder.getParents() == null || duuiFolder.getParents().isEmpty()) {
-            throw new IllegalStateException("The folder '" + folderName + "' has no parent. This is not allowed.");
-        }
-
-        if (duuiFolder.getParents().size() > 1) {
-            throw new IllegalStateException("The folder '" + folderName + "' has multiple parents. This is not allowed.");
-        }
-
-        String parentId = duuiFolder.getParents().get(0);
-        File parentFolder = service.files().get(parentId)
-                .setFields("id, name")
-                .execute();
-
-        if (!parentFolder.getName().equalsIgnoreCase(parentFolderName)) {
-            throw new IllegalStateException("The parent folder is not '" + parentFolderName + "'. Please check the folder structure.");
-        }
-
-        root = duuiFolder.getId();
-
-        return true;
     }
 
     public static void main(String... args) throws IOException, GeneralSecurityException {
@@ -269,6 +272,7 @@ public class DUUIGoogleDriveDocumentHandler implements IDUUIDocumentHandler, IDU
             documents = List.of();
         } else {
             documents = files.stream()
+                .filter(File::getIsAppAuthorized)
                 .map(f -> new DUUIDocument(f.getName(), f.getId(), f.getSize()))
                 .collect(Collectors.toList());
         }
@@ -279,7 +283,7 @@ public class DUUIGoogleDriveDocumentHandler implements IDUUIDocumentHandler, IDU
     @Override
     public DUUIFolder getFolderStructure() {
 
-        DUUIFolder root = new DUUIFolder(this.root, "Files");
+        DUUIFolder root = new DUUIFolder(DUUIGoogleDriveDocumentHandler.root, "Files");
 
         return getFolderStructure(root);
     }

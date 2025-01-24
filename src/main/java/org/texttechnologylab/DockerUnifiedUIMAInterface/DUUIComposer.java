@@ -2304,6 +2304,11 @@ public class DUUIComposer {
         pipelineStatus.put(name, status);
     }
 
+    public static String getLocalhost() {
+        boolean isDocker = Files.exists(Paths.get("/.dockerenv"));
+        return isDocker ? "http://host.docker.internal" : "http://127.0.0.1";
+    }
+
     public DebugLevel getDebugLevel() {
         return debugLevel;
     }
