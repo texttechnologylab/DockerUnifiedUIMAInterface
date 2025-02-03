@@ -53,6 +53,24 @@ public class DUUIDocument {
         this.size = bytes.length;
     }
 
+    public DUUIDocument(String name, String path, JCas jCas) {
+        if (jCas.getDocumentText() != null) {
+            this.bytes = jCas.getDocumentText().getBytes(StandardCharsets.UTF_8);
+        }
+        else if (jCas.getSofaDataStream() != null) {
+            try {
+                this.bytes = jCas.getSofaDataStream().readAllBytes();
+            }
+            catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+
+        this.name = name;
+        this.path = path;
+        this.size = bytes.length;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (o == this) {
