@@ -1683,7 +1683,7 @@ public class DUUIComposer {
     private JCas run_pipeline(String name, JCas jc, long documentWaitTime, Vector<PipelinePart> pipeline) throws Exception {
         progress.set(0);
 
-        DUUIDocument document = new DUUIDocument("Text", "Text", jc.getDocumentText().getBytes(StandardCharsets.UTF_8));
+        DUUIDocument document = new DUUIDocument("Text", "Text", jc);
         if (JCasUtil.select(jc, DocumentMetaData.class).isEmpty()) {
             DocumentMetaData dmd = DocumentMetaData.create(jc);
             dmd.setDocumentId(document.getName());
