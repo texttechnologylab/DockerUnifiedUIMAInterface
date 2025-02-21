@@ -50,7 +50,7 @@ The SwarmDriver complements the DockerDriver; it uses the same function alities,
 The KubernetesDriver works similarly to the SwarmDriver, but Kubernetes is used as the runtime environment instead of Docker Swarm. 
 
 ## Requirements
-![Java](https://img.shields.io/badge/Java-11-blue)
+![Java](https://img.shields.io/badge/Java-17-blue)
 ![Docker](https://img.shields.io/badge/Docker-20.10-green)
 
 ### Java requirements
@@ -81,7 +81,7 @@ After that DUUI can be integrated as a dependency:
 <dependency>
   <groupId>com.github.texttechnologylab</groupId>
   <artifactId>DockerUnifiedUIMAInterface</artifactId>
-  <version>1.3</version>
+  <version>1.4</version>
 </dependency>
 ```
 
