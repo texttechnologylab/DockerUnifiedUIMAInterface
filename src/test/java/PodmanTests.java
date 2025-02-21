@@ -2,6 +2,7 @@ import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import org.apache.uima.UIMAException;
 import org.apache.uima.cas.CASException;
 import org.apache.uima.fit.factory.JCasFactory;
+import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.resource.ResourceInitializationException;
 import org.junit.jupiter.api.BeforeAll;
@@ -88,6 +89,9 @@ public class PodmanTests {
         JCas tCas = getCas();
 
         pComposer.run(tCas);
+        pComposer.shutdown();
+
+        JCasUtil.selectAll(tCas).stream().forEach(System.out::println);
 
 
     }

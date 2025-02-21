@@ -73,6 +73,7 @@ public interface IDUUIInstantiatedPipelineComponent {
                 if (resp.statusCode() == 200) {
                     String body = new String(resp.body(), Charset.defaultCharset());
                     File tmp = File.createTempFile("duui.composer", "_type");
+                    tmp.deleteOnExit();
                     FileWriter writer = new FileWriter(tmp);
                     writer.write(body);
                     writer.flush();
