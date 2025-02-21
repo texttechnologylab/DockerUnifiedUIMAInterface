@@ -277,6 +277,7 @@ public class NegLab {
                 XmiWriter.PARAM_COMPRESSION, "GZIP"
         )).build());
 
+
         composer.run(pProcessor, "wikipedia");
 
     }
