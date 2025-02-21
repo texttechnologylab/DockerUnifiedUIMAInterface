@@ -848,7 +848,7 @@ public class DUUIComposer {
     }
 
     public static String getLocalhost() {
-        return "http://127.0.0.1/";
+        return "http://127.0.0.1";
     }
 
     /**

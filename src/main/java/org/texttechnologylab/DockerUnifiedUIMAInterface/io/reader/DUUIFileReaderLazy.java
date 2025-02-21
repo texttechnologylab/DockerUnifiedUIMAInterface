@@ -327,8 +327,15 @@ public class DUUIFileReaderLazy implements DUUICollectionReader {
                 } else {
                     empty.setDocumentText(IOUtils.toString(new FileInputStream(new File(result)), StandardCharsets.UTF_8));
                 }
-                if (empty.getDocumentText().length() == 0) {
+                // check
+
+                if (empty != null && empty.getDocumentText() == null) {
                     XmiCasDeserializer.deserialize(decodedFile, empty.getCas(), true);
+                }
+                try {
+                    int iLength = empty.getDocumentText().length();
+                } catch (Exception e) {
+                    throw new SAXParseException(e.getMessage(), null);
                 }
             } catch (Exception e) {
 
@@ -344,8 +351,9 @@ public class DUUIFileReaderLazy implements DUUICollectionReader {
                         } else {
                             rString = org.texttechnologylab.utilities.helper.FileUtils.getContentFromFile(new File(result));
                         }
-                        System.out.println(rString);
+//                        System.out.println(rString);
 
+                        System.out.println("Reparing " + result);
                         rString = XMLCharInvalidPattern.matcher(rString).replaceAll("");
 
                         if (!result.endsWith(".txt")) {
