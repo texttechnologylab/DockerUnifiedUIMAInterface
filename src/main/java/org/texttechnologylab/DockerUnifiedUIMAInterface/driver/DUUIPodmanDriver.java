@@ -20,6 +20,7 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.segmentation.DUUISegment
 import org.xml.sax.SAXException;
 import podman.client.PodmanClient;
 import podman.client.containers.ContainerCreateOptions;
+import podman.client.containers.ContainerDeleteOptions;
 import podman.client.containers.ContainerInspectOptions;
 import podman.client.images.ImagePullOptions;
 
@@ -65,7 +66,7 @@ public class DUUIPodmanDriver implements IDUUIDriverInterface {
         PodmanClient.Options options = new PodmanClient.Options().setSocketPath(podmanSocketPath());
 
         _interface = PodmanClient.create(_vertx, options);
-
+        _container_timeout = 10;
         _active_components = new HashMap<String, DUUIDockerDriver.InstantiatedComponent>();
         _luaContext = null;
 
@@ -174,18 +175,15 @@ public class DUUIPodmanDriver implements IDUUIDriverInterface {
             int port = -1;
             try {
                 pObject = awaitResult(_interface.containers().create(pOptions));
-                System.out.println(pObject);
                 containerId = pObject.getString("Id");
 
                 _interface.containers().start(containerId);
-                Thread.sleep(3000l);
 
                 iObject = awaitResult(_interface.containers().inspect(containerId, new ContainerInspectOptions().setSize(false)));
                 JSONObject nObject = new JSONObject(iObject);
-                System.out.println(nObject.toString(1));
+//                System.out.println(nObject.toString(1));
                 port = nObject.getJSONObject("map").getJSONObject("HostConfig").getJSONObject("PortBindings").getJSONArray("9714/tcp").getJSONObject(0).getInt("HostPort");
 
-                System.out.println("start");
 //
 //                Thread.sleep(3000l);
 //
@@ -230,22 +228,54 @@ public class DUUIPodmanDriver implements IDUUIDriverInterface {
 
     @Override
     public TypeSystemDescription get_typesystem(String uuid) throws InterruptedException, IOException, SAXException, CompressorException, ResourceInitializationException {
-        return null;
+        DUUIDockerDriver.InstantiatedComponent comp = _active_components.get(uuid);
+        if (comp == null) {
+            throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
+        }
+        return IDUUIInstantiatedPipelineComponent.getTypesystem(uuid, comp);
     }
 
     @Override
     public void run(String uuid, JCas aCas, DUUIPipelineDocumentPerformance perf, DUUIComposer composer) throws InterruptedException, IOException, SAXException, AnalysisEngineProcessException, CompressorException, CASException {
+        long mutexStart = System.nanoTime();
+        DUUIDockerDriver.InstantiatedComponent comp = _active_components.get(uuid);
+        if (comp == null) {
+            throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
+        }
+        IDUUIInstantiatedPipelineComponent.process(aCas, comp, perf);
 
     }
 
     @Override
     public boolean destroy(String uuid) {
-        return false;
+        DUUIDockerDriver.InstantiatedComponent comp = _active_components.remove(uuid);
+        if (comp == null) {
+            throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
+        }
+        if (!comp.getRunningAfterExit()) {
+            int counter = 1;
+            for (DUUIDockerDriver.ComponentInstance inst : comp.getInstances()) {
+                System.out.printf("[PodmanDriver][Replication %d/%d] Stopping docker container %s...\n", counter, comp.getInstances().size(), inst.getContainerId());
+                _interface.containers().stop(inst.getContainerId(), false, 1);
+                _interface.containers().delete(inst.getContainerId(), new ContainerDeleteOptions().setTimeout(1).setIgnore(true));
+
+                counter += 1;
+            }
+        }
+
+        return true;
     }
 
     @Override
     public void shutdown() {
-
+        for (String s : _active_components.keySet()) {
+            destroy(s);
+        }
+        try {
+            Thread.sleep(3000l);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public static class Component {
