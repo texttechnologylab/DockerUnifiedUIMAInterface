@@ -302,6 +302,7 @@ public class DUUIFileReader implements DUUICollectionReader {
         }
 
         InputStream decodedFile = null;
+        boolean bManual = false;
         try {
             if (result.endsWith(".xz")) {
                 decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.XZ, new ByteArrayInputStream(file));
@@ -313,8 +314,9 @@ public class DUUIFileReader implements DUUICollectionReader {
                 decodedFile = new ByteArrayInputStream(file);
             } else {
                 empty.setDocumentText(IOUtils.toString(decodedFile, StandardCharsets.UTF_8));
+                bManual = true;
             }
-            if (empty.getDocumentText().length() == 0) {
+            if (!bManual) {
                 XmiCasDeserializer.deserialize(decodedFile, empty.getCas(), true);
             }
 

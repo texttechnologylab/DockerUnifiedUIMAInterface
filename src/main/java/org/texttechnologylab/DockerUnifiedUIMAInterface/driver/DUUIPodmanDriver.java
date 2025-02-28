@@ -14,6 +14,7 @@ import org.apache.uima.util.InvalidXMLException;
 import org.json.JSONObject;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUICommunicationLayer;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.exception.ImageException;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.segmentation.DUUISegmentationStrategy;
@@ -22,7 +23,6 @@ import podman.client.PodmanClient;
 import podman.client.containers.ContainerCreateOptions;
 import podman.client.containers.ContainerDeleteOptions;
 import podman.client.containers.ContainerInspectOptions;
-import podman.client.images.ImagePullOptions;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -31,7 +31,9 @@ import java.lang.reflect.InvocationTargetException;
 import java.net.URISyntaxException;
 import java.net.http.HttpClient;
 import java.security.InvalidParameterException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -41,6 +43,11 @@ import static org.awaitility.Awaitility.await;
 import static org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer.getLocalhost;
 import static org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIDockerDriver.responsiveAfterTime;
 
+/**
+ * Driver for using a local Podman instance to run DUUI components
+ *
+ * @author Giuseppe Abrami
+ */
 public class DUUIPodmanDriver implements IDUUIDriverInterface {
 
     private PodmanClient _interface = null;
@@ -59,9 +66,7 @@ public class DUUIPodmanDriver implements IDUUIDriverInterface {
         _vertx = Vertx.vertx(vertxOptions);
         _client = HttpClient.newHttpClient();
 
-
         System.out.printf("[PodmanDriver] Is Native Transport Enabled: %s\n", _vertx.isNativeTransportEnabled());
-
 
         PodmanClient.Options options = new PodmanClient.Options().setSocketPath(podmanSocketPath());
 
@@ -94,7 +99,7 @@ public class DUUIPodmanDriver implements IDUUIDriverInterface {
         return path;
     }
 
-    static <T> T awaitResult(Future<T> future) throws Throwable {
+    private static <T> T awaitResult(Future<T> future) throws Throwable {
         AtomicBoolean done = new AtomicBoolean();
         AtomicReference<T> result = new AtomicReference<>();
         AtomicReference<Throwable> failure = new AtomicReference<>();
@@ -124,6 +129,76 @@ public class DUUIPodmanDriver implements IDUUIDriverInterface {
         return component.getDockerImageName() != null;
     }
 
+    public static void pull(String sImagename) throws ImageException {
+
+//        _interface.images().pull(sImagename, new ImagePullOptions())
+//                .subscribe(new Flow.Subscriber<JsonObject>() {
+//            @Override
+//            public void onSubscribe(Flow.Subscription subscription) {
+//                System.out.println(subscription.toString());
+//            }
+//
+//            @Override
+//            public void onNext(JsonObject item) {
+//                System.out.println(item.toString());
+//            }
+//
+//            @Override
+//            public void onError(Throwable throwable) {
+//                throwable.printStackTrace();
+//            }
+//
+//            @Override
+//            public void onComplete() {
+//                System.out.println("finish");
+//            }
+//        });
+
+
+        ProcessBuilder pb = new ProcessBuilder("podman", "pull", sImagename);
+        Process process = null;
+
+        try {
+            process = pb.start();
+            try {
+                BufferedReader br = new BufferedReader(new InputStreamReader(process.getInputStream()));
+                BufferedReader brError = new BufferedReader(new InputStreamReader(process.getErrorStream()));
+                String input;
+                while ((input = br.readLine()) != null) {
+                    // Print the input
+                    System.out.println(input);
+                }
+                StringBuilder sb = new StringBuilder();
+                while ((input = brError.readLine()) != null) {
+                    // Print the input
+                    if (sb.length() > 0) {
+                        sb.append("\n");
+                    }
+                    sb.append(input);
+                }
+                if (sb.length() > 0) {
+                    throw new ImageException(sb.toString());
+                }
+
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
+            process.waitFor();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+
+
+    }
+
+    @Override
+    public void printConcurrencyGraph(String uuid) {
+
+    }
+
     @Override
     public String instantiate(DUUIPipelineComponent component, JCas jc, boolean skipVerification, AtomicBoolean shutdown) throws Exception {
 
@@ -140,90 +215,113 @@ public class DUUIPodmanDriver implements IDUUIDriverInterface {
             if (comp.getUsername() != null) {
                 System.out.printf("[PodmanDriver] Attempting image %s download from secure remote registry\n", comp.getImageName());
             }
-            _interface.images().pull(comp.getImageName(), new ImagePullOptions());
-            if (shutdown.get()) {
-                return null;
+            try {
+                pull(comp.getImageName());
+//            _interface.images().pull(comp.getImageName(), new ImagePullOptions());
+
+                if (shutdown.get()) {
+                    return null;
+                }
+
+                System.out.printf("[PodmanDriver] Pulled image with id %s\n", comp.getImageName());
+            } catch (ImageException e) {
+                System.err.println(e.getMessage());
             }
 
-            System.out.printf("[PodmanDriver] Pulled image with id %s\n", comp.getImageName());
+
         } else {
 //            _interface.pullImage(comp.getImageName());
             if (!_interface.images().exists(comp.getImageName()).succeeded()) {
                 throw new InvalidParameterException(format("Could not find local image \"%s\". Did you misspell it or forget with .withImageFetching() to fetch it from remote registry?", comp.getImageName()));
             }
         }
-        System.out.printf("[PodmanDriver] Assigned new pipeline component unique id %s\n", uuid);
 
-        _active_components.put(uuid, comp);
-        // TODO: Fragen, was hier genau gemacht wird.
-        for (int i = 0; i < comp.getScale(); i++) {
-            if (shutdown.get()) {
-                return null;
-            }
+        if (_interface.images().exists(comp.getImageName()).succeeded()) {
+            System.out.printf("[PodmanDriver] Assigned new pipeline component unique id %s\n", uuid);
 
+            _active_components.put(uuid, comp);
 
-            ContainerCreateOptions pOptions = new ContainerCreateOptions();
-            pOptions.image(comp.getImageName());
-            pOptions.remove(true);
-
-            pOptions.publishImagePorts(true);
-
-
-            JsonObject pObject = null;
-            JsonObject iObject = null;
-            String containerId = "";
-            int port = -1;
-            try {
-                pObject = awaitResult(_interface.containers().create(pOptions));
-                containerId = pObject.getString("Id");
-
-                _interface.containers().start(containerId);
-
-                iObject = awaitResult(_interface.containers().inspect(containerId, new ContainerInspectOptions().setSize(false)));
-                JSONObject nObject = new JSONObject(iObject);
-//                System.out.println(nObject.toString(1));
-                port = nObject.getJSONObject("map").getJSONObject("HostConfig").getJSONObject("PortBindings").getJSONArray("9714/tcp").getJSONObject(0).getInt("HostPort");
-
-//
-//                Thread.sleep(3000l);
-//
-//                _interface.containers().stop(containerId, true, 10);
-//                System.out.println("stop");
-//                Thread.sleep(3000l);
-//
-//
-//                _interface.containers().delete(containerId, new ContainerDeleteOptions().setTimeout(100).setIgnore(true));
-//                System.out.println("remove");
-            } catch (Throwable e) {
-                throw new RuntimeException(e);
-            }
-
-            try {
-                if (port == 0) {
-                    throw new UnknownError("Could not read the container port!");
+            for (int i = 0; i < comp.getScale(); i++) {
+                if (shutdown.get()) {
+                    return null;
                 }
-                final int iCopy = i;
-                final String uuidCopy = uuid;
-                IDUUICommunicationLayer layer = responsiveAfterTime(getLocalhost() + ":" + String.valueOf(port), jc, _container_timeout, _client, (msg) -> {
-                    System.out.printf("[PodmanDriver][%s][Podman Replication %d/%d] %s\n", uuidCopy, iCopy + 1, comp.getScale(), msg);
-                }, _luaContext, skipVerification);
-                System.out.printf("[PodmanDriver][%s][Podman Replication %d/%d] Container for image %s is online (URL http://127.0.0.1:%d) and seems to understand DUUI V1 format!\n", uuid, i + 1, comp.getScale(), comp.getImageName(), port);
 
-                comp.addInstance(new DUUIDockerDriver.ComponentInstance(containerId, port, layer));
-            } catch (Exception e) {
-                //_interface.stop_container(containerid);
-                //throw e;
+
+                ContainerCreateOptions pOptions = new ContainerCreateOptions();
+                pOptions.image(comp.getImageName());
+                pOptions.remove(true);
+                pOptions.publishImagePorts(true);
+
+                if (comp.usesGPU()) {
+                    List<ContainerCreateOptions.LinuxDevice> linuxDevices = new ArrayList<>();
+                    linuxDevices.add(new ContainerCreateOptions.LinuxDevice(0666, 0, 195, 0, "/dev/nvidia0", "c", 0));
+//                linuxDevices.add(new ContainerCreateOptions.LinuxDevice(0666, 0, 195, 255, "/dev/nvidiactl", "c", 0));
+//                linuxDevices.add(new ContainerCreateOptions.LinuxDevice(0666, 0, 236, 0, "/dev/nvidia-uvm", "c", 0));
+
+//                pOptions.devices(linuxDevices);
+                    pOptions.hostDeviceList(linuxDevices);
+                }
+
+
+                JsonObject pObject = null;
+                JsonObject iObject = null;
+                String containerId = "";
+                int port = -1;
+                try {
+                    pObject = awaitResult(_interface.containers().create(pOptions));
+                    containerId = pObject.getString("Id");
+
+                    _interface.containers().start(containerId);
+
+                    System.out.println(pObject);
+
+
+                    iObject = awaitResult(_interface.containers().inspect(containerId, new ContainerInspectOptions().setSize(false)));
+                    JSONObject nObject = new JSONObject(iObject);
+                    System.out.println(nObject);
+                    port = nObject.getJSONObject("map").getJSONObject("HostConfig").getJSONObject("PortBindings").getJSONArray("9714/tcp").getJSONObject(0).getInt("HostPort");
+
+
+                } catch (Throwable e) {
+                    e.printStackTrace();
+                    stop_container(containerId, true);
+                    throw new RuntimeException(e);
+                }
+
+                try {
+                    if (port == 0) {
+                        throw new UnknownError("Could not read the container port!");
+                    }
+                    final int iCopy = i;
+                    final String uuidCopy = uuid;
+                    IDUUICommunicationLayer layer = responsiveAfterTime(getLocalhost() + ":" + String.valueOf(port), jc, _container_timeout, _client, (msg) -> {
+                        System.out.printf("[PodmanDriver][%s][Podman Replication %d/%d] %s\n", uuidCopy, iCopy + 1, comp.getScale(), msg);
+                    }, _luaContext, skipVerification);
+                    System.out.printf("[PodmanDriver][%s][Podman Replication %d/%d] Container for image %s is online (URL http://127.0.0.1:%d) and seems to understand DUUI V1 format!\n", uuid, i + 1, comp.getScale(), comp.getImageName(), port);
+
+                    comp.addInstance(new DUUIDockerDriver.ComponentInstance(containerId, port, layer));
+                } catch (Exception e) {
+
+                    e.printStackTrace();
+                    //throw e;
+                }
+
+
             }
-
 
         }
         return shutdown.get() ? null : uuid;
-
     }
 
-    @Override
-    public void printConcurrencyGraph(String uuid) {
+    private void stop_container(String containerId) {
+        stop_container(containerId, true);
+    }
 
+    private void stop_container(String containerId, boolean bDelete) {
+        _interface.containers().stop(containerId, false, 1);
+        if (bDelete) {
+            _interface.containers().delete(containerId, new ContainerDeleteOptions().setTimeout(1).setIgnore(true));
+        }
     }
 
     @Override
@@ -256,8 +354,7 @@ public class DUUIPodmanDriver implements IDUUIDriverInterface {
             int counter = 1;
             for (DUUIDockerDriver.ComponentInstance inst : comp.getInstances()) {
                 System.out.printf("[PodmanDriver][Replication %d/%d] Stopping docker container %s...\n", counter, comp.getInstances().size(), inst.getContainerId());
-                _interface.containers().stop(inst.getContainerId(), false, 1);
-                _interface.containers().delete(inst.getContainerId(), new ContainerDeleteOptions().setTimeout(1).setIgnore(true));
+                stop_container(inst.getContainerId(), true);
 
                 counter += 1;
             }

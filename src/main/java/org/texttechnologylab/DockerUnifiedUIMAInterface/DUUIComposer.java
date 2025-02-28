@@ -1906,6 +1906,8 @@ public class DUUIComposer {
                     return;
                 }
             }
+
+
             JCas start = run_pipeline(name, jc, 0, _instantiatedPipeline);
 
             if (_storage != null) {
