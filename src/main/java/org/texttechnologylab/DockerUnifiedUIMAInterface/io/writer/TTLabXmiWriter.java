@@ -33,7 +33,7 @@ public class TTLabXmiWriter extends JCasFileWriter_ImplBase {
     public void process(JCas aJCas) throws AnalysisEngineProcessException {
 
         try (OutputStream docOS = getOutputStream(aJCas, filenameSuffix)) {
-            XmiCasSerializer xmiCasSerializer = new XmiCasSerializer(null);
+            XmiCasSerializer xmiCasSerializer = new XmiCasSerializer(aJCas.getTypeSystem());
             XMLSerializer sax2xml = new XMLSerializer(docOS, prettyPrint);
             sax2xml.setOutputProperty(OutputKeys.VERSION, version);
 
