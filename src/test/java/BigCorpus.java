@@ -3,10 +3,7 @@ import org.dkpro.core.api.resources.CompressionMethod;
 import org.dkpro.core.io.xmi.XmiWriter;
 import org.junit.jupiter.api.Test;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIDockerDriver;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIPipelineComponent;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUISwarmDriver;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIUIMADriver;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.*;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.DUUIAsynchronousProcessor;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.DUUICollectionReader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.reader.DUUIFileReaderLazy;
@@ -26,8 +23,11 @@ public class BigCorpus {
 
 //        String sInputPath = "/mnt/NegLab/corpora/BigCorpus/EUBookshop";
 //        String sOutputPath = "/tmp/EUBookshopSpaCy";
-        String sInputPath = "/tmp/EUBook/input";
-        String sOutputPath = "/tmp/EUBook/output";
+//        String sInputPath = "/tmp/EUBook/input";
+//        String sOutputPath = "/tmp/EUBook/output";
+        String sInputPath = "/home/staff_homes/lehammer/Downloads/A";
+        String sOutputPath = "/home/staff_homes/lehammer/Downloads/A_out";
+
 ////        String sOutputPath = "/tmp/wiki/";
         String sSuffix = "xmi.bz2";
 
@@ -47,24 +47,32 @@ public class BigCorpus {
 
         DUUIDockerDriver docker_driver = new DUUIDockerDriver();
         DUUISwarmDriver swarm_driver = new DUUISwarmDriver();
+        DUUIRemoteDriver remote_driver = new DUUIRemoteDriver();
         DUUIUIMADriver uima_driver = new DUUIUIMADriver()
                 .withDebug(true);
 
         // Hinzufügen der einzelnen Driver zum Composer
-        composer.addDriver(docker_driver, uima_driver, swarm_driver);  // remote_driver und swarm_driver scheint nicht benötigt zu werden.
+        composer.addDriver(docker_driver, uima_driver
+                ,swarm_driver, remote_driver
+        );  // remote_driver und swarm_driver scheint nicht benötigt zu werden.
 
         DUUISegmentationStrategyByAnnotationFast segmentationStrategy = new DUUISegmentationStrategyByAnnotationFast();
         segmentationStrategy.withSegmentationClass(Sentence.class);
         segmentationStrategy.withLength(500000);
 
-        DUUIPipelineComponent componentLang = new DUUISwarmDriver
+
+        DUUIPipelineComponent componentLang = new DUUIDockerDriver
                 //DUUIPipelineComponent componentLang = new DUUIDockerDriver
                 .Component("docker.texttechnologylab.org/languagedetection:0.5")
+                .withImageFetching()
                 .withScale(iWorker)
                 .build();
         composer.add(componentLang);
 
+
+
         composer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/duui-spacy-de_core_news_lg:0.4.4")
+                .withImageFetching()
                 .withParameter("use_existing_tokens", String.valueOf(true))
                 .withParameter("use_existing_sentences", String.valueOf(true))
                 .withScale(iWorker)
