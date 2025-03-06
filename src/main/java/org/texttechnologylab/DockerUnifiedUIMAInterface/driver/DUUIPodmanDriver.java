@@ -231,84 +231,94 @@ public class DUUIPodmanDriver implements IDUUIDriverInterface {
 
         } else {
 //            _interface.pullImage(comp.getImageName());
-            if (!_interface.images().exists(comp.getImageName()).succeeded()) {
-                throw new InvalidParameterException(format("Could not find local image \"%s\". Did you misspell it or forget with .withImageFetching() to fetch it from remote registry?", comp.getImageName()));
+            try {
+                if (!awaitResult(_interface.images().exists(comp.getImageName()))) {
+                    throw new InvalidParameterException(format("Could not find local image \"%s\". Did you misspell it or forget with .withImageFetching() to fetch it from remote registry?", comp.getImageName()));
+                }
+            } catch (Exception e) {
+                throw e;
+            } catch (Throwable e) {
+                throw new RuntimeException(e);
             }
         }
 
-        if (_interface.images().exists(comp.getImageName()).succeeded()) {
-            System.out.printf("[PodmanDriver] Assigned new pipeline component unique id %s\n", uuid);
+        try {
+            if (awaitResult(_interface.images().exists(comp.getImageName()))) {
+                System.out.printf("[PodmanDriver] Assigned new pipeline component unique id %s\n", uuid);
 
-            _active_components.put(uuid, comp);
+                _active_components.put(uuid, comp);
 
-            for (int i = 0; i < comp.getScale(); i++) {
-                if (shutdown.get()) {
-                    return null;
-                }
-
-
-                ContainerCreateOptions pOptions = new ContainerCreateOptions();
-                pOptions.image(comp.getImageName());
-                pOptions.remove(true);
-                pOptions.publishImagePorts(true);
-
-                if (comp.usesGPU()) {
-                    List<ContainerCreateOptions.LinuxDevice> linuxDevices = new ArrayList<>();
-                    linuxDevices.add(new ContainerCreateOptions.LinuxDevice(0666, 0, 195, 0, "/dev/nvidia0", "c", 0));
-//                linuxDevices.add(new ContainerCreateOptions.LinuxDevice(0666, 0, 195, 255, "/dev/nvidiactl", "c", 0));
-//                linuxDevices.add(new ContainerCreateOptions.LinuxDevice(0666, 0, 236, 0, "/dev/nvidia-uvm", "c", 0));
-
-//                pOptions.devices(linuxDevices);
-                    pOptions.hostDeviceList(linuxDevices);
-                }
-
-
-                JsonObject pObject = null;
-                JsonObject iObject = null;
-                String containerId = "";
-                int port = -1;
-                try {
-                    pObject = awaitResult(_interface.containers().create(pOptions));
-                    containerId = pObject.getString("Id");
-
-                    _interface.containers().start(containerId);
-
-                    System.out.println(pObject);
-
-
-                    iObject = awaitResult(_interface.containers().inspect(containerId, new ContainerInspectOptions().setSize(false)));
-                    JSONObject nObject = new JSONObject(iObject);
-                    System.out.println(nObject);
-                    port = nObject.getJSONObject("map").getJSONObject("HostConfig").getJSONObject("PortBindings").getJSONArray("9714/tcp").getJSONObject(0).getInt("HostPort");
-
-
-                } catch (Throwable e) {
-                    e.printStackTrace();
-                    stop_container(containerId, true);
-                    throw new RuntimeException(e);
-                }
-
-                try {
-                    if (port == 0) {
-                        throw new UnknownError("Could not read the container port!");
+                for (int i = 0; i < comp.getScale(); i++) {
+                    if (shutdown.get()) {
+                        return null;
                     }
-                    final int iCopy = i;
-                    final String uuidCopy = uuid;
-                    IDUUICommunicationLayer layer = responsiveAfterTime(getLocalhost() + ":" + String.valueOf(port), jc, _container_timeout, _client, (msg) -> {
-                        System.out.printf("[PodmanDriver][%s][Podman Replication %d/%d] %s\n", uuidCopy, iCopy + 1, comp.getScale(), msg);
-                    }, _luaContext, skipVerification);
-                    System.out.printf("[PodmanDriver][%s][Podman Replication %d/%d] Container for image %s is online (URL http://127.0.0.1:%d) and seems to understand DUUI V1 format!\n", uuid, i + 1, comp.getScale(), comp.getImageName(), port);
 
-                    comp.addInstance(new DUUIDockerDriver.ComponentInstance(containerId, port, layer));
-                } catch (Exception e) {
 
-                    e.printStackTrace();
-                    //throw e;
+                    ContainerCreateOptions pOptions = new ContainerCreateOptions();
+                    pOptions.image(comp.getImageName());
+                    pOptions.remove(true);
+                    pOptions.publishImagePorts(true);
+
+                    if (comp.usesGPU()) {
+                        List<ContainerCreateOptions.LinuxDevice> linuxDevices = new ArrayList<>();
+                        linuxDevices.add(new ContainerCreateOptions.LinuxDevice(0666, 0, 195, 0, "/dev/nvidia0", "c", 0));
+                        //                linuxDevices.add(new ContainerCreateOptions.LinuxDevice(0666, 0, 195, 255, "/dev/nvidiactl", "c", 0));
+                        //                linuxDevices.add(new ContainerCreateOptions.LinuxDevice(0666, 0, 236, 0, "/dev/nvidia-uvm", "c", 0));
+
+                        //                pOptions.devices(linuxDevices);
+                        pOptions.hostDeviceList(linuxDevices);
+                    }
+
+
+                    JsonObject pObject = null;
+                    JsonObject iObject = null;
+                    String containerId = "";
+                    int port = -1;
+                    try {
+                        pObject = awaitResult(_interface.containers().create(pOptions));
+                        containerId = pObject.getString("Id");
+
+                        _interface.containers().start(containerId);
+
+                        System.out.println(pObject);
+
+
+                        iObject = awaitResult(_interface.containers().inspect(containerId, new ContainerInspectOptions().setSize(false)));
+                        JSONObject nObject = new JSONObject(iObject);
+                        System.out.println(nObject);
+                        port = nObject.getJSONObject("map").getJSONObject("HostConfig").getJSONObject("PortBindings").getJSONArray("9714/tcp").getJSONObject(0).getInt("HostPort");
+
+
+                    } catch (Throwable e) {
+                        e.printStackTrace();
+                        stop_container(containerId, true);
+                        throw new RuntimeException(e);
+                    }
+
+                    try {
+                        if (port == 0) {
+                            throw new UnknownError("Could not read the container port!");
+                        }
+                        final int iCopy = i;
+                        final String uuidCopy = uuid;
+                        IDUUICommunicationLayer layer = responsiveAfterTime(getLocalhost() + ":" + String.valueOf(port), jc, _container_timeout, _client, (msg) -> {
+                            System.out.printf("[PodmanDriver][%s][Podman Replication %d/%d] %s\n", uuidCopy, iCopy + 1, comp.getScale(), msg);
+                        }, _luaContext, skipVerification);
+                        System.out.printf("[PodmanDriver][%s][Podman Replication %d/%d] Container for image %s is online (URL http://127.0.0.1:%d) and seems to understand DUUI V1 format!\n", uuid, i + 1, comp.getScale(), comp.getImageName(), port);
+
+                        comp.addInstance(new DUUIDockerDriver.ComponentInstance(containerId, port, layer));
+                    } catch (Exception e) {
+
+                        e.printStackTrace();
+                        //throw e;
+                    }
+
+
                 }
-
 
             }
-
+        } catch (Throwable e) {
+            throw new RuntimeException(e);
         }
         return shutdown.get() ? null : uuid;
     }

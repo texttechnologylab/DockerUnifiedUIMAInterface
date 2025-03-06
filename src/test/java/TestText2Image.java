@@ -1,6 +1,5 @@
 import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Paragraph;
-import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Sentence;
 import org.apache.uima.UIMAException;
 import org.apache.uima.cas.CASException;
 import org.apache.uima.fit.factory.JCasFactory;
@@ -150,18 +149,19 @@ public class TestText2Image {
                 .withImageFetching()
                 .withScale(iWorkers)
                 .build());
-
+//
         pComposer.add(new DUUIRemoteDriver.Component("http://geltlin.hucompute.org:9050")
                 .withParameter("model_name", "OFA-Sys/small-stable-diffusion-v0")
                 .withParameter("selection", Paragraph.class.getName())
                 .withScale(iWorkers)
                 .build().withTimeout(100000));
 
-        pComposer.add(new DUUIRemoteDriver.Component("http://geltlin.hucompute.org:9050")
-                .withParameter("model_name", "OFA-Sys/small-stable-diffusion-v0")
-                .withParameter("selection", Sentence.class.getName())
-                .withScale(iWorkers)
-                .build().withTimeout(100000));
+//        pComposer.add(new DUUIRemoteDriver.Component("http://geltlin.hucompute.org:9050")
+//                .withParameter("model_name", "OFA-Sys/small-stable-diffusion-v0")
+//                .withParameter("selection", Sentence.class.getName())
+//                .withParameter("number_of_images", "1")
+//                .withScale(iWorkers)
+//                .build().withTimeout(100000));
 
 //        pComposer.add(new DUUIPodmanDriver.Component("docker.texttechnologylab.org/duui-text-to-image:0.2.0")
 //                .withGPU(true)
