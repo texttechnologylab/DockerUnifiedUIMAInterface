@@ -19,7 +19,6 @@ import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.apache.uima.util.InvalidXMLException;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.DUUIEvent;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
 import org.texttechnologylab.duui.ReproducibleAnnotation;
 import org.xml.sax.SAXException;
@@ -361,7 +360,7 @@ public class DUUIUIMADriver implements IDUUIDriverInterface {
                 }
             }
 
-            if (composer.shouldShutdown()) return;
+//            if (composer.shouldShutdown()) return;
             engine.process(jc);
             long annotatorEnd = System.nanoTime();
             ReproducibleAnnotation ann = new ReproducibleAnnotation(jc);

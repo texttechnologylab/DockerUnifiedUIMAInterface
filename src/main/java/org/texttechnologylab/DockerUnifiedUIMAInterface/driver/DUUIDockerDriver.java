@@ -127,13 +127,18 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
 
         int iError = 0;
         while (true) {
-            HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(url + DUUIComposer.V1_COMPONENT_ENDPOINT_COMMUNICATION_LAYER))
-                .version(HttpClient.Version.HTTP_1_1)
-                .timeout(Duration.ofSeconds(timeout_ms))
-                .GET()
-                .build();
-
+            HttpRequest request = null;
+            try {
+                request = HttpRequest.newBuilder()
+                        .uri(URI.create(url + DUUIComposer.V1_COMPONENT_ENDPOINT_COMMUNICATION_LAYER))
+                        .version(HttpClient.Version.HTTP_1_1)
+//                        .timeout(Duration.ofSeconds(10))
+                        .timeout(Duration.ofSeconds(timeout_ms))
+                        .GET()
+                        .build();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
             try {
                 HttpResponse<byte[]> resp = null;
 
@@ -264,7 +269,7 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
      * @return
      * @throws Exception
      */
-    public String instantiate(DUUIPipelineComponent component, JCas jc, boolean skipVerification, AtomicBoolean shutdown) throws Exception {
+    public String instantiate(DUUIPipelineComponent component, JCas jc, boolean skipVerification, AtomicBoolean shutdown) throws InterruptedException {
         String uuid = UUID.randomUUID().toString();
         while (_active_components.containsKey(uuid.toString())) {
             uuid = UUID.randomUUID().toString();

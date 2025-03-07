@@ -4,6 +4,7 @@ import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.commons.compress.compressors.CompressorStreamFactory;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.IOUtils;
 import org.apache.uima.cas.impl.XmiCasDeserializer;
 import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
@@ -11,12 +12,15 @@ import org.javaync.io.AsyncFiles;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.AsyncCollectionReader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.ByteReadFuture;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.DUUICollectionReader;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.io.ProgressMeter;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.AdvancedProgressMeter;
 import org.texttechnologylab.utilities.helper.StringUtils;
 import org.xml.sax.SAXException;
 
-import java.io.*;
+import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -297,7 +301,8 @@ public class DUUIFileReader implements DUUICollectionReader {
             }
         }
 
-        InputStream decodedFile;
+        InputStream decodedFile = null;
+        boolean bManual = false;
         try {
             if (result.endsWith(".xz")) {
                 decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.XZ, new ByteArrayInputStream(file));
@@ -305,11 +310,16 @@ public class DUUIFileReader implements DUUICollectionReader {
                 decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.GZIP, new ByteArrayInputStream(file));
             } else if (result.endsWith(".bz2")) {
                 decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.BZIP2, new ByteArrayInputStream(file));
-            } else {
+            } else if (result.endsWith(".xmi")) {
                 decodedFile = new ByteArrayInputStream(file);
+            } else {
+                empty.setDocumentText(IOUtils.toString(decodedFile, StandardCharsets.UTF_8));
+                bManual = true;
+            }
+            if (!bManual) {
+                XmiCasDeserializer.deserialize(decodedFile, empty.getCas(), true);
             }
 
-            XmiCasDeserializer.deserialize(decodedFile, empty.getCas(), true);
         } catch (Exception e) {
             e.printStackTrace();
         }
