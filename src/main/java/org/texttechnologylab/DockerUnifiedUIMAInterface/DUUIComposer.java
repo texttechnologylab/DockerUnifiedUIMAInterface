@@ -1685,7 +1685,17 @@ public class DUUIComposer {
     private JCas run_pipeline(String name, JCas jc, long documentWaitTime, Vector<PipelinePart> pipeline) throws Exception {
         progress.set(0);
 
-        DUUIDocument document = new DUUIDocument("Text", "Text", jc);
+        if (name == null) {
+            name = "UIMA-Document";
+        }
+
+        DUUIDocument document = null;
+        if (jc.getDocumentText() != null) {
+            document = new DUUIDocument(name, "/opt/path/");
+        } else {
+            document = new DUUIDocument(name, "/opt/path", jc.getDocumentText().getBytes(StandardCharsets.UTF_8));
+        }
+
         if (JCasUtil.select(jc, DocumentMetaData.class).isEmpty()) {
             DocumentMetaData dmd = DocumentMetaData.create(jc);
             dmd.setDocumentId(document.getName());
@@ -2306,11 +2316,6 @@ public class DUUIComposer {
      */
     public void setPipelineStatus(String name, String status) {
         pipelineStatus.put(name, status);
-    }
-
-    public static String getLocalhost() {
-        boolean isDocker = Files.exists(Paths.get("/.dockerenv"));
-        return isDocker ? "http://host.docker.internal" : "http://127.0.0.1";
     }
 
     public DebugLevel getDebugLevel() {
