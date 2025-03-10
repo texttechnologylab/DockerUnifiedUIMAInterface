@@ -1690,7 +1690,7 @@ public class DUUIComposer {
         }
 
         DUUIDocument document = null;
-        if (jc.getDocumentText() == null) {  // was previously != ????
+        if (jc.getDocumentText() == null) {
             document = new DUUIDocument(name, "/opt/path/");
         } else {
             document = new DUUIDocument(name, "/opt/path", jc.getDocumentText().getBytes(StandardCharsets.UTF_8));
