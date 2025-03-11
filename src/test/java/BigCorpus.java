@@ -23,10 +23,10 @@ public class BigCorpus {
 
 //        String sInputPath = "/mnt/NegLab/corpora/BigCorpus/EUBookshop";
 //        String sOutputPath = "/tmp/EUBookshopSpaCy";
-//        String sInputPath = "/tmp/EUBook/input";
-//        String sOutputPath = "/tmp/EUBook/output";
-        String sInputPath = "/home/staff_homes/lehammer/Downloads/A";
-        String sOutputPath = "/home/staff_homes/lehammer/Downloads/A_out";
+        String sInputPath = "/tmp/EUBook/input";
+        String sOutputPath = "/tmp/EUBook/output";
+        //String sInputPath = "/home/staff_homes/lehammer/Downloads/A";
+        //String sOutputPath = "/home/staff_homes/lehammer/Downloads/A_out";
 
 ////        String sOutputPath = "/tmp/wiki/";
         String sSuffix = "xmi.bz2";
@@ -60,7 +60,14 @@ public class BigCorpus {
         segmentationStrategy.withSegmentationClass(Sentence.class);
         segmentationStrategy.withLength(500000);
 
-
+        /*
+        DUUIPipelineComponent componentLang = new DUUISwarmDriver
+                //DUUIPipelineComponent componentLang = new DUUIDockerDriver
+                .Component("docker.texttechnologylab.org/languagedetection:0.5")
+                .withScale(iWorker)
+                .build();
+        composer.add(componentLang);
+         */
         DUUIPipelineComponent componentLang = new DUUIDockerDriver
                 //DUUIPipelineComponent componentLang = new DUUIDockerDriver
                 .Component("docker.texttechnologylab.org/languagedetection:0.5")
