@@ -49,16 +49,13 @@ The SwarmDriver complements the DockerDriver; it uses the same function alities,
 #### KubernetesDriver
 The KubernetesDriver works similarly to the SwarmDriver, but Kubernetes is used as the runtime environment instead of Docker Swarm. 
 
+#### PodmanDriver
+The PodmanDriver works similarly to the DockerDriver, but Podman runs rootless.
+
+
 ## Requirements
-![Java](https://img.shields.io/badge/Java-17-blue)
-![Docker](https://img.shields.io/badge/Docker-20.10-green)
-
-### Java requirements
-DUUI has its own TypeSystem, which is required for use. To generate this an initial ```mvn compile``` is necessary:
-
-```bash
-mvn clean compile exec:java -Dexec.mainClass="org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer"
-```
+![Java](https://img.shields.io/badge/Java-21-blue)
+![Docker](https://img.shields.io/badge/Docker-22.10-green)
 
 ## Using
 There are basically two ways to use DUUI for preprocessing texts:
@@ -81,7 +78,7 @@ After that DUUI can be integrated as a dependency:
 <dependency>
   <groupId>com.github.texttechnologylab</groupId>
   <artifactId>DockerUnifiedUIMAInterface</artifactId>
-  <version>1.4</version>
+  <version>1.4.6</version>
 </dependency>
 ```
 
