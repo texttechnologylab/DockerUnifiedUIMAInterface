@@ -56,8 +56,12 @@ The SwarmDriver complements the DockerDriver; it uses the same function alities,
 ### KubernetesDriver
 The KubernetesDriver works similarly to the SwarmDriver, but Kubernetes is used as the runtime environment instead of Docker Swarm.
 
+#### PodmanDriver
+The PodmanDriver works similarly to the DockerDriver, but Podman runs rootless.
+
+
 # Requirements
-![Java](https://img.shields.io/badge/Java-17-blue)
+![Java](https://img.shields.io/badge/Java-21-blue)
 ![Docker](https://img.shields.io/badge/Docker-22.10-green)
 
 # UIMA-Components
