@@ -6,6 +6,8 @@
 [![Paper](http://img.shields.io/badge/paper-FindingsEMNLP--2023-fb44ce.svg)](https://aclanthology.org/2023.findings-emnlp.29)
 [![Paper-Kubernetes](http://img.shields.io/badge/paper-SoftwareX--2025-fb44ce.svg)](https://www.sciencedirect.com/science/article/pii/S2352711024004047)
 
+[![poster](http://img.shields.io/badge/poster-DH--2024-f944fe.svg)](https://doi.org/10.5281/zenodo.13761079)
+[![poster](http://img.shields.io/badge/poster-DHd--2025-f944fe.svg)](https://doi.org/10.5281/zenodo.14943128)
 
 # Docker Unified UIMA Interface (DUUI)
 ![img|320x271](https://github.com/texttechnologylab/DockerUnifiedUIMAInterface/blob/main/DUUI_Logo.png)
@@ -156,7 +158,11 @@ If you want to use the project please quote this as follows:
 
 Alexander Leonhardt, Giuseppe Abrami, Daniel Baumartz and Alexander Mehler. (2023). "Unlocking the Heterogeneous Landscape of Big Data NLP with DUUI." Findings of the Association for Computational Linguistics: EMNLP 2023, 385–399. [[LINK](https://aclanthology.org/2023.findings-emnlp.29)] [[PDF](https://aclanthology.org/2023.findings-emnlp.29.pdf)] 
 
+Giuseppe Abrami and Alexander Mehler. August, 2024. Efficient, uniform and scalable parallel NLP pre-processing with DUUI: Perspectives and Best Practice for the Digital Humanities. Digital Humanities Conference 2024 - Book of Abstracts (DH 2024), 15–18 [[LINK](https://doi.org/10.5281/zenodo.13761079)] [[POSTER](https://www.texttechnologylab.org/wp-content/uploads/2024/12/DH2024_Poster.pdf)] 
+
 Giuseppe Abrami, Markos Genios, Filip Fitzermann, Daniel Baumartz and Alexander Mehler. (2025). "Docker Unified UIMA Interface: New perspectives for NLP on big data" SoftwareX, Volume 29, 2025, 102033, ISSN 2352-7110, [[LINK](https://doi.org/10.1016/j.softx.2024.102033)]
+
+Giuseppe Abrami, Daniel Baumartz and Alexander Mehler. 2025. "DUUI: A Toolbox for the Construction of a new Kind of Natural Language Processing". Proceedings of the DHd 2025: Under Construction. Geisteswissenschaften und Data Humanities, 446–448 [[LINK](https://doi.org/10.5281/zenodo.14943128)] [[POSTER](https://zenodo.org/records/14944575)] 
 
 ## BibTeX
 ```
@@ -187,6 +193,26 @@ Giuseppe Abrami, Markos Genios, Filip Fitzermann, Daniel Baumartz and Alexander 
                data.}
 }
 
+@inproceedings{Abrami:Mehler:2024,
+  author    = {Abrami, Giuseppe and Mehler, Alexander},
+  title     = {Efficient, uniform and scalable parallel NLP pre-processing with
+               DUUI: Perspectives and Best Practice for the Digital Humanities},
+  year      = {2024},
+  month     = {08},
+  editor    = {Karajgikar, Jajwalya and Janco, Andrew and Otis, Jessica},
+  booktitle = {Digital Humanities Conference 2024 - Book of Abstracts (DH 2024)},
+  location  = {Washington, DC, USA},
+  series    = {DH},
+  keywords  = {duui},
+  publisher = {Zenodo},
+  doi       = {10.5281/zenodo.13761079},
+  poster    = {https://www.texttechnologylab.org/wp-content/uploads/2024/12/DH2024_Poster.pdf},
+  pdf       = {https://www.texttechnologylab.org/wp-content/uploads/2024/12/DH2024_Abstract.pdf},
+  url       = {https://doi.org/10.5281/zenodo.13761079},
+  pages     = {15--18},
+  numpages  = {4}
+}
+
 @article{Abrami:et:al:2025:a,
   title     = {Docker Unified UIMA Interface: New perspectives for NLP on big data},
   journal   = {SoftwareX},
@@ -197,6 +223,24 @@ Giuseppe Abrami, Markos Genios, Filip Fitzermann, Daniel Baumartz and Alexander 
   doi       = {https://doi.org/10.1016/j.softx.2024.102033},
   url       = {https://www.sciencedirect.com/science/article/pii/S2352711024004047},
   author    = {Giuseppe Abrami and Markos Genios and Filip Fitzermann and Daniel Baumartz and Alexander Mehler}
+}
+
+@inproceedings{Abrami:et:al:2025:b,
+  author    = {Abrami, Giuseppe and Baumartz, Daniel and Mehler, Alexander},
+  title     = {DUUI: A Toolbox for the Construction of a new Kind of Natural
+               Language Processing},
+  year      = {2025},
+  booktitle = {Proceedings of the DHd 2025: Under Construction. Geisteswissenschaften
+               und Data Humanities},
+  numpages  = {3},
+  location  = {Bielefeld, Germany},
+  series    = {DHd 2025},
+  publisher = {Zenodo},
+  keywords  = {duui},
+  pages     = {446--448},
+  doi       = {10.5281/zenodo.14943128},
+  url       = {https://doi.org/10.5281/zenodo.14943128},
+  poster    = {https://zenodo.org/records/14944575}
 }
 
 ```
