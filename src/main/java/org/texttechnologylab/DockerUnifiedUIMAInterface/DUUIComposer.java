@@ -1917,7 +1917,6 @@ public class DUUIComposer {
                 }
             }
 
-
             JCas start = run_pipeline(name, jc, 0, _instantiatedPipeline);
 
             if (_storage != null) {
@@ -2406,6 +2405,8 @@ public class DUUIComposer {
         return progress.get();
     }
 
+    public AtomicInteger getProgressAtomic() { return progress;}
+
     public void incrementProgress() {
         int progress = this.progress.incrementAndGet();
         addEvent(
@@ -2443,6 +2444,10 @@ public class DUUIComposer {
 
     public Map<String, IDUUIDriverInterface> get_drivers() {
         return _drivers;
+    }
+
+    public IDUUIStorageBackend get_storage() {
+        return _storage;
     }
 
     public Vector<PipelinePart> get_instantiatedPipeline() {
