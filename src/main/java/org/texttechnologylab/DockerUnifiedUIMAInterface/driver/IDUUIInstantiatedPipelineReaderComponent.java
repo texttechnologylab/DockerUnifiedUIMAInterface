@@ -39,6 +39,7 @@ public interface IDUUIInstantiatedPipelineReaderComponent extends IDUUIInstantia
 
     public static int initComponent(IDUUIInstantiatedPipelineComponent comp, Path filePath) {
         Triplet<IDUUIUrlAccessible,Long,Long> queue = comp.getComponent();
+        comp.addComponent(queue.getValue0());
         //System.out.printf("Address %s\n",queue.getValue0().generateURL()+ DUUIComposer.V1_COMPONENT_ENDPOINT_TYPESYSTEM);
         String initPath = "/v1/init";
 
