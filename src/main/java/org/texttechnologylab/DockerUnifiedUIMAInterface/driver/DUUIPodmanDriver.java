@@ -30,6 +30,7 @@ import java.io.InputStreamReader;
 import java.lang.reflect.InvocationTargetException;
 import java.net.URISyntaxException;
 import java.net.http.HttpClient;
+import java.nio.file.Path;
 import java.security.InvalidParameterException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -341,6 +342,21 @@ public class DUUIPodmanDriver implements IDUUIDriverInterface {
             throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
         }
         return IDUUIInstantiatedPipelineComponent.getTypesystem(uuid, comp);
+    }
+
+    /**
+     * init reader component
+     * @param uuid
+     * @param filePath
+     * @return
+     */
+    @Override
+    public int initReaderComponent(String uuid, Path filePath) {
+        DUUIDockerDriver.InstantiatedComponent comp = _active_components.get(uuid);
+        if (comp == null) {
+            throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
+        }
+        return IDUUIInstantiatedPipelineReaderComponent.initComponent(comp, filePath);
     }
 
     @Override
