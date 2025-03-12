@@ -1,30 +1,37 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface;
 
+import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.fit.factory.TypeSystemDescriptionFactory;
+import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.apache.uima.util.CasCreationUtils;
 import org.apache.uima.util.InvalidXMLException;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.document_handler.DUUIDocument;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.*;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.DUUIEvent;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.DUUIMonitor;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.DUUIStatus;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.IDUUIStorageBackend;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.segmentation.DUUISegmentationStrategy;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.segmentation.DUUISegmentationStrategyNone;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.tools.Timer;
 import org.xml.sax.SAXException;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.security.InvalidParameterException;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Vector;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static java.lang.String.format;
 
@@ -37,138 +44,57 @@ public class DUUIReaderComposer extends DUUIComposer {
     public DUUIReaderComposer() throws URISyntaxException {
         super();
     }
-    /**
-     * Instantiates the DUUI pipeline.
-     * <p>
-     * This setups, starts and checks every pipeline component and requests their UIMA typesystem to merge all types needed to process the full pipeline.
-     * @return Merged typesystem based on all components
-     * @throws Exception
-     */
 
     public List<Integer> instantiateReaderPipeline(Path filePath) throws Exception {
         List<Integer> docCounts = new LinkedList<>();
-        if (get_isServiceStarted())
-            return null;
-
-        Timer timer = new Timer();
-        timer.start();
-
-        set_hasShutdown(false);
-        JCas jc = JCasFactory.createJCas();
-        jc.setDocumentLanguage("en");
-        jc.setDocumentText("Hello World!");
-
-        if (get_skipVerification()) {
-            addEvent(
-                    DUUIEvent.Sender.COMPOSER,
-                    "Running without verification, no process calls will be made during initialization!");
-        }
-
-        // Reset "instantiated pipeline" as the components will duplicate otherwise
-        // See https://github.com/texttechnologylab/DockerUnifiedUIMAInterface/issues/34
-        // TODO should this only be done in "resetPipeline"?
-        //_instantiatedPipeline.clear();
-
-        List<TypeSystemDescription> descriptions = new LinkedList<>();
-        descriptions.add(get_minimalTypesystem());
-        descriptions.add(TypeSystemDescriptionFactory.createTypeSystemDescription());
         try {
             int index = 0;
-
             for (DUUIPipelineComponent comp : get_pipeline()) {
-                if (shouldShutdown()) return null;
-
                 IDUUIDriverInterface driver = get_drivers().get(comp.getDriver());
-                getPipelineStatus().put(driver.getClass().getSimpleName(), DUUIStatus.INSTANTIATING);
-                getPipelineStatus().put(comp.getName(), DUUIStatus.INSTANTIATING);
+                Integer nDocs = driver.initReaderComponent(get_instantiatedPipeline().get(index).getUUID(), filePath);
+                docCounts.add(nDocs);
+                index++;
+            }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+        System.out.println("DUUIReaderComposer instantiateReaderPipeline " + docCounts);
+        return docCounts;
+    }
 
+    /*
+    public List<Integer> instantiateReaderPipeline(Path filePath) throws Exception {
+        List<Integer> docCounts = new LinkedList<>();
+        try {
+            int index = 0;
+            for (DUUIPipelineComponent comp : get_pipeline()) {
+                IDUUIDriverInterface driver = get_drivers().get(comp.getDriver());
                 // When a pipeline is run as a service, only components that are not yet instantiated
                 // should be instantiated here.
-
-                if (get_isServiceStarted() && get_instantiatedPipeline().size() > index) {
-                    addEvent(
-                            DUUIEvent.Sender.COMPOSER,
-                            String.format("Reusing component %s", comp.getName())
-                    );
-
-                    TypeSystemDescription desc = driver.get_typesystem(get_instantiatedPipeline().get(index).getUUID());
+                System.out.println(get_isServiceStarted());
+                System.out.println(get_instantiatedPipeline().size());
+                System.out.println(index);
+                if (get_instantiatedPipeline() != null && !get_instantiatedPipeline().isEmpty() && get_instantiatedPipeline().size() > index) {
                     Integer nDocs = driver.initReaderComponent(get_instantiatedPipeline().get(index).getUUID(), filePath);
-                    if (desc != null) {
-                        descriptions.add(desc);
-                        docCounts.add(nDocs);
-                    }
+                    docCounts.add(nDocs);
+
                 } else {
-                    addEvent(
-                            DUUIEvent.Sender.COMPOSER,
-                            String.format("Instantiating component %s", comp.getName())
-                    );
-
-                    String uuid = driver.instantiate(comp, jc, get_skipVerification(), get_shutdownAtomic());
-                    if (uuid == null) {
-                        shutdown();
-                        return null;
-                    }
-
-                    DUUISegmentationStrategy segmentationStrategy = comp.getSegmentationStrategy();
-
-                    TypeSystemDescription desc = driver.get_typesystem(uuid);
+                    JCas jc = JCasFactory.createJCas();
+                    jc.setDocumentLanguage("en");
+                    jc.setDocumentText("Hello World!");
+                    String uuid = driver.instantiate(comp, jc, true, new AtomicBoolean(false));
                     Integer nDocs = driver.initReaderComponent(uuid, filePath);
-                    if (desc != null) {
-                        descriptions.add(desc);
-                        docCounts.add(nDocs);
-                    }
-                    //TODO: get input output of every annotator
-                    get_instantiatedPipeline().add(new PipelinePart(driver, uuid, comp.getName(), segmentationStrategy));
+                    docCounts.add(nDocs);
                 }
 
                 index++;
-                getPipelineStatus().put(comp.getName(), DUUIStatus.IDLE);
             }
-
-            for (IDUUIDriverInterface driver : get_drivers().values()) {
-                getPipelineStatus().put(driver.getClass().getSimpleName(), DUUIStatus.IDLE);
-            }
-
-            if (shouldShutdown()) return null;
-            // UUID und die input outputs
-            // Execution Graph
-            // Gegeben Knoten n finde Vorgaenger
-            // inputs: [], outputs: [Token]
-            // input: [Sentences], outputs: [POS]
-        } catch (InterruptedException e) {
-            return null;
         } catch (Exception e) {
-            addEvent(
-                    DUUIEvent.Sender.COMPOSER,
-                    e.getMessage(),
-                    DebugLevel.ERROR);
-
-            throw e;
+            throw new RuntimeException(e);
         }
-
-        if (get_isServiceStarted() && getInstantiatedTypeSystem() != null) {
-            addEvent(DUUIEvent.Sender.COMPOSER, "Reusing TypeSystemDescription");
-        } else {
-            setServiceStarted(isService());
-
-            if (descriptions.size() > 1) {
-                setInstantiatedTypeSystem(CasCreationUtils.mergeTypeSystems(descriptions));
-            } else if (descriptions.size() == 1) {
-                setInstantiatedTypeSystem(descriptions.get(0));
-            } else {
-                setInstantiatedTypeSystem(TypeSystemDescriptionFactory.createTypeSystemDescription());
-            }
-        }
-
-        timer.stop();
-        addEvent(
-                DUUIEvent.Sender.COMPOSER,
-                String.format("Instatiated Pipeline after %d ms.", timer.getDuration()));
-
-        setInstantiationDuration(timer.getDuration());
-
         return docCounts;
     }
+    */
 
     @Override
     public DUUIReaderComposer withMonitor(DUUIMonitor monitor) throws UnknownHostException, InterruptedException {
@@ -285,4 +211,137 @@ public class DUUIReaderComposer extends DUUIComposer {
         super.withDebugLevel(debugLevel);
         return this;
     }
+
+    /*
+    @Override
+    protected JCas run_pipeline(String name, JCas jc, long documentWaitTime, Vector<PipelinePart> pipeline) throws Exception {
+
+        getProgressAtomic().set(0);
+
+        if (name == null) {
+            name = "UIMA-Document";
+        }
+
+        DUUIDocument document = null;
+        if (jc.getDocumentText() == null) {
+            document = new DUUIDocument(name, "/opt/path/");
+        } else {
+            document = new DUUIDocument(name, "/opt/path", jc.getDocumentText().getBytes(StandardCharsets.UTF_8));
+        }
+
+        if (JCasUtil.select(jc, DocumentMetaData.class).isEmpty()) {
+            DocumentMetaData dmd = DocumentMetaData.create(jc);
+            dmd.setDocumentId(document.getName());
+            dmd.setDocumentTitle(document.getName());
+            dmd.setDocumentUri(document.getPath());
+            dmd.addToIndexes();
+        }
+        addDocument(document);
+
+        boolean trackErrorDocs = false;
+        if (get_storage() != null) {
+            trackErrorDocs = get_storage().shouldTrackErrorDocs();
+        }
+
+        DUUIPipelineDocumentPerformance perf = new DUUIPipelineDocumentPerformance(name, documentWaitTime, jc, trackErrorDocs);
+        document.setStartedAt();
+        document.setStatus(DUUIStatus.ACTIVE);
+
+        Exception error = null;
+        System.out.println("1");
+        try {
+            for (PipelinePart comp : pipeline) {
+                if (shouldShutdown()) break;
+                getPipelineStatus().put(comp.getName(), DUUIStatus.ACTIVE);
+
+                // Segment document for each item in the pipeline separately
+                // TODO support "complete pipeline" segmentation to only segment once
+                DUUISegmentationStrategy segmentationStrategy = comp.getSegmentationStrategy();
+
+                addEvent(
+                        DUUIEvent.Sender.DOCUMENT,
+                        String.format(
+                                "%s is being processed by component %s",
+                                document.getPath(),
+                                comp.getName())
+                );
+
+                if (segmentationStrategy instanceof DUUISegmentationStrategyNone) {
+                    System.out.println("2");
+                    comp.getDriver().run(comp.getUUID(), jc, perf, this);
+                    System.out.println("3");
+                } else {
+                    segmentationStrategy.initialize(jc);
+
+                    JCas jCasSegmented = segmentationStrategy.getNextSegment();
+
+                    while (jCasSegmented != null) {
+                        // Process each cas sequentially
+                        // TODO add parallel variant later
+
+                        comp.getDriver().run(comp.getUUID(), jCasSegmented, perf, this);
+
+                        segmentationStrategy.merge(jCasSegmented);
+                        jCasSegmented = segmentationStrategy.getNextSegment();
+                    }
+
+                    segmentationStrategy.finalize(jc);
+                }
+                addEvent(
+                        DUUIEvent.Sender.DOCUMENT,
+                        String.format(
+                                "%s has been processed by component %s",
+                                document.getPath(),
+                                comp.getName())
+                );
+                document.incrementProgress();
+            }
+
+            addEvent(
+                    DUUIEvent.Sender.DOCUMENT,
+                    String.format("%s has been processed",
+                            document.getPath()));
+            document.countAnnotations(jc);
+
+        } catch (Exception exception) {
+            error = exception;
+
+            document.setError(String.format(
+                    "%s%n%s",
+                    exception.getClass().getCanonicalName(),
+                    exception.getMessage() == null ? "" : exception.getMessage()));
+
+            addEvent(
+                    DUUIEvent.Sender.COMPOSER,
+                    exception.getMessage(),
+                    DebugLevel.ERROR);
+
+            // If we want to track errors we have to add the metrics for the document
+            // TODO this should be configurable separately
+            if (get_storage() == null) {
+                throw exception;
+            }
+            if (!get_storage().shouldTrackErrorDocs()) {
+                throw exception;
+            }
+        }
+
+        if (error != null) {
+            document.setStatus(DUUIStatus.FAILED);
+        } else {
+            document.setStatus(DUUIStatus.OUTPUT);
+        }
+
+        document.setFinishedAt();
+        document.setFinished(true);
+
+        if (get_storage() != null) {
+            get_storage().addMetricsForDocument(perf);
+        }
+
+        incrementProgress();
+        return jc;
+    }
+    */
+
 }
