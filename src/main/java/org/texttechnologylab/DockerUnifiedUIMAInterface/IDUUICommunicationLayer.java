@@ -3,6 +3,7 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.cas.CASException;
 import org.apache.uima.jcas.JCas;
+import org.luaj.vm2.LuaError;
 import org.luaj.vm2.LuaTable;
 import org.luaj.vm2.LuaValue;
 import org.xml.sax.SAXException;
@@ -22,20 +23,30 @@ public interface IDUUICommunicationLayer {
     public static class SerializeOutput {
         public Map<String, String> headers;
 
-        public SerializeOutput(LuaTable output) {
-            for (LuaValue key : output.keys()) {
-                switch (key.tojstring()) {
-                    case "headers":
-                        this.headers = new HashMap<>();
-                        LuaTable headersTable = output.get("headers").checktable();
-                        for (LuaValue header : headersTable.keys()) {
-                            this.headers.put(header.tojstring(), headersTable.get(header).tojstring());
-                        }
-                        break;
-                    default:
-                        System.err.println("Unknown key in serialize output: " + key.tojstring());
-                        break;
+        public SerializeOutput(LuaValue output) {
+            // Check if the invoked function returned a table
+            if (output.istable()) {
+                LuaTable table = output.checktable();
+
+                for (LuaValue key : table.keys()) {
+                    switch (key.tojstring()) {
+                        case "headers":
+                            this.headers = new HashMap<>();
+                            LuaTable headersTable = output.get("headers").checktable();
+                            for (LuaValue header : headersTable.keys()) {
+                                this.headers.put(header.tojstring(), headersTable.get(header).tojstring());
+                            }
+                            break;
+                        default:
+                            System.err.printf(
+                                "[IDUUICommunicationLayer.SerializeOutput] Unknown key in 'serialize' output: %n",
+                                key.tojstring()
+                            );
+                            break;
+                    }
                 }
+            } else if (!output.isnil()) {
+                throw new LuaError("Expected serialize output to be a table, but got: " + output.typename());
             }
         }
     }

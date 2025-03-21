@@ -26,24 +26,13 @@ public class DUUILuaCompiledFile {
      * @param funcName Name of the function in the LUA script to be invoked.
      * @param args     Any number of parameters to pass to the LUA function.
      * @return A {@link LuaTable} with any values returned by the invoked function
-     * @throws LuaError If the called method does not return <code>nil</code> or a table.
      */
-    LuaTable call(String funcName, LuaValue... args) {
-        LuaValue result;
+    LuaValue call(String funcName, LuaValue... args) {
         if (_sethook != null) {
-            result = callThreaded(funcName, args);
+            return callThreaded(funcName, args);
         } else {
-            // Use {@link LuaValue#invoke(LuaValue[])} to handle any number of arguments
-            result = _globals.get(funcName).invoke(args).arg1();
-        }
-
-        // Check if the invoked function returned a table
-        if (result.istable()) {
-            return result.checktable();
-        } else if (result.isnil()) {
-            return LuaTable.tableOf();
-        } else {
-            throw new LuaError("Expected Lua function \"" + funcName + "\" to return a table, but got: " + result.typename());
+            /// Use {@link LuaValue#invoke(LuaValue[])} to handle any number of arguments
+            return _globals.get(funcName).invoke(args).arg1();
         }
     }
 
