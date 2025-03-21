@@ -42,7 +42,7 @@ public class DUUILuaCommunicationLayer implements IDUUICommunicationLayer {
             }
         }
 
-        LuaTable output = _file.call("serialize", CoerceJavaToLua.coerce(jc.getView(sourceView)), CoerceJavaToLua.coerce(out), params);
+        LuaValue output = _file.call("serialize", CoerceJavaToLua.coerce(jc.getView(sourceView)), CoerceJavaToLua.coerce(out), params);
 
         return new SerializeOutput(output);
     }
