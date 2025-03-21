@@ -1,5 +1,6 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.driver;
 
+import com.google.common.collect.ImmutableMap;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.commons.compress.compressors.CompressorInputStream;
 import org.apache.commons.compress.compressors.CompressorOutputStream;
@@ -38,6 +39,7 @@ public class DUUIPipelineComponent {
     private int _ws_elements = 50;
 
     private List<String> _constraints = new ArrayList<>(0);
+    private HashMap<String, String> _request_headers = new HashMap<>();
 
     public static String compressionMethod = CompressorStreamFactory.XZ;
 
@@ -281,6 +283,31 @@ public class DUUIPipelineComponent {
             lst.push(arr.getString(i));
         }
         return lst;
+    }
+
+    /**
+     * Adds a key-value pair to the request headers for the current DUUIPipelineComponent.
+     * This method allows custom headers to be added to the request configuration.
+     *
+     * @param key the name of the header to be added
+     * @param value the value associated with the specified header name
+     * @throws RuntimeException if the component has already been finalized and is therefore immutable
+     */
+    public void withRequestHeader(String key, String value) {
+        if (_finalizedEncoded != null) {
+            throw new RuntimeException("DUUIPipelineComponent has already been finalized, it is immutable now!");
+        }
+        _request_headers.put(key, value);
+    }
+
+    /**
+     * Retrieves the request headers that have been set for this component.
+     *
+     * @return an {@link ImmutableMap} containing the request headers, where the keys are header names
+     *         and the values are the corresponding header values.
+     */
+    public ImmutableMap<String, String> getRequestHeaders() {
+        return ImmutableMap.copyOf(_request_headers);
     }
 
     public DUUIPipelineComponent withDockerAuth(String name, String password) {

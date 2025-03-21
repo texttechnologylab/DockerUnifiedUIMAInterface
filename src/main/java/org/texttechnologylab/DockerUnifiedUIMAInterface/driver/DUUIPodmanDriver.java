@@ -486,6 +486,11 @@ public class DUUIPodmanDriver implements IDUUIDriverInterface {
             _component.withName(name);
             return this;
         }
+
+        public DUUIPodmanDriver.Component withRequestHeader(String key, String value)  {
+            _component.withRequestHeader(key, value);
+            return this;
+        }
     }
 
 }

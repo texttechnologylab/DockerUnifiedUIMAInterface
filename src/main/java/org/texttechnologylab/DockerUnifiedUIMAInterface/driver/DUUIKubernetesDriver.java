@@ -686,5 +686,10 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
             _component.withName(name);
             return this;
         }
+
+        public Component withRequestHeader(String key, String value)  {
+            _component.withRequestHeader(key, value);
+            return this;
+        }
     }
 }
