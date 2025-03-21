@@ -26,6 +26,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -134,8 +135,21 @@ public interface IDUUIInstantiatedPipelineComponent {
             }
         }
 
-        layer.serialize(viewJc,out,comp.getParameters(), comp.getSourceView());
-        // lua serialize call()
+        // Invoke Lua serialize()
+        IDUUICommunicationLayer.SerializeOutput serializeOutput = layer.serialize(viewJc, out, comp.getParameters(), comp.getSourceView());
+
+        /// Process output of serialize() invocation
+        // Merge serialize and user-defined request headers
+        final HashMap<String, String> request_headers = new HashMap<>(serializeOutput.headers);
+        pipelineComponent.getRequestHeaders().forEach((key, value) -> {
+            if (request_headers.containsKey(key) && !request_headers.get(key).equals(value)) {
+                System.out.printf(
+                        "[InstantiatedComponent]: Request header '%s' already set to '%s' from serialize output "
+                        + "will be overwritten with user-defined value '%s'\n", key, request_headers.get(key), value);
+            }
+            request_headers.put(key, value);
+        });
+
 
         byte[] ok = out.toByteArray();
         long sizeArray = ok.length;
@@ -147,12 +161,16 @@ public interface IDUUIInstantiatedPipelineComponent {
         while (tries < 3) {
             tries++;
             try {
-                HttpRequest request = HttpRequest.newBuilder()
+                HttpRequest.Builder builder = HttpRequest.newBuilder()
                         .uri(URI.create(queue.getValue0().generateURL() + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS))
-                        .timeout(Duration.ofSeconds(comp.getPipelineComponent().getTimeout()))
+                        .timeout(Duration.ofSeconds(pipelineComponent.getTimeout()))
                         .POST(HttpRequest.BodyPublishers.ofByteArray(ok))
-                        .version(HttpClient.Version.HTTP_1_1)
-                        .build();
+                        .version(HttpClient.Version.HTTP_1_1);
+
+                // Set POST request headers
+                request_headers.forEach(builder::header);
+
+                HttpRequest request = builder.build();
                 resp = _client.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray()).join();
                 break;
             }
@@ -265,6 +283,7 @@ public interface IDUUIInstantiatedPipelineComponent {
         }
         // lua serialize call()
         layer.serialize(viewJc,out,comp.getParameters(), comp.getSourceView());
+        // TODO: handle serialize output
 
         // ok is the message.
         byte[] ok = out.toByteArray();
