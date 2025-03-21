@@ -4,6 +4,7 @@ import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.cas.CASException;
 import org.apache.uima.jcas.JCas;
 import org.luaj.vm2.LuaTable;
+import org.luaj.vm2.LuaValue;
 import org.luaj.vm2.lib.jse.CoerceJavaToLua;
 import org.luaj.vm2.lib.jse.CoerceLuaToJava;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUICommunicationLayer;
@@ -33,11 +34,7 @@ public class DUUILuaCommunicationLayer implements IDUUICommunicationLayer {
         _globalContext = globalContext;
     }
 
-    public void serialize(JCas jc, ByteArrayOutputStream out, Map<String,String> parameters) throws CompressorException, IOException, SAXException, CASException {
-        serialize(jc, out, parameters, "_InitialView");
-    }
-
-    public void serialize(JCas jc, ByteArrayOutputStream out, Map<String,String> parameters, String sourceView) throws CompressorException, IOException, SAXException, CASException {
+    public SerializeOutput serialize(JCas jc, ByteArrayOutputStream out, Map<String, String> parameters, String sourceView) throws CompressorException, IOException, SAXException, CASException {
         LuaTable params = new LuaTable();
         if (parameters != null) {
             for (String key : parameters.keySet()) {
@@ -45,13 +42,14 @@ public class DUUILuaCommunicationLayer implements IDUUICommunicationLayer {
             }
         }
 
-        _file.call("serialize",CoerceJavaToLua.coerce(jc.getView(sourceView)),CoerceJavaToLua.coerce(out), params);
+        LuaTable output = _file.call("serialize", CoerceJavaToLua.coerce(jc.getView(sourceView)), CoerceJavaToLua.coerce(out), params);
+
+        return new SerializeOutput(output);
     }
 
     public void deserialize(JCas jc, ByteArrayInputStream input) throws IOException, SAXException, CASException {
         deserialize(jc, input, "_InitialView");
     }
-
 
     public void deserialize(JCas jc, ByteArrayInputStream input, String targetView) throws IOException, SAXException, CASException {
 

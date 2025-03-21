@@ -3,11 +3,14 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.cas.CASException;
 import org.apache.uima.jcas.JCas;
+import org.luaj.vm2.LuaTable;
+import org.luaj.vm2.LuaValue;
 import org.xml.sax.SAXException;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -16,9 +19,28 @@ import java.util.Map;
  */
 public interface IDUUICommunicationLayer {
 
-  public void serialize(JCas jc, ByteArrayOutputStream out, Map<String,String> parameters, String sourceView) throws CompressorException, IOException, SAXException, CASException;
+    public static class SerializeOutput {
+        public Map<String, String> headers;
 
-  public void deserialize(JCas jc, ByteArrayInputStream input, String targetView) throws IOException, SAXException, CASException;
+        public SerializeOutput(LuaTable output) {
+            for (LuaValue key : output.keys()) {
+                switch (key.tojstring()) {
+                    case "headers":
+                        this.headers = new HashMap<>();
+                        LuaTable headersTable = output.get("headers").checktable();
+                        for (LuaValue header : headersTable.keys()) {
+                            this.headers.put(header.tojstring(), headersTable.get(header).tojstring());
+                        }
+                        break;
+                    default:
+                        System.err.println("Unknown key in serialize output: " + key.tojstring());
+                        break;
+                }
+            }
+        }
+    }
+
+  public SerializeOutput serialize(JCas jc, ByteArrayOutputStream out, Map<String,String> parameters, String sourceView) throws CompressorException, IOException, SAXException, CASException;
 
   /**
    * Serializes a JCas to a byte array output stream by using the LUA script provided by the component.
@@ -29,9 +51,11 @@ public interface IDUUICommunicationLayer {
    * @throws IOException
    * @throws SAXException
    */
-  default void serialize(JCas jc, ByteArrayOutputStream out, Map<String,String> parameters) throws CompressorException, IOException, SAXException, CASException {
-    serialize(jc, out, parameters, "_InitialView");
+  default SerializeOutput serialize(JCas jc, ByteArrayOutputStream out, Map<String,String> parameters) throws CompressorException, IOException, SAXException, CASException {
+      return serialize(jc, out, parameters, "_InitialView");
   }
+
+  public void deserialize(JCas jc, ByteArrayInputStream input, String targetView) throws IOException, SAXException, CASException;
 
   /**
    * Deserializes a byte array input stream to a JCas by using the LUA script provided by the component.
