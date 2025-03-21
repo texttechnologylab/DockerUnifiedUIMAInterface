@@ -1,15 +1,13 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.lua;
 
-import org.luaj.vm2.Globals;
-import org.luaj.vm2.LuaThread;
-import org.luaj.vm2.LuaValue;
-import org.luaj.vm2.Varargs;
+import org.luaj.vm2.*;
 import org.luaj.vm2.lib.ZeroArgFunction;
 
 /**
  * Class on the use of Lua
  *
  * @author Alexander Leonhardt
+ * @author Manuel Schaaf
  */
 public class DUUILuaCompiledFile {
     private Globals _globals;
@@ -22,70 +20,55 @@ public class DUUILuaCompiledFile {
         _sandbox = sandbox;
     }
 
-    LuaValue call(String funcName, LuaValue arg1, LuaValue arg2, LuaValue arg3) {
-        if(_sethook != null) {
-            LuaThread thread = new LuaThread(_globals, _globals.get(funcName));
-            LuaValue hookfunc = new ZeroArgFunction() {
-                public LuaValue call() {
-                    throw new Error("Script overran resource while running \""+funcName+"\"");
-                }
-            };
-            _sethook.invoke(LuaValue.varargsOf(new LuaValue[] { thread, hookfunc,
-                    LuaValue.EMPTYSTRING, LuaValue.valueOf(_sandbox.getMaxInstructionCount()) }));
-
-            Varargs result = thread.resume(LuaValue.varargsOf(arg1,arg2,arg3));
-            if(!result.arg1().toboolean()) {
-                throw new RuntimeException(result.arg(2).tojstring());
-            }
-            return result.arg(2);
+    /**
+     * Call the given function with a variable number of arguments.
+     *
+     * @param funcName Name of the function in the LUA script to be invoked.
+     * @param args     Any number of parameters to pass to the LUA function.
+     * @return A {@link LuaTable} with any values returned by the invoked function
+     * @throws LuaError If the called method does not return <code>nil</code> or a table.
+     */
+    LuaTable call(String funcName, LuaValue... args) {
+        LuaValue result;
+        if (_sethook != null) {
+            result = callThreaded(funcName, args);
+        } else {
+            // Use {@link LuaValue#invoke(LuaValue[])} to handle any number of arguments
+            result = _globals.get(funcName).invoke(args).arg1();
         }
-        else {
-            return _globals.get(funcName).call(arg1,arg2,arg3);
-        }
-    }
 
-    LuaValue call(String funcName, LuaValue arg1, LuaValue arg2) {
-        if(_sethook != null) {
-            LuaThread thread = new LuaThread(_globals, _globals.get(funcName));
-            LuaValue hookfunc = new ZeroArgFunction() {
-                public LuaValue call() {
-                    throw new Error("Script overran resource while running \""+funcName+"\"");
-                }
-            };
-            _sethook.invoke(LuaValue.varargsOf(new LuaValue[] { thread, hookfunc,
-                    LuaValue.EMPTYSTRING, LuaValue.valueOf(_sandbox.getMaxInstructionCount()) }));
-
-            Varargs result = thread.resume(LuaValue.varargsOf(arg1,arg2));
-            if(!result.arg1().toboolean()) {
-                throw new RuntimeException(result.arg(2).tojstring());
-            }
-            return result.arg(2);
-        }
-        else {
-            return _globals.get(funcName).call(arg1,arg2);
+        // Check if the invoked function returned a table
+        if (result.istable()) {
+            return result.checktable();
+        } else if (result.isnil()) {
+            return LuaTable.tableOf();
+        } else {
+            throw new LuaError("Expected Lua function \"" + funcName + "\" to return a table, but got: " + result.typename());
         }
     }
 
-    LuaValue call(String funcName, LuaValue arg1) {
-        if(_sethook != null) {
-            LuaThread thread = new LuaThread(_globals, _globals.get(funcName));
-            LuaValue hookfunc = new ZeroArgFunction() {
-                public LuaValue call() {
-                    throw new Error("Script overran resource while running \""+funcName+"\"");
-                }
-            };
-            _sethook.invoke(LuaValue.varargsOf(new LuaValue[] { thread, hookfunc,
-                    LuaValue.EMPTYSTRING, LuaValue.valueOf(_sandbox.getMaxInstructionCount()) }));
-
-            Varargs result = thread.resume(arg1);
-            if(!result.arg1().toboolean()) {
-                throw new RuntimeException(result.arg(2).tojstring());
+    /**
+     * Invokes a Lua function in a separate thread with a specified execution limit.
+     *
+     * @param funcName The name of the function to be executed in the Lua environment.
+     * @param args     An array of LuaValue arguments to pass to the invoked function.
+     * @return The {@link LuaValue} returned by the invoked function.
+     * @throws RuntimeException If the thread execution fails or the Lua function throws an error.
+     * @throws Error            If the Lua function exceeds the maximum allowed instruction count.
+     */
+    private LuaValue callThreaded(String funcName, LuaValue[] args) {
+        LuaThread thread = new LuaThread(_globals, _globals.get(funcName));
+        LuaValue hookfunc = new ZeroArgFunction() {
+            public LuaValue call() {
+                throw new Error("Script overran resource while running \"" + funcName + "\"");
             }
-            return result.arg(2);
-        }
-        else {
-            return _globals.get(funcName).call(arg1);
-        }
-    }
+        };
+        _sethook.invoke(LuaValue.varargsOf(new LuaValue[]{thread, hookfunc, LuaValue.EMPTYSTRING, LuaValue.valueOf(_sandbox.getMaxInstructionCount())}));
 
+        Varargs result = thread.resume(LuaValue.varargsOf(args));
+        if (!result.arg1().toboolean()) {
+            throw new RuntimeException(result.arg(2).tojstring());
+        }
+        return result.arg(2);
+    }
 }

@@ -16,7 +16,7 @@ import java.util.List;
 import java.util.Map;
 
 public class DUUIFallbackCommunicationLayer implements IDUUICommunicationLayer {
-    public void serialize(JCas jc, ByteArrayOutputStream out, Map<String,String> parameters, String sourceView) throws CompressorException, IOException, SAXException, CASException {
+    public SerializeOutput serialize(JCas jc, ByteArrayOutputStream out, Map<String,String> parameters, String sourceView) throws CompressorException, IOException, SAXException, CASException {
         JSONObject obj = new JSONObject();
         ByteArrayOutputStream arr = new ByteArrayOutputStream();
         XmiCasSerializer.serialize(jc.getView(sourceView).getCas(), null, arr);
@@ -33,6 +33,8 @@ public class DUUIFallbackCommunicationLayer implements IDUUICommunicationLayer {
         obj.put("compression","none");
         obj.put("params",parameters);
         out.write(obj.toString().getBytes(StandardCharsets.UTF_8));
+
+        return null;
     }
 
     public void deserialize(JCas jc, ByteArrayInputStream input, String targetView) throws IOException, SAXException {
@@ -48,8 +50,8 @@ public class DUUIFallbackCommunicationLayer implements IDUUICommunicationLayer {
     }
 
     @Override
-    public void serialize(JCas jc, ByteArrayOutputStream out, Map<String, String> parameters) throws CompressorException, IOException, SAXException, CASException {
-        serialize(jc, out, parameters, "_InitialView");
+    public SerializeOutput serialize(JCas jc, ByteArrayOutputStream out, Map<String, String> parameters) throws CompressorException, IOException, SAXException, CASException {
+        return serialize(jc, out, parameters, "_InitialView");
     }
 
     @Override
