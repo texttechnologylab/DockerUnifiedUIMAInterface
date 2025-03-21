@@ -130,6 +130,11 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
             component.withName(name);
             return this;
         }
+
+        public Component withRequestHeader(String key, String value)  {
+            component.withRequestHeader(key, value);
+            return this;
+        }
     }
 
     public void setLuaContext(DUUILuaContext luaContext) {
