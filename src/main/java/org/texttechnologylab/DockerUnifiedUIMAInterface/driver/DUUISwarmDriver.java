@@ -505,6 +505,11 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
             return this;
         }
 
+        public Component withRequestHeader(String key, String value)  {
+            component.withRequestHeader(key, value);
+            return this;
+        }
+
         public DUUIPipelineComponent build() {
             component.withDriver(DUUISwarmDriver.class);
             return component;

@@ -169,6 +169,11 @@ public class DUUIUIMADriver implements IDUUIDriverInterface {
             component.withName(name);
             return this;
         }
+
+        public Component withRequestHeader(String key, String value)  {
+            component.withRequestHeader(key, value);
+            return this;
+        }
     }
 
     public boolean canAccept(DUUIPipelineComponent component) throws InvalidXMLException, IOException, SAXException {
