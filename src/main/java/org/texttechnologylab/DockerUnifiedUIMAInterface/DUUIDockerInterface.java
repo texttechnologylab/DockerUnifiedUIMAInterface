@@ -170,12 +170,21 @@ public class DUUIDockerInterface {
             _docker = DockerClientBuilder.getInstance().build();
         } else {
             // Windows
-            final DockerHttpClient http = new ApacheDockerHttpClient.Builder()
-                    .connectionTimeout(Duration.ofSeconds(5))
-                    .responseTimeout(Duration.ofMinutes(10))
-                    .dockerHost(URI.create("npipe:////./pipe/docker_engine"))
-                    // .dockerHost(URI.create("tcp://127.0.0.1:2375")) // if npipe doesn't work.
-                    .build();
+            DockerHttpClient http = null;
+            try {
+                http = new ApacheDockerHttpClient.Builder()
+                        .connectionTimeout(Duration.ofSeconds(5))
+                        .responseTimeout(Duration.ofMinutes(10))
+                        .dockerHost(URI.create("npipe:////./pipe/docker_engine"))
+                        .build();
+            }
+            catch (Exception e){
+                http = new ApacheDockerHttpClient.Builder()
+                        .connectionTimeout(Duration.ofSeconds(5))
+                        .responseTimeout(Duration.ofMinutes(10))
+                        .dockerHost(URI.create("tcp://127.0.0.1:2375")) // if npipe doesn't work.
+                        .build();
+            }
             _docker = DockerClientBuilder.getInstance()
                     .withDockerHttpClient(http)
                     .build();
