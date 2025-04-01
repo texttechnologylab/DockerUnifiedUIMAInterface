@@ -16,6 +16,8 @@ Automatic analysis of large text corpora is a complex task. This complexity part
 [![poster](http://img.shields.io/badge/poster-DH--2024-f944fe.svg)](https://doi.org/10.5281/zenodo.13761079)
 [![poster](http://img.shields.io/badge/poster-DHd--2025-f944fe.svg)](https://doi.org/10.5281/zenodo.14943128)
 
+[![Discord-Server](http://img.shields.io/badge/Join-Discord_Server-fc0098.svg)](https://discord.gg/DxsgfbK7Jh)
+
 
 # TLDR
 * [Javadoc](javadoc)
