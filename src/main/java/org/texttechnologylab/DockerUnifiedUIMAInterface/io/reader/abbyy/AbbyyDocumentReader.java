@@ -218,18 +218,25 @@ public class AbbyyDocumentReader extends JCasCollectionReader_ImplBase {
     protected Boolean addTokens;
 
     /**
-     * If set {@code true}, enable heuristics to detect "garbage" lines in OCR output.
+     * If set to {@code true}, enable heuristics to detect "garbage" lines in OCR output.
      */
     public static final String PARAM_ENABLE_GARBAGE_HEURISTICS = "enableGarbageHeuristics";
     @ConfigurationParameter(name = PARAM_ENABLE_GARBAGE_HEURISTICS, mandatory = false, defaultValue = "false")
     protected Boolean enableGarbageHeuristics;
 
     /**
-     * Unless set {@code false}, HTML escaped characters in the OCR output will be unescaped.
+     * Unless set to {@code false}, HTML escaped characters in the OCR output will be unescaped.
      */
     public static final String PARAM_UNESCAPE_HTML = "unescapeHTML";
     @ConfigurationParameter(name = PARAM_UNESCAPE_HTML, mandatory = false, defaultValue = "true")
     protected Boolean unescapeHTML;
+
+    /**
+     * Unless set to {@code false}, all consecutive whitespace characters will be replaced by a single regular whitespace.
+     */
+    public static final String PARAM_UNIFY_WHITESPACES = "unifyWhitespaces";
+    @ConfigurationParameter(name = PARAM_UNIFY_WHITESPACES, mandatory = false, defaultValue = "true")
+    protected Boolean unifyWhitespaces;
 
     /**
      * The frequency with which read documents are logged.
@@ -501,6 +508,8 @@ public class AbbyyDocumentReader extends JCasCollectionReader_ImplBase {
 
     private FineReaderEventHandler.ParsedDocument parseFiles(List<Path> files) throws IOException, CollectionException {
         FineReaderEventHandler fineReaderEventHandler = new FineReaderEventHandler();
+        fineReaderEventHandler.unifyWhitespaces = this.unifyWhitespaces;
+
         for (Path path : files) {
             String fileName = path.toFile().getName();
 

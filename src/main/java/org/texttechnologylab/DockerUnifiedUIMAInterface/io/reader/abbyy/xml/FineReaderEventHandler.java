@@ -51,6 +51,8 @@ public class FineReaderEventHandler extends DefaultHandler {
     private static final Pattern spacePattern = Pattern.compile("[\\s]+", Pattern.UNICODE_CHARACTER_CLASS);
     private static final Pattern nonWordCharacter = Pattern.compile("[^\\p{Alnum}\\-¬]+", Pattern.UNICODE_CHARACTER_CLASS);
 
+    public boolean unifyWhitespaces = false;
+
     @Override
     public void startElement(String uri, String localName, String qName, Attributes attributes) throws SAXException {
         switch (qName) {
@@ -98,6 +100,7 @@ public class FineReaderEventHandler extends DefaultHandler {
     public void endElement(String uri, String localName, String qName) throws SAXException {
         switch (qName) {
             case "page":
+                addSpace();
                 if (currPage != null) {
                     currPage.setEnd(textLength);
                     pages.add(currPage);
@@ -113,6 +116,7 @@ public class FineReaderEventHandler extends DefaultHandler {
                 currBlock = null;
                 break;
             case "text":
+                addSpace();
             case "par":
                 addSpace();
                 if (currParagraph != null) {
@@ -122,7 +126,7 @@ public class FineReaderEventHandler extends DefaultHandler {
                 currParagraph = null;
                 break;
             case "line":
-                addSpace();
+                addSpace(AbbyyToken.newline());
                 if (currLine != null) {
                     currLine.setEnd(textLength);
                     lines.add(currLine);
@@ -143,7 +147,9 @@ public class FineReaderEventHandler extends DefaultHandler {
         if (currChar != null) {
             String text = new String(ch, start, length);
 
-            if (spacePattern.matcher(text).matches()) {
+            if (!unifyWhitespaces && currChar.isTab()) {
+                addSpace(AbbyyToken.tab());
+            } else if (spacePattern.matcher(text).matches()) {
                 addSpace();
             } else if (nonWordCharacter.matcher(text).matches()) {
                 addNonWordToken(currChar, text);
@@ -155,6 +161,10 @@ public class FineReaderEventHandler extends DefaultHandler {
     }
 
     private void addSpace() {
+        addSpace(AbbyyToken.space());
+    }
+
+    private void addSpace(AbbyyToken space) {
         // Do not add spaces if the preceding token is a space, the ¬ hyphenation character or there has not been any token
         if (lastTokenWasSpace || lastTokenWasHyphen || currToken == null)
             return;
@@ -163,7 +173,7 @@ public class FineReaderEventHandler extends DefaultHandler {
         pushCurrToken();
 
         // Add the space character and increase token count
-        tokens.add(AbbyyToken.space());
+        tokens.add(space);
         textLength++;
         lastTokenWasSpace = true;
     }

@@ -11,6 +11,7 @@ import java.util.stream.Collectors;
 
 public class AbbyyToken extends AbstractAnnotation {
     private static final AbbyyToken SPACE = new AbbyyToken(" ");
+    private static final AbbyyToken TAB = new AbbyyToken("\t");
     private static final AbbyyToken NEWLINE = new AbbyyToken("\n");
 
     private ArrayList<StringBuilder> subTokenList = new ArrayList<>(List.of(new StringBuilder()));
@@ -64,6 +65,10 @@ public class AbbyyToken extends AbstractAnnotation {
 
     public static AbbyyToken space() {
         return SPACE;
+    }
+
+    public static AbbyyToken tab() {
+        return TAB;
     }
 
     public static AbbyyToken newline() {
