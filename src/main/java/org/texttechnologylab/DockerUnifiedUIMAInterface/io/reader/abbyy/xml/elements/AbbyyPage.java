@@ -9,6 +9,7 @@ public class AbbyyPage extends AbstractAnnotation {
     private final Integer width;
     private final Integer height;
     private final Integer resolution;
+    private Orientation rotation = Orientation.Normal;
     //private final boolean originalCoords;
 
     public String pageId;
@@ -20,6 +21,9 @@ public class AbbyyPage extends AbstractAnnotation {
         this.width = Utils.parseInt(attributes.getValue("width"));
         this.height = Utils.parseInt(attributes.getValue("height"));
         this.resolution = Utils.parseInt(attributes.getValue("resolution"));
+        if (attributes.getValue("rotation") != null) {
+            this.rotation = Orientation.valueOf(attributes.getValue("rotation"));
+        }
         //this.originalCoords = TypeParser.parseBoolean(attributes.getValue("originalCoords"));
     }
 
@@ -41,6 +45,7 @@ public class AbbyyPage extends AbstractAnnotation {
         page.setHeight(height);
         page.setWidth(width);
         page.setResolution(resolution);
+        page.setRotation(rotation.name());
         return page;
     }
 
