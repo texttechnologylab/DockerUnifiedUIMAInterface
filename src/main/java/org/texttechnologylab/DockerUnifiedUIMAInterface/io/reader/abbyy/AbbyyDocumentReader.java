@@ -27,6 +27,7 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.io.reader.abbyy.utils.Fi
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.reader.abbyy.utils.MatchRules;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.reader.abbyy.utils.Patterns;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.reader.abbyy.utils.Utils;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.io.reader.abbyy.utils.bb.RelativeBoundingBox;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.reader.abbyy.xml.FineReaderEventHandler;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.reader.abbyy.xml.elements.*;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.ProgressTracker;
@@ -239,6 +240,24 @@ public class AbbyyDocumentReader extends JCasCollectionReader_ImplBase {
     protected Boolean unifyWhitespaces;
 
     /**
+     * If given, will only add elements that are <strong>fully confined</strong> by these <em>relative</em> bounding box
+     * coordinates (in domain [0, 100]). Can be an array of one to four values which are interpreted the same way as
+     * HTML padding/margin is specified:
+     * <ol>
+     * <li>{all four sides}</li>
+     * <li>{top/bottom, right/left}</li>
+     * <li>{top, right/left, bottom}</li>
+     * <li>{top, right, bottom, left}</li>
+     * </ol>
+     * <p/>
+     * Example: {@code RelativeBoundingBox.fromString("5,1") -> (5, 99, 95, 1)}
+     */
+    public static final String PARAM_BOUNDING_BOX_DEF = "boundingBoxDef";
+    @ConfigurationParameter(name = PARAM_BOUNDING_BOX_DEF, mandatory = false)
+    protected String boundingBoxDef;
+    protected RelativeBoundingBox boundingBox;
+
+    /**
      * The frequency with which read documents are logged.
      * <p>
      * Set to 0 or negative values to deactivate logging.
@@ -287,6 +306,10 @@ public class AbbyyDocumentReader extends JCasCollectionReader_ImplBase {
 
         this.documentIdPattern = Pattern.compile(this.documentIdPatternString, this.documentIdPatternFlags);
         this.pageIdPattern = Pattern.compile(this.pageIdPatternString, this.pageIdPatternFlags);
+
+        if (boundingBoxDef != null) {
+            boundingBox = RelativeBoundingBox.fromString(boundingBoxDef);
+        }
 
         try {
             saxParser = SAXParserFactory.newInstance().newSAXParser();
@@ -508,7 +531,8 @@ public class AbbyyDocumentReader extends JCasCollectionReader_ImplBase {
 
     private FineReaderEventHandler.ParsedDocument parseFiles(List<Path> files) throws IOException, CollectionException {
         FineReaderEventHandler fineReaderEventHandler = new FineReaderEventHandler();
-        fineReaderEventHandler.unifyWhitespaces = this.unifyWhitespaces;
+        fineReaderEventHandler.setUnifyWhitespaces(unifyWhitespaces);
+        fineReaderEventHandler.setBoundingBox(boundingBox);
 
         for (Path path : files) {
             String fileName = path.toFile().getName();

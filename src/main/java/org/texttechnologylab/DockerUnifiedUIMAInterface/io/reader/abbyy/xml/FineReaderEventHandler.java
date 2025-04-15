@@ -1,6 +1,7 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.io.reader.abbyy.xml;
 
 import com.google.common.collect.ImmutableList;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.io.reader.abbyy.utils.bb.RelativeBoundingBox;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.reader.abbyy.xml.elements.*;
 import org.xml.sax.Attributes;
 import org.xml.sax.SAXException;
@@ -35,12 +36,11 @@ public class FineReaderEventHandler extends DefaultHandler {
     // Token
     public ArrayList<AbbyyToken> tokens = new ArrayList<>();
     private AbbyyToken currToken = new AbbyyToken();
-    public int blockTopMin = 0;
-    public int charLeftMax = Integer.MAX_VALUE;
 
     // Switches
     public boolean lastTokenWasSpace = false;
     private boolean lastTokenWasHyphen = false;
+    private boolean skipBlock = false;
 
     // Chars
     private AbbyyChar currChar = null;
@@ -51,7 +51,11 @@ public class FineReaderEventHandler extends DefaultHandler {
     private static final Pattern spacePattern = Pattern.compile("[\\s]+", Pattern.UNICODE_CHARACTER_CLASS);
     private static final Pattern nonWordCharacter = Pattern.compile("[^\\p{Alnum}\\-¬]+", Pattern.UNICODE_CHARACTER_CLASS);
 
-    public boolean unifyWhitespaces = false;
+    // Settable parameters
+    protected boolean unifyWhitespaces = false;
+    protected RelativeBoundingBox boundingBox = null;
+    private RelativeBoundingBox.DocumentChecker boundingBoxChecker;
+
 
     @Override
     public void startElement(String uri, String localName, String qName, Attributes attributes) throws SAXException {
@@ -62,29 +66,49 @@ public class FineReaderEventHandler extends DefaultHandler {
                 getNextPageId().ifPresent(currPage::setPageId);
                 getNextPageIndex().ifPresent(currPage::setPageIndex);
                 getNextPageUri().ifPresent(currPage::setPageUri);
+                if (boundingBox != null) {
+                    boundingBoxChecker = boundingBox.checker(currPage.getWidth(), currPage.getHeight());
+                }
+                skipBlock = false;
                 break;
             case "block":
                 currBlock = new AbbyyBlock(attributes);
                 currBlock.setStart(textLength);
+
+                if (boundingBoxChecker != null) {
+                    skipBlock = !boundingBoxChecker.contains(currBlock.getRect());
+                }
 
                 currChar = null;
                 break;
             case "text":
                 break;
             case "par":
+                if (skipBlock)
+                    break;
+
                 currParagraph = new AbbyyParagraph(attributes);
                 currParagraph.setStart(textLength);
                 break;
             case "line":
+                if (skipBlock)
+                    break;
+
                 currLine = new AbbyyLine(attributes);
                 currLine.setStart(textLength);
 
                 break;
             case "formatting":
+                if (skipBlock)
+                    break;
+
                 if (currLine != null)
                     currLine.setFormat(new AbbyyFormat(attributes));
                 break;
             case "charParams":
+                if (skipBlock)
+                    break;
+
                 String wordStart = attributes.getValue("wordStart");
 
                 if ("true".equals(wordStart) && !lastTokenWasHyphen) {
@@ -147,9 +171,7 @@ public class FineReaderEventHandler extends DefaultHandler {
         if (currChar != null) {
             String text = new String(ch, start, length);
 
-            if (!unifyWhitespaces && currChar.isTab()) {
-                addSpace(AbbyyToken.tab());
-            } else if (spacePattern.matcher(text).matches()) {
+            if (currChar.isTab() || spacePattern.matcher(text).matches()) {
                 addSpace();
             } else if (nonWordCharacter.matcher(text).matches()) {
                 addNonWordToken(currChar, text);
@@ -168,6 +190,10 @@ public class FineReaderEventHandler extends DefaultHandler {
         // Do not add spaces if the preceding token is a space, the ¬ hyphenation character or there has not been any token
         if (lastTokenWasSpace || lastTokenWasHyphen || currToken == null)
             return;
+
+        if (unifyWhitespaces) {
+            space = AbbyyToken.space();
+        }
 
         // If the current token already contains characters, create a new token for the space
         pushCurrToken();
@@ -248,6 +274,14 @@ public class FineReaderEventHandler extends DefaultHandler {
             return Optional.empty();
         }
         return Optional.of(nextPageUri);
+    }
+
+    public void setBoundingBox(RelativeBoundingBox boundingBox) {
+        this.boundingBox = boundingBox;
+    }
+
+    public void setUnifyWhitespaces(boolean unifyWhitespaces) {
+        this.unifyWhitespaces = unifyWhitespaces;
     }
 
     public static class ParsedDocument {

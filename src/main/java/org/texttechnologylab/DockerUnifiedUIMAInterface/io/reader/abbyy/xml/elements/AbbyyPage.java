@@ -60,4 +60,12 @@ public class AbbyyPage extends AbstractAnnotation {
     public void setPageNumber(String pageNumber) {
         this.pageNumber = pageNumber;
     }
+
+    public Integer getWidth() {
+        return width;
+    }
+
+    public Integer getHeight() {
+        return height;
+    }
 }

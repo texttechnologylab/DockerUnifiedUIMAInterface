@@ -23,8 +23,13 @@ public class TestAbbyyDocumentReader {
             CollectionReader reader = CollectionReaderFactory.createReader(AbbyyDocumentReader.class,
                     AbbyyDocumentReader.PARAM_SOURCE_LOCATION, path,
                     AbbyyDocumentReader.PARAM_ROOT_PATTERNS, "[+]*",
-                    AbbyyDocumentReader.PARAM_FILE_PATTERNS, "[+]**/*.xml.*",
-                    AbbyyDocumentReader.PARAM_BASE_URI, "https://sammlungen.ub.uni-frankfurt.de/biodiv/"
+                    AbbyyDocumentReader.PARAM_FILE_PATTERNS, "[+]**/*.xml*",
+                    // URI for UB Biodiversity corpus
+                    AbbyyDocumentReader.PARAM_BASE_URI, "https://sammlungen.ub.uni-frankfurt.de/biodiv/",
+                    // relative "inner" bounding box, inset to 1% of each pages' dimensions
+                    AbbyyDocumentReader.PARAM_BOUNDING_BOX_DEF, "1",
+                    // omit line format annotations
+                    AbbyyDocumentReader.PARAM_ADD_LINE_FORMAT, false
             );
             AnalysisEngineDescription writer = AnalysisEngineFactory.createEngineDescription(
                     XmiWriter.class,
