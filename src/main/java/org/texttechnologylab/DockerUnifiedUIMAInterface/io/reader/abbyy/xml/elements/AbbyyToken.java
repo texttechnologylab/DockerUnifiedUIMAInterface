@@ -28,12 +28,12 @@ public class AbbyyToken extends AbstractAnnotation {
         Token token = new Token(jcas, start, end);
         if (charList != null && !charList.isEmpty()) {
             token.setSuspiciousChars(charList.stream().mapToInt(AbbyyChar::getSuspicious).sum());
-            token.setIsWordFromDictionary(charList.getLast().isWordFromDictionary());
-            token.setIsWordNormal(charList.getLast().isWordNormal());
-            token.setIsWordNumeric(charList.getLast().isWordNumeric());
+            token.setIsWordFromDictionary(charList.stream().anyMatch(AbbyyChar::isWordFromDictionary));
+            token.setIsWordNormal(charList.stream().anyMatch(AbbyyChar::isWordNormal));
+            token.setIsWordNumeric(charList.stream().anyMatch(AbbyyChar::isWordNumeric));
         }
         if (subTokenList.size() > 1) {
-            token.setContainsHyphen(false);
+            token.setContainsHyphen(true);
             token.setSubTokenList(StringList.create(jcas, subTokenList.stream().map(StringBuilder::toString).toArray(String[]::new)));
         }
         return token;
@@ -69,7 +69,7 @@ public class AbbyyToken extends AbstractAnnotation {
     }
 
     public boolean isSpace() {
-        return subTokenList == null || subTokenList.stream().anyMatch(s -> !s.toString().isBlank());
+        return subTokenList == null || subTokenList.stream().allMatch(s -> s.toString().isBlank());
     }
 
     @Override

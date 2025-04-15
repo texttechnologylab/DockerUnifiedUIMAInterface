@@ -205,7 +205,7 @@ public class FineReaderEventHandler extends DefaultHandler {
             tokens.add(currToken);
         }
         currToken = new AbbyyToken();
-        currToken.setEnd(textLength);
+        currToken.setStart(textLength);
     }
 
     public void setNextPageId(String pageId) {
