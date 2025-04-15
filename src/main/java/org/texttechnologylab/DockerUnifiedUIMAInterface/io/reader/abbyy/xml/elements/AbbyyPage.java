@@ -11,8 +11,9 @@ public class AbbyyPage extends AbstractAnnotation {
     private final Integer resolution;
     //private final boolean originalCoords;
 
+    public String pageId;
     public String pageUri;
-    public Integer pageId;
+    public Integer pageIndex;
     public String pageNumber;
 
     public AbbyyPage(Attributes attributes) {
@@ -31,8 +32,11 @@ public class AbbyyPage extends AbstractAnnotation {
         if (pageUri != null) {
             page.setUri(pageUri);
         }
+        if (pageIndex != null) {
+            page.setIndex(pageIndex);
+        }
         if (pageNumber != null) {
-            page.setNumber(pageNumber);
+            page.setPageNumber(pageNumber);
         }
         page.setHeight(height);
         page.setWidth(width);
@@ -40,12 +44,17 @@ public class AbbyyPage extends AbstractAnnotation {
         return page;
     }
 
+    public void setPageId(String pageId) {
+        this.pageId = pageId;
+    }
+
+
     public void setPageUri(String pageUri) {
         this.pageUri = pageUri;
     }
 
-    public void setPageId(Integer pageId) {
-        this.pageId = pageId;
+    public void setPageIndex(Integer pageIndex) {
+        this.pageIndex = pageIndex;
     }
 
     public void setPageNumber(String pageNumber) {

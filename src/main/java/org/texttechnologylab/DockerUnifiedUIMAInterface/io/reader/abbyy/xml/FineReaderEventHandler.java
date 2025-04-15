@@ -16,8 +16,9 @@ public class FineReaderEventHandler extends DefaultHandler {
     // Pages
     public ArrayList<AbbyyPage> pages = new ArrayList<>();
     private AbbyyPage currPage = null;
+    private String nextPageId = null;
     private String nextPageUri = null;
-    private Integer nextPageId = null;
+    private Integer nextPageIndex = null;
 
     // Block
     public ArrayList<AbbyyBlock> blocks = new ArrayList<>();
@@ -57,6 +58,7 @@ public class FineReaderEventHandler extends DefaultHandler {
                 currPage = new AbbyyPage(attributes);
                 currPage.setStart(textLength);
                 getNextPageId().ifPresent(currPage::setPageId);
+                getNextPageIndex().ifPresent(currPage::setPageIndex);
                 getNextPageUri().ifPresent(currPage::setPageUri);
                 break;
             case "block":
@@ -206,15 +208,26 @@ public class FineReaderEventHandler extends DefaultHandler {
         currToken.setEnd(textLength);
     }
 
-    public void setNextPageId(int pageId) {
+    public void setNextPageId(String pageId) {
         this.nextPageId = pageId;
     }
 
-    private Optional<Integer> getNextPageId() {
+    private Optional<String> getNextPageId() {
         if (nextPageId == null) {
             return Optional.empty();
         }
         return Optional.of(nextPageId);
+    }
+
+    public void setNextPageIndex(int pageIndex) {
+        this.nextPageIndex = pageIndex;
+    }
+
+    private Optional<Integer> getNextPageIndex() {
+        if (nextPageIndex == null) {
+            return Optional.empty();
+        }
+        return Optional.of(nextPageIndex);
     }
 
     public void setNextPageUri(String pageUri) {

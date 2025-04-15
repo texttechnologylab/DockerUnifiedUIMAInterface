@@ -58,7 +58,7 @@ import java.util.stream.Collectors;
  * <p/>
  * Each element parsed from the ABBYY FineReader files will have some additional metadata set in accordance with the
  * BIOfid project's export structure (which in turn, reflects the Visual Library structure),
- * i.e. the URI of a {@link Page#getPageUri() Page} elements will point to {@code $BASE_URI/$PAGE_NAME} where the
+ * i.e. the URI of a {@link Page#getUri() Page} elements will point to {@code $BASE_URI/$PAGE_NAME} where the
  * {@code PAGE_NAME} is parsed from the file name (e.g. {@code 01_1234567.xml}).
  */
 public class AbbyyDocumentReader extends JCasCollectionReader_ImplBase {
@@ -375,16 +375,17 @@ public class AbbyyDocumentReader extends JCasCollectionReader_ImplBase {
         for (Path path : files) {
             String fileName = path.toFile().getName();
 
-            String prefix = fileName.substring(0, fileName.indexOf("_")).trim();
+            String pageIndex = fileName.substring(0, fileName.indexOf("_")).trim();
             try {
-                fineReaderEventHandler.setNextPageId(Integer.parseInt(prefix));
+                fineReaderEventHandler.setNextPageIndex(Integer.parseInt(pageIndex));
             } catch (NumberFormatException ignored) {
                 // ignored
             }
 
-            String suffix = fileName.substring(fileName.indexOf("_") + 1);
-            suffix = suffix.substring(0, suffix.indexOf(".")).trim();
-            fineReaderEventHandler.setNextPageUri(baseUri + suffix);
+            String pageId = fileName.substring(fileName.indexOf("_") + 1);
+            pageId = pageId.substring(0, pageId.indexOf(".")).trim();
+            fineReaderEventHandler.setNextPageId(pageId);
+            fineReaderEventHandler.setNextPageUri(baseUri + pageId);
 
             try {
                 saxParser.parse(openInputStream(path), fineReaderEventHandler);
