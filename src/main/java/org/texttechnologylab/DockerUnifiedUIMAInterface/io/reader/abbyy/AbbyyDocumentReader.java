@@ -42,6 +42,8 @@ import javax.xml.parsers.SAXParserFactory;
 import java.io.*;
 import java.nio.file.Path;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -93,12 +95,12 @@ public class AbbyyDocumentReader extends JCasCollectionReader_ImplBase {
      * <p/>
      * This pattern is used to filter the <emph>files</emph> considered as input.
      * If omitted, will include all XML files in any sub-directory of the {@link #PARAM_SOURCE_LOCATION sourceLocation}
-     * (equvialent to {@link #DEFAULT_FILES_INCLUDE [+]**<code>/</code>*.xml}).
+     * (equivalent to {@link #DEFAULT_FILE_INCLUDE [+]**<code>/</code>*.xml*}).
      */
     public static final String PARAM_FILE_PATTERNS = ComponentParameters.PARAM_PATTERNS;
     @ConfigurationParameter(name = PARAM_FILE_PATTERNS, mandatory = false)
     private String[] filePatterns;
-    public static final String DEFAULT_FILES_INCLUDE = "**/*.xml.*";
+    public static final String DEFAULT_FILE_INCLUDE = "**/*.xml*";
 
     /**
      * Overwrite the base URI of the parsed documents.
@@ -131,6 +133,41 @@ public class AbbyyDocumentReader extends JCasCollectionReader_ImplBase {
     public static final String PARAM_LANGUAGE = ComponentParameters.PARAM_LANGUAGE;
     @ConfigurationParameter(name = PARAM_LANGUAGE, mandatory = false, defaultValue = "de")
     private String language;
+
+    /**
+     * A RegEx {@link Pattern pattern string} to use on the document root sub-path to determine the document ID.
+     * Defaults to {@code ^(\d+).*}.
+     */
+    public static final String PARAM_DOCUMENT_ID_PATTERN = "documentIdPatternString";
+    @ConfigurationParameter(name = PARAM_DOCUMENT_ID_PATTERN, mandatory = false, defaultValue = "^(\\d+).*")
+    protected String documentIdPatternString;
+    protected Pattern documentIdPattern;
+
+    /**
+     * Optional {@link Pattern Pattern} flags to use for the document ID pattern.
+     */
+    public static final String PARAM_DOCUMENT_ID_PATTERN_FLAGS = "documentIdPatternFlags";
+    @ConfigurationParameter(name = PARAM_DOCUMENT_ID_PATTERN_FLAGS, mandatory = false)
+    protected int documentIdPatternFlags;
+
+    /**
+     * A RegEx {@link Pattern pattern string} to use on the page file name to determine the page index and ID.
+     * <p/>
+     * Use <b>named capturing groups</b> {@code (?<index>)} and {@code (?<id>)} for page index and ID, respectively.
+     * The index will be parsed as an integer while the ID remains unchanged.
+     * Defaults to {@code ^\(?<index>d+)_(?<id>\d+).*}.
+     */
+    public static final String PARAM_PAGE_ID_PATTERN = "pageIdPatternString";
+    @ConfigurationParameter(name = PARAM_PAGE_ID_PATTERN, mandatory = false, defaultValue = "^(?<index>\\d+)_(?<id>\\d+).*")
+    protected String pageIdPatternString;
+    protected Pattern pageIdPattern;
+
+    /**
+     * Optional {@link Pattern Pattern} flags to use for the page ID pattern.
+     */
+    public static final String PARAM_PAGE_ID_PATTERN_FLAGS = "pageIdPatternFlags";
+    @ConfigurationParameter(name = PARAM_PAGE_ID_PATTERN_FLAGS, mandatory = false)
+    protected int pageIdPatternFlags;
 
     /**
      * Set to {@code false} to disable adding {@link org.texttechnologylab.annotation.ocr.abbyy.Page Page}
@@ -241,6 +278,9 @@ public class AbbyyDocumentReader extends JCasCollectionReader_ImplBase {
             this.baseUri += "/";
         }
 
+        this.documentIdPattern = Pattern.compile(this.documentIdPatternString, this.documentIdPatternFlags);
+        this.pageIdPattern = Pattern.compile(this.pageIdPatternString, this.pageIdPatternFlags);
+
         try {
             saxParser = SAXParserFactory.newInstance().newSAXParser();
         } catch (ParserConfigurationException | SAXException e) {
@@ -248,7 +288,7 @@ public class AbbyyDocumentReader extends JCasCollectionReader_ImplBase {
         }
 
         MatchRules rootRules = new MatchRules(rootPatterns, DEFAULT_ROOT_INCLUDE);
-        MatchRules fileRules = new MatchRules(filePatterns, DEFAULT_FILES_INCLUDE);
+        MatchRules fileRules = new MatchRules(filePatterns, DEFAULT_FILE_INCLUDE);
 
         List<Path> rootPaths = scan(sourceLocation, rootRules, FileType.OnlyDirectories);
 
@@ -261,11 +301,23 @@ public class AbbyyDocumentReader extends JCasCollectionReader_ImplBase {
         }
         nestedResourceIterator = resourceMap.entrySet().iterator();
 
+        // Check if we found any root directories and corresponding files
+        if (rootPaths.isEmpty()) {
+            throw new ResourceInitializationException(new NoSuchElementException(
+                    "Could not find any root directories in the source location: " + sourceLocation
+            ));
+        }
+        int totalNumberOfFiles = resourceMap.values().stream().map(List::size).reduce(0, Integer::sum);
+        if (totalNumberOfFiles == 0) {
+            throw new ResourceInitializationException(
+                    new NoSuchElementException(
+                            String.format("None of the root %d directories contained any matching files!", rootPaths.size())
+                    )
+            );
+        }
+
         progressDocuments = new ProgressTracker(rootPaths.size(), "documents");
-        progressFiles = new ProgressTrackerRemaining(
-                resourceMap.values().stream().map(List::size).reduce(0, Integer::sum),
-                "files"
-        );
+        progressFiles = new ProgressTrackerRemaining(totalNumberOfFiles, "files");
     }
 
     private List<Path> scan(String basePath, MatchRules matchRules, FileType fileType) {
@@ -354,18 +406,34 @@ public class AbbyyDocumentReader extends JCasCollectionReader_ImplBase {
         }
     }
 
-    private void initCas(JCas jCas, Path rootPath) {
+    private void initCas(JCas jCas, Path rootPath) throws CollectionException {
         String rootName = rootPath.toFile().getName();
-        String suffix = rootPath.toString().substring(sourceLocation.length());
-        if (suffix.startsWith("/")) {
-            suffix = suffix.substring(1);
+        String rootPathSuffix = rootPath.toString().substring(sourceLocation.length());
+        if (rootPathSuffix.startsWith("/")) {
+            rootPathSuffix = rootPathSuffix.substring(1);
         }
-        String documentUri = baseUri + suffix;
+        String documentId = rootPathSuffix;
+        if (documentIdPattern != null) {
+            try {
+                Matcher matcher = documentIdPattern.matcher(rootPathSuffix);
+                if (matcher.matches()) {
+                    documentId = matcher.group(1);
+                } else {
+                    throw new MatchException(
+                            String.format("Document root path '%s' does not match document ID pattern '%s'", rootPathSuffix, documentIdPatternString),
+                            null
+                    );
+                }
+            } catch (Exception e) {
+                throw new CollectionException(e);
+            }
+        }
+        String documentUri = baseUri + documentId;
 
         // Set the DKPro Core document metadata
         DocumentMetaData docMetaData = DocumentMetaData.create(jCas);
         docMetaData.setDocumentTitle(rootName);
-        docMetaData.setDocumentId(suffix);
+        docMetaData.setDocumentId(documentId);
 
         docMetaData.setDocumentBaseUri(baseUri);
         docMetaData.setDocumentUri(documentUri);
@@ -431,20 +499,32 @@ public class AbbyyDocumentReader extends JCasCollectionReader_ImplBase {
         }
     }
 
-    private FineReaderEventHandler.ParsedDocument parseFiles(List<Path> files) throws IOException {
+    private FineReaderEventHandler.ParsedDocument parseFiles(List<Path> files) throws IOException, CollectionException {
         FineReaderEventHandler fineReaderEventHandler = new FineReaderEventHandler();
         for (Path path : files) {
             String fileName = path.toFile().getName();
 
-            String pageIndex = fileName.substring(0, fileName.indexOf("_")).trim();
+            String pageIndex;
+            String pageId;
+
+            Matcher matcher = pageIdPattern.matcher(fileName);
+            Map<String, Integer> namedGroups = matcher.namedGroups();
+            if (matcher.matches() && namedGroups.containsKey("index") && namedGroups.containsKey("id")) {
+                pageIndex = matcher.group(namedGroups.getOrDefault("index", 1));
+                pageId = matcher.group(namedGroups.getOrDefault("id", 2));
+            } else {
+                throw new CollectionException(new MatchException(
+                        String.format("Name of file '%s' does not match page index/ID pattern: '%s'", path, pageIdPatternString),
+                        null
+                ));
+            }
+
             try {
                 fineReaderEventHandler.setNextPageIndex(Integer.parseInt(pageIndex));
             } catch (NumberFormatException e) {
                 getLogger().warn("Failed to parse page index '{}' as Integer for page {}: {}", pageIndex, path, e.getMessage());
             }
 
-            String pageId = fileName.substring(fileName.indexOf("_") + 1);
-            pageId = pageId.substring(0, pageId.indexOf(".")).trim();
             fineReaderEventHandler.setNextPageId(pageId);
             fineReaderEventHandler.setNextPageUri(baseUri + pageId);
 
