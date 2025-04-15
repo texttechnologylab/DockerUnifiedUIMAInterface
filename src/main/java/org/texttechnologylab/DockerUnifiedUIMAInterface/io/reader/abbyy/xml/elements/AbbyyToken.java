@@ -31,6 +31,8 @@ public class AbbyyToken extends AbstractAnnotation {
             token.setIsWordFromDictionary(charList.stream().anyMatch(AbbyyChar::isWordFromDictionary));
             token.setIsWordNormal(charList.stream().anyMatch(AbbyyChar::isWordNormal));
             token.setIsWordNumeric(charList.stream().anyMatch(AbbyyChar::isWordNumeric));
+            token.setMeanCharConfidence((float) charList.stream().mapToInt(AbbyyChar::getConfidence).average().orElse(-1));
+            token.setMinCharConfidence((short) charList.stream().mapToInt(AbbyyChar::getConfidence).min().orElse(-1));
         }
         if (subTokenList.size() > 1) {
             token.setContainsHyphen(true);

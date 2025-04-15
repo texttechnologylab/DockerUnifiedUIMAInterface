@@ -12,7 +12,6 @@ public class AbbyyBlock extends AbstractStructuralAnnotation {
     private final BlockTypeEnum blockType;
     private final String blockName;
 
-    public boolean valid;
 
     public AbbyyBlock(Attributes attributes) {
         super(attributes);
@@ -20,8 +19,8 @@ public class AbbyyBlock extends AbstractStructuralAnnotation {
         BlockTypeEnum blockType = BlockTypeEnum.INVALID;
         try {
             blockType = BlockTypeEnum.valueOf(attributes.getValue("blockType"));
-        } catch (IllegalArgumentException ignore) {
-            //System.err.printf("Unknown block type: %s!\n", attributes.getValue("blockType"));
+        } catch (IllegalArgumentException invalid) {
+            getLogger().warn("Unknown block type {}", blockType);
         }
         this.blockType = blockType;
         this.blockName = attributes.getValue("blockName");
@@ -36,7 +35,6 @@ public class AbbyyBlock extends AbstractStructuralAnnotation {
         block.setRight(right);
         block.setBlockType(blockType.name());
         block.setBlockName(blockName);
-        block.setValid(valid);
         return block;
     }
 

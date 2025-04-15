@@ -64,7 +64,6 @@ public class FineReaderEventHandler extends DefaultHandler {
             case "block":
                 currBlock = new AbbyyBlock(attributes);
                 currBlock.setStart(textLength);
-                currBlock.valid = currBlock.isText();
 
                 currChar = null;
                 break;
