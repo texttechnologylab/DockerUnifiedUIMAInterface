@@ -133,18 +133,66 @@ public class AbbyyDocumentReader extends JCasCollectionReader_ImplBase {
     private String language;
 
     /**
-     * If {@code true}, use LanguageTool spellcheck for anomaly detection. Currently broken so this parameter does nothing.
+     * Set to {@code false} to disable adding {@link org.texttechnologylab.annotation.ocr.abbyy.Page Page}
+     * annotations to the output CAS.
+     */
+    public static final String PARAM_ADD_PAGES = "addPages";
+    @ConfigurationParameter(name = PARAM_ADD_PAGES, mandatory = false, defaultValue = "true")
+    protected Boolean addPages;
+
+    /**
+     * Set to {@code false} to disable adding {@link org.texttechnologylab.annotation.ocr.abbyy.Block Block}
+     * annotations to the output CAS.
+     */
+    public static final String PARAM_ADD_BLOCKS = "addBlocks";
+    @ConfigurationParameter(name = PARAM_ADD_BLOCKS, mandatory = false, defaultValue = "true")
+    protected Boolean addBlocks;
+
+    /**
+     * Set to {@code false} to disable adding {@link org.texttechnologylab.annotation.ocr.abbyy.Paragraph Paragraph}
+     * annotations to the output CAS.
+     */
+    public static final String PARAM_ADD_PARAGRAPHS = "addParagraphs";
+    @ConfigurationParameter(name = PARAM_ADD_PARAGRAPHS, mandatory = false, defaultValue = "true")
+    protected Boolean addParagraphs;
+
+    /**
+     * Set to {@code false} to disable adding {@link org.texttechnologylab.annotation.ocr.abbyy.Line Line}
+     * annotations to the output CAS.
+     */
+    public static final String PARAM_ADD_LINES = "addLines";
+    @ConfigurationParameter(name = PARAM_ADD_LINES, mandatory = false, defaultValue = "true")
+    protected Boolean addLines;
+
+    /**
+     * Set to {@code false} to disable adding {@link org.texttechnologylab.annotation.ocr.abbyy.Line Line} {@link org.texttechnologylab.annotation.ocr.abbyy.Format Format}
+     * annotations to the output CAS.
+     */
+    public static final String PARAM_ADD_LINE_FORMAT = "addLineFormat";
+    @ConfigurationParameter(name = PARAM_ADD_LINE_FORMAT, mandatory = false, defaultValue = "true")
+    protected Boolean addLineFormat;
+
+    /**
+     * Set to {@code false} to disable adding {@link org.texttechnologylab.annotation.ocr.abbyy.Token Token}
+     * annotations to the output CAS.
+     */
+    public static final String PARAM_ADD_TOKENS = "addTokens";
+    @ConfigurationParameter(name = PARAM_ADD_TOKENS, mandatory = false, defaultValue = "true")
+    protected Boolean addTokens;
+
+    /**
+     * If set {@code true}, enable heuristics to detect "garbage" lines in OCR output.
      */
     public static final String PARAM_ENABLE_GARBAGE_HEURISTICS = "enableGarbageHeuristics";
     @ConfigurationParameter(name = PARAM_ENABLE_GARBAGE_HEURISTICS, mandatory = false, defaultValue = "false")
     protected Boolean enableGarbageHeuristics;
 
     /**
-     * Some characters may be escaped HTML sequences. Set this parameter to true to unescape them during parsing.
+     * Unless set {@code false}, HTML escaped characters in the OCR output will be unescaped.
      */
-    public static final String PARAM_UNESCAPE_HTML = "pUnescapeHTML";
+    public static final String PARAM_UNESCAPE_HTML = "unescapeHTML";
     @ConfigurationParameter(name = PARAM_UNESCAPE_HTML, mandatory = false, defaultValue = "true")
-    protected Boolean pUnescapeHTML;
+    protected Boolean unescapeHTML;
 
     /**
      * The frequency with which read documents are logged.
@@ -156,7 +204,7 @@ public class AbbyyDocumentReader extends JCasCollectionReader_ImplBase {
     private int logFreq;
 
     /**
-     * Unless set, errors during XML parsing will be logged but processing will continue with next document.
+     * Unless set, errors during XML parsing will be logged but processing will continue with the next document.
      */
     public static final String PARAM_STOP_AT_FIRST_ERROR = "stopAtFirstError";
     @ConfigurationParameter(name = PARAM_STOP_AT_FIRST_ERROR, mandatory = true, defaultValue = "false")
@@ -334,7 +382,7 @@ public class AbbyyDocumentReader extends JCasCollectionReader_ImplBase {
 
         // Build SOFA string, remove HTML escapes
         String text = parsedDocument.tokens.stream().map(AbbyyToken::toString).collect(Collectors.joining(""));
-        if (pUnescapeHTML) {
+        if (unescapeHTML) {
             text = StringEscapeUtils.unescapeHtml(text);
         }
         jCas.setDocumentText(text);
@@ -346,26 +394,39 @@ public class AbbyyDocumentReader extends JCasCollectionReader_ImplBase {
         jCas.addFsToIndexes(ocrDocument);
 
         // Add parsed elements to CAS
-        for (AbbyyPage page : parsedDocument.pages) {
-            jCas.addFsToIndexes(page.into(jCas));
-        }
-        for (AbbyyBlock block : parsedDocument.blocks) {
-            jCas.addFsToIndexes(block.into(jCas));
-        }
-        for (AbbyyParagraph paragraph : parsedDocument.paragraphs) {
-            jCas.addFsToIndexes(paragraph.into(jCas));
-        }
-        for (AbbyyLine line : parsedDocument.lines) {
-            Line ocrLine = (Line) line.into(jCas);
-            jCas.addFsToIndexes(ocrLine);
-
-            if (enableGarbageHeuristics) {
-                detectAnomaly(jCas, ocrLine);
+        if (addPages) {
+            for (AbbyyPage page : parsedDocument.pages) {
+                jCas.addFsToIndexes(page.into(jCas));
             }
         }
-        for (AbbyyToken token : parsedDocument.tokens) {
-            if (!token.isSpace()) {
-                jCas.addFsToIndexes(token.into(jCas));
+        if (addBlocks) {
+            for (AbbyyBlock block : parsedDocument.blocks) {
+                jCas.addFsToIndexes(block.into(jCas));
+            }
+        }
+        if (addParagraphs) {
+            for (AbbyyParagraph paragraph : parsedDocument.paragraphs) {
+                jCas.addFsToIndexes(paragraph.into(jCas));
+            }
+        }
+        if (addLines) {
+            for (AbbyyLine line : parsedDocument.lines) {
+                if (!addLineFormat) {
+                    line.setFormat(null);
+                }
+                Line ocrLine = (Line) line.into(jCas);
+                jCas.addFsToIndexes(ocrLine);
+
+                if (enableGarbageHeuristics) {
+                    detectAnomaly(jCas, ocrLine);
+                }
+            }
+        }
+        if (addTokens) {
+            for (AbbyyToken token : parsedDocument.tokens) {
+                if (!token.isSpace()) {
+                    jCas.addFsToIndexes(token.into(jCas));
+                }
             }
         }
     }
@@ -378,8 +439,8 @@ public class AbbyyDocumentReader extends JCasCollectionReader_ImplBase {
             String pageIndex = fileName.substring(0, fileName.indexOf("_")).trim();
             try {
                 fineReaderEventHandler.setNextPageIndex(Integer.parseInt(pageIndex));
-            } catch (NumberFormatException ignored) {
-                // ignored
+            } catch (NumberFormatException e) {
+                getLogger().warn("Failed to parse page index '{}' as Integer for page {}: {}", pageIndex, path, e.getMessage());
             }
 
             String pageId = fileName.substring(fileName.indexOf("_") + 1);

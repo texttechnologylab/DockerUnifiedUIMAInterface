@@ -28,8 +28,10 @@ public class AbbyyLine extends AbstractStructuralAnnotation {
 
     public void setFormat(AbbyyFormat format) {
         this.format = format;
-        this.format.setStart(start);
-        this.format.setEnd(end);
+        if (this.format != null) {
+            this.format.setStart(start);
+            this.format.setEnd(end);
+        }
     }
 
     @Override
