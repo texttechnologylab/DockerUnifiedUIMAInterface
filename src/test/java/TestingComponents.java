@@ -141,10 +141,11 @@ public class TestingComponents {
 
         JCas tCas = getCasDE();
 
-        pComposer.add(new DUUIRemoteDriver.Component("http://localhost:8002")
+        pComposer.add(new DUUIRemoteDriver.Component("http://taxonerd.service.component.duui.texttechnologylab.org")
                 .withScale(iWorkers)
-                .withParameter("linker", "None")
-                .withParameter("threshold", "0.1")
+                .withParameter("linker", "ncbi_taxonomy")
+//                .withParameter("linker", "taxref")
+                .withParameter("threshold", "0.5")
                 .build().withTimeout(100000));
 //        pComposer.add(new DUUIDockerDriver.Component("duui-taxonerd:1.5")
 //                .withImageFetching()

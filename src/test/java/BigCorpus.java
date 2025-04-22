@@ -1,3 +1,4 @@
+import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Sentence;
 import org.dkpro.core.api.resources.CompressionMethod;
 import org.dkpro.core.io.xmi.XmiWriter;
@@ -31,7 +32,8 @@ public class BigCorpus {
 ////        String sOutputPath = "/tmp/wiki/";
         String sSuffix = "xmi.bz2";
 
-        DUUICollectionReader pReader = new DUUIFileReaderLazy(sInputPath, sSuffix, sOutputPath, ".xmi.bz2", 1);
+        DUUICollectionReader pReader = new DUUIFileReaderLazy(sInputPath, sSuffix, 1);
+//        DUUICollectionReader pReader = new DUUIFileReaderLazy(sInputPath, sSuffix, sOutputPath, ".xmi.bz2", 1);
 
         // Asynchroner reader für die Input-Dateien
         DUUIAsynchronousProcessor pProcessor = new DUUIAsynchronousProcessor(pReader);
@@ -85,6 +87,12 @@ public class BigCorpus {
                 .withScale(iWorker)
                 .withSegmentationStrategy(segmentationStrategy)
                 .build());
+
+//        DocumentMetaData dmd = new DocumentMetaData(null);
+//        dmd.setDocumentId("");
+//        dmd.setDocumentUri("/opt/files/"+iCount);
+//        dmd.setDocumentBaseUri("/opt/files");
+//        dmd.addToIndexes();
 
         composer.add(new DUUIUIMADriver.Component(createEngineDescription(XmiWriter.class,
                 XmiWriter.PARAM_TARGET_LOCATION, sOutputPath,
