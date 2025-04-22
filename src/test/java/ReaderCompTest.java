@@ -6,6 +6,7 @@ import org.dkpro.core.api.resources.CompressionMethod;
 import org.dkpro.core.io.xmi.XmiWriter;
 import org.junit.jupiter.api.Test;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIReaderComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.*;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.DUUIAsynchronousProcessor;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.DUUICollectionReader;
@@ -27,6 +28,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.apache.uima.fit.factory.AnalysisEngineFactory.createEngineDescription;
 
@@ -67,26 +69,69 @@ public class ReaderCompTest {
     }
 
     @Test
-    public void ANNISReaderCompAsCompInit() throws Exception {
-        DUUIPipelineComponent readerComp = new DUUIRemoteDriver.Component("http://0.0.0.0:9714").build();
-        Path filePath = Path.of("/home/staff_homes/lehammer/Documents/work/AnnisReader/data/test_data/DDD-AD-Genesis.zip");
-        int nDocs = DUUIDynamicReaderLazy.initComponent(readerComp, filePath);
-        System.out.println(nDocs);
-
-    }
-
-    @Test
     public void DynamicReaderInitTest() throws Exception {
         DUUIPipelineComponent readerComp = new DUUIRemoteDriver.Component("http://0.0.0.0:9714").build();
         List<DUUIPipelineComponent> compList = List.of(readerComp);
         Path filePath = Path.of("/home/staff_homes/lehammer/Documents/work/AnnisReader/data/test_data/DDD-AD-Genesis.zip");
         DUUIDynamicReaderLazy dynamicReader = new DUUIDynamicReaderLazy(filePath, compList);
-        TimeUnit.SECONDS.sleep(10);
+        // TimeUnit.SECONDS.sleep(10);
+    }
+
+    @Test
+    public void DynamicReaderInitTest2() throws Exception {
+        Path filePath = Path.of("/home/staff_homes/lehammer/Documents/work/AnnisReader/data/test_data/DDD-AD-Genesis.zip");
+        DUUIPipelineComponent readerComp = new DUUIRemoteDriver.Component("http://0.0.0.0:9714").build();
+        DUUILuaContext ctx = new DUUILuaContext().withJsonLibrary();
+        DUUIReaderComposer composer = new DUUIReaderComposer()
+                .withSkipVerification(true)     // wir überspringen die Verifikation aller Componenten =)
+                .withLuaContext(ctx)            // wir setzen den definierten Kontext
+                .withWorkers(iWorker);
+        DUUIDockerDriver docker_driver = new DUUIDockerDriver();
+        DUUISwarmDriver swarm_driver = new DUUISwarmDriver();
+        DUUIRemoteDriver remote_driver = new DUUIRemoteDriver();
+        DUUIUIMADriver uima_driver = new DUUIUIMADriver()
+                .withDebug(true);
+
+        // Hinzufügen der einzelnen Driver zum Composer
+        composer.addDriver(docker_driver, uima_driver
+                ,swarm_driver, remote_driver);
+        composer.add(readerComp);
+        composer.instantiate_pipeline();
+        System.out.println(composer.get_isServiceStarted());
+        composer.instantiateReaderPipeline(filePath);
+        System.out.println("go");
+
+        JCas _basic1 = JCasFactory.createJCas();
+        composer.run(_basic1);
+        System.out.println(_basic1.getSofa());
+        System.out.println("---------------------------------------");
+
+        JCas _basic2 = JCasFactory.createJCas();
+        composer.run(_basic2);
+        System.out.println(_basic2.getSofa());
+        System.out.println("---------------------------------------");
+
+        JCas _basic3 = JCasFactory.createJCas();
+        composer.run(_basic3);
+        System.out.println(_basic3.getSofa());
+        System.out.println("---------------------------------------");
+
+        JCas _basic4 = JCasFactory.createJCas();
+        composer.run(_basic4);
+        System.out.println(_basic4.getSofa());
+        System.out.println("---------------------------------------");
     }
 
     @Test
     public void DynamicReaderTest() throws Exception {
-        DUUIPipelineComponent readerComp = new DUUIRemoteDriver.Component("http://0.0.0.0:9714").build();
+        //DUUIPipelineComponent readerComp = new DUUIRemoteDriver.Component("http://0.0.0.0:9714").build();
+
+
+        DUUIPipelineComponent readerComp = new DUUIDockerDriver.Component("duui-annis_reader:0.1")
+                .withScale(iWorker).withImageFetching()
+                .build().withTimeout(30);
+
+
         List<DUUIPipelineComponent> compList = List.of(readerComp);
         Path filePath = Path.of("/home/staff_homes/lehammer/Documents/work/AnnisReader/data/test_data/DDD-AD-Genesis.zip");
         DUUIDynamicReaderLazy dynamicReader = new DUUIDynamicReaderLazy(filePath, compList);
@@ -125,4 +170,6 @@ public class ReaderCompTest {
         composer.run(pProcessor, "DynamicReaderTest");
 
     }
+
+
 }

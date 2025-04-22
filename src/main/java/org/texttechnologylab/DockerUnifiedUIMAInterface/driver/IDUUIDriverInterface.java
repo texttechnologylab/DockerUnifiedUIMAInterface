@@ -13,6 +13,7 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPip
 import org.xml.sax.SAXException;
 
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -70,6 +71,15 @@ public interface IDUUIDriverInterface {
      * @throws ResourceInitializationException
      */
     public TypeSystemDescription get_typesystem(String uuid) throws InterruptedException, IOException, SAXException, CompressorException, ResourceInitializationException;
+
+    /**
+     * Initializes a Reader Component
+     * @param uuid
+     * @param filePath
+     * @return
+     * @throws Exception
+     */
+    public int initReaderComponent(String uuid, Path filePath) throws Exception;
 
     /**
      * Starting a component.

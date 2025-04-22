@@ -25,6 +25,7 @@ import org.xml.sax.SAXException;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
+import java.nio.file.Path;
 import java.security.InvalidParameterException;
 import java.util.*;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -326,6 +327,18 @@ public class DUUIUIMADriver implements IDUUIDriverInterface {
 
     public TypeSystemDescription get_typesystem(String uuid) throws InterruptedException, IOException, SAXException, CompressorException, ResourceInitializationException {
         return TypeSystemDescriptionFactory.createTypeSystemDescription();
+    }
+
+    /**
+     * init reader component
+     * TODO: is this needed?
+     * @param uuid
+     * @param filePath
+     * @return
+     */
+    @Override
+    public int initReaderComponent(String uuid, Path filePath) {
+        return 0;
     }
 
     public void run(String uuid, JCas aCas, DUUIPipelineDocumentPerformance perf, DUUIComposer composer) throws InterruptedException, IOException, SAXException, AnalysisEngineProcessException, CompressorException, CASException {
