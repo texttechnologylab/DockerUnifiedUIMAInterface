@@ -2,8 +2,8 @@ jdk:
   - openjdk21
 
 before_install:
-  - sdk install maven 3.8.6
-  - sdk use maven 3.8.6
+  - sdk install maven 3.8.1
+  - sdk use maven 3.8.1
 
 install:
   - echo "Using Maven 3.8.1"
