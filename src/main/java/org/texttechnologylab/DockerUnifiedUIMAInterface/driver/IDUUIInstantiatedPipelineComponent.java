@@ -140,7 +140,10 @@ public interface IDUUIInstantiatedPipelineComponent {
 
         /// Process output of serialize() invocation
         // Merge serialize and user-defined request headers
-        final HashMap<String, String> request_headers = new HashMap<>(serializeOutput.headers);
+        final HashMap<String, String> request_headers = new HashMap<>();
+        if (serializeOutput.headers != null) {
+            request_headers.putAll(serializeOutput.headers);
+        }
         pipelineComponent.getRequestHeaders().forEach((key, value) -> {
             if (request_headers.containsKey(key) && !request_headers.get(key).equals(value)) {
                 System.out.printf(
