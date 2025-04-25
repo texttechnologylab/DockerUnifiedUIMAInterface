@@ -3,11 +3,16 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.cas.CASException;
 import org.apache.uima.jcas.JCas;
+import org.luaj.vm2.LuaError;
+import org.luaj.vm2.LuaTable;
+import org.luaj.vm2.LuaValue;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIHttpRequestHandler;
 import org.xml.sax.SAXException;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -16,9 +21,13 @@ import java.util.Map;
  */
 public interface IDUUICommunicationLayer {
 
-  public void serialize(JCas jc, ByteArrayOutputStream out, Map<String,String> parameters, String sourceView) throws CompressorException, IOException, SAXException, CASException;
+  public void process(JCas jCas, DUUIHttpRequestHandler handler, Map<String, String> parameters) throws CompressorException, IOException, SAXException, CASException;
 
-  public void deserialize(JCas jc, ByteArrayInputStream input, String targetView) throws IOException, SAXException, CASException;
+  public boolean supportsProcess();
+
+  public boolean supportsSerialize();
+
+  public void serialize(JCas jc, ByteArrayOutputStream out, Map<String,String> parameters, String sourceView) throws CompressorException, IOException, SAXException, CASException;
 
   /**
    * Serializes a JCas to a byte array output stream by using the LUA script provided by the component.
@@ -30,8 +39,10 @@ public interface IDUUICommunicationLayer {
    * @throws SAXException
    */
   default void serialize(JCas jc, ByteArrayOutputStream out, Map<String,String> parameters) throws CompressorException, IOException, SAXException, CASException {
-    serialize(jc, out, parameters, "_InitialView");
+      serialize(jc, out, parameters, "_InitialView");
   }
+
+  public void deserialize(JCas jc, ByteArrayInputStream input, String targetView) throws IOException, SAXException, CASException;
 
   /**
    * Deserializes a byte array input stream to a JCas by using the LUA script provided by the component.

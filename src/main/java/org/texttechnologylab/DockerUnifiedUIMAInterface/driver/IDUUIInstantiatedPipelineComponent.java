@@ -26,6 +26,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -134,8 +135,23 @@ public interface IDUUIInstantiatedPipelineComponent {
             }
         }
 
-        layer.serialize(viewJc,out,comp.getParameters(), comp.getSourceView());
-        // lua serialize call()
+        if (layer.supportsProcess()) {
+            layer.process(jc, new DUUIHttpRequestHandler(_client, queue.getValue0().generateURL(), pipelineComponent.getTimeout()), comp.getParameters());
+
+            ReproducibleAnnotation ann = new ReproducibleAnnotation(jc);
+            ann.setDescription(comp.getPipelineComponent().getFinalizedRepresentation());
+            ann.setCompression(DUUIPipelineComponent.compressionMethod);
+            ann.setTimestamp(System.nanoTime());
+            ann.setPipelineName(perf.getRunKey());
+            ann.addToIndexes();
+            comp.addComponent(queue.getValue0());
+
+            return;
+        }
+
+        // Invoke Lua serialize()
+        layer.serialize(viewJc, out, comp.getParameters(), comp.getSourceView());
+
 
         byte[] ok = out.toByteArray();
         long sizeArray = ok.length;

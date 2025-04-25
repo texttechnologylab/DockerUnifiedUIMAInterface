@@ -7,6 +7,8 @@ import org.apache.uima.cas.impl.XmiCasSerializer;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.util.TypeSystemUtil;
 import org.json.JSONObject;
+import org.luaj.vm2.LuaValue;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIHttpRequestHandler;
 import org.xml.sax.SAXException;
 
 import java.io.*;
@@ -33,6 +35,7 @@ public class DUUIFallbackCommunicationLayer implements IDUUICommunicationLayer {
         obj.put("compression","none");
         obj.put("params",parameters);
         out.write(obj.toString().getBytes(StandardCharsets.UTF_8));
+
     }
 
     public void deserialize(JCas jc, ByteArrayInputStream input, String targetView) throws IOException, SAXException {
@@ -55,6 +58,20 @@ public class DUUIFallbackCommunicationLayer implements IDUUICommunicationLayer {
     @Override
     public void deserialize(JCas jc, ByteArrayInputStream input) throws IOException, SAXException, CASException {
         deserialize(jc, input, "_InitialView");
+    }
+
+    @Override
+    public void process(JCas jCas, DUUIHttpRequestHandler handler, Map<String, String> parameters) throws CompressorException, IOException, SAXException, CASException {
+        throw new UnsupportedOperationException();
+
+    }
+
+    public boolean supportsProcess() {
+        return false;
+    }
+
+    public boolean supportsSerialize() {
+        return true;
     }
 
     public IDUUICommunicationLayer copy() {
