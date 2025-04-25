@@ -137,10 +137,11 @@ public class AbbyyDocumentReader extends JCasCollectionReader_ImplBase {
 
     /**
      * A RegEx {@link Pattern pattern string} to use on the document root sub-path to determine the document ID.
-     * Defaults to {@code ^(\d+).*}.
+     * If the RegEx contains multiple (alternative) match groups, the first matching group will be used.
+     * Defaults to {@code .*\/(\d+)|(\d+)[^/]*}.
      */
     public static final String PARAM_DOCUMENT_ID_PATTERN = "documentIdPatternString";
-    @ConfigurationParameter(name = PARAM_DOCUMENT_ID_PATTERN, mandatory = false, defaultValue = "^(\\d+).*")
+    @ConfigurationParameter(name = PARAM_DOCUMENT_ID_PATTERN, mandatory = false, defaultValue = ".*/(\\d+)|(\\d+)[^/]*")
     protected String documentIdPatternString;
     protected Pattern documentIdPattern;
 
@@ -432,7 +433,7 @@ public class AbbyyDocumentReader extends JCasCollectionReader_ImplBase {
 
         progressDocuments.inc();
         if (logFreq > 0) {
-            getLogger().info("{}, {}", progressDocuments, progressFiles);
+            getLogger().info("{}, {} - Finished Document: {}", progressDocuments, progressFiles, DocumentMetaData.get(jCas).getDocumentId());
         }
     }
 
@@ -447,7 +448,12 @@ public class AbbyyDocumentReader extends JCasCollectionReader_ImplBase {
             try {
                 Matcher matcher = documentIdPattern.matcher(rootPathSuffix);
                 if (matcher.matches()) {
-                    documentId = matcher.group(1);
+                    for (int i = 1; i <= matcher.groupCount(); i++) {
+                        if (matcher.group(i) != null) {
+                            documentId = matcher.group(i);
+                            break;
+                        }
+                    }
                 } else {
                     throw new MatchException(
                             String.format("Document root path '%s' does not match document ID pattern '%s'", rootPathSuffix, documentIdPatternString),

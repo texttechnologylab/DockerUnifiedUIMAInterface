@@ -22,8 +22,9 @@ public class TestAbbyyDocumentReader {
         try {
             CollectionReader reader = CollectionReaderFactory.createReader(AbbyyDocumentReader.class,
                     AbbyyDocumentReader.PARAM_SOURCE_LOCATION, path,
-                    AbbyyDocumentReader.PARAM_ROOT_PATTERNS, "[+]*",
+                    AbbyyDocumentReader.PARAM_ROOT_PATTERNS, "[+]**/",
                     AbbyyDocumentReader.PARAM_FILE_PATTERNS, "[+]**/*.xml*",
+                    AbbyyDocumentReader.PARAM_DOCUMENT_ID_PATTERN, ".*/(\\d+)/?|(\\d+)[^/]*",
                     // URI for UB Biodiversity corpus
                     AbbyyDocumentReader.PARAM_BASE_URI, "https://sammlungen.ub.uni-frankfurt.de/biodiv/",
                     // relative "inner" bounding box, inset to 1% of each pages' dimensions
