@@ -21,16 +21,6 @@ import java.util.Map;
  */
 public interface IDUUICommunicationLayer {
 
-  default void process(JCas jCas, DUUIHttpRequestHandler handler, Map<String, String> parameters) throws CompressorException, IOException, SAXException, CASException {
-     process(jCas, handler, parameters, jCas);
-  }
-
-  public void process(JCas jCas, DUUIHttpRequestHandler handler, Map<String, String> parameters, JCas targetCas) throws CompressorException, IOException, SAXException, CASException;
-
-  public boolean supportsProcess();
-
-  public boolean supportsSerialize();
-
   public void serialize(JCas jc, ByteArrayOutputStream out, Map<String,String> parameters, String sourceView) throws CompressorException, IOException, SAXException, CASException;
 
   /**
@@ -58,6 +48,15 @@ public interface IDUUICommunicationLayer {
   default void deserialize(JCas jc, ByteArrayInputStream input) throws IOException, SAXException, CASException {
     deserialize(jc, input, "_InitialView");
   }
+  default void process(JCas jCas, DUUIHttpRequestHandler handler, Map<String, String> parameters) throws CompressorException, IOException, SAXException, CASException {
+    process(jCas, handler, parameters, jCas);
+  }
+
+  public void process(JCas jCas, DUUIHttpRequestHandler handler, Map<String, String> parameters, JCas targetCas) throws CompressorException, IOException, SAXException, CASException;
+
+  public boolean supportsProcess();
+
+  public boolean supportsSerialize();
 
   /**
    *

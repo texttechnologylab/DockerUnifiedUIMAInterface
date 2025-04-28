@@ -3,6 +3,8 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface.lua;
 import org.luaj.vm2.*;
 import org.luaj.vm2.lib.ZeroArgFunction;
 
+import java.util.Objects;
+
 /**
  * Class on the use of Lua
  *
@@ -61,8 +63,38 @@ public class DUUILuaCompiledFile {
         return result.arg(2);
     }
 
-    public boolean hasFunction(String funcName) {
-        LuaValue func = _globals.get(funcName);
-        return func != null && !func.isnil();
+    /**
+     * Check if there is a globally defined variable of the given name.
+     *
+     * @param name name of the variable to get
+     * @return true if such a variable exists
+     */
+    public boolean hasGlobal(String name) {
+        LuaValue global = _globals.get(name);
+        return global != null && !global.isnil();
+    }
+
+    /**
+     * Check if there is a globally defined function of the given name.
+     *
+     * @param name name of the function to check
+     * @return true if the function exists
+     */
+    public boolean hasGlobalFunc(String name) {
+        LuaValue global = _globals.get(name);
+        return global != null && !global.isnil() && global.isfunction();
+    }
+
+    /**
+     * Get the value of a globally defined symbol in the compiled Lua script.
+     *
+     * @param name name of the symbol to get
+     * @return the globally defined {@link LuaValue}
+     * @throws NullPointerException if the symbol does not exist, use {@link #hasGlobal} to check for {@code null}'s
+     *
+     * @see #hasGlobal
+     */
+    public LuaValue getGlobal(String name) {
+        return Objects.requireNonNull(_globals.get(name));
     }
 }

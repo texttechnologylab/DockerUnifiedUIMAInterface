@@ -55,14 +55,17 @@ public class DUUILuaCommunicationLayer implements IDUUICommunicationLayer {
         );
     }
 
-    @Override
     public boolean supportsProcess() {
-        return _file.hasFunction("process");
+        return _file.hasGlobal("SUPPORTS_PROCESS") && _file.getGlobal("SUPPORTS_PROCESS").toboolean();
     }
 
-    @Override
     public boolean supportsSerialize() {
-        return _file.hasFunction("serialize") && _file.hasFunction("deserialize");
+        return (
+                _file.hasGlobal("SUPPORTS_SERIALIZE") && _file.getGlobal("SUPPORTS_SERIALIZE").toboolean()
+        ) || (
+                // backwards compatability: check for globally defined serialize and deserialize functions
+                _file.hasGlobalFunc("serialize") && _file.hasGlobalFunc("deserialize")
+        );
     }
 
     public void serialize(JCas jc, ByteArrayOutputStream out, Map<String, String> parameters, String sourceView) throws CompressorException, IOException, SAXException, CASException {
