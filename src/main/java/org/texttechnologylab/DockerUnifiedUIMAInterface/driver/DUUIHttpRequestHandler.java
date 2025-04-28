@@ -6,6 +6,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Map;
 
@@ -29,8 +30,8 @@ public class DUUIHttpRequestHandler {
     }
 
     public record Response(int statusCode, byte[] body) {
-        public String bodyAsString() {
-            return new String(body);
+        public String bodyUtf8() {
+            return new String(body, StandardCharsets.UTF_8);
         }
     }
 
