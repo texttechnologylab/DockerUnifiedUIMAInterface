@@ -1,4 +1,4 @@
-package org.texttechnologylab.duui.v2;
+package org.texttechnologylab.duui.lua_process;
 
 import de.tudarmstadt.ukp.dkpro.core.api.lexmorph.type.morph.MorphologicalFeatures;
 import de.tudarmstadt.ukp.dkpro.core.api.lexmorph.type.pos.POS;
@@ -9,19 +9,14 @@ import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
-import org.apache.uima.jcas.cas.FSArray;
-import org.apache.uima.jcas.tcas.Annotation;
 import org.junit.Test;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIDockerDriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIUIMADriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.annotation.SpacyAnnotatorMetaData;
 
-import java.net.URISyntaxException;
-
-public class TestV2 {
+public class TestSpacyLuaProcess {
     @Test
     public void test_with_sentences() throws Exception {
         DUUIComposer composer = new DUUIComposer()
