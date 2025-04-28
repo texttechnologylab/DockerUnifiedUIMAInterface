@@ -26,7 +26,6 @@ import java.net.http.HttpResponse;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -136,7 +135,20 @@ public interface IDUUIInstantiatedPipelineComponent {
         }
 
         if (layer.supportsProcess()) {
-            layer.process(jc, new DUUIHttpRequestHandler(_client, queue.getValue0().generateURL(), pipelineComponent.getTimeout()), comp.getParameters());
+            JCas sourceCas = viewJc.getView(comp.getSourceView());
+            JCas targetCas;
+            try {
+                targetCas = viewJc.getView(comp.getTargetView());
+            } catch (CASException e) {
+                targetCas = viewJc.createView(comp.getTargetView());
+            }
+
+            layer.process(
+                    sourceCas,
+                    new DUUIHttpRequestHandler(_client, queue.getValue0().generateURL(), pipelineComponent.getTimeout()),
+                    comp.getParameters(),
+                    targetCas
+            );
 
             ReproducibleAnnotation ann = new ReproducibleAnnotation(jc);
             ann.setDescription(comp.getPipelineComponent().getFinalizedRepresentation());
@@ -144,8 +156,8 @@ public interface IDUUIInstantiatedPipelineComponent {
             ann.setTimestamp(System.nanoTime());
             ann.setPipelineName(perf.getRunKey());
             ann.addToIndexes();
-            comp.addComponent(queue.getValue0());
 
+            comp.addComponent(queue.getValue0());
             return;
         }
 

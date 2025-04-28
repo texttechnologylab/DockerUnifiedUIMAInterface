@@ -21,7 +21,11 @@ import java.util.Map;
  */
 public interface IDUUICommunicationLayer {
 
-  public void process(JCas jCas, DUUIHttpRequestHandler handler, Map<String, String> parameters) throws CompressorException, IOException, SAXException, CASException;
+  default void process(JCas jCas, DUUIHttpRequestHandler handler, Map<String, String> parameters) throws CompressorException, IOException, SAXException, CASException {
+     process(jCas, handler, parameters, jCas);
+  }
+
+  public void process(JCas jCas, DUUIHttpRequestHandler handler, Map<String, String> parameters, JCas targetCas) throws CompressorException, IOException, SAXException, CASException;
 
   public boolean supportsProcess();
 

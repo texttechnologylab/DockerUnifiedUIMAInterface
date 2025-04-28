@@ -61,9 +61,8 @@ public class DUUIFallbackCommunicationLayer implements IDUUICommunicationLayer {
     }
 
     @Override
-    public void process(JCas jCas, DUUIHttpRequestHandler handler, Map<String, String> parameters) throws CompressorException, IOException, SAXException, CASException {
+    public void process(JCas jCas, DUUIHttpRequestHandler handler, Map<String, String> parameters, JCas targetCas) throws CompressorException, IOException, SAXException, CASException {
         throw new UnsupportedOperationException();
-
     }
 
     public boolean supportsProcess() {
