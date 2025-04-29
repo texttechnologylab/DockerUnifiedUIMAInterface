@@ -16,6 +16,7 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIFallbackCommunicatio
 import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUICommunicationLayer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.DUUIWebsocketAlt;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.IDUUIConnectionHandler;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.exception.PipelineComponentException;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaCommunicationLayer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
@@ -407,13 +408,10 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
      * @param aCas
      * @param perf
      * @param composer
-     * @throws InterruptedException
-     * @throws IOException
-     * @throws SAXException
-     * @throws CompressorException
      * @throws CASException
+     * @throws PipelineComponentException
      */
-    public void run(String uuid, JCas aCas, DUUIPipelineDocumentPerformance perf, DUUIComposer composer) throws InterruptedException, IOException, SAXException, CompressorException, CASException {
+    public void run(String uuid, JCas aCas, DUUIPipelineDocumentPerformance perf, DUUIComposer composer) throws CASException, PipelineComponentException {
         long mutexStart = System.nanoTime();
         InstantiatedComponent comp = _active_components.get(uuid);
         if (comp == null) {

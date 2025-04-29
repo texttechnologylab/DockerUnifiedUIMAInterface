@@ -8,6 +8,7 @@ import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.apache.uima.util.InvalidXMLException;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.exception.PipelineComponentException;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
 import org.xml.sax.SAXException;
@@ -87,14 +88,10 @@ public interface IDUUIDriverInterface {
      * @param aCas
      * @param perf
      * @param composer
-     * @throws InterruptedException
-     * @throws IOException
-     * @throws SAXException
-     * @throws AnalysisEngineProcessException
-     * @throws CompressorException
      * @throws CASException
+     * @throws PipelineComponentException
      */
-    public void run(String uuid, JCas aCas, DUUIPipelineDocumentPerformance perf, DUUIComposer composer) throws InterruptedException, IOException, SAXException, AnalysisEngineProcessException, CompressorException, CASException;
+    public void run(String uuid, JCas aCas, DUUIPipelineDocumentPerformance perf, DUUIComposer composer) throws CASException, PipelineComponentException;
 
     /**
      * Destruction of a component

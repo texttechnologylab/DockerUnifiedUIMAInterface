@@ -3,11 +3,13 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface.lua;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.cas.CASException;
 import org.apache.uima.jcas.JCas;
+import org.luaj.vm2.LuaError;
 import org.luaj.vm2.LuaTable;
 import org.luaj.vm2.lib.jse.CoerceJavaToLua;
 import org.luaj.vm2.lib.jse.CoerceLuaToJava;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUICommunicationLayer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIHttpRequestHandler;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.exception.CommunicationLayerException;
 import org.xml.sax.SAXException;
 
 import java.io.ByteArrayInputStream;
@@ -35,24 +37,32 @@ public class DUUILuaCommunicationLayer implements IDUUICommunicationLayer {
     }
 
     @Override
-    public void process(JCas jCas, DUUIHttpRequestHandler handler, Map<String, String> parameters) throws CompressorException, IOException, SAXException, CASException {
-        _file.call(
-                "process",
-                CoerceJavaToLua.coerce(jCas),
-                CoerceJavaToLua.coerce(handler),
-                createLuaTableFromParameters(parameters)
-        );
+    public void process(JCas jCas, DUUIHttpRequestHandler handler, Map<String, String> parameters) throws CommunicationLayerException, CASException {
+        try {
+            _file.call(
+                    "process",
+                    CoerceJavaToLua.coerce(jCas),
+                    CoerceJavaToLua.coerce(handler),
+                    createLuaTableFromParameters(parameters)
+            );
+        } catch (LuaError e) {
+            throw new CommunicationLayerException("Caught LuaError while calling process(sourceCas, handler, parameters)", e);
+        }
     }
 
     @Override
-    public void process(JCas sourceCas, DUUIHttpRequestHandler handler, Map<String, String> parameters, JCas targetCas) throws CompressorException, IOException, SAXException, CASException {
-        _file.call(
-                "process",
-                CoerceJavaToLua.coerce(sourceCas),
-                CoerceJavaToLua.coerce(handler),
-                createLuaTableFromParameters(parameters),
-                CoerceJavaToLua.coerce(targetCas)
-        );
+    public void process(JCas sourceCas, DUUIHttpRequestHandler handler, Map<String, String> parameters, JCas targetCas) throws CommunicationLayerException, CASException {
+        try {
+            _file.call(
+                    "process",
+                    CoerceJavaToLua.coerce(sourceCas),
+                    CoerceJavaToLua.coerce(handler),
+                    createLuaTableFromParameters(parameters),
+                    CoerceJavaToLua.coerce(targetCas)
+            );
+        } catch (LuaError e) {
+            throw new CommunicationLayerException("Caught LuaError while calling process(sourceCas, handler, parameters, targetCas)", e);
+        }
     }
 
     public boolean supportsProcess() {
@@ -68,17 +78,21 @@ public class DUUILuaCommunicationLayer implements IDUUICommunicationLayer {
         );
     }
 
-    public void serialize(JCas jc, ByteArrayOutputStream out, Map<String, String> parameters, String sourceView) throws CompressorException, IOException, SAXException, CASException {
+    public void serialize(JCas jc, ByteArrayOutputStream out, Map<String, String> parameters, String sourceView) throws CommunicationLayerException, CASException {
         LuaTable params = createLuaTableFromParameters(parameters);
 
-        _file.call("serialize", CoerceJavaToLua.coerce(jc.getView(sourceView)), CoerceJavaToLua.coerce(out), params);
+        try {
+            _file.call("serialize", CoerceJavaToLua.coerce(jc.getView(sourceView)), CoerceJavaToLua.coerce(out), params);
+        } catch (LuaError e) {
+            throw new CommunicationLayerException("Caught LuaError while calling serialize(sourceCas, outputStream, parameters)", e);
+        }
     }
 
-    public void deserialize(JCas jc, ByteArrayInputStream input) throws IOException, SAXException, CASException {
+    public void deserialize(JCas jc, ByteArrayInputStream input) throws CommunicationLayerException, CASException {
         deserialize(jc, input, "_InitialView");
     }
 
-    public void deserialize(JCas jc, ByteArrayInputStream input, String targetView) throws IOException, SAXException, CASException {
+    public void deserialize(JCas jc, ByteArrayInputStream input, String targetView) throws CommunicationLayerException, CASException {
 
         JCas tJc;
 
@@ -88,7 +102,11 @@ public class DUUILuaCommunicationLayer implements IDUUICommunicationLayer {
             tJc = jc.createView(targetView);
         }
 
-        _file.call("deserialize",CoerceJavaToLua.coerce(tJc),CoerceJavaToLua.coerce(input));
+        try {
+            _file.call("deserialize", CoerceJavaToLua.coerce(tJc), CoerceJavaToLua.coerce(input));
+        } catch (LuaError e) {
+            throw new CommunicationLayerException("Caught LuaError while calling deserialize(targetCas, inputStream)", e);
+        }
     }
 
 

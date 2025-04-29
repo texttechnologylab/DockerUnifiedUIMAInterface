@@ -63,6 +63,7 @@ public class TestSpacyLuaProcess {
                 new DUUIDockerDriver.Component(
                         "duui-spacy-v2:dev"
                 )
+                        .withName("duui-spacy-v2:dev")
                         .withParameter("spacy_model_size", "sm")
                         .build()
         );

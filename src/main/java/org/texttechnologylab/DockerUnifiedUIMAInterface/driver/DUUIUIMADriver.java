@@ -18,6 +18,7 @@ import org.apache.uima.resource.metadata.NameValuePair;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.apache.uima.util.InvalidXMLException;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.exception.PipelineComponentException;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
 import org.texttechnologylab.duui.ReproducibleAnnotation;
@@ -341,7 +342,7 @@ public class DUUIUIMADriver implements IDUUIDriverInterface {
         return 0;
     }
 
-    public void run(String uuid, JCas aCas, DUUIPipelineDocumentPerformance perf, DUUIComposer composer) throws InterruptedException, IOException, SAXException, AnalysisEngineProcessException, CompressorException, CASException {
+    public void run(String uuid, JCas aCas, DUUIPipelineDocumentPerformance perf, DUUIComposer composer) throws CASException, PipelineComponentException {
         long mutexStart = System.nanoTime();
 
         InstantiatedComponent component = _engines.get(uuid);
@@ -383,19 +384,18 @@ public class DUUIUIMADriver implements IDUUIDriverInterface {
             ann.setPipelineName(perf.getRunKey());
             ann.addToIndexes();
             perf.addData(0, 0, annotatorEnd - annotatorStart, mutexEnd - mutexStart, annotatorEnd - mutexStart, String.valueOf(component.getPipelineComponent().getFinalizedRepresentationHash()), 0, jc, null);
-            component.add(engine);
         } catch (Exception e) {
-            component.add(engine);
 
             // track error docs
             long annotatorStart = mutexEnd;
             long annotatorEnd = System.nanoTime();
             if (perf.shouldTrackErrorDocs()) {
                 perf.addData(0, 0, annotatorEnd - annotatorStart, mutexEnd - mutexStart, annotatorEnd - mutexStart, String.valueOf(component.getPipelineComponent().getFinalizedRepresentationHash()), 0, null, ExceptionUtils.getStackTrace(e));
-                component.add(engine);
             }
 
-            throw e;
+            throw new PipelineComponentException(e);
+        } finally {
+            component.add(engine);
         }
     }
 
