@@ -1,14 +1,17 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.driver;
 
+import org.msgpack.core.MessagePack;
+import org.msgpack.core.MessageUnpacker;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 
+import java.io.ByteArrayInputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.Map;
+import java.util.Base64;
 
 public class DUUIHttpRequestHandler {
     final HttpClient client;
@@ -29,9 +32,70 @@ public class DUUIHttpRequestHandler {
                 .version(HttpClient.Version.HTTP_1_1);
     }
 
+    /**
+     * A {@code record} class of the response status code and body in a byte array.
+     * Provides various convenience methods for the retrieval and decoding of the body.
+     *
+     * @param statusCode An HTTP status code
+     * @param body The response body in a byte array
+     */
     public record Response(int statusCode, byte[] body) {
+        /**
+         * Check if the request was successful, i.e. {@code 200 <= code < 300}.
+         *
+         * @return {@code true} if the request was successful
+         */
+        public boolean ok() {
+            return statusCode >= 200 && statusCode < 300;
+        }
+
+        /**
+         * @return the HTTP response body as a byte array
+         */
+        public byte[] body() {
+            return body;
+        }
+
+        /**
+         * @return the HTTP response body as a UTF-8 decoded string
+         */
         public String bodyUtf8() {
             return new String(body, StandardCharsets.UTF_8);
+        }
+
+        /**
+         * @return the HTTP response body as a UTF-8 decoded string
+         */
+        public String bodyAsUtf8() {
+            return new String(body, StandardCharsets.UTF_8);
+        }
+
+        /**
+         * @return the HTTP response body as a UTF-8 decoded string
+         */
+        public String bodyAsString() {
+            return new String(body, StandardCharsets.UTF_8);
+        }
+
+        /**
+         * @return the Base64-decoded response body as a byte array
+         */
+        public byte[] bodyAsBase64() {
+            return Base64.getDecoder().decode(body);
+        }
+
+        /**
+         * @return the response body deserialized using the {@link MessagePack#newDefaultUnpacker default msgpack unpacker }
+         */
+        public MessageUnpacker bodyAsMsgPack() {
+            return MessagePack.newDefaultUnpacker(body);
+        }
+
+        /**
+         * @return the response body wrapped in a {@link ByteArrayInputStream}
+         */
+        public ByteArrayInputStream bodyAsByteArrayInputStream() {
+            return new ByteArrayInputStream(body);
         }
     }
 
@@ -47,7 +111,7 @@ public class DUUIHttpRequestHandler {
      *
      * @return the {@link HttpResponse response}
      */
-    public Response documentation() {
+    public Response getDocumentation() {
         return get("/v1/documentation");
     }
 
@@ -60,6 +124,19 @@ public class DUUIHttpRequestHandler {
     public Response process(byte[] data) {
         String endpoint = DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS;
         return post(endpoint, data);
+    }
+
+    /**
+     * Send a GET query to the component.
+     *
+     * @return the {@link Response response}
+     */
+    public Response get() {
+        HttpRequest request = this.builder.copy()
+                .uri(URI.create(this.url))
+                .GET()
+                .build();
+        return sendAsync(request);
     }
 
     /**
@@ -139,40 +216,15 @@ public class DUUIHttpRequestHandler {
     }
 
     /**
-     * Adds the given name-value pairs to the set of headers for this request.
-     * <p/>
-     * Equivalent to {@link #setHeader(String, String) headers.forEach(handler::setHeader)}.
-     *
-     * @param headers a {@link Map} of name-value pairs
-     * @see HttpRequest.Builder#headers
-     */
-    public void setHeaders(Map<String, String> headers) {
-        headers.forEach(this::setHeader);
-    }
-
-    /**
      * Create a copy of this request handler with the given headers set.
      *
-     * @param headers a list of name-value header pairs.
-     * @return the new request handler.
+     * @param headers a list of name-value header pairs
+     * @return the new request handler
      * @see DUUIHttpRequestHandler#headers
      */
     public DUUIHttpRequestHandler withHeaders(String... headers) {
         DUUIHttpRequestHandler clone = new DUUIHttpRequestHandler(this.client, this.url, this.builder.copy());
         clone.headers(headers);
-        return clone;
-    }
-
-    /**
-     * Create a copy of this request handler with the given headers set.
-     *
-     * @param headers a map of name-value header pairs.
-     * @return the new request handler.
-     * @see DUUIHttpRequestHandler#headers
-     */
-    public DUUIHttpRequestHandler withHeaders(Map<String, String> headers) {
-        DUUIHttpRequestHandler clone = new DUUIHttpRequestHandler(this.client, this.url, this.builder.copy());
-        headers.forEach(clone::setHeader);
         return clone;
     }
 }
