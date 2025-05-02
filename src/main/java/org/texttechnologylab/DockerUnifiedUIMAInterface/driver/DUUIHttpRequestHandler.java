@@ -9,6 +9,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Base64;
@@ -60,21 +61,21 @@ public class DUUIHttpRequestHandler {
          * @return the HTTP response body as a UTF-8 decoded string
          */
         public String bodyUtf8() {
-            return new String(body, StandardCharsets.UTF_8);
+            return this.bodyAsString(StandardCharsets.UTF_8);
         }
 
         /**
          * @return the HTTP response body as a UTF-8 decoded string
          */
         public String bodyAsUtf8() {
-            return new String(body, StandardCharsets.UTF_8);
+            return this.bodyAsString(StandardCharsets.UTF_8);
         }
 
         /**
          * @return the HTTP response body as a UTF-8 decoded string
          */
-        public String bodyAsString() {
-            return new String(body, StandardCharsets.UTF_8);
+        public String bodyAsString(Charset charset) {
+            return new String(body, charset);
         }
 
         /**
