@@ -61,16 +61,26 @@ The TypeSystem (as part of UIMA) defines the schema of the types of annotations 
 The DUUI Pipeline for a component starts with reading the document and ends with writing the annotations back to the document.
 The graph below shows the flow of the pipeline. After reading the document, they are passed to a Lua script which extracts the needed information and passes it to the analysis tool. The analysis tool then returns the annotations which will be deserialized by the Lua script and written back to the document.
 For a complete pipeline you can check the tutorials.
-![](https://mermaid.ink/img/pako:eNqFUUtrwzAM_itG52Y_IINCmwcMsks22CPuwYuVxhDbwbEZW-l_n5KwtOkO00nW9xLyCWorEWJoOvtZt8J5VpT33DCqIXwcnehbtjPGeuGVNSyxurcGjZ8pY-UVhyvGs7UdhwO7EDIiFEHQcJ6hkTcBk-uA7qJZoHcSs0X6W1I5rKe4olwjuyq1ddC04YFF0ZbtqxKFRHdjsOywCnv7J6ws1khSvTjlyXyKSqvXx4cr7ZKxNH_X3rPojqTZ_MrIh9EdlOjUN06m-YzkIyJxjV2ptiyBDWh0WihJ33kaIQ6-RY0cYmolNiJ0ngM3Z6KK4O3Tl6kh9i7gBpwNxxbiRnQDvUIvhcdUCbqLninnH4ldoPU?type=png)
+
+![](https://mermaid.ink/svg/pako:eNqlVm2r2jAU_ish-7KJuur1tYPB5crYhXvZ0MHGWpHMnmqhTVyasHnF_7406btWvSygbU7Oec7pkyenPeA18wDb2A_Zn_WWcIGe5h9citSI5a8NJ7st4owJx8XIxUuzkgwv4LAWAaMqoLDmMQ8s2rEY-CPdSeFkMxvpeQmmGSoZWdyMrWUEVDhzIB7wJep0PuaLxuZkPiVwoJ5LzxR3TykTJMmoMWiC7OLCinJz5ZEv15qjP0nylbM1xLGjbm202pnZqgZ1Ga4O-YlmoK2WL6kOarUugl9PkIyi3HSv7heK3y4SnNDYZzxCXUX2HH5LiMVnQr0Q-Hmkqk-CIXceEaABamnK-3K-mnwP3pY25htj4bum2NP8qaVWQLG7t5ZgsNR9DDexoYV3YmjWy0JJHFK1KEUHJAxeYIXeo5UHxfw_9bPIgGoKupjgZg0t8rOu9dMp6adj2FceX6RIXMxlITiQaNnA3qk54-mSMOox1ziZFfTWWLlC_M28zMDQov_TR07oSY9Gwc0MvvNAgObvlZwYPpVIS2AXRH7ikkemxZ7R7rWWmjXjdIeLhm8Mr-74mgvumEu13_94fnTUr7nPV18MFYoLp8xSgTbpCqdrmGmfqKCmtkbcnM5Y7EPQL1fkB2Fov_H9ykpeoVkFqK-WjnTq43lw4lOSeKNXVnNzpqqHQsBtvOGBh23BJbRxBDwiyRQfklgXiy1E4GJb3XrgExmqd6lLjypsR-hPxqIskjO52WLbJ2GsZuZYzAKiZBXlVq5IA_7AJBXYHo40BrYP-C-2e_3uYDTpWYO7UX8wGY-nd228x3Z_YnUH_ZHVH95NrVF_eGzjF52017Usq2eNx4PxdDgd9XrTNiZSsMWerrOSwAsE48_my0h_IB3_Ac4qvBo)
 
 
 ### Lua script
 The Lua script is used as a communication interface between the annotation tool and the DUUI composer.
-The script contains two parts, the first being the `serialize` function that is called to transform the CAS object into a stream that is sent to the annotation tool.
-The second part is the `deserialize` function that is utilized to transform the output of the annotation tool back into the CAS object.
-For different examples of Lua scripts you can check our tutorials.
-![](https://mermaid.ink/img/pako:eNqNU9luwyAQ_BXEc9IPcKVKjnNVclTJSdXD5IGadYxkwMKgqo3y78VGoY578sTu7O4MAxxxoRjgCJe1ei0qqg1Ks2sikVutfTlo2lQollIZariSKFGiURKk8SUIrXOCB_hOqZrgPTrDYUZ6H4fkBdCC5rTm7zBEu8W4hqIfmmZjbOFYk3iLiAN2msq2VFpweeiop9MbtMzvrGms2RoNVOyH7SDZtzoY_ENJlo6xlVPyoLkBRIMLTsUPjGEbNoG_d9ZJ-OwM0LPjQKOhv_kT53NVWOFuybsxyzOgDPRowIUTgezpD7KxBUneH197qnn-uLkd9H498FfZMzS9cq0LHy19tPbR2kXI3yXq0iufXvmiBE-wAC0oZ-4JHzuMYFOBAIIjt2VQUlsbgok8uVJqjdq-yQJHRluYYK3socJRSevWRbZh1MCcU-eDOJcA40bpjf8j_Vc5fQA4R-qm?type=png)
+The script supports two distinct interfaces:
 
+ - `serialize`/`deserialize`: a pair of complementary functions that represent a one-shot process where an entire CAS object is processed by the `serialize` function which writes the serialized representation as bytes into an output stream which in turn is sent to the Annotation Component, and a `deserialize` function that receives the response from the Annotation Component in a byte input stream and handles the updates to be applied to the CAS object.
+ - `process`: a single function which has access to a Request Handler, allowing a developer to write more complex tranformation logic and make multiple HTTP requests to the Annotation Component.
+
+For different examples of Lua scripts you can check our tutorials.
+
+
+#### Sequence Diagram: `serialize`/`deserialize`
+![](https://mermaid.ink/svg/pako:eNqVVF1vmzAU_SuWH6ZUIx8UQgKaIlV00iZtbVX6NPHiwk1qCWxmX2dLo_z32dBsNGNt5yeufc-5x0fH7GkhS6AJ1fDdgCjgkrONYnUuiF2sQL5lCORCCIkMuRQklXUjBQjsWoZOxqvV-y-GkaxQvMGEaFCcVfwRRulF5pFrg43BDBWw-qxjcetK2kFyC4r0sTcKxjdKFqA1eUc-Cif3w71a9UmSH4ojjEqG7InvD4PVMh7SmJChycOdqawqKJDcOo80kntZ7ogTQdZK1s_u84IpzpXewZ2Ulb3edXY3mm79adPdceq17GeviOvAJxudpCezQB_l_iXJ9Y7_7csnxOYWtC01jN4iZtCpDt9Jav3ignwWb_HpJDwlnMSnx_Jqei7B5aUPcYJS-_Es1Pp_U1PCi0-DenSjeEkTVAY8WoOqmSvp3sFzig9QQ04tGy1hzUyFOc3FwcIaJr5JWR-RSprNA03WrNK2Mo2N-PGF_t5VIEpQqTR2buLH8axlocme_rR1GEzCIFz6YTgP_PO5R3d2cxFMlnE0W5wHy0UUz4ODRx_bqbPJ0vdntjGOojDyF3HgUWZQZjtRHDVByVGqr91vo_17HH4Bmn5v9w)
+
+
+#### Sequence Diagram: `process`
+![](https://mermaid.ink/svg/pako:eNqNU91v2jAQ_1ese5hASyBhhRRrQurSSn3YR1X6tGUPJrlCpMSX2Q4aQ_zvsxNSIOu0-ck-3_0-fOc9pJQhcND4o0aZ4m0u1kqUiWR2idTkW2GQ3UhJRpicJIuprEiiNIlsk1678xeLtx9rwZapyivDWaUoRa0H8c3SY4-OSpt7IbMC1bBFKYgqRpWDEUWx48fAFhVbCZNuULd53fpMVlZzfc7zoNB_aLnYG3YnnblT3SnT6buUwXuyRp3kTBgxPGFcZvkO6OwBnogKq-LL8mkw3objI8bYYyvKdsO_OfgDoBdg71dqwY6-UHcaTnC9fKfK79u7N6Z6RG37o3HQk9MzZavPH7Wr2rNcGqYtUa1j-7DW1c7gt--NOXb4n_60DOxOKVLaubpF16IXCvbBQrl4rPBy7o7tR5m1m4te-q_NIGfdhGb4j0EGD9Yqz4AbVaMHJapSuCPsHUACZoMlJmARIcNnURcmgUQebFkl5FeisqtUVK83wJ9Foe2pruzwdD_qJaqsB1Qx1dIAv7qaNCDA9_ATeBhej8LZPIimQTiZBFHwzoOdDUfBaDqfzaL57DqaHjz41XAGI3vyQNSGljuZdiIwyw2pT-2_br734Te5nUsP)
 
 
 # Docker
@@ -80,13 +90,13 @@ Docker containers are used to ensure that the analysis is performed in the same 
 Also, the Docker container is used to ensure that the analysis is reproducible, because every build of the Docker container is versioned, containing all needed code and data (e.g. model files).
 The diagram below shows the structure of a Dockerfile:
 
-![](https://mermaid.ink/img/pako:eNp1kTtrwzAQgP_KoTleO3goxJYNHgqBkqnuoEhnR1Qv9Cg1If-9igSNly7HffqO03F3I9wKJC25KMu_mgtGNhsA4FYlbQK8FDp-zIRmjx4mzVacyScExzhCl83w42xAoOfzBCfr49P22U4mRKYUUHRoBBouMTwrSvua_hd3JeNjDlykQRhM9Juz0uy-G_b6W3prNO49zb63boNRqjJEaV0CHKFpXqGr0BXoK_QFaAVaYKgwFBjJgWj0mkmR93h7qJnEK-q8pjanAheWVB5jNvdcylK075vhpI0-4YF4m9YraRemQqbkBItIJVs903-vKGS0_q1eqhzs_guFyIvu?type=png)
+![](https://mermaid.ink/svg/pako:eNp1kTtrwzAQgP_KoTleO3goxJYNHgqBkqnuoEhnR1Qv9Cg1If-9igSNly7HffqO03F3I9wKJC25KMu_mgtGNhsA4FYlbQK8FDp-zIRmjx4mzVacyScExzhCl83w42xAoOfzBCfr49P22U4mRKYUUHRoBBouMTwrSvua_hd3JeNjDlykQRhM9Juz0uy-G_b6W3prNO49zb63boNRqjJEaV0CHKFpXqGr0BXoK_QFaAVaYKgwFBjJgWj0mkmR93h7qJnEK-q8pjanAheWVB5jNvdcylK075vhpI0-4YF4m9YraRemQqbkBItIJVs903-vKGS0_q1eqhzs_guFyIvu)
 
 
 # Rest Interface
 
 The DUUI is designed to be used with REST interface, which is defined as:
-![](https://mermaid.ink/img/pako:eNpV0MtqwzAQBdBfEQPZJYRuXSiksZNuSkJtuqlKGaRJbLAe6FEwIf_eqUKKu9PMPTDiXkA5TVDBOaDvRVc_Srv5kPDWtJ2ET7FaPYlnnvdNJ9bfD-s0eYpTTGQ4ZVrAdga0U9mQTZgGZ2emnhnljMl2UMV8jThRmMmG5fHQ3qgPTlGMJV4stgXsGGysdXzDhX_JnpN3CvF--r5_4f3B_17DURwxoKHEjA0swVAwOGju4CKtEBJST4YkVPzUdMI8JgnSXpliTq6drIIqhUxLCC6fe6hOOEaesteYqB6QuzR_W9IDf_P11nIp-_oDP5h3lg?type=png)
+![](https://mermaid.ink/svg/pako:eNpV0MtqwzAQBdBfEQPZJYRuXSiksZNuSkJtuqlKGaRJbLAe6FEwIf_eqUKKu9PMPTDiXkA5TVDBOaDvRVc_Srv5kPDWtJ2ET7FaPYlnnvdNJ9bfD-s0eYpTTGQ4ZVrAdga0U9mQTZgGZ2emnhnljMl2UMV8jThRmMmG5fHQ3qgPTlGMJV4stgXsGGysdXzDhX_JnpN3CvF--r5_4f3B_17DURwxoKHEjA0swVAwOGju4CKtEBJST4YkVPzUdMI8JgnSXpliTq6drIIqhUxLCC6fe6hOOEaesteYqB6QuzR_W9IDf_P11nIp-_oDP5h3lg)
 
 The REST interface is used as a standardized way to communicate with the DUUI.
 -  **GET /v1/typesystem** is the TypeSystem that is used by the analysis tool, which contains all UIMA types.
@@ -98,11 +108,12 @@ The REST interface is used as a standardized way to communicate with the DUUI.
 # Tutorials
 
 We have prepared three tutorials with different levels of complexity. All tutorials use Python as the programming platform, however, all languages where a REST service can be created could be used as base for a DUUI tool.
-![](https://mermaid.ink/img/pako:eNo9kD1PwzAQhv-KdQNTOwBbBqSQCFHRLoROmOGwL42Ffa4cmw9V_e9cGqUeLN_73IffO4GJlqCC3scfM2DKavuqWcmp3zW8lRyTQ6_hQ63XD-pRtM6FoyfVEWcX5JrYjWqF1PYb2ZB6xkyqGch8zawR1sSp6lc9oclXNg_iW-Htfr9ZptRqAZeQ74RveMypmOwiL2l8L_pL-aTElGkUGVYQKAV0VhydpiYa8kCBNFTytNRj8fJhzWdJRTHX_bGBSjrTClIshwGqHv0oUTlasdE6PCQMV5Wsk43s5p1dVnf-B-NyZwk?type=png)
+![](https://mermaid.ink/svg/pako:eNo9kD1PwzAQhv-KdQNTOwBbBqSQCFHRLoROmOGwL42Ffa4cmw9V_e9cGqUeLN_73IffO4GJlqCC3scfM2DKavuqWcmp3zW8lRyTQ6_hQ63XD-pRtM6FoyfVEWcX5JrYjWqF1PYb2ZB6xkyqGch8zawR1sSp6lc9oclXNg_iW-Htfr9ZptRqAZeQ74RveMypmOwiL2l8L_pL-aTElGkUGVYQKAV0VhydpiYa8kCBNFTytNRj8fJhzWdJRTHX_bGBSjrTClIshwGqHv0oUTlasdE6PCQMV5Wsk43s5p1dVnf-B-NyZwk)
 
 * [Simple Sentiment](Sentiment)
 * [Advance Hate Check](HateCheck)
 * [Complex Fact Check](FactChecking)
+* [Lua `process` Interface](LuaProcess)
 
 # Autors
 - [Giuseppe Abrami](https://www.texttechnologylab.org/team/giuseppe-abrami/)
