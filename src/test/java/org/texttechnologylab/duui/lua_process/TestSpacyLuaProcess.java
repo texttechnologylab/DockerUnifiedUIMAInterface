@@ -119,7 +119,7 @@ public class TestSpacyLuaProcess {
 
         System.out.println("### NamedEntity ###");
         for (NamedEntity annotation : JCasUtil.select(jCas, NamedEntity.class)) {
-            System.out.println(annotation.toString(2));
+            System.out.print(annotation.toString(2));
             System.out.printf("%n  text: '%s'%n", annotation.getCoveredText());
             System.out.println();
         }
