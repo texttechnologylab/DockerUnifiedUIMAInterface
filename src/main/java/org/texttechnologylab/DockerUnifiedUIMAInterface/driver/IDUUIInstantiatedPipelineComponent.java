@@ -49,6 +49,8 @@ public interface IDUUIInstantiatedPipelineComponent {
     public String getTargetView();
     public String getUniqueComponentKey();
 
+    public int postTries = 10;
+
     /**
      * Returns the TypeSystem used for the DUUI component used.
      * @param uuid
@@ -61,7 +63,7 @@ public interface IDUUIInstantiatedPipelineComponent {
         //System.out.printf("Address %s\n",queue.getValue0().generateURL()+ DUUIComposer.V1_COMPONENT_ENDPOINT_TYPESYSTEM);
 
         int tries = 0;
-        while(tries < 100) {
+        while(tries < postTries) {
             tries++;
             try {
                 HttpRequest request = HttpRequest.newBuilder()
@@ -88,7 +90,7 @@ public interface IDUUIInstantiatedPipelineComponent {
                     return TypeSystemDescriptionFactory.createTypeSystemDescription();
                 }
             } catch (Exception e) {
-                System.out.printf("Cannot reach endpoint trying again %d/%d...\n",tries+1,100);
+                System.out.printf("Cannot reach endpoint trying again %d/%d...\n",tries+1,postTries);
             }
         }
         throw new ResourceInitializationException(new Exception("Endpoint is unreachable!"));
@@ -145,7 +147,8 @@ public interface IDUUIInstantiatedPipelineComponent {
         int tries = 0;
         HttpResponse<byte[]> resp = null;
 //        while (tries < 3) {
-        while (true) {
+        boolean bRunning = true;
+        while (bRunning) {
             tries++;
             try {
                 HttpRequest request = HttpRequest.newBuilder()
@@ -159,7 +162,15 @@ public interface IDUUIInstantiatedPipelineComponent {
             }
             catch(Exception e) {
                 e.printStackTrace();
-                System.out.printf("Cannot reach endpoint trying again %d/%d...\n",tries+1,10);
+                System.out.printf("Cannot reach endpoint trying again %d/%d...\n",tries+1,postTries);
+                try {
+                    Thread.sleep(comp.getPipelineComponent().getTimeout());
+                } catch (InterruptedException ex) {
+                    throw new RuntimeException(ex);
+                }
+                if(tries>postTries){
+                    bRunning=false;
+                }
             }
         }
         if(resp==null) {
