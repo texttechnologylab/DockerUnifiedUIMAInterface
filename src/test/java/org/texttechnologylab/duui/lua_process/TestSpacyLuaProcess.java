@@ -29,7 +29,7 @@ public class TestSpacyLuaProcess {
 
         composer.add(
                 new DUUIDockerDriver.Component(
-                        "duui-spacy-v2:dev"
+                        "docker.texttechnologylab.org/duui-spacy-lua-process:0.1.0"
                 )
                         .withParameter("spacy_model_size", "lg")
                         .build()
@@ -44,7 +44,7 @@ public class TestSpacyLuaProcess {
         new Sentence(jCas, 0, 104).addToIndexes();
         new Sentence(jCas, 106, 177).addToIndexes();
 
-        composer.run(jCas, "lua-process-test");
+        composer.run(jCas, "lua-process-test/w-sentences");
 
         printResult(jCas);
     }
@@ -61,9 +61,8 @@ public class TestSpacyLuaProcess {
 
         composer.add(
                 new DUUIDockerDriver.Component(
-                        "duui-spacy-lua-process:dev"
+                        "docker.texttechnologylab.org/duui-spacy-lua-process:0.1.0"
                 )
-                        .withName("duui-spacy-lua-process:dev")
                         .withParameter("spacy_model_size", "sm")
                         .build()
         );
@@ -75,7 +74,7 @@ public class TestSpacyLuaProcess {
         );
         jCas.setDocumentLanguage("de");
 
-        composer.run(jCas, "lua-process-test");
+        composer.run(jCas, "lua-process-test/wo-sentences");
 
         printResult(jCas);
     }
