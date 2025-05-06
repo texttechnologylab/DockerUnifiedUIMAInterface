@@ -108,7 +108,18 @@ local function encode_number(val)
   if val ~= val or val <= -math.huge or val >= math.huge then
     error("unexpected number value '" .. tostring(val) .. "'")
   end
-  return string.format("%.14g", val)
+
+  ---LuaJ formats all integers with a trailing .0 using the default formatting string "%.14g".
+  ---Thus numbers all are cast to JSON float here, which breakes typesafe components downstream during deserialization.
+  ---To fix the issue, we change the formatting string to %d when the number is an integer.
+  ---This should not affect typesafe components as casting integers to float when deserializing JSON is the norm.
+  ---As math.type() does not exist in LuaJ, so we just check if the number does not change when floored
+  ---to determine an integer type value.
+  if math.floor(val) == val then
+    return string.format("%d", val)
+  else
+    return string.format("%.14g", val)
+  end
 end
 
 
