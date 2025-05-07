@@ -195,19 +195,7 @@ class DUUIWorker extends Thread {
                                 //0: newFutures = [fut(exec(a)), fut(exec(b)), future(exec(c))]
                                 newFutures.add(plan.awaitMerge());
                             }
-                        } catch (InterruptedException e) {
-                            e.printStackTrace();
-                        } catch (ExecutionException e) {
-                            e.printStackTrace();
-                        } catch (CompressorException e) {
-                            e.printStackTrace();
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        } catch (CASException e) {
-                            e.printStackTrace();
-                        } catch (AnalysisEngineProcessException e) {
-                            e.printStackTrace();
-                        } catch (SAXException e) {
+                        } catch (Exception e) {
                             e.printStackTrace();
                         }
                         return true;
