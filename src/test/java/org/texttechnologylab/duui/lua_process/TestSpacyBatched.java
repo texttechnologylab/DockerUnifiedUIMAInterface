@@ -6,41 +6,75 @@ import de.tudarmstadt.ukp.dkpro.core.api.ner.type.NamedEntity;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Lemma;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Sentence;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
+import org.apache.uima.cas.CASException;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
-import org.junit.Test;
+import org.apache.uima.resource.ResourceInitializationException;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.texttechnologylab.DockerTestContainerManager;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIDockerDriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.annotation.SpacyAnnotatorMetaData;
 
+import java.io.IOException;
+import java.net.URISyntaxException;
+
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class TestSpacyBatched {
-    @Test
-    public void test_with_sentences() throws Exception {
-        DUUIComposer composer = new DUUIComposer()
+    final DockerTestContainerManager container = new DockerTestContainerManager(
+            "docker.texttechnologylab.org/duui-spacy-lua-process:0.1.0",
+            6000
+    );
+
+    DUUIComposer composer;
+
+    @BeforeAll
+    public void setUp() throws Exception {
+        composer = new DUUIComposer()
                 .withLuaContext(
-                        new DUUILuaContext().withJsonLibrary()
-                )
-                .withSkipVerification(true)
-                .addDriver(new DUUIRemoteDriver())
-                .addDriver(new DUUIDockerDriver());
+                        new DUUILuaContext()
+                                .withJsonLibrary())
+                .withSkipVerification(true);
+        composer.addDriver(new DUUIRemoteDriver(10000));
+    }
 
-        composer.add(
-                new DUUIDockerDriver.Component(
-                        "docker.texttechnologylab.org/duui-spacy-lua-process:0.1.0"
-                )
-                        .withParameter("spacy_model_size", "lg")
-                        .build()
-        );
+    @AfterAll
+    public void shutdown() throws Exception {
+        if (composer != null)
+            composer.shutdown();
 
+        container.close();
+    }
+
+    private DUUIRemoteDriver.Component getComponent() throws URISyntaxException, IOException {
+        return new DUUIRemoteDriver.Component("http://localhost:%d".formatted(container.getPort()));
+    }
+
+    private static JCas getJCas() throws ResourceInitializationException, CASException {
         JCas jCas = JCasFactory.createJCas();
         jCas.setDocumentText(
                 "Die Goethe Universität ist auf vier große Universitätsgelände über das Frankfurter Stadtgebiet verteilt.\n "
                         + "Barack Obama war der 44. Präsident der Vereinigten Staaten von Amerika."
         );
         jCas.setDocumentLanguage("de");
+        return jCas;
+    }
+
+    @Test
+    public void test_with_sentences() throws Exception {
+        composer.resetPipeline();
+        composer.add(
+                getComponent()
+                        .withParameter("spacy_model_size", "lg")
+                        .build()
+        );
+
+        JCas jCas = getJCas();
         new Sentence(jCas, 0, 104).addToIndexes();
         new Sentence(jCas, 106, 177).addToIndexes();
 
@@ -51,28 +85,14 @@ public class TestSpacyBatched {
 
     @Test
     public void test_wo_sentences() throws Exception {
-        DUUIComposer composer = new DUUIComposer()
-                .withLuaContext(
-                        new DUUILuaContext().withJsonLibrary()
-                )
-                .withSkipVerification(true)
-                .addDriver(new DUUIRemoteDriver())
-                .addDriver(new DUUIDockerDriver());
-
+        composer.resetPipeline();
         composer.add(
-                new DUUIDockerDriver.Component(
-                        "docker.texttechnologylab.org/duui-spacy-lua-process:0.1.0"
-                )
+                getComponent()
                         .withParameter("spacy_model_size", "sm")
                         .build()
         );
 
-        JCas jCas = JCasFactory.createJCas();
-        jCas.setDocumentText(
-                "Die Goethe Universität ist auf vier große Universitätsgelände über das Frankfurter Stadtgebiet verteilt.\n "
-                        + "Barack Obama war der 44. Präsident der Vereinigten Staaten von Amerika."
-        );
-        jCas.setDocumentLanguage("de");
+        JCas jCas = getJCas();
 
         composer.run(jCas, "lua-process-test/wo-sentences");
 

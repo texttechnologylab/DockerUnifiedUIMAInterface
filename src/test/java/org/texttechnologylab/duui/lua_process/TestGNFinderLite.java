@@ -4,10 +4,12 @@ import org.apache.uima.cas.CASException;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.resource.ResourceInitializationException;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.texttechnologylab.DockerTestContainerManager;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIDockerDriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.annotation.biofid.gnfinder.MetaData;
@@ -18,16 +20,32 @@ import java.net.URISyntaxException;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class TestGNFinderLite {
-    public DUUIComposer getDuuiComposer() throws Exception {
-        DUUIComposer composer = new DUUIComposer()
+    final DockerTestContainerManager container = new DockerTestContainerManager(
+            "docker.texttechnologylab.org/duui-lite-gnfinder:0.1.1"
+    );
+
+    DUUIComposer composer;
+
+    @BeforeAll
+    public void setUp() throws Exception {
+        composer = new DUUIComposer()
                 .withLuaContext(
                         new DUUILuaContext()
                                 .withJsonLibrary())
                 .withSkipVerification(true);
-
-        composer.addDriver(new DUUIDockerDriver(10000));
         composer.addDriver(new DUUIRemoteDriver(10000));
-        return composer;
+    }
+
+    @AfterAll
+    public void shutdown() throws Exception {
+        if (composer != null)
+            composer.shutdown();
+
+        container.close();
+    }
+
+    private DUUIRemoteDriver.Component getComponent() throws URISyntaxException, IOException {
+        return new DUUIRemoteDriver.Component("http://localhost:%d".formatted(container.getPort()));
     }
 
     private static JCas getJCas() throws ResourceInitializationException, CASException {
@@ -38,13 +56,9 @@ public class TestGNFinderLite {
         return jCas;
     }
 
-    private static DUUIDockerDriver.Component getComponent() throws URISyntaxException, IOException {
-        return new DUUIDockerDriver.Component("docker.texttechnologylab.org/duui-lite-gnfinder:0.1.1");
-    }
-
     @Test
     public void test_default() throws Exception {
-        DUUIComposer composer = getDuuiComposer();
+        composer.resetPipeline();
         composer.add(
                 getComponent()
                         .build()
@@ -52,14 +66,13 @@ public class TestGNFinderLite {
 
         JCas jCas = getJCas();
         composer.run(jCas);
-        composer.shutdown();
 
         printResults(jCas);
     }
 
     @Test
     public void test_with_noBayes() throws Exception {
-        DUUIComposer composer = getDuuiComposer();
+        composer.resetPipeline();
         composer.add(
                 getComponent()
                         .withParameter("noBayes", "true")
@@ -68,14 +81,13 @@ public class TestGNFinderLite {
 
         JCas jCas = getJCas();
         composer.run(jCas);
-        composer.shutdown();
 
         printResults(jCas);
     }
 
     @Test
     public void test_with_allMatches() throws Exception {
-        DUUIComposer composer = getDuuiComposer();
+        composer.resetPipeline();
         composer.add(
                 getComponent()
                         // Catalogue of Life and GBIF
@@ -86,14 +98,13 @@ public class TestGNFinderLite {
 
         JCas jCas = getJCas();
         composer.run(jCas);
-        composer.shutdown();
 
         printResults(jCas);
     }
 
     @Test
     public void test_with_oddsDetails() throws Exception {
-        DUUIComposer composer = getDuuiComposer();
+        composer.resetPipeline();
         composer.add(
                 getComponent()
                         .withParameter("oddsDetails", "true")
@@ -102,7 +113,6 @@ public class TestGNFinderLite {
 
         JCas jCas = getJCas();
         composer.run(jCas);
-        composer.shutdown();
 
         printResults(jCas);
     }
