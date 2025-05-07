@@ -16,7 +16,7 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.annotation.SpacyAnnotatorMetaData;
 
-public class TestSpacyLuaProcess {
+public class TestSpacyBatched {
     @Test
     public void test_with_sentences() throws Exception {
         DUUIComposer composer = new DUUIComposer()
