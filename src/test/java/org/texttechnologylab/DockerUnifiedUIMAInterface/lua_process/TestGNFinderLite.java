@@ -1,4 +1,4 @@
-package org.texttechnologylab.duui.lua_process;
+package org.texttechnologylab.DockerUnifiedUIMAInterface.lua_process;
 
 import org.apache.uima.cas.CASException;
 import org.apache.uima.fit.factory.JCasFactory;
@@ -8,7 +8,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
-import org.texttechnologylab.DockerTestContainerManager;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.test.DockerTestContainerManager;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;

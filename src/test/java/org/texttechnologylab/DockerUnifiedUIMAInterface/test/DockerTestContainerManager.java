@@ -1,4 +1,4 @@
-package org.texttechnologylab;
+package org.texttechnologylab.DockerUnifiedUIMAInterface.test;
 
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.command.CreateContainerResponse;
