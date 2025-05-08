@@ -170,7 +170,7 @@ public interface IDUUIInstantiatedPipelineComponent {
             long annotatorStart = serializeEnd;
             int tries = 0;
             HttpResponse<byte[]> resp = null;
-            while (tries < 3) {
+            while (true) {
                 tries++;
                 try {
                     HttpRequest request = HttpRequest.newBuilder()
@@ -183,7 +183,7 @@ public interface IDUUIInstantiatedPipelineComponent {
                     break;
                 } catch (Exception e) {
                     e.printStackTrace();
-                    //System.out.printf("Cannot reach endpoint trying again %d/%d...\n",tries+1,10);
+                    System.out.printf("Cannot reach endpoint trying again %d/%d...\n", tries + 1, 10);
                 }
             }
             if (resp == null) {
