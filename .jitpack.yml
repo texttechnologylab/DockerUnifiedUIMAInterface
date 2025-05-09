@@ -1,0 +1,15 @@
+jdk:
+  - openjdk21
+
+before_install:
+  - sdk install maven 3.8.1
+  - sdk use maven 3.8.1
+
+install:
+  - echo "Using Maven 3.8.1"
+  - wget https://dlcdn.apache.org/maven/maven-3/3.8.1/binaries/apache-maven-3.8.1-bin.tar.gz
+  - tar -xvzf apache-maven-3.8.1-bin.tar.gz
+  - export M2_HOME=$PWD/apache-maven-3.8.1
+  - export PATH=$M2_HOME/bin:$PATH
+  - mvn -version
+  - mvn install -DskipTests

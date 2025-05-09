@@ -6,6 +6,10 @@
 [![Paper](http://img.shields.io/badge/paper-FindingsEMNLP--2023-fb44ce.svg)](https://aclanthology.org/2023.findings-emnlp.29)
 [![Paper-Kubernetes](http://img.shields.io/badge/paper-SoftwareX--2025-fb44ce.svg)](https://www.sciencedirect.com/science/article/pii/S2352711024004047)
 
+[![poster](http://img.shields.io/badge/poster-DH--2024-f944fe.svg)](https://doi.org/10.5281/zenodo.13761079)
+[![poster](http://img.shields.io/badge/poster-DHd--2025-f944fe.svg)](https://doi.org/10.5281/zenodo.14943128)
+
+[![Discord-Server](http://img.shields.io/badge/Join-Discord_Server-fc0098.svg)](https://discord.gg/DxsgfbK7Jh)
 
 # Docker Unified UIMA Interface (DUUI)
 ![img|320x271](https://github.com/texttechnologylab/DockerUnifiedUIMAInterface/blob/main/DUUI_Logo.png)
@@ -49,16 +53,13 @@ The SwarmDriver complements the DockerDriver; it uses the same function alities,
 #### KubernetesDriver
 The KubernetesDriver works similarly to the SwarmDriver, but Kubernetes is used as the runtime environment instead of Docker Swarm. 
 
+#### PodmanDriver
+The PodmanDriver works similarly to the DockerDriver, but Podman runs rootless.
+
+
 ## Requirements
-![Java](https://img.shields.io/badge/Java-11-blue)
-![Docker](https://img.shields.io/badge/Docker-20.10-green)
-
-### Java requirements
-DUUI has its own TypeSystem, which is required for use. To generate this an initial ```mvn compile``` is necessary:
-
-```bash
-mvn clean compile exec:java -Dexec.mainClass="org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer"
-```
+![Java](https://img.shields.io/badge/Java-21-blue)
+![Docker](https://img.shields.io/badge/Docker-22.10-green)
 
 ## Using
 There are basically two ways to use DUUI for preprocessing texts:
@@ -81,7 +82,7 @@ After that DUUI can be integrated as a dependency:
 <dependency>
   <groupId>com.github.texttechnologylab</groupId>
   <artifactId>DockerUnifiedUIMAInterface</artifactId>
-  <version>1.3</version>
+  <version>1.4.6</version>
 </dependency>
 ```
 
@@ -159,7 +160,11 @@ If you want to use the project please quote this as follows:
 
 Alexander Leonhardt, Giuseppe Abrami, Daniel Baumartz and Alexander Mehler. (2023). "Unlocking the Heterogeneous Landscape of Big Data NLP with DUUI." Findings of the Association for Computational Linguistics: EMNLP 2023, 385–399. [[LINK](https://aclanthology.org/2023.findings-emnlp.29)] [[PDF](https://aclanthology.org/2023.findings-emnlp.29.pdf)] 
 
+Giuseppe Abrami and Alexander Mehler. August, 2024. Efficient, uniform and scalable parallel NLP pre-processing with DUUI: Perspectives and Best Practice for the Digital Humanities. Digital Humanities Conference 2024 - Book of Abstracts (DH 2024), 15–18 [[LINK](https://doi.org/10.5281/zenodo.13761079)] [[POSTER](https://www.texttechnologylab.org/wp-content/uploads/2024/12/DH2024_Poster.pdf)] 
+
 Giuseppe Abrami, Markos Genios, Filip Fitzermann, Daniel Baumartz and Alexander Mehler. (2025). "Docker Unified UIMA Interface: New perspectives for NLP on big data" SoftwareX, Volume 29, 2025, 102033, ISSN 2352-7110, [[LINK](https://doi.org/10.1016/j.softx.2024.102033)]
+
+Giuseppe Abrami, Daniel Baumartz and Alexander Mehler. 2025. "DUUI: A Toolbox for the Construction of a new Kind of Natural Language Processing". Proceedings of the DHd 2025: Under Construction. Geisteswissenschaften und Data Humanities, 446–448 [[LINK](https://doi.org/10.5281/zenodo.14943128)] [[POSTER](https://zenodo.org/records/14944575)] 
 
 ## BibTeX
 ```
@@ -190,6 +195,26 @@ Giuseppe Abrami, Markos Genios, Filip Fitzermann, Daniel Baumartz and Alexander 
                data.}
 }
 
+@inproceedings{Abrami:Mehler:2024,
+  author    = {Abrami, Giuseppe and Mehler, Alexander},
+  title     = {Efficient, uniform and scalable parallel NLP pre-processing with
+               DUUI: Perspectives and Best Practice for the Digital Humanities},
+  year      = {2024},
+  month     = {08},
+  editor    = {Karajgikar, Jajwalya and Janco, Andrew and Otis, Jessica},
+  booktitle = {Digital Humanities Conference 2024 - Book of Abstracts (DH 2024)},
+  location  = {Washington, DC, USA},
+  series    = {DH},
+  keywords  = {duui},
+  publisher = {Zenodo},
+  doi       = {10.5281/zenodo.13761079},
+  poster    = {https://www.texttechnologylab.org/wp-content/uploads/2024/12/DH2024_Poster.pdf},
+  pdf       = {https://www.texttechnologylab.org/wp-content/uploads/2024/12/DH2024_Abstract.pdf},
+  url       = {https://doi.org/10.5281/zenodo.13761079},
+  pages     = {15--18},
+  numpages  = {4}
+}
+
 @article{Abrami:et:al:2025:a,
   title     = {Docker Unified UIMA Interface: New perspectives for NLP on big data},
   journal   = {SoftwareX},
@@ -200,6 +225,24 @@ Giuseppe Abrami, Markos Genios, Filip Fitzermann, Daniel Baumartz and Alexander 
   doi       = {https://doi.org/10.1016/j.softx.2024.102033},
   url       = {https://www.sciencedirect.com/science/article/pii/S2352711024004047},
   author    = {Giuseppe Abrami and Markos Genios and Filip Fitzermann and Daniel Baumartz and Alexander Mehler}
+}
+
+@inproceedings{Abrami:et:al:2025:b,
+  author    = {Abrami, Giuseppe and Baumartz, Daniel and Mehler, Alexander},
+  title     = {DUUI: A Toolbox for the Construction of a new Kind of Natural
+               Language Processing},
+  year      = {2025},
+  booktitle = {Proceedings of the DHd 2025: Under Construction. Geisteswissenschaften
+               und Data Humanities},
+  numpages  = {3},
+  location  = {Bielefeld, Germany},
+  series    = {DHd 2025},
+  publisher = {Zenodo},
+  keywords  = {duui},
+  pages     = {446--448},
+  doi       = {10.5281/zenodo.14943128},
+  url       = {https://doi.org/10.5281/zenodo.14943128},
+  poster    = {https://zenodo.org/records/14944575}
 }
 
 ```

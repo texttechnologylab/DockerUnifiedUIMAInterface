@@ -77,6 +77,10 @@ public class DUUIFileReaderLazy implements DUUICollectionReader {
         this(folder, ending, debugCount, -1, null, "", false, null, 0);
     }
 
+    public DUUIFileReaderLazy(String folder, String ending, int debugCount, boolean bMetadata) {
+        this(folder, ending, debugCount, -1, null, "", bMetadata, null, 0);
+    }
+
     public DUUIFileReaderLazy(String folder, String ending, String sTargetPath) {
         this(folder, ending, 500, -1, false, "", true, null, 0, sTargetPath, ending);
     }
@@ -318,11 +322,21 @@ public class DUUIFileReaderLazy implements DUUICollectionReader {
                     decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.GZIP, new ByteArrayInputStream(file));
                 } else if (result.endsWith(".bz2")) {
                     decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.BZIP2, new ByteArrayInputStream(file));
-                } else {
+                } else if (result.endsWith(".xmi")) {
                     decodedFile = new ByteArrayInputStream(file);
+                } else {
+                    empty.setDocumentText(IOUtils.toString(new FileInputStream(new File(result)), StandardCharsets.UTF_8));
                 }
+                // check
 
-                XmiCasDeserializer.deserialize(decodedFile, empty.getCas(), true);
+                if (empty != null && empty.getDocumentText() == null) {
+                    XmiCasDeserializer.deserialize(decodedFile, empty.getCas(), true);
+                }
+                try {
+                    int iLength = empty.getDocumentText().length();
+                } catch (Exception e) {
+                    throw new SAXParseException(e.getMessage(), null);
+                }
             } catch (Exception e) {
 
                 if(e instanceof SAXParseException){
@@ -332,22 +346,30 @@ public class DUUIFileReaderLazy implements DUUICollectionReader {
                             File decompressedFile = ArchiveUtils.decompressGZ(new File(result));
                             rString = IOUtils.toString(new FileInputStream(decompressedFile), StandardCharsets.UTF_8);
                             decompressedFile.delete();
-                        }
-                        else {
+                        } else if (result.endsWith(".xmi")) {
                             rString = IOUtils.toString(decodedFile, StandardCharsets.UTF_8);
+                        } else {
+                            rString = org.texttechnologylab.utilities.helper.FileUtils.getContentFromFile(new File(result));
                         }
+//                        System.out.println(rString);
+
+                        System.out.println("Reparing " + result);
                         rString = XMLCharInvalidPattern.matcher(rString).replaceAll("");
 
-                        File tFile = TempFileHandler.getTempFile("aaa", ".xmi");
-                        org.texttechnologylab.utilities.helper.FileUtils.writeContent(rString, tFile);
+                        if (!result.endsWith(".txt")) {
+                            File tFile = TempFileHandler.getTempFile("aaa", ".xmi");
+                            org.texttechnologylab.utilities.helper.FileUtils.writeContent(rString, tFile);
 
-                        XmiCasDeserializer.deserialize(new FileInputStream(tFile), empty.getCas(), true);
+                            XmiCasDeserializer.deserialize(new FileInputStream(tFile), empty.getCas(), true);
+                            tFile.delete();
+
+                        } else {
+                            empty.setDocumentText(rString);
+                        }
 
 //                        System.out.println("Repaired File: "+result+"\t"+empty.getDocumentText().length());
 
                         _repairedNumber.incrementAndGet();
-
-                        tFile.delete();
                         bRepair = true;
 
                     } catch (IOException ex) {
@@ -411,7 +433,7 @@ public class DUUIFileReaderLazy implements DUUICollectionReader {
 
         if (_addMetadata) {
             if (JCasUtil.select(empty, DocumentMetaData.class).size() == 0) {
-                DocumentMetaData dmd = DocumentMetaData.create(empty);
+                DocumentMetaData dmd = new DocumentMetaData(empty);
                 File pFile = new File(result);
                 dmd.setDocumentId(pFile.getName());
                 dmd.setDocumentTitle(pFile.getName());

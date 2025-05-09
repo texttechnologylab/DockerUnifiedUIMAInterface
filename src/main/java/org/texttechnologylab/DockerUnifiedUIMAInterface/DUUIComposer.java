@@ -45,8 +45,6 @@ import java.io.OutputStream;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.security.InvalidParameterException;
 import java.time.Instant;
 import java.util.*;
@@ -197,19 +195,7 @@ class DUUIWorker extends Thread {
                                 //0: newFutures = [fut(exec(a)), fut(exec(b)), future(exec(c))]
                                 newFutures.add(plan.awaitMerge());
                             }
-                        } catch (InterruptedException e) {
-                            e.printStackTrace();
-                        } catch (ExecutionException e) {
-                            e.printStackTrace();
-                        } catch (CompressorException e) {
-                            e.printStackTrace();
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        } catch (CASException e) {
-                            e.printStackTrace();
-                        } catch (AnalysisEngineProcessException e) {
-                            e.printStackTrace();
-                        } catch (SAXException e) {
+                        } catch (Exception e) {
                             e.printStackTrace();
                         }
                         return true;
@@ -847,6 +833,10 @@ public class DUUIComposer {
         });
 
         Runtime.getRuntime().addShutdownHook(_shutdownHook);
+    }
+
+    public static String getLocalhost() {
+        return "http://127.0.0.1";
     }
 
     /**
@@ -1683,7 +1673,17 @@ public class DUUIComposer {
     private JCas run_pipeline(String name, JCas jc, long documentWaitTime, Vector<PipelinePart> pipeline) throws Exception {
         progress.set(0);
 
-        DUUIDocument document = new DUUIDocument("Text", "Text", jc);
+        if (name == null) {
+            name = "UIMA-Document";
+        }
+
+        DUUIDocument document = null;
+        if (jc.getDocumentText() == null) {
+            document = new DUUIDocument(name, "/opt/path/");
+        } else {
+            document = new DUUIDocument(name, "/opt/path", jc.getDocumentText().getBytes(StandardCharsets.UTF_8));
+        }
+
         if (JCasUtil.select(jc, DocumentMetaData.class).isEmpty()) {
             DocumentMetaData dmd = DocumentMetaData.create(jc);
             dmd.setDocumentId(document.getName());
@@ -1904,6 +1904,7 @@ public class DUUIComposer {
                     return;
                 }
             }
+
             JCas start = run_pipeline(name, jc, 0, _instantiatedPipeline);
 
             if (_storage != null) {
@@ -2304,11 +2305,6 @@ public class DUUIComposer {
         pipelineStatus.put(name, status);
     }
 
-    public static String getLocalhost() {
-        boolean isDocker = Files.exists(Paths.get("/.dockerenv"));
-        return isDocker ? "http://host.docker.internal" : "http://127.0.0.1";
-    }
-
     public DebugLevel getDebugLevel() {
         return debugLevel;
     }
@@ -2397,12 +2393,68 @@ public class DUUIComposer {
         return progress.get();
     }
 
+    public AtomicInteger getProgressAtomic() { return progress;}
+
     public void incrementProgress() {
         int progress = this.progress.incrementAndGet();
         addEvent(
             DUUIEvent.Sender.COMPOSER,
             String.format("%d Documents have been processed", progress));
     }
+
+    public boolean get_isServiceStarted() {
+        return this.isServiceStarted;
+    }
+
+    public void set_isServiceStarted(boolean value) {
+        this.isServiceStarted = value;
+    }
+
+    public void setServiceStarted(boolean serviceStarted) {
+        isServiceStarted = serviceStarted;
+    }
+
+    public void set_hasShutdown(boolean _hasShutdown) {
+        this._hasShutdown = _hasShutdown;
+    }
+
+    public boolean get_skipVerification() {
+        return _skipVerification;
+    }
+
+    public TypeSystemDescription get_minimalTypesystem() {
+        return _minimalTypesystem;
+    }
+
+    public Vector<DUUIPipelineComponent> get_pipeline() {
+        return _pipeline;
+    }
+
+    public Map<String, IDUUIDriverInterface> get_drivers() {
+        return _drivers;
+    }
+
+    public IDUUIStorageBackend get_storage() {
+        return _storage;
+    }
+
+    public Vector<PipelinePart> get_instantiatedPipeline() {
+        return _instantiatedPipeline;
+    }
+
+    public AtomicBoolean get_shutdownAtomic() {
+        return _shutdownAtomic;
+    }
+
+    public TypeSystemDescription getInstantiatedTypeSystem() {
+        return instantiatedTypeSystem;
+    }
+
+    public void setInstantiatedTypeSystem(TypeSystemDescription instantiatedTypeSystem) {
+        this.instantiatedTypeSystem = instantiatedTypeSystem;
+    }
+
+
 
     /**
      * If debug is enabled Events will be written to standard out

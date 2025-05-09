@@ -16,6 +16,7 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIFallbackCommunicatio
 import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUICommunicationLayer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.DUUIWebsocketAlt;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.IDUUIConnectionHandler;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.exception.PipelineComponentException;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaCommunicationLayer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
@@ -34,6 +35,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.security.InvalidParameterException;
 import java.time.Duration;
 import java.util.HashMap;
@@ -127,13 +129,18 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
 
         int iError = 0;
         while (true) {
-            HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(url + DUUIComposer.V1_COMPONENT_ENDPOINT_COMMUNICATION_LAYER))
-                .version(HttpClient.Version.HTTP_1_1)
-                .timeout(Duration.ofSeconds(timeout_ms))
-                .GET()
-                .build();
-
+            HttpRequest request = null;
+            try {
+                request = HttpRequest.newBuilder()
+                        .uri(URI.create(url + DUUIComposer.V1_COMPONENT_ENDPOINT_COMMUNICATION_LAYER))
+                        .version(HttpClient.Version.HTTP_1_1)
+//                        .timeout(Duration.ofSeconds(10))
+                        .timeout(Duration.ofSeconds(timeout_ms))
+                        .GET()
+                        .build();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
             try {
                 HttpResponse<byte[]> resp = null;
 
@@ -264,7 +271,7 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
      * @return
      * @throws Exception
      */
-    public String instantiate(DUUIPipelineComponent component, JCas jc, boolean skipVerification, AtomicBoolean shutdown) throws Exception {
+    public String instantiate(DUUIPipelineComponent component, JCas jc, boolean skipVerification, AtomicBoolean shutdown) throws InterruptedException {
         String uuid = UUID.randomUUID().toString();
         while (_active_components.containsKey(uuid.toString())) {
             uuid = UUID.randomUUID().toString();
@@ -380,19 +387,31 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
     }
 
     /**
+     * init reader component
+     * @param uuid
+     * @param filePath
+     * @return
+     */
+    @Override
+    public int initReaderComponent(String uuid, Path filePath) {
+        InstantiatedComponent comp = _active_components.get(uuid);
+        if (comp == null) {
+            throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
+        }
+        return IDUUIInstantiatedPipelineReaderComponent.initComponent(comp, filePath);
+    }
+
+    /**
      * Execute a component in the driver
      *
      * @param uuid
      * @param aCas
      * @param perf
      * @param composer
-     * @throws InterruptedException
-     * @throws IOException
-     * @throws SAXException
-     * @throws CompressorException
      * @throws CASException
+     * @throws PipelineComponentException
      */
-    public void run(String uuid, JCas aCas, DUUIPipelineDocumentPerformance perf, DUUIComposer composer) throws InterruptedException, IOException, SAXException, CompressorException, CASException {
+    public void run(String uuid, JCas aCas, DUUIPipelineDocumentPerformance perf, DUUIComposer composer) throws CASException, PipelineComponentException {
         long mutexStart = System.nanoTime();
         InstantiatedComponent comp = _active_components.get(uuid);
         if (comp == null) {
