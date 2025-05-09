@@ -133,8 +133,16 @@ public interface IDUUIInstantiatedPipelineComponent {
             }
         }
 
-        layer.serialize(viewJc,out,comp.getParameters(), comp.getSourceView());
-        // lua serialize call()
+        try {
+            layer.serialize(viewJc,out,comp.getParameters(), comp.getSourceView());
+            // lua serialize call()
+        }
+        catch(Exception e) {
+            // TODO better error handleing flow?
+            System.err.println("Error during Lua serialize");
+            comp.addComponent(queue.getValue0());
+            throw e;
+        }
 
         byte[] ok = out.toByteArray();
         long sizeArray = ok.length;
