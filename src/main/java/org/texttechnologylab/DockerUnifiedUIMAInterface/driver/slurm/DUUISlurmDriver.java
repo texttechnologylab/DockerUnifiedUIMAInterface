@@ -262,7 +262,7 @@ public class DUUISlurmDriver implements IDUUIDriverInterface {
 //        if (!(component.getSlurmSIFRepoLocation() == null)) {
 //            // mean local no sif file
 //            //_docker_interface.pullImage(component.getDockerImageName());
-//            // 自动把sif iamge name 传入 dockerimagename
+//            sif iamge name in dockerimagename
 //            SlurmUtils.pullSifImagefromRemoteDockerRepo(component.getSlurmSIFImageName(), component.getDockerImageName());
 //        }
 //        //
