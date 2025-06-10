@@ -1,5 +1,6 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.driver;
 
+import com.google.common.collect.ImmutableList;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.commons.compress.compressors.CompressorInputStream;
 import org.apache.commons.compress.compressors.CompressorOutputStream;
@@ -38,6 +39,7 @@ public class DUUIPipelineComponent {
     private int _ws_elements = 50;
 
     private List<String> _constraints = new ArrayList<>(0);
+    private List<String> _env = new ArrayList<>(0);
 
     public static String compressionMethod = CompressorStreamFactory.XZ;
 
@@ -242,6 +244,23 @@ public class DUUIPipelineComponent {
 
     public List<String> getConstraints(){
         return _constraints;
+    }
+
+    /**
+     * Set environment variables.
+     * @param envString Any number of environment variables as {@code "NAME=VALUE"}.
+     * @return The updated component.
+     */
+    public DUUIPipelineComponent withEnv(String... envString) {
+        _env.addAll(Arrays.asList(envString));
+        return this;
+    }
+
+    /**
+     * @return An {@link ImmutableList immutable} copy of the environment variable list.
+     */
+    public List<String> getEnv(){
+        return ImmutableList.copyOf(_env);
     }
 
     public Integer getScale() {

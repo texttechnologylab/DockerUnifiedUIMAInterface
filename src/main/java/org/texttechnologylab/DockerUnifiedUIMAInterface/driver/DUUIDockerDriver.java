@@ -39,9 +39,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.security.InvalidParameterException;
 import java.time.Duration;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeoutException;
@@ -310,7 +308,7 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
                 return null;
             }
 
-            String containerid = _interface.run(comp.getPipelineComponent().getDockerImageName(), comp.usesGPU(), true, 9714, false);
+            String containerid = _interface.run(comp.getPipelineComponent().getDockerImageName(), comp.getEnv(), comp.usesGPU(), true, 9714, false);
             int port = _interface.extract_port_mapping(containerid);  // Dieser port hier ist im allgemeinen nicht (bzw nie) der Port 9714 aus dem Input.
 
             try {
@@ -508,6 +506,7 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
         private String _image_name;
         private ConcurrentLinkedQueue<ComponentInstance> _instances;
         private boolean _gpu;
+        private List<String> _env;
         private boolean _keep_runnging_after_exit;
         private int _scale;
         private int _workers;
@@ -558,6 +557,8 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
             _workers = comp.getWorkers(1);
 
             _gpu = comp.getDockerGPU(false);
+
+            _env = comp.getEnv();
 
             _keep_runnging_after_exit = comp.getDockerRunAfterExit(false);
 
@@ -610,6 +611,10 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
 
         public boolean usesGPU() {
             return _gpu;
+        }
+
+        public List<String> getEnv() {
+            return _env;
         }
 
         public ConcurrentLinkedQueue<ComponentInstance> getInstances() {
@@ -731,6 +736,11 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
 
         public <T extends DUUISegmentationStrategy> Component withSegmentationStrategy(Class<T> strategyClass) throws InstantiationException, IllegalAccessException, NoSuchMethodException, InvocationTargetException {
             _component.withSegmentationStrategy(strategyClass.getDeclaredConstructor().newInstance());
+            return this;
+        }
+
+        public Component withEnv(String... envString) {
+            _component.withEnv(envString);
             return this;
         }
 
