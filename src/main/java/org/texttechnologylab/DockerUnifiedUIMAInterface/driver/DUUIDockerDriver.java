@@ -346,7 +346,10 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
                  * Saves websocket client in ComponentInstance for
                  * retrieval in process_handler-function.
                  */
-                comp.addInstance(new ComponentInstance(containerid, port, layer, _wsclient));
+
+                for (int j = 0; j < comp.getScale(); j++) {
+                    comp.addInstance(new ComponentInstance(containerid, port, layer, _wsclient));
+                }
             } catch (Exception e) {
                 //_interface.stop_container(containerid);
                 //throw e;
@@ -506,6 +509,7 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
         private boolean _gpu;
         private boolean _keep_runnging_after_exit;
         private int _scale;
+        private int _workers;
         private boolean _withImageFetching;
         private boolean _websocket;
         private int _ws_elements;
@@ -550,6 +554,7 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
             _instances = new ConcurrentLinkedQueue<ComponentInstance>();
 
             _scale = comp.getScale(1);
+            _workers = comp.getWorkers(1);
 
             _gpu = comp.getDockerGPU(false);
 
@@ -588,6 +593,10 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
 
         public int getScale() {
             return _scale;
+        }
+
+        public int getWorkers() {
+            return _workers;
         }
 
         public boolean getRunningAfterExit() {
@@ -660,8 +669,24 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
             return this;
         }
 
+        /**
+         * Start the given number of parallel instances (containers).
+         * @param scale Number of containers to start.
+         * @return {@code this}
+         */
         public Component withScale(int scale) {
             _component.withScale(scale);
+            return this;
+        }
+
+
+        /**
+         * Set the maximum concurrency-level of each component by instantiating the multiple replicas per container.
+         * @param workers Number of replicas per container.
+         * @return {@code this}
+         */
+        public Component withWorkers(int workers) {
+            _component.withWorkers(workers);
             return this;
         }
 
