@@ -2,10 +2,12 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface.segmentation;
 
 import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import org.apache.uima.UIMAException;
+import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.util.CasCopier;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 
 /**
@@ -36,6 +38,31 @@ public abstract class DUUISegmentationStrategy implements IDUUISegmentationStrat
     }
 
     /**
+     * Add DocumentMetaData annotation, if not already present.
+     */
+    protected void tryAddDocumentMetaData(JCas jCasSource, JCas jCasTarget, boolean updateLanguage) {
+        try {
+            Collection<DocumentMetaData> dmds = JCasUtil.select(jCasTarget, DocumentMetaData.class);
+            if (dmds.isEmpty()) {
+                DocumentMetaData.copy(jCasSource, jCasTarget);
+
+                // Explicitly update language from document
+                if (updateLanguage) {
+                    DocumentMetaData.get(jCasTarget).setLanguage(jCasSource.getDocumentLanguage());
+                }
+            }
+        }
+        catch (Exception e) {
+            System.err.println("Error copying DocumentMetaData: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    protected void tryAddDocumentMetaData(JCas jCasSource, JCas jCasTarget) {
+        tryAddDocumentMetaData(jCasSource, jCasTarget, false);
+    }
+
+    /**
      * Set the JCas to be processed, this should reset all state
      *
      * @param jCas
@@ -57,11 +84,7 @@ public abstract class DUUISegmentationStrategy implements IDUUISegmentationStrat
         CasCopier.copyCas(jCasOutput.getCas(), jCas.getCas(), true);
 
         // Metadata needs to be copied separately
-        try {
-            DocumentMetaData.copy(jCasOutput, jCas);
-        } catch (Exception e) {
-            // ignore
-        }
+        tryAddDocumentMetaData(jCasOutput, jCas, false);
     }
 
     /**

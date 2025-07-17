@@ -144,12 +144,7 @@ public class DUUISegmentationStrategyByAnnotation extends DUUISegmentationStrate
 
         // copy metadata explicitly
         // TODO why is this needed? what other types need to be copied manually?
-        try {
-            DocumentMetaData.copy(jCasInput, jCasOutput);
-        }
-        catch (Exception e) {
-            // ignore
-        }
+        tryAddDocumentMetaData(jCasInput, jCasOutput, true);
     }
 
     /***
@@ -209,13 +204,6 @@ public class DUUISegmentationStrategyByAnnotation extends DUUISegmentationStrate
         // Reset next cas, faster than creating a new one
         jCasCurrentSegment.reset();
 
-        // copy metadata explicitly
-        try {
-            DocumentMetaData.copy(jCasInput, jCasCurrentSegment);
-        }
-        catch (Exception e) {
-            // ignore
-        }
         CasCopier copierNext = new CasCopier(jCasInput.getCas(), jCasCurrentSegment.getCas(), true);
 
         // Save begin of this segment to allow merging later
@@ -264,6 +252,9 @@ public class DUUISegmentationStrategyByAnnotation extends DUUISegmentationStrate
         // Add relevant document text and language
         jCasCurrentSegment.setDocumentLanguage(jCasInput.getDocumentLanguage());
         jCasCurrentSegment.setDocumentText(documentText);
+
+        // copy metadata explicitly
+        tryAddDocumentMetaData(jCasInput, jCasCurrentSegment, true);
 
         if (printStatistics) {
             Collection<TOP> allNewAnnotations = JCasUtil.select(jCasCurrentSegment, TOP.class);
