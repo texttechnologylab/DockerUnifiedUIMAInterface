@@ -1,6 +1,5 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.segmentation;
 
-import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import org.apache.uima.UIMAException;
 import org.apache.uima.cas.Type;
 import org.apache.uima.fit.factory.JCasFactory;
@@ -51,11 +50,21 @@ public class DUUISegmentationStrategyByAnnotation extends DUUISegmentationStrate
     public static final boolean PRINT_STATISTICS_DEFAULT = true;
     protected boolean printStatistics = PRINT_STATISTICS_DEFAULT;
 
+    // Print/collect statistics
+    // TODO switch to false on release
+    public static final boolean STRICT_SEGMENTATION_CLASS = false;
+    protected boolean strictSegmentationClass = STRICT_SEGMENTATION_CLASS;
+
     // Current annotation to consider
     private List<? extends Annotation> annotations;
     private ListIterator<? extends Annotation> annotationIt;
     private long annotationCount = 0;
     private JCas jCasCurrentSegment;
+
+    public DUUISegmentationStrategyByAnnotation withStrictSegmentationClass(boolean strict) {
+        this.strictSegmentationClass = strict;
+        return this;
+    }
 
     /**
      * @param clazz
@@ -114,6 +123,16 @@ public class DUUISegmentationStrategyByAnnotation extends DUUISegmentationStrate
 
         // Get the annotation type to segment the document, we expect it to be available in the cas
         annotations = new ArrayList<>(JCasUtil.select(jCasInput, SegmentationClass));
+        if (strictSegmentationClass) {
+            int sizeBefore = annotations.size();
+            System.out.println("Checking " + sizeBefore + " annotations for exact segmentation class name: " + SegmentationClass.getCanonicalName());
+            annotations = annotations
+                    .stream()
+                    .filter(a -> a.getType().getName().equals(SegmentationClass.getCanonicalName()))
+                    .toList();
+            int removed = sizeBefore - annotations.size();
+            System.out.println("Removed " + removed + " annotations that do not match the segmentation class.");
+        }
         if (annotations.isEmpty()) {
             if (!ignoreMissingAnnotations) {
                 throw new IllegalArgumentException("No annotations of type \"" + SegmentationClass.getCanonicalName() + "\" for CAS segmentation found!");
