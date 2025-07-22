@@ -98,11 +98,11 @@ public interface IDUUIDriverInterface {
      * @param uuid
      * @return
      */
-    public boolean destroy(String uuid);
+    public boolean destroy(String uuid) throws IOException, InterruptedException;
 
     /**
      * Shutting down the driver
      */
-    public void shutdown();
+    public void shutdown() throws IOException, InterruptedException;
 
 }

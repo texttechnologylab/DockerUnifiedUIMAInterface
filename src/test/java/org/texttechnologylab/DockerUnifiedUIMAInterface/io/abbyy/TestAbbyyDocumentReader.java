@@ -7,7 +7,7 @@ import org.apache.uima.fit.factory.AnalysisEngineFactory;
 import org.apache.uima.fit.factory.CollectionReaderFactory;
 import org.apache.uima.fit.pipeline.SimplePipeline;
 import org.dkpro.core.io.xmi.XmiWriter;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.reader.abbyy.AbbyyDocumentReader;
 
 import java.io.IOException;

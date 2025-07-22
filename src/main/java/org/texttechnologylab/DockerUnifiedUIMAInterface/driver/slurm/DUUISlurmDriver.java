@@ -1,5 +1,6 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.driver.slurm;
 
+import io.vertx.core.cli.annotations.Hidden;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.UIMAException;
 import org.apache.uima.cas.CASException;
@@ -16,6 +17,7 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUICommunicationLayer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.DUUIWebsocketAlt;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.IDUUIConnectionHandler;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.*;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.slurm.slurmInDocker.SlurmRest;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.exception.PipelineComponentException;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaCommunicationLayer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
@@ -23,10 +25,8 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPip
 import org.texttechnologylab.DockerUnifiedUIMAInterface.segmentation.DUUISegmentationStrategy;
 import org.xml.sax.SAXException;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.StringWriter;
+import javax.sound.sampled.Port;
+import java.io.*;
 import java.lang.reflect.InvocationTargetException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -48,11 +48,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Logger;
 
 import static java.lang.String.format;
-import static org.bouncycastle.oer.its.ieee1609dot2.SignerIdentifier.digest;
-import static org.texttechnologylab.DockerUnifiedUIMAInterface.driver.slurm.PortManager.waitUntilReachable;
+
 
 public class DUUISlurmDriver implements IDUUIDriverInterface {
-    // Man kann den Docker-Client dazu verwenden, ein Image herunterzuladen (per Pull).
+    private SlurmRest _rest;
     private DUUIDockerInterface _docker_interface;
     private DUUILuaContext _luaContext;
     private DUUISlurmInterface _interface;
@@ -63,9 +62,10 @@ public class DUUISlurmDriver implements IDUUIDriverInterface {
     private IDUUIConnectionHandler _wsclient;
     private final static Logger LOGGER = Logger.getLogger(DUUIComposer.class.getName());
 
-    //A
-    public DUUISlurmDriver() throws IOException, UIMAException, SAXException {
-        _interface = new DUUISlurmInterface();
+
+    public DUUISlurmDriver(SlurmRest rest) throws IOException, UIMAException, SAXException {
+        _rest = rest;
+        _interface = new DUUISlurmInterface(rest);
         _client = HttpClient.newHttpClient();
 
         JCas _basic = JCasFactory.createJCas();
@@ -80,14 +80,12 @@ public class DUUISlurmDriver implements IDUUIDriverInterface {
         _luaContext = null;
     }
 
-    //B
-
     /**
      * Creation of the communication layer based on the Driver
      *
      * @param url              localhost
      * @param jc               jcas
-     * @param http_timeout_s       timeout with fastapi
+     * @param http_timeout_s   timeout with fastapi
      * @param client           communication wtih fastapi
      * @param context          lua
      * @param skipVerification true
@@ -189,21 +187,18 @@ public class DUUISlurmDriver implements IDUUIDriverInterface {
         }
         ByteArrayOutputStream stream = new ByteArrayOutputStream();
 
-        // cas seri
         try {
-            //TODO: Make this accept options to better check the instantiation!
+
             layer.serialize(jc, stream, null, "_InitialView");
         } catch (Exception e) {
             e.printStackTrace();
             throw new Exception(format("The serialization step of the communication layer fails for implementing class %s", layer.getClass().getCanonicalName()));
         }
-// http req
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(url + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS))
                 .version(HttpClient.Version.HTTP_1_1)
                 .POST(HttpRequest.BodyPublishers.ofByteArray(stream.toByteArray()))
                 .build();
-        // resp
         HttpResponse<byte[]> resp = client.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray()).join();
 
         if (resp.statusCode() == 200) {
@@ -214,7 +209,6 @@ public class DUUISlurmDriver implements IDUUIDriverInterface {
                 System.err.printf("Caught exception printing response %s\n", new String(resp.body(), StandardCharsets.UTF_8));
                 throw e;
             }
-            // use for shallow copy
             return layer;
         } else {
             throw new Exception(format("The container returned response with code != 200\nResponse %s", resp.body().toString()));
@@ -222,29 +216,29 @@ public class DUUISlurmDriver implements IDUUIDriverInterface {
     }
 
 
-    //C
     public void setLuaContext(DUUILuaContext luaContext) {
         _luaContext = luaContext;
     }
 
-    //-------------------------------------------------------------------------------------------------------------
-    //D no use
-//-------------------------------------------------------------------------------------------------------------
-    //E
+
     public boolean canAccept(DUUIPipelineComponent comp) {
-        return comp.getSlurmSIFImageName() != null;
+
+       return comp.getSlurmScript()!= null || !comp.getSlurmRuntime().isEmpty();
+
+
     }
-//-------------------------------------------------------------------------------------------------------------
-    //F
+
 
     /**
-     * Instantiate the component
-     *
+     *  The original code has changed a lot, so please check the interlinear comments.
      * @param component
      * @param jc
      * @param skipVerification
+     * @param shutdown
      * @return
-     * @throws Exception
+     * @throws InterruptedException
+     * @throws URISyntaxException
+     * @throws IOException
      */
     public String instantiate(DUUIPipelineComponent component, JCas jc, boolean skipVerification, AtomicBoolean shutdown) throws InterruptedException, URISyntaxException, IOException {
         String uuid = UUID.randomUUID().toString();
@@ -255,34 +249,7 @@ public class DUUISlurmDriver implements IDUUIDriverInterface {
 
         DUUISlurmDriver.InstantiatedComponent comp = new DUUISlurmDriver.InstantiatedComponent(component);
 
-        // Inverted if check because images will never be pulled if !comp.getImageFetching() is checked.
-
-
-
-//        if (!(component.getSlurmSIFRepoLocation() == null)) {
-//            // mean local no sif file
-//            //_docker_interface.pullImage(component.getDockerImageName());
-//            sif iamge name in dockerimagename
-//            SlurmUtils.pullSifImagefromRemoteDockerRepo(component.getSlurmSIFImageName(), component.getDockerImageName());
-//        }
-//        //
-//        else
-
-        // etwas neues
-        //
-        if (!(component.getSlurmSIFDiskLocation() == null)) {
-            //SlurmUtils.pullSifImagefromLocalDockerRepo(component.getSlurmSIFImageName(),component.getSlurmSIFImageName());
-
-
-            System.out.println("sif file existed");
-        } else {
-            throw new RuntimeException("SIF File conflict detected, either local disk location or remote repo url ");
-        }
         System.out.printf("[SlurmDriver] Assigned new pipeline component unique id %s\n", uuid);
-//        String digest = _interface.getDigestFromImage(comp.getImageName());
-
-        //comp.getPipelineComponent().__internalPinDockerImage(comp.getImageName(), digest);
-        //System.out.printf("[DockerLocalDriver] Transformed image %s to pinnable image name %s\n", comp.getImageName(), comp.getPipelineComponent().getDockerImageName());
 
         _active_components.put(uuid, comp);
 
@@ -290,79 +257,96 @@ public class DUUISlurmDriver implements IDUUIDriverInterface {
             if (shutdown.get()) {
                 return null;
             }
-//
-            int hostPort = PortManager.acquire();
-            System.out.println("prepare to reserve port " + hostPort);
-            // dient als placeholder
-            try (PortManager.PortReservation r = new PortManager.PortReservation(hostPort)) {
+            // If only one component is started, the user can specify a port on their own using withSlurmHostPort()
+            // Otherwise it will be assigned by portmanager
+            int hostPort = -1;
+            String slurmHostPort = component.getSlurmHostPort();
+            if (slurmHostPort == null || slurmHostPort.isEmpty()) {
+                System.out.println("[SlurmDriver] Assigning a free port follows the FIFO-ALGORITHM");
+                hostPort = PortManager.acquire();
+            } else {
+                System.out.println("[SlurmDriver] Assigning a port of your choice.");
+                hostPort = Integer.parseInt(slurmHostPort);
+            }
+            //Users can generate scripts from the methods in SlurmUtil by entering a series of parameters,
+            // or they can just enter a script in json format.
+            System.out.println("[SlurmDriver] prepare to reserve port: " + hostPort);
+            String job_id;
+            if (component.getSlurmScript() != null) {
+                String jobID = _interface.run_json(component, hostPort);
+                job_id = jobID;
+                System.out.println("[SlurmDriver] Submit successfully, Job ID: " + jobID);
+
+
+            } else {
                 //
-                //
-                // placeholder muss vor dem Lauf eines Komponent freilassen werden, sonst entsteht ein Konflikt
-                r.close();
                 String jobID = _interface.run(component, hostPort);
 
-                String port = _interface.extractPort(jobID);  //
-                if (!port.equals(Integer.toString(hostPort))) {
-                    throw new RuntimeException("port mismatch");
-                }
-
-
-
-                //wait test if ok pass
-                waitUntilReachable("127.0.0.1", hostPort, Duration.ofMinutes(1));
-
-                try {
-                    final int iCopy = i;
-                    final String uuidCopy = uuid;
-                    IDUUICommunicationLayer layer = responsiveAfterTime("http://127.0.0.1" + ":" + port, jc, _http_timeout_s, _client, _luaContext, skipVerification);
-
-                    if (comp.isWebsocket()) {
-                        String url = "ws://127.0.0.1:" + port;
-                        _wsclient = new DUUIWebsocketAlt(
-                                url + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS_WEBSOCKET, comp.getWebsocketElements());
-                    } else {
-                        _wsclient = null;
-                    }
-                    /**
-                     * @see
-                     * @edited
-                     * Dawit Terefe
-                     *
-                     * Saves websocket client in ComponentInstance for
-                     * retrieval in process_handler-function.
-                     */
-                    comp.addInstance(new DUUISlurmDriver.ComponentInstance(jobID, hostPort, layer, _wsclient));
-                } catch (Exception e) {
-                    //_interface.stop_container(containerid);
-                    //throw e;
-                }
+                job_id = jobID;
+                System.out.println("[SlurmDriver] submit " + component.getSlurmJobName() + " successfully, Job ID: " + jobID);
             }
+            // Since submitting tasks in slurm is asynchronous,
+            // the java code must be blocked to continue running, which prevents http error
+            boolean ok = PortManager.waitUntilHttpReachable(
+                    "http://localhost:" + hostPort + "/v1/communication_layer",
+                    200,
+                    null,
+                    Duration.ofMinutes(1),
+                    Duration.ofSeconds(2)
+            );
+
+            if (!ok) throw new IllegalStateException("timeout waiting for http ");
+
+            // DUUISlurmInterface maintains a thread-safe hashmap<jobid,port>, see DUUISlurmInterface.class for details.
+            String portFromMap = _interface.extractPort(job_id);
+            if (!portFromMap.equals(Integer.toString(hostPort))) {
+                throw new RuntimeException("port mismatch");
+            }
+
+
+            try {
+                final int iCopy = i;
+                final String uuidCopy = uuid;
+                IDUUICommunicationLayer layer = responsiveAfterTime("http://127.0.0.1" + ":" + hostPort, jc, _http_timeout_s, _client, _luaContext, skipVerification);
+                if (component.getScale()==null)
+                {
+                    System.out.println("[SlurmDriver] " + component.getSlurmSIFImageName() + "[" + Integer.toString(iCopy + 1) + "/" + "1" + "]" + "is online and seems to understand DUUI V1 format!");
+
+                }
+
+                System.out.println("[SlurmDriver] " + component.getSlurmSIFImageName() + "[" + Integer.toString(iCopy + 1) + "/" + component.getScale() + "]" + "is online and seems to understand DUUI V1 format!");
+                if (comp.isWebsocket()) {
+                    String url = "ws://127.0.0.1:" + hostPort;
+                    _wsclient = new DUUIWebsocketAlt(
+                            url + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS_WEBSOCKET, comp.getWebsocketElements());
+                } else {
+                    _wsclient = null;
+                }
+
+                comp.addInstance(new DUUISlurmDriver.ComponentInstance(job_id, hostPort, layer, _wsclient));
+            } catch (Exception e) {
+
+            }
+
         }
         return shutdown.get() ? null : uuid;
     }
 
+
+    /**
+     * Show the maximum parallelism
+     *
+     * @param uuid
+     */
     @Override
     public void printConcurrencyGraph(String uuid) {
-
+        DUUISlurmDriver.InstantiatedComponent component = _active_components.get(uuid);
+        if (component == null) {
+            throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
+        }
+        System.out.printf("[DockerLocalDriver][%s]: Maximum concurrency %d\n", uuid, component.getInstances().size());
     }
 
-
-////G no use
-//    /**
-//     * Show the maximum parallelism
-//     *
-//     * @param uuid
-//     */
-//    public void printConcurrencyGraph(String uuid) {
-//        DUUISlurmDriver.InstantiatedComponent component = _active_components.get(uuid);
-//        if (component == null) {
-//            throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
-//        }
-//        System.out.printf("[DockerLocalDriver][%s]: Maximum concurrency %d\n", uuid, component.getInstances().size());
-//    }
-
-//-----------------------------------------------------------------------------------------------------------------------
-//H  uuid 1--------------------n same type component
 
     /**
      * Return the TypeSystem used by the given Component
@@ -383,36 +367,25 @@ public class DUUISlurmDriver implements IDUUIDriverInterface {
         return IDUUIInstantiatedPipelineComponent.getTypesystem(uuid, comp);
     }
 
+
+    /**
+     * init reader component
+     *
+     * @param uuid
+     * @param filePath
+     * @return
+     */
     @Override
-    public int initReaderComponent(String uuid, Path filePath) throws Exception {
-        return 0;
+    public int initReaderComponent(String uuid, Path filePath) {
+        InstantiatedComponent comp = _active_components.get(uuid);
+        if (comp == null) {
+            throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
+        }
+        return IDUUIInstantiatedPipelineReaderComponent.initComponent(comp, filePath);
     }
-
-
-    /// /I  what is this?
-//    /**
-//     * init reader component
-//     * @param uuid
-//     * @param filePath
-//     * @return
-//     */
-//    @Override
-//    public int initReaderComponent(String uuid, Path filePath) {
-//        InstantiatedComponent comp = _active_components.get(uuid);
-//        if (comp == null) {
-//            throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
-//        }
-//        return IDUUIInstantiatedPipelineReaderComponent.initComponent(comp, filePath);
-//    }
 //-------------------------------------------------------------------------------------------------------------
-//J over write service logic
 
 
-    //K no use
-
-//L close  no use
-
-    //M
     public static class ComponentInstance implements IDUUIUrlAccessible {
         private String _job_ID;
         private int _hostPort;
@@ -446,9 +419,6 @@ public class DUUISlurmDriver implements IDUUIDriverInterface {
             return _hostPort;
         }
 
-//        public int get_fastAPIPort() {
-//            return _fastAPIPort;
-//        }
 
         public IDUUIConnectionHandler get_handler() {
             return _handler;
@@ -470,9 +440,6 @@ public class DUUISlurmDriver implements IDUUIDriverInterface {
             return _handler;
         }
     }
-
-    //------------------------------------------------------------------------------------
-//J
 
     /**
      * Execute a component in the driver
@@ -496,12 +463,7 @@ public class DUUISlurmDriver implements IDUUIDriverInterface {
         }
     }
 
-    @Override
-    public boolean destroy(String uuid) {
-        return false;
-    }
 
-    //N
     static class InstantiatedComponent implements IDUUIInstantiatedPipelineComponent {
         private String _image_name;
         private ConcurrentLinkedQueue<DUUISlurmDriver.ComponentInstance> _instances;
@@ -511,16 +473,12 @@ public class DUUISlurmDriver implements IDUUIDriverInterface {
         private boolean _withImageFetching;
         private boolean _websocket;
         private int _ws_elements;
-
-        //private String _reg_password;
-        //private String _reg_username;
         private String _uniqueComponentKey;
         private Map<String, String> _parameters;
         private String _sourceView;
         private String _targetView;
         private DUUIPipelineComponent _component;
 
-        // 这里？？
         public Triplet<IDUUIUrlAccessible, Long, Long> getComponent() {
             long mutexStart = System.nanoTime();
             DUUISlurmDriver.ComponentInstance inst = _instances.poll();
@@ -531,7 +489,6 @@ public class DUUISlurmDriver implements IDUUIDriverInterface {
             return Triplet.with(inst, mutexStart, mutexEnd);
         }
 
-        //--------------------------------------------------------------------------------
         public void addComponent(IDUUIUrlAccessible access) {
             _instances.add((DUUISlurmDriver.ComponentInstance) access);
         }
@@ -555,9 +512,6 @@ public class DUUISlurmDriver implements IDUUIDriverInterface {
 
             _keep_runnging_after_exit = comp.getSlurmRunAfterExit(false);
 
-            // _reg_password = comp.getDockerAuthPassword();
-            // _reg_username = comp.getDockerAuthUsername();
-
             _websocket = comp.isWebsocket();
             _ws_elements = comp.getWebsocketElements();
         }
@@ -569,14 +523,6 @@ public class DUUISlurmDriver implements IDUUIDriverInterface {
         public String getUniqueComponentKey() {
             return _uniqueComponentKey;
         }
-
-//        public String getPassword() {
-//            return _reg_password;
-//        }
-
-        // public String getUsername() {
-        //     return _reg_username;
-        // }
 
         public boolean getImageFetching() {
             return _withImageFetching;
@@ -628,188 +574,68 @@ public class DUUISlurmDriver implements IDUUIDriverInterface {
     }
 
 
-    //O
     public static class Component {
         private DUUIPipelineComponent _component;
 
-        public DUUISlurmDriver.Component withParameter(String key, String value) {
-            _component.withParameter(key, value);
-            return this;
-        }
-
-        public DUUISlurmDriver.Component withView(String viewName) {
-            _component.withView(viewName);
-            return this;
-        }
-
-        public DUUISlurmDriver.Component withSourceView(String viewName) {
-            _component.withSourceView(viewName);
-            return this;
-        }
-
-        public DUUISlurmDriver.Component withTargetView(String viewName) {
-            _component.withTargetView(viewName);
-            return this;
-        }
-
-        public Component(String target) throws URISyntaxException, IOException {
-            _component = new DUUIPipelineComponent();
-            _component.withDockerImageName(target);
-        }
 
         public Component(DUUIPipelineComponent pComponent) throws URISyntaxException, IOException {
             _component = pComponent;
             _component.withDriver(DUUISlurmDriver.class);
         }
 
-        public DUUISlurmDriver.Component withDescription(String description) {
-            _component.withDescription(description);
-            return this;
-        }
-
-        public DUUISlurmDriver.Component withScale(int scale) {
-            _component.withScale(scale);
-            return this;
-        }
-
-//        public DUUISlurmDriver.Component withRegistryAuth(String username, String password) {
-//            _component.withDockerAuth(username, password);
-//            return this;
-//        }
-
-//        public DUUISlurmDriver.Component withImageFetching() {
-//            return withImageFetching(true);
-//        }
-//
-//        public DUUISlurmDriver.Component withImageFetching(boolean imageFetching) {
-//            _component.withDockerImageFetching(imageFetching);
-//            return this;
-//        }
-
-//        public DUUISlurmDriver.Component withGPU(boolean gpu) {
-//            _component.withDockerGPU(gpu);
-//            return this;
-//        }
-
-//        public DUUISlurmDriver.Component withRunningAfterDestroy(boolean run) {
-//            _component.withDockerRunAfterExit(run);
-//            return this;
-//        }
-
-//        public DUUISlurmDriver.Component withWebsocket(boolean b) {
-//            _component.withWebsocket(b);
-//            return this;
-//        }
-//
-//        public DUUISlurmDriver.Component withWebsocket(boolean b, int elements) {
-//            _component.withWebsocket(b, elements);
-//            return this;
-//        }
-
-        public DUUISlurmDriver.Component withSegmentationStrategy(DUUISegmentationStrategy strategy) {
-            _component.withSegmentationStrategy(strategy);
-            return this;
-        }
-
-        public <T extends DUUISegmentationStrategy> DUUISlurmDriver.Component withSegmentationStrategy(Class<T> strategyClass) throws InstantiationException, IllegalAccessException, NoSuchMethodException, InvocationTargetException {
-            _component.withSegmentationStrategy(strategyClass.getDeclaredConstructor().newInstance());
-            return this;
-        }
-
         public DUUIPipelineComponent build() {
             return _component;
         }
 
-//        public DUUISlurmDriver.Component withName(String name) {
-//            _component.withName(name);
-//            return this;
-//        }
-
-
-        //1
-        public Component withSlurmJobName(String jobName) {
-            _component.withSlurmJobName(jobName);
-            return this;
-        }
-
-        //2
-        public Component withSlurmImagePort(String port) {
-            _component.withSlurmImagePort(port);
-            return this;
-        }
-
-
-        //3
-//        public Component withSlurmHostPort(String port) {
-//            _component.withSlurmHostPort(port);
-//            return this;
-//        }
-
-        //4
-        public Component withSlurmRuntime(String time) {
-            _component.withSlurmRuntime(time);
-            return this;
-        }
-
-        //5
-        public Component withSlurmCpus(String num) {
-            _component.withSlurmCpus(num);
-            return this;
-        }
-
-        //6
-        public Component withSlurmMemory(String numG) {
-            _component.withSlurmMemory(numG);
-            return this;
-        }
-
-        //7
-        public Component withSlurmOutPutLocation(String loc) {
-            _component.withSlurmOutPutLocation(loc);
-            return this;
-        }
-
-        //8
-        public Component withSlurmErrorLocation(String loc) {
-            _component.withSlurmErrorLocation(loc);
-            return this;
-        }
-
-        //9
-        public Component withSlurmSaveIn(String saveTo) {
-            _component.withSlurmSaveIn(saveTo);
-            return this;
-        }
-
-        //10
-        public Component withSlurmGPU(String num) {
-            _component.withSlurmGPU(num);
-            return this;
-        }
-
-        //11
-        public Component withSlurmSIFName(String sifName) {
-            _component.withSlurmSIFName(sifName);
-            return this;
-
-        }
-
-        //12
-        public Component withSlurmEntryLocation(String loc) {
-            _component.withSlurmEntryLocation(loc);
-            return this;
-
-        }
-
-
     }
 
-//--------------------------------------------------------------------------
-
-
     @Override
-    public void shutdown() {
+    public void shutdown() throws IOException, InterruptedException{
+        String token = _rest.generateRootToken("slurmctld");
+        System.out.println("shutdown hook clean all jobs");
+        HashMap<String, String> jobIDPortMap = _interface.get_jobID_PortMap();
+        jobIDPortMap.keySet().forEach(jobID -> {
+            try {
+                _rest.cancelJob(token, jobID);
 
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
+    }
+
+
+    /**
+     * Because it is a self-maintained port table,
+     * it allows the port to be released to another component for continued use after the end of each type of component.
+     * See PortManager.class for details
+     * @param uuid
+     * @return
+     * @throws IOException
+     * @throws InterruptedException
+     */
+    @Override
+    public boolean destroy(String uuid) throws IOException, InterruptedException {
+
+        String token = _rest.generateRootToken("slurmctld");
+        DUUISlurmDriver.InstantiatedComponent comp = _active_components.remove(uuid);
+        boolean flag = true;
+        if (comp == null) {
+            throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
+        }
+        if (!comp.getRunningAfterExit()) {
+            int counter = 1;
+            for (DUUISlurmDriver.ComponentInstance inst : comp.getInstances()) {
+                String jobId = inst.get_job_ID();
+                boolean status = _rest.cancelJob(token, jobId);
+                PortManager.release(inst.get_hostPort());
+                _interface.get_jobID_PortMap().remove(jobId);
+                counter += 1;
+                flag = flag && status;
+
+            }
+        }
+        return flag;
     }
 }
 
