@@ -829,6 +829,10 @@ public class DUUIComposer {
                 addEvent(DUUIEvent.Sender.COMPOSER, "Shutdown Hook finished.");
             } catch (UnknownHostException e) {
                 e.printStackTrace();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
             }
         });
 
@@ -1932,7 +1936,7 @@ public class DUUIComposer {
      * Shuts down the DUUI controller by signaling every worker and stopping all components.
      * @throws UnknownHostException
      */
-    public void shutdown() throws UnknownHostException {
+    public void shutdown() throws IOException, InterruptedException {
         if (isService) {
             addEvent(
                 DUUIEvent.Sender.COMPOSER,

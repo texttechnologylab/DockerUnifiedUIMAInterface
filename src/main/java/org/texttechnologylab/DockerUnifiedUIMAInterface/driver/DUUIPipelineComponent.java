@@ -24,17 +24,27 @@ import java.util.*;
 
 /**
  * Encapsulation of a component for a pipeline.
+ *
  * @author Alexander Leonhardt
  */
+
+
 public class DUUIPipelineComponent {
+
     private HashMap<String, String> _options;
-    private HashMap<String,String> _parameters;
+
+    private HashMap<String, String> _parameters;
+
 
     private AnalysisEngineDescription _engine;
+
     private String _finalizedEncoded;
+
     private int _finalizedEncodedHash;
     private String _compression;
+
     private boolean _websocket = false;
+
     private int _ws_elements = 50;
 
     private List<String> _constraints = new ArrayList<>(0);
@@ -73,6 +83,24 @@ public class DUUIPipelineComponent {
     private static String targetView = "targetView";
     private static String timeout = "timeout";
 
+    private static String slurmJobName = "slurmJobName";
+    private static String slurmHostPort = "slurmHostPort";
+    private static String slurmRuntime = "slurmRuntime";
+    private static String slurmCpus = "slurmCpus";
+    private static String slurmMemory = "slurmMemory";
+    private static String slurmErrorLocation = "slurmErrorLocation";
+    private static String slurmOutPutLocation = "slurmOutPutLocation";
+    private static String slurmSIFLocation = "slurmSIFLocation";
+    private static String slurmGPU = "slurmGPU";
+    private static String slurmSIFImageName = "slurmSIFImageName";
+    private static String slurmNoShutdown = "slurmNoShutdown";
+    private static String slurmUvicorn = "slurmUvicorn";
+    private static String slurmScript = "slurmScript";
+    private static String slurmPartition = "slurmPartition";
+    private static String slurmNodelist = "slurmNodelist";
+    private static String slurmWorkDir = "slurmWorkDir";
+    private static String slurmInnerPort = "slurmInnerPort";
+
     private String getVersion() throws URISyntaxException, IOException {
         ClassLoader classLoader = DUUIPipelineComponent.class.getClassLoader();
         try {
@@ -84,31 +112,34 @@ public class DUUIPipelineComponent {
     }
 
     public DUUIPipelineComponent() throws URISyntaxException, IOException {
+
         _options = new HashMap<>();
+
         _finalizedEncoded = null;
         _parameters = new HashMap<>();
 
         String version = getVersion();
-        if(version == null) {
-            _options.put(versionInformation,"Unknown");
-        }
-        else {
-            _options.put(versionInformation,version);
+        if (version == null) {
+            _options.put(versionInformation, "Unknown");
+        } else {
+            _options.put(versionInformation, version);
         }
         _parameters.put(websocketOptionName, String.valueOf(_websocket));
     }
 
     public void finalizeComponent() throws CompressorException, IOException, SAXException {
-        if(_engine!=null) {
+        if (_engine != null) {
             StringWriter writer = new StringWriter();
             _engine.toXML(writer);
             _options.put(engineOptionName, writer.getBuffer().toString());
         }
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        CompressorOutputStream cos = new CompressorStreamFactory().createCompressorOutputStream(compressionMethod,out);
+
+        CompressorOutputStream cos = new CompressorStreamFactory().createCompressorOutputStream(compressionMethod, out);
         cos.write(toJson().getBytes(StandardCharsets.UTF_8));
         cos.close();
+
         _finalizedEncoded = Base64.getEncoder().encodeToString(out.toByteArray());
         _finalizedEncodedHash = _finalizedEncoded.hashCode();
     }
@@ -122,19 +153,21 @@ public class DUUIPipelineComponent {
     }
 
     public <Y> DUUIPipelineComponent withDriver(Class<Y> t) {
-        _options.put(driverName,t.getCanonicalName());
+        _options.put(driverName, t.getCanonicalName());
         return this;
     }
+
 
     public String getDriver() {
         return _options.get(driverName);
     }
 
+
     public DUUIPipelineComponent withDescription(String description) {
-        if(_finalizedEncoded!=null) {
+        if (_finalizedEncoded != null) {
             throw new RuntimeException("DUUIPipelineComponent has already been finalized, it is immutable now!");
         }
-        if(description == null) {
+        if (description == null) {
             _options.remove(descriptionName);
             return this;
         }
@@ -142,16 +175,17 @@ public class DUUIPipelineComponent {
         return this;
     }
 
+
     public String getDescription() {
         return _options.get(descriptionName);
     }
 
 
     public DUUIPipelineComponent withName(String name) {
-        if(_finalizedEncoded!=null) {
+        if (_finalizedEncoded != null) {
             throw new RuntimeException("DUUIPipelineComponent has already been finalized, it is immutable now!");
         }
-        if(name == null) {
+        if (name == null) {
             _options.remove(componentName);
             return this;
         }
@@ -165,16 +199,16 @@ public class DUUIPipelineComponent {
 
     public String getName(String defaultValue) {
         String value = _options.get(componentName);
-        if(value==null) return defaultValue;
+        if (value == null) return defaultValue;
         return value;
     }
 
     public DUUIPipelineComponent withEngine(AnalysisEngineDescription desc) throws IOException, SAXException {
-        if(_finalizedEncoded!=null) {
+        if (_finalizedEncoded != null) {
             throw new RuntimeException("DUUIPipelineComponent has already been finalized, it is immutable now!");
         }
         _engine = desc;
-        if(desc == null) {
+        if (desc == null) {
             _options.remove(engineOptionName);
             return this;
         }
@@ -182,10 +216,10 @@ public class DUUIPipelineComponent {
     }
 
     public AnalysisEngineDescription getEngine() throws IOException, SAXException, InvalidXMLException {
-        if(_engine!=null) return _engine;
+        if (_engine != null) return _engine;
 
         String engine = _options.get(engineOptionName);
-        if(engine==null) return null;
+        if (engine == null) return null;
 
         String temp = Files.createTempFile("duuid_driver_uima", ".xml").toFile().getAbsolutePath();
         Files.write(Paths.get(temp), engine.getBytes(StandardCharsets.UTF_8));
@@ -193,8 +227,9 @@ public class DUUIPipelineComponent {
         return _engine;
     }
 
+    //
     public DUUIPipelineComponent withScale(Integer iScale) {
-        if(_finalizedEncoded!=null) {
+        if (_finalizedEncoded != null) {
             throw new RuntimeException("DUUIPipelineComponent has already been finalized, it is immutable now!");
         }
 
@@ -226,7 +261,7 @@ public class DUUIPipelineComponent {
         return this;
     }
 
-    public List<String> getConstraints(){
+    public List<String> getConstraints() {
         return _constraints;
     }
 
@@ -236,65 +271,65 @@ public class DUUIPipelineComponent {
 
     public Integer getScale(Integer defaultValue) {
         String scale = _options.get(scaleOptionName);
-        if(scale == null) return defaultValue;
+        if (scale == null) return defaultValue;
         return Integer.parseInt(scale);
     }
 
     public DUUIPipelineComponent withUrl(String url) {
-        if(_finalizedEncoded!=null) {
+        if (_finalizedEncoded != null) {
             throw new RuntimeException("DUUIPipelineComponent has already been finalized, it is immutable now!");
         }
 
-        if(url == null) {
+        if (url == null) {
             _options.remove(urlOptionName);
             return this;
         }
         JSONArray js = new JSONArray();
         js.put(url);
-        _options.put(urlOptionName,js.toString());
+        _options.put(urlOptionName, js.toString());
         return this;
     }
 
     public DUUIPipelineComponent withUrls(List<String> urls) {
-        if(_finalizedEncoded!=null) {
+        if (_finalizedEncoded != null) {
             throw new RuntimeException("DUUIPipelineComponent has already been finalized, it is immutable now!");
         }
 
-        if(urls == null) {
+        if (urls == null) {
             _options.remove(urlOptionName);
             return this;
         }
         JSONArray arr = new JSONArray();
-        for(String s : urls) {
+        for (String s : urls) {
             arr.put(s);
         }
-        _options.put(urlOptionName,arr.toString());
+        _options.put(urlOptionName, arr.toString());
         return this;
     }
 
     public List<String> getUrl() {
         LinkedList<String> lst = new LinkedList<>();
         String urls = _options.get(urlOptionName);
-        if(urls == null) return null;
+        if (urls == null) return null;
         JSONArray arr = new JSONArray(urls);
-        for(int i = 0; i < arr.length(); i++) {
+        for (int i = 0; i < arr.length(); i++) {
             lst.push(arr.getString(i));
         }
         return lst;
     }
 
     public DUUIPipelineComponent withDockerAuth(String name, String password) {
-        if(_finalizedEncoded!=null) {
+        if (_finalizedEncoded != null) {
             throw new RuntimeException("DUUIPipelineComponent has already been finalized, it is immutable now!");
         }
 
-        if(name==null && password == null) {
+        if (name == null && password == null) {
             _options.remove(dockerPasswordOptionName);
             _options.remove(dockerUsernameOptionName);
             return this;
         }
-        _options.put(dockerPasswordOptionName,password);
-        _options.put(dockerUsernameOptionName,name);
+        _options.put(dockerPasswordOptionName, password);
+        _options.put(dockerUsernameOptionName, name);
         return this;
     }
 
@@ -304,7 +339,7 @@ public class DUUIPipelineComponent {
 
     public String getDockerAuthUsername(String defaultValue) {
         String value = _options.get(dockerUsernameOptionName);
-        if(value == null) return defaultValue;
+        if (value == null) return defaultValue;
         return value;
     }
 
@@ -314,20 +349,20 @@ public class DUUIPipelineComponent {
 
     public String getDockerAuthPassword(String defaultValue) {
         String value = _options.get(dockerPasswordOptionName);
-        if(value == null) return defaultValue;
+        if (value == null) return defaultValue;
         return value;
     }
 
     public DUUIPipelineComponent withDockerRunAfterExit(Boolean b) {
-        if(_finalizedEncoded!=null) {
+        if (_finalizedEncoded != null) {
             throw new RuntimeException("DUUIPipelineComponent has already been finalized, it is immutable now!");
         }
 
-        if(b==null) {
+        if (b == null) {
             _options.remove(dockerNoShutdown);
             return this;
         }
-        _options.put(dockerNoShutdown,String.valueOf(b));
+        _options.put(dockerNoShutdown, String.valueOf(b));
         return this;
     }
 
@@ -337,20 +372,20 @@ public class DUUIPipelineComponent {
 
     public Boolean getDockerRunAfterExit(Boolean defaultValue) {
         String result = _options.get(dockerNoShutdown);
-        if(result == null) return defaultValue;
+        if (result == null) return defaultValue;
         return Boolean.parseBoolean(result);
     }
 
     public DUUIPipelineComponent withDockerGPU(Boolean b) {
-        if(_finalizedEncoded!=null) {
+        if (_finalizedEncoded != null) {
             throw new RuntimeException("DUUIPipelineComponent has already been finalized, it is immutable now!");
         }
 
-        if(b==null) {
+        if (b == null) {
             _options.remove(dockerWithGPU);
             return this;
         }
-        _options.put(dockerWithGPU,String.valueOf(b));
+        _options.put(dockerWithGPU, String.valueOf(b));
         return this;
     }
 
@@ -360,31 +395,31 @@ public class DUUIPipelineComponent {
 
     public Boolean getDockerGPU(Boolean defaultValue) {
         String result = _options.get(dockerWithGPU);
-        if(result == null) return defaultValue;
+        if (result == null) return defaultValue;
         return Boolean.parseBoolean(result);
     }
 
     public DUUIPipelineComponent withDockerImageName(String imageName) {
-        if(_finalizedEncoded!=null) {
+        if (_finalizedEncoded != null) {
             throw new RuntimeException("DUUIPipelineComponent has already been finalized, it is immutable now!");
         }
 
-        if(imageName==null) {
+        if (imageName == null) {
             _options.remove(dockerImageName);
             return this;
         }
-        _options.put(dockerImageName,imageName);
+        _options.put(dockerImageName, imageName);
         return this;
     }
 
     public DUUIPipelineComponent __internalPinDockerImage(String imageName, String pinName) {
-        if(pinName==null) {
+        if (pinName == null) {
             System.err.println("Could not add the digest since this image has not been pushed and pulled from a registry V2");
-            _options.put(dockerImageName,imageName);
+            _options.put(dockerImageName, imageName);
             return this;
         }
 
-        _options.put(dockerImageName,pinName);
+        _options.put(dockerImageName, pinName);
         return this;
     }
 
@@ -394,22 +429,22 @@ public class DUUIPipelineComponent {
 
     public String getDockerImageName(String defaultValue) {
         String result = _options.get(dockerImageName);
-        if(result == null) {
+        if (result == null) {
             return defaultValue;
         }
         return result;
     }
 
     public DUUIPipelineComponent withDockerImageFetching(Boolean b) {
-        if(_finalizedEncoded!=null) {
+        if (_finalizedEncoded != null) {
             throw new RuntimeException("DUUIPipelineComponent has already been finalized, it is immutable now!");
         }
 
-        if(b==null) {
+        if (b == null) {
             _options.remove(dockerImageFetching);
             return this;
         }
-        _options.put(dockerImageFetching,String.valueOf(b));
+        _options.put(dockerImageFetching, String.valueOf(b));
         return this;
     }
 
@@ -419,32 +454,32 @@ public class DUUIPipelineComponent {
 
     public Boolean getDockerImageFetching(Boolean defaultValue) {
         String result = _options.get(dockerImageFetching);
-        if(result == null) return defaultValue;
+        if (result == null) return defaultValue;
         return Boolean.parseBoolean(result);
     }
 
     public DUUIPipelineComponent withWriteToView(String viewName) {
-        return withWriteToView(viewName,false);
+        return withWriteToView(viewName, false);
     }
 
     public DUUIPipelineComponent withWriteToView(String viewName, boolean createViewFromInitialView) {
-        if(_finalizedEncoded!=null) {
+        if (_finalizedEncoded != null) {
             throw new RuntimeException("DUUIPipelineComponent has already been finalized, it is immutable now!");
         }
 
-        if(viewName==null) {
+        if (viewName == null) {
             _options.remove(writeToViewName);
             _options.remove(initialViewFromInitialViewName);
             return this;
         }
-        _options.put(writeToViewName,viewName);
-        _options.put(initialViewFromInitialViewName,String.valueOf(createViewFromInitialView));
+        _options.put(writeToViewName, viewName);
+        _options.put(initialViewFromInitialViewName, String.valueOf(createViewFromInitialView));
         return this;
     }
 
     public Boolean getCreateViewFromInitialView() {
         String value = _options.get(initialViewFromInitialViewName);
-        if(value == null) return null;
+        if (value == null) return null;
         return Boolean.valueOf(value);
     }
 
@@ -454,34 +489,37 @@ public class DUUIPipelineComponent {
 
     public String getViewName(String defaultValue) {
         String value = _options.get(writeToViewName);
-        if(value==null) return defaultValue;
+        if (value == null) return defaultValue;
         return value;
     }
 
     public String toJson() {
         JSONObject js = new JSONObject();
-        js.put("options",_options);
-        js.put("parameters",_parameters);
+        js.put("options", _options);
+        js.put("parameters", _parameters);
         return js.toString();
     }
 
     /**
      * @author Dawit Terefe (edited)
-     *
+     * <p>
      * Option to choose websocket as protocol.
      * Default is false.
      * Option to choose number of elements for
      * partition size.
-     *
      */
-    public boolean isWebsocket() { return _websocket; }
+    public boolean isWebsocket() {
+        return _websocket;
+    }
 
     public DUUIPipelineComponent withWebsocket(boolean b) {
         _websocket = b;
         return withParameter(websocketOptionName, String.valueOf(b));
     }
 
-    public int getWebsocketElements () { return _ws_elements; }
+    public int getWebsocketElements() {
+        return _ws_elements;
+    }
 
     public DUUIPipelineComponent withWebsocket(boolean b, int elements) {
         _websocket = b;
@@ -491,11 +529,11 @@ public class DUUIPipelineComponent {
     }
 
     public DUUIPipelineComponent withParameter(String key, String value) {
-        _parameters.put(key,value);
+        _parameters.put(key, value);
         return this;
     }
 
-    public DUUIPipelineComponent withView(String viewName){
+    public DUUIPipelineComponent withView(String viewName) {
         withSourceView(viewName);
         withTargetView(viewName);
         return this;
@@ -520,18 +558,18 @@ public class DUUIPipelineComponent {
     public static DUUIPipelineComponent fromJson(String json) throws URISyntaxException, IOException {
         JSONObject jobj = new JSONObject(json);
 
-        HashMap<String,String> optionsMap = new HashMap<>();
+        HashMap<String, String> optionsMap = new HashMap<>();
         JSONObject options = jobj.getJSONObject("options");
         for (Iterator<String> it = options.keys(); it.hasNext(); ) {
             String key = it.next();
-            optionsMap.put(key,options.getString(key));
+            optionsMap.put(key, options.getString(key));
         }
 
-        HashMap<String,String> parametersMap = new HashMap<>();
+        HashMap<String, String> parametersMap = new HashMap<>();
         JSONObject parameters = jobj.getJSONObject("parameters");
         for (Iterator<String> it = parameters.keys(); it.hasNext(); ) {
             String key = it.next();
-            parametersMap.put(key,parameters.getString(key));
+            parametersMap.put(key, parameters.getString(key));
         }
 
         DUUIPipelineComponent comp = new DUUIPipelineComponent();
@@ -541,58 +579,54 @@ public class DUUIPipelineComponent {
     }
 
     public static DUUIPipelineComponent fromEncodedJson(String encodedJson) throws URISyntaxException, IOException, CompressorException {
-        return fromEncodedJson(encodedJson,compressionMethod);
+        return fromEncodedJson(encodedJson, compressionMethod);
     }
 
     public static DUUIPipelineComponent fromEncodedJson(String encodedJson, String compressionUsed) throws URISyntaxException, IOException, CompressorException {
         byte[] decoded = Base64.getDecoder().decode(encodedJson.getBytes(StandardCharsets.UTF_8));
-        CompressorInputStream stream = new CompressorStreamFactory().createCompressorInputStream(compressionUsed,new ByteArrayInputStream(decoded));
-        String json = new String(stream.readAllBytes(),StandardCharsets.UTF_8);
+        CompressorInputStream stream = new CompressorStreamFactory().createCompressorInputStream(compressionUsed, new ByteArrayInputStream(decoded));
+        String json = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
 
         return fromJson(json);
     }
 
     public DUUIPipelineComponent join(DUUIPipelineComponent comp, DUUIPipelineComponentJoinStrategy strategy) {
-        if(_finalizedEncoded!=null) {
+        if (_finalizedEncoded != null) {
             throw new RuntimeException("DUUIPipelineComponent has already been finalized, it is immutable now!");
         }
-
-        if(strategy == DUUIPipelineComponentJoinStrategy.LEFT_WINS) {
-            for(String i : comp._options.keySet()) {
+        if (strategy == DUUIPipelineComponentJoinStrategy.LEFT_WINS) {
+            for (String i : comp._options.keySet()) {
                 //Discard keys we have too write others into us
-                if(!_options.containsKey(i)) {
-                    _options.put(i,comp._options.get(i));
+                if (!_options.containsKey(i)) {
+                    _options.put(i, comp._options.get(i));
                 }
             }
-        }
-        else if(strategy == DUUIPipelineComponentJoinStrategy.RIGHT_WINS) {
+        } else if (strategy == DUUIPipelineComponentJoinStrategy.RIGHT_WINS) {
             //Write everything since we loose on conflict and need missing options anyways
-            for(String i : comp._options.keySet()) {
-                _options.put(i,comp._options.get(i));
+            for (String i : comp._options.keySet()) {
+                _options.put(i, comp._options.get(i));
             }
-        }
-        else {
-            for(String i : comp._options.keySet()) {
-                if(_options.containsKey(i)) {
-                    if(!_options.get(i).equals(comp._options.get(i))) {
+        } else {
+            for (String i : comp._options.keySet()) {
+                if (_options.containsKey(i)) {
+                    if (!_options.get(i).equals(comp._options.get(i))) {
                         throw new RuntimeException(String.format("Key conflict in join in key %s", i));
                     }
-                }
-                else {
-                    _options.put(i,comp._options.get(i));
+                } else {
+                    _options.put(i, comp._options.get(i));
                 }
             }
         }
         return this;
     }
 
-    public final Map<String,String> getParameters() {
+    public final Map<String, String> getParameters() {
         return _parameters;
     }
 
     public String getSourceView() {
         String result = _options.get(sourceView);
-        if(result == null) {
+        if (result == null) {
             return "_InitialView";
         }
         return result;
@@ -600,7 +634,7 @@ public class DUUIPipelineComponent {
 
     public String getTargetView() {
         String result = _options.get(targetView);
-        if(result == null) {
+        if (result == null) {
             return "_InitialView";
         }
         return result;
@@ -632,25 +666,21 @@ public class DUUIPipelineComponent {
     }
 
     public String attemptAutomaticDescription() throws InvalidXMLException, URISyntaxException, IOException, SAXException {
-        if(getDriver().equals(DUUIUIMADriver.class.getCanonicalName())) {
-            return String.format("UIMA annotator: %s, scale: %d",asUIMADriverComponent().getAnnotatorName(),getScale(1));
-        }
-        else if(getDriver().equals(DUUIDockerDriver.class.getCanonicalName())) {
-            return String.format("Docker annotator: %s, scale: %d",getDockerImageName(),getScale(1));
-        }
-        else if(getDriver().equals(DUUISwarmDriver.class.getCanonicalName())) {
-            return String.format("Swarm annotator: %s, scale: %d",getDockerImageName(),getScale(1));
-        }
-        else if(getDriver().equals(DUUIRemoteDriver.class.getCanonicalName())) {
+        if (getDriver().equals(DUUIUIMADriver.class.getCanonicalName())) {
+            return String.format("UIMA annotator: %s, scale: %d", asUIMADriverComponent().getAnnotatorName(), getScale(1));
+        } else if (getDriver().equals(DUUIDockerDriver.class.getCanonicalName())) {
+            return String.format("Docker annotator: %s, scale: %d", getDockerImageName(), getScale(1));
+        } else if (getDriver().equals(DUUISwarmDriver.class.getCanonicalName())) {
+            return String.format("Swarm annotator: %s, scale: %d", getDockerImageName(), getScale(1));
+        } else if (getDriver().equals(DUUIRemoteDriver.class.getCanonicalName())) {
             String urls = "[";
-            for(String x : getUrl()) {
-                urls+=x;
-                urls+=",";
+            for (String x : getUrl()) {
+                urls += x;
+                urls += ",";
             }
-            urls = urls.substring(0,urls.length()-1)+"]";
-            return String.format("Remote annotator: %s, scale: %d",urls,getScale(1));
-        }
-        else {
+            urls = urls.substring(0, urls.length() - 1) + "]";
+            return String.format("Remote annotator: %s, scale: %d", urls, getScale(1));
+        } else {
             return "Unkown annotator driver!";
         }
     }
@@ -667,4 +697,274 @@ public class DUUIPipelineComponent {
     public long getTimeout() {
         return Long.valueOf(_parameters.getOrDefault(timeout, "60"));
     }
+
+    public DUUIPipelineComponent withSlurmJobName(String jobName) {
+        if (_finalizedEncoded != null) {
+            throw new RuntimeException("DUUIPipelineComponent has already been finalized, it is immutable now!");
+        }
+        if (jobName == null) {
+            _options.remove(slurmJobName);
+            return this;
+        }
+        _options.put(slurmJobName, jobName);
+        _options.put(componentName, jobName);
+        return this;
+    }
+
+    public DUUIPipelineComponent withSlurmHostPort(String port) {
+        if (_finalizedEncoded != null) {
+            throw new RuntimeException("DUUIPipelineComponent has already been finalized, it is immutable now!");
+        }
+        if (port == null) {
+            _options.remove(slurmHostPort);
+            return this;
+        }
+        _options.put(slurmHostPort, port);
+        return this;
+    }
+
+
+    public DUUIPipelineComponent withSlurmRuntime(String time) {
+        if (_finalizedEncoded != null) {
+            throw new RuntimeException("DUUIPipelineComponent has already been finalized, it is immutable now!");
+        }
+        if (time == null) {
+            _options.remove(slurmRuntime);
+            return this;
+        }
+        _options.put(slurmRuntime, time);
+        return this;
+    }
+
+
+    public DUUIPipelineComponent withSlurmMemory(String numMB) {
+        if (_finalizedEncoded != null) {
+            throw new RuntimeException("DUUIPipelineComponent has already been finalized, it is immutable now!");
+        }
+        if (numMB == null) {
+            _options.remove(slurmMemory);
+            return this;
+        }
+        _options.put(slurmMemory, numMB);
+        return this;
+    }
+
+    public DUUIPipelineComponent withSlurmOutPutLocation(String loc) {
+        if (_finalizedEncoded != null) {
+            throw new RuntimeException("DUUIPipelineComponent has already been finalized, it is immutable now!");
+        }
+        if (loc == null) {
+            _options.remove(slurmOutPutLocation);
+            return this;
+        }
+        _options.put(slurmOutPutLocation, loc);
+        return this;
+    }
+
+    public DUUIPipelineComponent withSlurmErrorLocation(String loc) {
+        if (_finalizedEncoded != null) {
+            throw new RuntimeException("DUUIPipelineComponent has already been finalized, it is immutable now!");
+        }
+        if (loc == null) {
+            _options.remove(slurmErrorLocation);
+            return this;
+        }
+        _options.put(slurmErrorLocation, loc);
+        return this;
+    }
+
+    public DUUIPipelineComponent withSlurmSaveIn(String saveTo) {
+        if (_finalizedEncoded != null) {
+            throw new RuntimeException("DUUIPipelineComponent has already been finalized, it is immutable now!");
+        }
+        if (saveTo == null) {
+            _options.remove(slurmSIFLocation);
+            return this;
+        }
+        _options.put(slurmSIFLocation, saveTo);
+        return this;
+    }
+
+    public DUUIPipelineComponent withSlurmGPU(String num) {
+        if (_finalizedEncoded != null) {
+            throw new RuntimeException("DUUIPipelineComponent has already been finalized, it is immutable now!");
+        }
+        if (num == null) {
+            _options.remove(slurmGPU);
+            return this;
+        }
+        _options.put(slurmGPU, num);
+        return this;
+    }
+
+    public DUUIPipelineComponent withSlurmCPUs(String num) {
+        if (_finalizedEncoded != null) {
+            throw new RuntimeException("DUUIPipelineComponent has already been finalized, it is immutable now!");
+        }
+        if (num == null) {
+            _options.remove(slurmCpus);
+            return this;
+        }
+        _options.put(slurmCpus, num);
+        return this;
+    }
+
+    public DUUIPipelineComponent withSlurmSIFName(String sifName) {
+        if (_finalizedEncoded != null) {
+            throw new RuntimeException("DUUIPipelineComponent has already been finalized, it is immutable now!");
+        }
+        if (sifName == null) {
+            _options.remove(slurmSIFImageName);
+            return this;
+        }
+        _options.put(slurmSIFImageName, sifName);
+        return this;
+
+    }
+
+
+    public DUUIPipelineComponent withSlurmUvicorn(String loc) {
+        if (_finalizedEncoded != null) {
+            throw new RuntimeException("DUUIPipelineComponent has already been finalized, it is immutable now!");
+        }
+        if (loc == null) {
+            _options.remove(slurmUvicorn);
+            return this;
+        }
+        _options.put(slurmUvicorn, loc);
+        return this;
+    }
+
+
+    public DUUIPipelineComponent withSlurmScript(String script) {
+        if (_finalizedEncoded != null) {
+            throw new RuntimeException("DUUIPipelineComponent has already been finalized, it is immutable now!");
+        }
+        if (script == null) {
+            _options.remove(slurmScript);
+            return this;
+        }
+        _options.put(slurmScript, script);
+        return this;
+    }
+
+    public DUUIPipelineComponent withSlurmPartition(String pname) {
+        if (_finalizedEncoded != null) {
+            throw new RuntimeException("DUUIPipelineComponent has already been finalized, it is immutable now!");
+        }
+        if (pname == null) {
+            _options.remove(slurmPartition);
+            return this;
+        }
+        _options.put(slurmPartition, pname);
+        return this;
+    }
+
+    public DUUIPipelineComponent withSlurmNodelist(String nodelist) {
+        if (_finalizedEncoded != null) {
+            throw new RuntimeException("DUUIPipelineComponent has already been finalized, it is immutable now!");
+        }
+        if (nodelist == null) {
+            _options.remove(slurmNodelist);
+            return this;
+        }
+        _options.put(slurmNodelist, nodelist);
+        return this;
+    }
+
+    public DUUIPipelineComponent withSlurmWorkDir(String wd) {
+        if (_finalizedEncoded != null) {
+            throw new RuntimeException("DUUIPipelineComponent has already been finalized, it is immutable now!");
+        }
+        if (wd == null) {
+            _options.remove(slurmWorkDir);
+            return this;
+        }
+        _options.put(slurmWorkDir, wd);
+        return this;
+    }
+
+    public DUUIPipelineComponent withSlurmInnerPort(String port) {
+        if (_finalizedEncoded != null) {
+            throw new RuntimeException("DUUIPipelineComponent has already been finalized, it is immutable now!");
+        }
+        if (port == null) {
+            _options.remove(slurmInnerPort);
+            return this;
+        }
+        _options.put(slurmInnerPort, port);
+        return this;
+    }
+
+
+    public String getSlurmSIFImageName() {
+        return _options.get(slurmSIFImageName);
+    }
+
+    public String getSlurmGPU() {
+        return _options.get(slurmGPU);
+    }
+
+    public String getSlurmSIFLocation() {
+        return _options.get(slurmSIFLocation);
+    }
+
+    public String getSlurmOutPutLocation() {
+        return _options.get(slurmOutPutLocation);
+    }
+
+    public String getSlurmMem() {
+        return _options.get(slurmMemory);
+    }
+
+    public String getSlurmRuntime() {
+        return _options.get(slurmRuntime);
+    }
+
+    public String getSlurmHostPort() {
+        return _options.get(slurmHostPort);
+    }
+
+    public String getSlurmJobName() {
+        return _options.get(slurmJobName);
+    }
+
+    public String getSlurmErrorLocation() {
+        return _options.get(slurmErrorLocation);
+    }
+
+    public Boolean getSlurmRunAfterExit(Boolean defaultValue) {
+        String result = _options.get(slurmNoShutdown);
+        if (result == null) return defaultValue;
+        return Boolean.parseBoolean(result);
+    }
+
+    public String getSlurmUvicorn() {
+        return _options.get(slurmUvicorn);
+    }
+
+    public String getSlurmScript() {
+        return _options.get(slurmScript);
+    }
+
+    public String getSlurmPartition() {
+        return _options.get(slurmPartition);
+    }
+
+    public String getSlurmNodelist() {
+        return _options.get(slurmNodelist);
+    }
+
+    public String getSlurmWorkDir() {
+        return _options.get(slurmWorkDir);
+    }
+
+    public String getSlurmInnerPort() {
+        return _options.get(slurmInnerPort);
+    }
+
+    public String getSlurmCpus() {
+        return _options.get(slurmCpus);
+    }
+
 }

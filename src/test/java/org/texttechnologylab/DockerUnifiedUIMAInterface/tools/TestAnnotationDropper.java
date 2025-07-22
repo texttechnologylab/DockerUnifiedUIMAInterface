@@ -86,7 +86,7 @@ public class TestAnnotationDropper {
     }
 
     @AfterAll
-    static void afterAll() throws UnknownHostException {
+    static void afterAll() throws IOException, InterruptedException {
         composer.shutdown();
     }
 
