@@ -13,9 +13,10 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUICommunicationLayer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.DUUIWebsocketAlt;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.IDUUIConnectionHandler;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.exception.PipelineComponentException;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.exception.CommunicationLayerException;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
 import org.texttechnologylab.duui.ReproducibleAnnotation;
+import org.xml.sax.SAXException;
 
 import java.io.*;
 import java.net.ProxySelector;
@@ -103,10 +104,9 @@ public interface IDUUIInstantiatedPipelineComponent {
      * @param perf
      * @throws CompressorException
      * @throws IOException
-     * @throws SAXException
      * @throws CASException
      */
-    public static void process(JCas jc, IDUUIInstantiatedPipelineComponent comp, DUUIPipelineDocumentPerformance perf) throws CompressorException, IOException, SAXException, CASException {
+    public static void process(JCas jc, IDUUIInstantiatedPipelineComponent comp, DUUIPipelineDocumentPerformance perf) throws CompressorException, IOException, CASException, CommunicationLayerException {
         Triplet<IDUUIUrlAccessible,Long,Long> queue = comp.getComponent();
 
         IDUUICommunicationLayer layer = queue.getValue0().getCommunicationLayer();
@@ -146,7 +146,6 @@ public interface IDUUIInstantiatedPipelineComponent {
         long annotatorStart = serializeEnd;
         int tries = 0;
         HttpResponse<byte[]> resp = null;
-//        while (tries < 3) {
         boolean bRunning = true;
         while (bRunning) {
             tries++;
@@ -161,7 +160,7 @@ public interface IDUUIInstantiatedPipelineComponent {
                 break;
             }
             catch(Exception e) {
-                e.printStackTrace();
+//                e.printStackTrace();
                 System.out.printf("Cannot reach endpoint trying again %d/%d...\n",tries+1,postTries);
                 try {
                     Thread.sleep(comp.getPipelineComponent().getTimeout());
@@ -174,7 +173,7 @@ public interface IDUUIInstantiatedPipelineComponent {
             }
         }
         if(resp==null) {
-            throw new IOException("Could not reach endpoint after 3 tries!");
+            throw new IOException("Could not reach endpoint after " + postTries + " tries!");
         }
 
 
@@ -245,7 +244,7 @@ public interface IDUUIInstantiatedPipelineComponent {
      */
     public static void process_handler(JCas jc,
                                        IDUUIInstantiatedPipelineComponent comp,
-                                       DUUIPipelineDocumentPerformance perf) throws CompressorException, IOException, SAXException, CASException, InterruptedException {
+                                       DUUIPipelineDocumentPerformance perf) throws CompressorException, IOException, SAXException, CASException, InterruptedException, CommunicationLayerException {
         Triplet<IDUUIUrlAccessible,Long,Long> queue = comp.getComponent();
 
         IDUUICommunicationLayer layer = queue.getValue0().getCommunicationLayer();

@@ -1,39 +1,20 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface;
 
-import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import org.apache.commons.compress.compressors.CompressorException;
-import org.apache.uima.fit.factory.JCasFactory;
-import org.apache.uima.fit.factory.TypeSystemDescriptionFactory;
-import org.apache.uima.fit.util.JCasUtil;
-import org.apache.uima.jcas.JCas;
-import org.apache.uima.resource.metadata.TypeSystemDescription;
-import org.apache.uima.util.CasCreationUtils;
 import org.apache.uima.util.InvalidXMLException;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.document_handler.DUUIDocument;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.*;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.DUUIEvent;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.DUUIMonitor;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.DUUIStatus;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.IDUUIStorageBackend;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.segmentation.DUUISegmentationStrategy;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.segmentation.DUUISegmentationStrategyNone;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.tools.Timer;
 import org.xml.sax.SAXException;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.security.InvalidParameterException;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Vector;
-import java.util.concurrent.atomic.AtomicBoolean;
-
-import static java.lang.String.format;
 
 public class DUUIReaderComposer extends DUUIComposer {
     /**

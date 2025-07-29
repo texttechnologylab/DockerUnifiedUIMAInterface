@@ -77,7 +77,8 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
-        <typesystem.version>3.0.8</typesystem.version>
+        <!--        <typesystem.version>3.0.10</typesystem.version>-->
+        <typesystem.version>68246f604c</typesystem.version>
         <utilities.version>3.0.0</utilities.version>
         <uima.version>3.5.0</uima.version>
         <dkpro.core.version>2.4.0</dkpro.core.version>
@@ -189,8 +190,8 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.9.0</version>
                 <configuration>
-                    <source>21</source>
-                    <target>21</target>
+                    <!--                    <source>21</source>-->
+                    <!--                    <target>21</target>-->
                 </configuration>
             </plugin>
             <plugin>
