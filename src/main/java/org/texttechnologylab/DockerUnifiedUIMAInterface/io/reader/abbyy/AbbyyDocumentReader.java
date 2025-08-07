@@ -566,8 +566,6 @@ public class AbbyyDocumentReader extends JCasCollectionReader_ImplBase {
         }
         String documentUri = baseUri + documentId;
 
-        ArticleMetadata articleMetadata = articleMetaDataLookup.get(documentId);
-
         // Set the DKPro Core document metadata
         DocumentMetaData documentMetaData = DocumentMetaData.create(jCas);
         documentMetaData.setDocumentTitle(rootName);
@@ -576,12 +574,19 @@ public class AbbyyDocumentReader extends JCasCollectionReader_ImplBase {
         documentMetaData.setDocumentBaseUri(baseUri);
         documentMetaData.setDocumentUri(documentUri);
 
-        documentMetaData.setCollectionId(articleMetadata.journal_id);
-        documentMetaData.setDocumentTitle(articleMetadata.title);
+        ArticleMetadata articleMetadata = articleMetaDataLookup.get(documentId);
+        if (!Objects.isNull(articleMetadata)) {
+            // Add UCE dynamic metadata annotations for each available entry in the article's metadata & update DocumentMetaData
+            documentMetaData.setCollectionId(articleMetadata.journal_id);
+            documentMetaData.setDocumentTitle(articleMetadata.title);
 
-        // Add UCE dynamic metadata annotations for each available entry in the article's metadata
-        articleMetadata.addUceMetaDataToJCas(jCas);
-        jCas.setDocumentLanguage(LanguageToLocaleLookup.getOrDefault(articleMetadata.language, locale).toString());
+            articleMetadata.addUceMetaDataToJCas(jCas);
+
+            jCas.setDocumentLanguage(LanguageToLocaleLookup.getOrDefault(articleMetadata.language, locale).toString());
+        } else {
+            getLogger().error("No article metadata found for document ID '{}'.", documentId);
+            jCas.setDocumentLanguage(locale.toString());
+        }
     }
 
     private static void newUceMetadata(JCas jCas, String key, String value) {
