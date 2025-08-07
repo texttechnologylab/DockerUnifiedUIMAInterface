@@ -1,6 +1,8 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.io.reader.abbyy;
 
 import com.google.common.base.Strings;
+import com.google.gson.Gson;
+import com.google.gson.JsonParseException;
 import de.tudarmstadt.ukp.dkpro.core.api.anomaly.type.Anomaly;
 import de.tudarmstadt.ukp.dkpro.core.api.anomaly.type.SuggestedAction;
 import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
@@ -35,12 +37,15 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.ProgressTrack
 import org.texttechnologylab.annotation.ocr.abbyy.Document;
 import org.texttechnologylab.annotation.ocr.abbyy.Line;
 import org.texttechnologylab.annotation.ocr.abbyy.Page;
+import org.texttechnologylab.annotation.uce.Metadata;
 import org.xml.sax.SAXException;
+import com.google.gson.reflect.TypeToken;
 
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParser;
 import javax.xml.parsers.SAXParserFactory;
 import java.io.*;
+import java.lang.reflect.Type;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.regex.Matcher;
@@ -134,6 +139,7 @@ public class AbbyyDocumentReader extends JCasCollectionReader_ImplBase {
     public static final String PARAM_LANGUAGE = ComponentParameters.PARAM_LANGUAGE;
     @ConfigurationParameter(name = PARAM_LANGUAGE, mandatory = false, defaultValue = "de")
     private String language;
+    private Locale locale;
 
     /**
      * A RegEx {@link Pattern pattern string} to use on the document root sub-path to determine the document ID.
@@ -183,6 +189,12 @@ public class AbbyyDocumentReader extends JCasCollectionReader_ImplBase {
     public static final String PARAM_PRUNE_NESTED_ROOTS = "pruneNestedRoots";
     @ConfigurationParameter(name = PARAM_PRUNE_NESTED_ROOTS, mandatory = false, defaultValue = "true")
     protected Boolean pruneNestedRoots;
+
+    public static final String PARAM_METADATA_FILE = "metadataFilePath";
+    @ConfigurationParameter(name = PARAM_METADATA_FILE, mandatory = true)
+    protected String metadataFilePath;
+    final protected Map<String, ArticleMetadata> articleMetaDataLookup = new HashMap<>();
+    final protected Map<String, PageOfArticleMetadata> pageMetaDataLookup = new HashMap<>();
 
     /**
      * Set to {@code false} to disable adding {@link org.texttechnologylab.annotation.ocr.abbyy.Page Page}
@@ -296,9 +308,13 @@ public class AbbyyDocumentReader extends JCasCollectionReader_ImplBase {
     private final AntPathMatcher matcher = new AntPathMatcher();
     private SAXParser saxParser;
 
+    private static final Gson gson = new Gson();
+
     @Override
     public void initialize(UimaContext context) throws ResourceInitializationException {
         super.initialize(context);
+
+        LanguageToLocaleLookup.addInLocale(Locale.GERMAN);
 
         if (!Path.of(sourceLocation).toFile().isDirectory()) {
             throw new ResourceInitializationException(
@@ -316,6 +332,46 @@ public class AbbyyDocumentReader extends JCasCollectionReader_ImplBase {
         }
         if (!this.baseUri.endsWith("/")) {
             this.baseUri += "/";
+        }
+
+        Path metadataFile = Path.of(metadataFilePath);
+        if (!metadataFile.toFile().isFile()) {
+            throw new ResourceInitializationException(
+                    new IOException(
+                            String.format(
+                                    "PARAM_METADATA_FILE does not point to a valid file: %s",
+                                    metadataFilePath
+                            )
+                    )
+            );
+        }
+
+        locale = Locale.forLanguageTag(language);
+        if (locale == null) {
+            throw new ResourceInitializationException(
+                    new IllegalArgumentException(
+                            String.format(
+                                    "PARAM_LANGUAGE does not point to a valid language: %s",
+                                    language
+                            )
+                    )
+            );
+        }
+
+        try {
+            Type RawCollectionMetadataListType = new TypeToken<List<RawArticleMetadata>>() {
+            }.getType();
+            List<RawArticleMetadata> cml = gson.fromJson(new InputStreamReader(openInputStream(metadataFile)), RawCollectionMetadataListType);
+            for (RawArticleMetadata articleMetadata : cml) {
+                articleMetaDataLookup.put(articleMetadata.article_id, articleMetadata);
+                for (PageMetadata pageMetadata : articleMetadata.pages_list) {
+                    pageMetaDataLookup.put(pageMetadata.page_id, new PageOfArticleMetadata(pageMetadata, articleMetadata));
+                }
+            }
+        } catch (IOException e) {
+            throw new ResourceInitializationException("IOException while reading metadata from file {0} ", new String[]{metadataFilePath}, e);
+        } catch (JsonParseException e) {
+            throw new ResourceInitializationException("JsonParseException while reading metadata from file {0}", new String[]{metadataFilePath}, e);
         }
 
         this.documentIdPattern = Pattern.compile(this.documentIdPatternString, this.documentIdPatternFlags);
@@ -368,7 +424,7 @@ public class AbbyyDocumentReader extends JCasCollectionReader_ImplBase {
         }
 
         resourceMap = new TreeMap<>();
-        for (Path rootPath : rootPaths) {
+        for (Path rootPath : new HashSet<>(rootPaths)) {
             List<Path> filePaths = scan(rootPath.toString(), fileRules, FileType.OnlyFiles);
             if (!filePaths.isEmpty()) {
                 resourceMap.put(rootPath, filePaths);
@@ -510,19 +566,34 @@ public class AbbyyDocumentReader extends JCasCollectionReader_ImplBase {
         }
         String documentUri = baseUri + documentId;
 
+        ArticleMetadata articleMetadata = articleMetaDataLookup.get(documentId);
+
         // Set the DKPro Core document metadata
-        DocumentMetaData docMetaData = DocumentMetaData.create(jCas);
-        docMetaData.setDocumentTitle(rootName);
-        docMetaData.setDocumentId(documentId);
+        DocumentMetaData documentMetaData = DocumentMetaData.create(jCas);
+        documentMetaData.setDocumentTitle(rootName);
+        documentMetaData.setDocumentId(documentId);
 
-        docMetaData.setDocumentBaseUri(baseUri);
-        docMetaData.setDocumentUri(documentUri);
+        documentMetaData.setDocumentBaseUri(baseUri);
+        documentMetaData.setDocumentUri(documentUri);
 
-        if (!Strings.isNullOrEmpty(collectionId)) {
-            docMetaData.setCollectionId(collectionId);
-        }
+        documentMetaData.setCollectionId(articleMetadata.journal_id);
+        documentMetaData.setDocumentTitle(articleMetadata.title);
 
-        jCas.setDocumentLanguage(language);
+        // Add UCE dynamic metadata annotations for each available entry in the article's metadata
+        articleMetadata.addUceMetaDataToJCas(jCas);
+        jCas.setDocumentLanguage(LanguageToLocaleLookup.getOrDefault(articleMetadata.language, locale).toString());
+    }
+
+    private static void newUceMetadata(JCas jCas, String key, String value) {
+        newUceMetadata(jCas, key, value, "STRING");
+    }
+
+    private static void newUceMetadata(JCas jCas, String key, String value, String valueType) {
+        Metadata uceMetadata = new Metadata(jCas, 0, 0);
+        uceMetadata.setKey(key);
+        uceMetadata.setValue(value);
+        uceMetadata.setValueType(valueType);
+        uceMetadata.addToIndexes();
     }
 
     public void process(JCas jCas, List<Path> files) throws IOException, CollectionException {
@@ -545,6 +616,9 @@ public class AbbyyDocumentReader extends JCasCollectionReader_ImplBase {
         if (addPages) {
             for (AbbyyPage page : parsedDocument.pages) {
                 jCas.addFsToIndexes(page.into(jCas));
+
+                PageOfArticleMetadata pageOfArticleMetadata = pageMetaDataLookup.get(page.pageId);
+                // TODO
             }
         }
         if (addBlocks) {
@@ -672,5 +746,111 @@ public class AbbyyDocumentReader extends JCasCollectionReader_ImplBase {
         fsArray.set(0, suggestedAction);
         anomaly.setSuggestions(fsArray);
         jCas.addFsToIndexes(anomaly);
+    }
+
+    protected static class ArticleMetadata {
+        public String article_id = "";
+        public String issue_number = "";
+        public String item_url = "";
+        public String journal_id = "";
+        public String journal_label = "";
+        public String language = "";
+        public String parent_id = "";
+        public String parent_label = "";
+        public String publication_year = "";
+        public String title = "";
+        public String type = "";
+        public String vendor = "";
+        public String volume_number = "";
+        public String abstract_str = "";
+        public String pdf_url = "";
+        public String pages = "";
+        public List<Map<String, String>> authors = List.of();
+        public String doi = "";
+        public List<String> keywords;
+        public String license = "";
+        public List<String> parts = List.of();
+
+        public ArticleMetadata() {
+        }
+
+        public void addUceMetaDataToJCas(JCas jCas) {
+            if (!article_id.isEmpty())
+                newUceMetadata(jCas, "article_id", article_id, "ENUM");
+            if (!issue_number.isEmpty())
+                newUceMetadata(jCas, "issue_number", issue_number);
+            if (!item_url.isEmpty())
+                newUceMetadata(jCas, "item_url", item_url, "URL");
+            if (!journal_id.isEmpty())
+                newUceMetadata(jCas, "journal_id", journal_id, "ENUM");
+            if (!journal_label.isEmpty())
+                newUceMetadata(jCas, "journal_label", journal_label, "ENUM");
+            if (!language.isEmpty())
+                newUceMetadata(jCas, "language", language);
+            if (!parent_id.isEmpty())
+                newUceMetadata(jCas, "parent_id", parent_id, "ENUM");
+            if (!parent_label.isEmpty())
+                newUceMetadata(jCas, "parent_label", parent_label, "ENUM");
+            if (!publication_year.isEmpty())
+                newUceMetadata(jCas, "publication_year", publication_year, "NUMBER");
+            if (!title.isEmpty())
+                newUceMetadata(jCas, "title", title);
+            if (!type.isEmpty())
+                newUceMetadata(jCas, "type", type, "ENUM");
+            if (!vendor.isEmpty())
+                newUceMetadata(jCas, "vendor", vendor);
+            if (!volume_number.isEmpty())
+                newUceMetadata(jCas, "volume_number", volume_number);
+            if (!abstract_str.isEmpty())
+                newUceMetadata(jCas, "abstract", abstract_str);
+            if (!pdf_url.isEmpty())
+                newUceMetadata(jCas, "pdf_url", pdf_url, "URL");
+            if (!pages.isEmpty())
+                newUceMetadata(jCas, "pages", pages);
+            if (!authors.isEmpty())
+                newUceMetadata(jCas, "authors", gson.toJson(authors), "JSON");
+            if (!doi.isEmpty())
+                newUceMetadata(jCas, "doi", doi);
+            if (!keywords.isEmpty())
+                newUceMetadata(jCas, "keywords", gson.toJson(keywords), "JSON");
+            if (!license.isEmpty())
+                newUceMetadata(jCas, "license", license);
+            if (!parts.isEmpty())
+                newUceMetadata(jCas, "parts", gson.toJson(parts), "JSON");
+        }
+    }
+
+    protected static class PageMetadata {
+        public String page_id;
+        public String page_content;
+        public String page_label;
+        public String page_url;
+        public String page_text_url;
+
+        public PageMetadata() {
+        }
+
+        @Override
+        public int hashCode() {
+            return this.page_id.hashCode();
+        }
+    }
+
+    protected static class PageOfArticleMetadata {
+        public PageMetadata pageMetadata;
+        public ArticleMetadata articleMetadata;
+
+        public PageOfArticleMetadata(PageMetadata pageMetadata, ArticleMetadata articleMetadata) {
+            this.pageMetadata = pageMetadata;
+
+            this.articleMetadata = articleMetadata;
+        }
+    }
+
+    private static class RawArticleMetadata extends ArticleMetadata {
+        public List<PageMetadata> pages_list = List.of();
+
+        public RawArticleMetadata() {
+        }
     }
 }
