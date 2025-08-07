@@ -172,6 +172,19 @@ public class AbbyyDocumentReader extends JCasCollectionReader_ImplBase {
     protected int pageIdPatternFlags;
 
     /**
+     * By default, the {@link AbbyyDocumentReader} will not produce multiple CAS'es for nested directories in the
+     * {@link #PARAM_SOURCE_LOCATION}. Instead, the parent root paths will be removed from the list of roots in a
+     * post-processing step, after the root path scan. If there are files present in a parent root folder,
+     * a warning will be issued and the children will be pruned, instead.
+     * <br/>
+     * If this switch is set to {@code false}, nested roots <b>will be included which may lead to duplicate document
+     * contents</b>!
+     */
+    public static final String PARAM_PRUNE_NESTED_ROOTS = "pruneNestedRoots";
+    @ConfigurationParameter(name = PARAM_PRUNE_NESTED_ROOTS, mandatory = false, defaultValue = "true")
+    protected Boolean pruneNestedRoots;
+
+    /**
      * Set to {@code false} to disable adding {@link org.texttechnologylab.annotation.ocr.abbyy.Page Page}
      * annotations to the output CAS.
      */
@@ -322,6 +335,37 @@ public class AbbyyDocumentReader extends JCasCollectionReader_ImplBase {
         MatchRules fileRules = new MatchRules(filePatterns, DEFAULT_FILE_INCLUDE);
 
         List<Path> rootPaths = scan(sourceLocation, rootRules, FileType.OnlyDirectories);
+
+        if (pruneNestedRoots) {
+            // Remove all root paths for which children are in the root path list, too.
+            List<Path> toRemove = new ArrayList<>();
+            for (int i = 0; i < rootPaths.size(); i++) {
+                Path path = rootPaths.get(i);
+                if (i + 1 < rootPaths.size()) {
+                    if (rootPaths.get(i + 1).startsWith(path.toString())) {
+                        // If the current root path has children but does not contain any files, it is NOT an article, so
+                        // we can remove it. Its children may then be the actual article directories.
+                        // If it DOES contain files, something is wrong; we issue a warning and remove the children instead.
+                        File[] children = path.toFile().listFiles();
+                        if (Objects.nonNull(children) && Arrays.stream(children).anyMatch(File::isFile)) {
+                            getLogger().warn("Root path '{}' contains files, but its children are also present in the root path list!", path);
+                            for (; i < rootPaths.size(); i++) {
+                                Path childPath = rootPaths.get(i + 1);
+                                if (!childPath.startsWith(path.toString())) {
+                                    break;
+                                }
+                                toRemove.add(childPath);
+                            }
+                        } else {
+                            toRemove.add(path);
+                        }
+                    }
+                }
+            }
+            rootPaths.removeAll(toRemove);
+        } else {
+            getLogger().warn("PARAM_PRUNE_NESTED_ROOTS is set to false, which may lead to duplicate document contents!");
+        }
 
         resourceMap = new TreeMap<>();
         for (Path rootPath : rootPaths) {
