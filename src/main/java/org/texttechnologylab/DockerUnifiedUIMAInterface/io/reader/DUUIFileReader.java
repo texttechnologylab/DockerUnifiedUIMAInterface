@@ -59,14 +59,36 @@ public class DUUIFileReader implements DUUICollectionReader {
     private int debugCount = 25;
 
     private String targetLocation = null;
+    private String targetEnding = null;
 
+
+    public DUUIFileReader(String folder, String ending, int iDebug) {
+        this(folder, ending, iDebug, -1, null, "", false, null, 0);
+    }
 
     public DUUIFileReader(String folder, String ending) {
         this(folder, ending, 25, -1, null, "", false, null, 0);
     }
 
+    public DUUIFileReader(String folder, String ending, int debugCount, String targetFolder, String targetEnding) {
+        this(folder, ending, debugCount, 0, false, null, true, null, 0, targetFolder, targetEnding);
+    }
+
+    public DUUIFileReader withDebug(int iDebug) {
+        this.debugCount = iDebug;
+        return this;
+    }
+
+
+
     public DUUIFileReader(String folder, String ending, int debugCount, int sampleSize, AsyncCollectionReader.DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE sampleMode, String savePath, boolean bAddMetadata, String language, int skipSmallerFiles) {
         this(folder, ending, debugCount, getRandomFromMode(sampleMode, sampleSize), getSortFromMode(sampleMode), savePath, bAddMetadata, language, skipSmallerFiles, savePath, null);
+    }
+
+    public DUUIFileReader withTarget(String sPath, String sEnding) {
+        this.targetLocation = sPath;
+        this.targetEnding = sEnding;
+        return this;
     }
 
     public DUUIFileReader(String folder, String ending, int debugCount, int iRandom, boolean bSort, String savePath, boolean bAddMetadata, String language, int skipSmallerFiles, String targetLocation, String targetEnding) {
