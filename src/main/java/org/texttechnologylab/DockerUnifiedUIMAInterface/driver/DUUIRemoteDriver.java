@@ -83,7 +83,7 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
                             "To achieve component-level concurrency, supply multiple (different) URL endpoints " +
                             "to the constructor instead!%n"
             );
-            component.withScale(scale);
+            component.withWorkers(scale);
             return this;
         }
 
@@ -93,7 +93,7 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
          * @return {@code this}
          */
         public Component withWorkers(int workers) {
-            component.withScale(workers);
+            component.withWorkers(workers);
             return this;
         }
 

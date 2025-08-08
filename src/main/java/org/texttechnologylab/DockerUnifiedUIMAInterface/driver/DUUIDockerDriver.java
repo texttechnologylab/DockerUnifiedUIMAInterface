@@ -347,7 +347,8 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
                  * retrieval in process_handler-function.
                  */
 
-                for (int j = 0; j < comp.getScale(); j++) {
+                /// Add one replica of the instantiated component per worker
+                for (int j = 0; j < comp.getWorkers(); j++) {
                     comp.addInstance(new ComponentInstance(containerid, port, layer, _wsclient));
                 }
             } catch (Exception e) {
@@ -678,7 +679,6 @@ public class DUUIDockerDriver implements IDUUIDriverInterface {
             _component.withScale(scale);
             return this;
         }
-
 
         /**
          * Set the maximum concurrency-level of each component by instantiating the multiple replicas per container.
