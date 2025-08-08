@@ -111,7 +111,7 @@ public interface IDUUIInstantiatedPipelineComponent {
         long serializeStart = System.nanoTime();
 
         try {
-        DUUIPipelineComponent pipelineComponent = comp.getPipelineComponent();
+            DUUIPipelineComponent pipelineComponent = comp.getPipelineComponent();
             String viewName = pipelineComponent.getViewName();
             JCas viewJc;
             if(viewName == null) {
