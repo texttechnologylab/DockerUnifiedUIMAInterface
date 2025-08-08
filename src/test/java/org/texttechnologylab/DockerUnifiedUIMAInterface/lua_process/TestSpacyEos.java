@@ -12,7 +12,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.test.DockerTestContainerManager;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.docker.DockerTestContainerManager;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
