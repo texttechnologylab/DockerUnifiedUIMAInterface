@@ -12,7 +12,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.test.DockerTestContainerManager;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.docker.DockerTestContainerManager;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
@@ -20,7 +20,7 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class TestSpacyEos {
     final DockerTestContainerManager container = new DockerTestContainerManager(
-            "docker.texttechnologylab.org/duui-spacy-eos:0.1.0",
+            "docker.texttechnologylab.org/duui-spacy-eos:latest",
             6000
     );
 

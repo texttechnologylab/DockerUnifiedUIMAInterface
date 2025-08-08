@@ -68,8 +68,32 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
             component = pComponent;
         }
 
+
+        /**
+         * Set the maximum concurrency-level for this component by instantiating the given number of replicas per URL.
+         * @param scale Number of replicas per given URL.
+         * @return {@code this}
+         * @apiNote Alias for {@link #withWorkers(int)}. To achieve component-level concurrency,
+         *      supply multiple (different) URL endpoints using the appropriate constructors:
+         *      {@link #Component(String...)} and {@link #Component(List)}.
+         */
         public Component withScale(int scale) {
-            component.withScale(scale);
+            System.out.printf(
+                    "[RemoteDriver] In RemoteDriver.Components, the withScale() method just aliases withWorkers(). " +
+                            "To achieve component-level concurrency, supply multiple (different) URL endpoints " +
+                            "to the constructor instead!%n"
+            );
+            component.withWorkers(scale);
+            return this;
+        }
+
+        /**
+         * Set the maximum concurrency-level for this component by instantiating the given number of replicas per URL.
+         * @param workers Number of replicas per given URL.
+         * @return {@code this}
+         */
+        public Component withWorkers(int workers) {
+            component.withWorkers(workers);
             return this;
         }
 
@@ -208,7 +232,7 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
 
             _uniqueComponentKey = "";
 
-            _maximum_concurrency = comp.getScale(1);
+            _maximum_concurrency = comp.getWorkers(1);
             _components = new ConcurrentLinkedQueue<>();
             _websocket = comp.isWebsocket();
             _ws_elements = comp.getWebsocketElements();
@@ -223,6 +247,10 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         }
 
         public int getScale() {
+            return _maximum_concurrency;
+        }
+
+        public int getWorkers() {
             return _maximum_concurrency;
         }
 
@@ -302,7 +330,7 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
             if (!added_communication_layer) {
                 added_communication_layer = true;
             }
-            for (int i = 0; i < comp.getScale(); i++) {
+            for (int i = 0; i < comp.getWorkers(); i++) {
                 /**
                  * @see
                  * @edited
@@ -316,7 +344,7 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
             _components.put(uuid, comp);
             System.out.printf("[RemoteDriver][%s] Remote URL %s is online and seems to understand DUUI V1 format!\n", uuid, url);
 
-            System.out.printf("[RemoteDriver][%s] Maximum concurrency for this endpoint %d\n", uuid, comp.getScale());
+            System.out.printf("[RemoteDriver][%s] Maximum concurrency for this endpoint %d\n", uuid, comp.getWorkers());
         }
 
         return shutdown.get() ? null : uuid;
@@ -327,7 +355,7 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         if (component == null) {
             throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
         }
-        System.out.printf("[RemoteDriver][%s]: Maximum concurrency %d\n", uuid, component.getScale());
+        System.out.printf("[RemoteDriver][%s]: Maximum concurrency %d\n", uuid, component.getWorkers());
     }
 
     public TypeSystemDescription get_typesystem(String uuid) throws InterruptedException, IOException, SAXException, CompressorException, ResourceInitializationException {

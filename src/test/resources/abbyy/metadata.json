@@ -1,0 +1,68 @@
+[
+  {
+    "article_id": "10773178",
+    "issue_number": "",
+    "item_url": "https://sammlungen.ub.uni-frankfurt.de/10773178",
+    "journal_id": "10688403",
+    "journal_label": "Decheniana: Verhandlungen des Naturhistorischen Vereins der Rheinlande und Westfalens",
+    "language": "Deutsch",
+    "parent_id": "10771471",
+    "parent_label": "95 A (1937)",
+    "publication_year": "1937",
+    "title": "Neue Untersuchungen über den Kohlenkalk der Umgebung von Aachen: Mitteilung aus dem Ruhrlandmuseum der Stadt Essen Nr. 94",
+    "type": "Artikel",
+    "vendor": "Dig._Samm._UB_JCS",
+    "volume_number": "95 A",
+    "abstract_str": "",
+    "pdf_url": "https://sammlungen.ub.uni-frankfurt.de/download/pdf/10773178",
+    "pages": "",
+    "authors": [
+      {
+        "given_name": "Henry",
+        "family_name": "Paul",
+        "title": ""
+      }
+    ],
+    "doi": "",
+    "keywords": [],
+    "license": "https://rightsstatements.org/vocab/InC/1.0/",
+    "parts": [],
+    "pages_list": [
+      {
+        "page_id": "10769912",
+        "page_content": "",
+        "page_label": "Seite 248",
+        "page_url": "https://sammlungen.ub.uni-frankfurt.de/10769912",
+        "page_text_url": "https://sammlungen.ub.uni-frankfurt.de/download/fulltext/alto3/10769912"
+      },
+      {
+        "page_id": "10769913",
+        "page_content": "",
+        "page_label": "Seite 249",
+        "page_url": "https://sammlungen.ub.uni-frankfurt.de/10769913",
+        "page_text_url": "https://sammlungen.ub.uni-frankfurt.de/download/fulltext/alto3/10769913"
+      },
+      {
+        "page_id": "10769914",
+        "page_content": "",
+        "page_label": "Seite 250",
+        "page_url": "https://sammlungen.ub.uni-frankfurt.de/10769914",
+        "page_text_url": "https://sammlungen.ub.uni-frankfurt.de/download/fulltext/alto3/10769914"
+      },
+      {
+        "page_id": "10769915",
+        "page_content": "",
+        "page_label": "Seite 251",
+        "page_url": "https://sammlungen.ub.uni-frankfurt.de/10769915",
+        "page_text_url": "https://sammlungen.ub.uni-frankfurt.de/download/fulltext/alto3/10769915"
+      },
+      {
+        "page_id": "10769916",
+        "page_content": "",
+        "page_label": "[Seite]",
+        "page_url": "https://sammlungen.ub.uni-frankfurt.de/10769916",
+        "page_text_url": "https://sammlungen.ub.uni-frankfurt.de/download/fulltext/alto3/10769916"
+      }
+    ]
+  }
+]
