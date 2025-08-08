@@ -27,7 +27,7 @@ import java.net.URISyntaxException;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class TestSpacyBatched {
     final DockerTestContainerManager container = new DockerTestContainerManager(
-            "docker.texttechnologylab.org/duui-spacy-lua-process:0.1.0",
+            "docker.texttechnologylab.org/duui-spacy-lua-process:latest",
             6000
     );
 

@@ -21,7 +21,7 @@ import java.net.URISyntaxException;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class TestGNFinderLite {
     final DockerTestContainerManager container = new DockerTestContainerManager(
-            "docker.texttechnologylab.org/duui-lite-gnfinder:0.1.1"
+            "docker.texttechnologylab.org/duui-lite-gnfinder:latest"
     );
 
     DUUIComposer composer;

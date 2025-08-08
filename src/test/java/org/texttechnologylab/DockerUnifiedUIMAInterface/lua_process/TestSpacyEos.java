@@ -20,7 +20,7 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class TestSpacyEos {
     final DockerTestContainerManager container = new DockerTestContainerManager(
-            "docker.texttechnologylab.org/duui-spacy-eos:0.1.0",
+            "docker.texttechnologylab.org/duui-spacy-eos:latest",
             6000
     );
 
