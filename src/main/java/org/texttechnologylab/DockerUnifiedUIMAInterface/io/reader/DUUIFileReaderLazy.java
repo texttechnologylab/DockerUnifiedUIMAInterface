@@ -409,6 +409,8 @@ public class DUUIFileReaderLazy implements DUUICollectionReader {
                             if (_skipNumber.get() % 100 == 0) {
                                 System.out.println("Skip: (" + _skipNumber.get() + ")\t" + sNewOutput);
                             }
+                            // clear document for next decoding
+                            empty.reset();
                         }
                     }
                 }
