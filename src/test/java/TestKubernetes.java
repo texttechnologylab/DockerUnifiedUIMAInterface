@@ -66,7 +66,7 @@ public class TestKubernetes {
 //                // .withParameter("selection", "de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Sentence")
 //                .withParameter("selection", "text")
                         .withScale(scale)
-                        .withLabels("gpu=all")
+                        .withLabels("kubernetes.io/hostname=rohan")
                         //.withConstraintHost("isengart")
                         //.withLabels("hostname=isengart", "hostname=geltlin")
                         .build()

@@ -84,6 +84,19 @@ public class PodmanTests {
     }
 
     @Test
+    public void spacy() throws Exception {
+        pComposer.resetPipeline();
+
+        pComposer.add(new DUUIPodmanDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
+                .withImageFetching()
+                .withScale(iWorkers)
+                .build());
+
+        pComposer.run(getCas(), "test");
+
+    }
+
+    @Test
     public void general() throws Exception {
 // reset existing pipeline-components
 
