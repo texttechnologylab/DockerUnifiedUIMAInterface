@@ -389,7 +389,10 @@ public class DUUIFileReaderLazy implements DUUICollectionReader {
                     DocumentMetaData dmd = DocumentMetaData.get(empty);
                     if (dmd != null) {
                         String sURI = dmd.getDocumentUri();
-                        String sBase = dmd.getDocumentBaseUri();
+                        String sBase = "";
+                        if (dmd.getDocumentBaseUri() != null) {
+                            sBase = dmd.getDocumentBaseUri();
+                        }
                         File tFile = null;
                         String sNewOutput = "";
                         if (sBase.length() > 0) {
