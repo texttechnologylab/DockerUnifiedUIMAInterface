@@ -399,6 +399,7 @@ public class DUUIFileReaderLazy implements DUUICollectionReader {
                             tFile = new File(this.targetLocation + "/" + dmd.getDocumentId() + "." + this._targetEnding);
                             sNewOutput = dmd.getDocumentId() + "." + this._targetEnding;
                         }
+                        System.out.println(tFile.getAbsolutePath());
                         if(tFile.exists()){
                             bSkip = true;
                             _skipNumber.incrementAndGet();
