@@ -5,7 +5,6 @@ import org.apache.uima.analysis_engine.AnalysisEngineProcessException;
 import org.apache.uima.fit.component.JCasAnnotator_ImplBase;
 import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
-import org.texttechnologylab.annotation.AnnotationComment;
 import org.texttechnologylab.annotation.SpacyAnnotatorMetaData;
 
 /**
@@ -16,9 +15,6 @@ public class AnnotationRemover extends JCasAnnotator_ImplBase {
     @Override
     public void process(JCas aJCas) throws AnalysisEngineProcessException {
 
-        for (AnnotationComment annotationComment : JCasUtil.select(aJCas, AnnotationComment.class)) {
-            annotationComment.removeFromIndexes();
-        }
         for (SpacyAnnotatorMetaData spacyAnnotatorMetaData : JCasUtil.select(aJCas, SpacyAnnotatorMetaData.class)) {
             spacyAnnotatorMetaData.removeFromIndexes();
         }

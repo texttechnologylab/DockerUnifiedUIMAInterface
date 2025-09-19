@@ -92,6 +92,11 @@ public class PodmanTests {
                 .withScale(iWorkers)
                 .build());
 
+        pComposer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/textimager-duui-spacy-single-de_core_news_sm:0.1.4")
+                .withImageFetching()
+                .withScale(iWorkers)
+                .build());
+
         pComposer.run(getCas(), "test");
 
     }
@@ -123,6 +128,15 @@ public class PodmanTests {
 
         // Please note that the Docker images are first downloaded when they are called up for the first time.
         pComposer.add(new DUUIPodmanDriver.Component("docker.texttechnologylab.org/duui-whisperx:0.2")
+//                .withGPU(true)
+                .withImageFetching()
+                .withSourceView("video")            // where is the video
+                .withTargetView("transcript")
+                .withScale(iWorkers)
+                .build());
+
+        // Please note that the Docker images are first downloaded when they are called up for the first time.
+        pComposer.add(new DUUIDockerDriver.Component("docker.texttechnologylab.org/duui-whisperx:0.2")
 //                .withGPU(true)
                 .withImageFetching()
                 .withSourceView("video")            // where is the video

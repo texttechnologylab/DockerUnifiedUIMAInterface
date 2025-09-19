@@ -275,20 +275,25 @@
 <!--            <version>5.3.1</version>-->
 <!--        </dependency>-->
 
+        <!-- https://mvnrepository.com/artifact/jakarta.ws.rs/jakarta.ws.rs-api -->
+        <!--        <dependency>-->
+        <!--            <groupId>jakarta.ws.rs</groupId>-->
+        <!--            <artifactId>jakarta.ws.rs-api</artifactId>-->
+        <!--            <version>4.0.0</version>-->
+        <!--        </dependency>-->
 
-        <!-- https://mvnrepository.com/artifact/javax.ws.rs/javax.ws.rs-api -->
-        <dependency>
-            <groupId>javax.ws.rs</groupId>
-            <artifactId>javax.ws.rs-api</artifactId>
-            <version>2.1.1</version>
-        </dependency>
+        <!--        &lt;!&ndash; https://mvnrepository.com/artifact/javax.ws.rs/javax.ws.rs-api &ndash;&gt;-->
+        <!--        <dependency>-->
+        <!--            <groupId>javax.ws.rs</groupId>-->
+        <!--            <artifactId>javax.ws.rs-api</artifactId>-->
+        <!--            <version>2.1.1</version>-->
+        <!--        </dependency>-->
 
         <dependency>
             <groupId>com.google.api-client</groupId>
             <artifactId>google-api-client</artifactId>
-            <version>1.23.0</version>
+            <version>1.30.9</version>
         </dependency>
-        <!-- https://mvnrepository.com/artifact/com.google.apis/google-api-services-drive -->
         <!-- https://mvnrepository.com/artifact/com.google.apis/google-api-services-drive -->
         <dependency>
             <groupId>com.google.apis</groupId>
@@ -296,20 +301,6 @@
             <version>v3-rev110-1.23.0</version>
         </dependency>
 
-
-
-        <!-- https://mvnrepository.com/artifact/com.google.oauth-client/google-oauth-client-java6 -->
-<!--        <dependency>-->
-<!--            <groupId>com.google.oauth-client</groupId>-->
-<!--            <artifactId>google-oauth-client-java6</artifactId>-->
-<!--            <version>1.23.0</version>-->
-<!--        </dependency>-->
-<!--        &lt;!&ndash; https://mvnrepository.com/artifact/com.google.oauth-client/google-oauth-client-jetty &ndash;&gt;-->
-<!--        <dependency>-->
-<!--            <groupId>com.google.oauth-client</groupId>-->
-<!--            <artifactId>google-oauth-client-jetty</artifactId>-->
-<!--            <version>1.23.0</version>-->
-<!--        </dependency>-->
 
         <!-- https://mvnrepository.com/artifact/org.aarboard.nextcloud/nextcloud-api -->
         <dependency>
@@ -326,24 +317,21 @@
 
         <dependency>
             <groupId>com.github.docker-java</groupId>
+            <artifactId>docker-java-transport-httpclient5</artifactId>
+            <version>3.5.0</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.github.docker-java</groupId>
             <artifactId>docker-java</artifactId>
-            <version>3.3.6</version>
-            <!--            <version>3.3.1</version>-->
-            <!--            <exclusions>-->
-            <!--                <exclusion>-->
-            <!--                    <groupId>com.google.guava</groupId>-->
-            <!--                    <artifactId>guava</artifactId>-->
-            <!--                </exclusion>-->
-            <!--            </exclusions>-->
+            <version>3.6.0</version>
         </dependency>
 
         <!-- https://mvnrepository.com/artifact/io.kubernetes/client-java -->
         <dependency>
             <groupId>io.kubernetes</groupId>
             <artifactId>client-java</artifactId>
-            <!--            <version>15.0.1</version>-->
             <version>20.0.0</version>
-
         </dependency>
 
         <dependency>
@@ -393,7 +381,7 @@
         <dependency>
             <groupId>commons-io</groupId>
             <artifactId>commons-io</artifactId>
-            <version>2.19.0</version>
+            <version>2.20.0</version>
         </dependency>
 
 
@@ -419,7 +407,7 @@
         <dependency>
             <groupId>org.xerial</groupId>
             <artifactId>sqlite-jdbc</artifactId>
-            <version>3.36.0.3</version>
+            <version>3.45.3.0</version>
         </dependency>
         <!-- Important!-->
         <!-- https://mvnrepository.com/artifact/xerces/xercesImpl -->
@@ -463,11 +451,11 @@
         </dependency>
 
 
-        <dependency>
-            <groupId>com.github.jponge</groupId>
-            <artifactId>podman-java-client</artifactId>
-            <version>a3b54ecc45</version>
-        </dependency>
+        <!--        <dependency>-->
+        <!--            <groupId>com.github.jponge</groupId>-->
+        <!--            <artifactId>podman-java-client</artifactId>-->
+        <!--            <version>a3b54ecc45</version>-->
+        <!--        </dependency>-->
 
 
         <!-- https://mvnrepository.com/artifact/org.msgpack/msgpack-core -->
@@ -621,13 +609,13 @@
         </dependency>
 
 
-        <!-- https://mvnrepository.com/artifact/jakarta.ws.rs/all -->
-        <dependency>
-            <groupId>jakarta.ws.rs</groupId>
-            <artifactId>all</artifactId>
-            <version>3.1.0</version>
-            <type>pom</type>
-        </dependency>
+        <!--        &lt;!&ndash; https://mvnrepository.com/artifact/jakarta.ws.rs/all &ndash;&gt;-->
+        <!--        <dependency>-->
+        <!--            <groupId>jakarta.ws.rs</groupId>-->
+        <!--            <artifactId>all</artifactId>-->
+        <!--            <version>3.1.0</version>-->
+        <!--            <type>pom</type>-->
+        <!--        </dependency>-->
 
         <dependency>
             <groupId>org.bytedeco</groupId>
