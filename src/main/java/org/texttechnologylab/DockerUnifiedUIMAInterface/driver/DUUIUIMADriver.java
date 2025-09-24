@@ -100,8 +100,26 @@ public class DUUIUIMADriver implements IDUUIDriverInterface {
             _engine = pComponent.getEngine();
         }
 
+        /**
+         * Set the maximum concurrency-level for this component by instantiating the given number of replicas.
+         * @param scale Number of replicas.
+         * @return {@code this}
+         */
         public Component withScale(int scale) {
             component.withScale(scale);
+            return this;
+        }
+
+        /**
+         * Set the maximum concurrency-level for this component by instantiating the given number of replicas.
+         * @param workers Number of replicas.
+         * @return {@code this}
+         * @apiNote Alias for {@link #withScale(int)}. Inter-component concurrency via
+         * {@link org.apache.uima.analysis_engine.impl.MultiprocessingAnalysisEngine_impl MultiprocessingAnalysisEngines}
+         * is not yet supported.
+         */
+        public Component withWorkers(int workers) {
+            component.withScale(workers);
             return this;
         }
 

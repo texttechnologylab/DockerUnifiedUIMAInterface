@@ -1,5 +1,6 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.driver;
 
+import com.google.common.collect.ImmutableList;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.commons.compress.compressors.CompressorInputStream;
 import org.apache.commons.compress.compressors.CompressorOutputStream;
@@ -38,6 +39,7 @@ public class DUUIPipelineComponent {
     private int _ws_elements = 50;
 
     private List<String> _constraints = new ArrayList<>(0);
+    private List<String> _env = new ArrayList<>(0);
 
     public static String compressionMethod = CompressorStreamFactory.XZ;
 
@@ -46,6 +48,7 @@ public class DUUIPipelineComponent {
 
     private static String engineOptionName = "engine";
     private static String scaleOptionName = "scale";
+    final private static String workersOptionName = "workers";
 
     private static String ignoring200 = "ignoring200";
     private static String urlOptionName = "url";
@@ -206,6 +209,19 @@ public class DUUIPipelineComponent {
         return this;
     }
 
+    public DUUIPipelineComponent withWorkers(Integer workers) {
+        if(_finalizedEncoded!=null) {
+            throw new RuntimeException("DUUIPipelineComponent has already been finalized, it is immutable now!");
+        }
+
+        if (workers == null) {
+            _options.remove(workersOptionName);
+            return this;
+        }
+        _options.put(workersOptionName, String.valueOf(workers));
+        return this;
+    }
+
     public DUUIPipelineComponent withIgnoringHTTP200Error(boolean bValue) {
 
         _options.put(ignoring200, String.valueOf(bValue));
@@ -230,6 +246,23 @@ public class DUUIPipelineComponent {
         return _constraints;
     }
 
+    /**
+     * Set environment variables.
+     * @param envString Any number of environment variables as {@code "NAME=VALUE"}.
+     * @return The updated component.
+     */
+    public DUUIPipelineComponent withEnv(String... envString) {
+        _env.addAll(Arrays.asList(envString));
+        return this;
+    }
+
+    /**
+     * @return An {@link ImmutableList immutable} copy of the environment variable list.
+     */
+    public List<String> getEnv(){
+        return ImmutableList.copyOf(_env);
+    }
+
     public Integer getScale() {
         return getScale(null);
     }
@@ -238,6 +271,16 @@ public class DUUIPipelineComponent {
         String scale = _options.get(scaleOptionName);
         if(scale == null) return defaultValue;
         return Integer.parseInt(scale);
+    }
+
+    public Integer getWorkers() {
+        return getWorkers(null);
+    }
+
+    public Integer getWorkers(Integer defaultValue) {
+        String workers = _options.get(workersOptionName);
+        if(workers == null) return defaultValue;
+        return Integer.parseInt(workers);
     }
 
     public DUUIPipelineComponent withUrl(String url) {
