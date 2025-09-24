@@ -6,6 +6,7 @@
 [![Paper](http://img.shields.io/badge/paper-FindingsEMNLP--2023-fb44ce.svg)](https://aclanthology.org/2023.findings-emnlp.29)
 [![Paper-Kubernetes](http://img.shields.io/badge/paper-SoftwareX--2025-fb44ce.svg)](https://www.sciencedirect.com/science/article/pii/S2352711024004047)
 
+
 [![poster](http://img.shields.io/badge/poster-DH--2024-f944fe.svg)](https://doi.org/10.5281/zenodo.13761079)
 [![poster](http://img.shields.io/badge/poster-DHd--2025-f944fe.svg)](https://doi.org/10.5281/zenodo.14943128)
 
@@ -16,8 +17,16 @@
 
 Automatic analysis of large text corpora is a complex task. This complexity particularly concerns the question of time efficiency. Furthermore, efficient, flexible, and extensible textanalysis requires the continuous integration of every new text analysis tools. Since there are currently, in the area of NLP and especially in the application context of UIMA, only very few to no adequate frameworks for these purposes, which are not simultaneously outdated or can no longer be used for security reasons, this work will present a new approach to fill this gap. To this end, we present Docker Unified UIMA Interface (DUUI), a scalable, flexible, lightweight, and featurerich framework for automated and distributed analysis of text corpora that leverages experience in Big Data analytics and virtualization with Docker.
 
+## Multimodal Docker Unified UIMA Interface (Multimodal DUUI)
+
+[![Paper-Multimodality](http://img.shields.io/badge/paper-KONVENS--2025-fb4ace.svg)](https://aclanthology.org/2025.konvens-1.22)
+[![Conference](http://img.shields.io/badge/conference-KONVENS--2025-fb4ace.svg)](https://konvens-2025.hs-hannover.de/)
+
+In addition to textual corpora, there are multimodal corpora that contain a significant amount of data from a variety of codes (e.g., iconographic, textual) that are currently made processable by only a few tools. What the research community needs here is an effective, distributed system that provides a processing pipeline for the integration of reusable tools for analyzing such corpora. Such systems currently exist for text corpora, but rarely for video corpora. In order to close this gap, the **Multimodal Docker Unified UIMA Interface** was developed as an extension of **DUUI** enabling the annotation and processing of multimodal corpora based on the UIMA standard.
+
+
 ## Features
-Using DUUI, NLP preprocessing on texts can be performed using the following features:
+Using DUUI, NLP preprocessing on multimodal corpora can be performed using the following features:
 * Horizontal and vertical scaling
 * Capturing heterogeneous annotation landscapes
 * Capturing heterogeneous implementation landscapes
@@ -166,6 +175,10 @@ Giuseppe Abrami, Markos Genios, Filip Fitzermann, Daniel Baumartz and Alexander 
 
 Giuseppe Abrami, Daniel Baumartz and Alexander Mehler. 2025. "DUUI: A Toolbox for the Construction of a new Kind of Natural Language Processing". Proceedings of the DHd 2025: Under Construction. Geisteswissenschaften und Data Humanities, 446–448 [[LINK](https://doi.org/10.5281/zenodo.14943128)] [[POSTER](https://zenodo.org/records/14944575)] 
 
+## Cite Multimodal DUUI
+
+Daniel Bundan, Giuseppe Abrami and Alexander Mehler. 2025. Multimodal Docker Unified UIMA Interface: "New Horizons for Distributed Microservice-Oriented Processing of Corpora using UIMA." Proceedings of the 21st Conference on Natural Language Processing (KONVENS 2025): Long and Short Papers, 257–268. [LINK](https://aclanthology.org/2025.konvens-1.22) [PDF](https://aclanthology.org/2025.konvens-1.22.pdf)
+
 ## BibTeX
 ```
 @inproceedings{Leonhardt:et:al:2023,
@@ -243,6 +256,21 @@ Giuseppe Abrami, Daniel Baumartz and Alexander Mehler. 2025. "DUUI: A Toolbox fo
   doi       = {10.5281/zenodo.14943128},
   url       = {https://doi.org/10.5281/zenodo.14943128},
   poster    = {https://zenodo.org/records/14944575}
+}
+
+@inproceedings{Bundan:Abrami:Mehler:2025,
+  author    = {Bundan, Daniel and Abrami, Giuseppe and Mehler, Alexander},
+  title     = {Multimodal Docker Unified {UIMA} Interface: New Horizons for Distributed Microservice-Oriented Processing of Corpora using {UIMA}},
+  booktitle = {Proceedings of the 21st Conference on Natural Language Processing (KONVENS 2025): Long and Short Papers},
+  year      = {2025},
+  editor    = {Wartena, Christian and Heid, Ulrich},
+  location  = {Hildesheim, Germany},
+  address   = {Hannover, Germany},
+  publisher = {HsH Applied Academics},
+  pages     = {257--268},
+  series    = {KONVENS '25},
+  url       = {https://aclanthology.org/2025.konvens-1.22/},
+  pdf       = {https://aclanthology.org/2025.konvens-1.22.pdf}
 }
 
 ```

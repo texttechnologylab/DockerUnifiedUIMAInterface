@@ -22,10 +22,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.InvalidParameterException;
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -538,48 +535,77 @@ public class DUUIDockerInterface {
 
 
     /**
-     * Builds and runs the container with a specified temporary build directory and some flags.
+     * Run the given Docker image in a container.
      *
-     * @param gpu        If the gpu should be used
-     * @param autoremove If the autoremove flag is set for the container
+     * @param imageid    The Docker image name
+     * @param gpu        If true, enable {@link DeviceRequest#withCapabilities(List) GPU capabilities}
+     * @param autoremove If true, set the auto-remove flag for this container
+     * @param port       Port to {@link CreateContainerCmd#withExposedPorts(ExposedPort...) expose} in the container
+     *                   If set to {@code null}, the {@code portContainer} will still be exposed but not mapped.
+     * @param mapDaemon  If true, {@link HostConfig#withBinds(Binds) bind} (volume mount) the Docker socket from the
+     *                   host machine (/var/run/docker.sock)
      * @return The docker container id
      * @throws InterruptedException
      */
     public String run(String imageid, boolean gpu, boolean autoremove, int port, boolean mapDaemon) throws InterruptedException {
-
-        HostConfig cfg = new HostConfig();
-        if (autoremove) {
-            cfg = cfg.withAutoRemove(true);
-        }
-        if (gpu) {
-            cfg = cfg.withDeviceRequests(ImmutableList.of(new DeviceRequest()
-                .withCapabilities(ImmutableList.of(ImmutableList.of("gpu")))));
-        }
-
-        if (mapDaemon) {
-            cfg = cfg.withBinds(Bind.parse("/var/run/docker.sock:/var/run/docker.sock"));
-        }
-        CreateContainerCmd cmd = _docker.createContainerCmd(imageid)
-            .withHostConfig(cfg)
-            .withExposedPorts(ExposedPort.tcp(port)).withPublishAllPorts(true);
-
-        CreateContainerResponse feedback = cmd.exec();
-        _docker.startContainerCmd(feedback.getId()).exec();
-        return feedback.getId();
+        return run(imageid, null, gpu, autoremove, port, null, mapDaemon);
     }
 
     /**
-     * Builds and runs the container with a specified temporary build directory and some flags.
+     * Run the given Docker image in a container.
      *
-     * @param gpu        If the gpu should be used
-     * @param autoremove If the autoremove flag is set for the container
+     * @param imageid    The Docker image name
+     * @param env        A list of environment variables to set at runtime
+     * @param gpu        If true, enable {@link DeviceRequest#withCapabilities(List) GPU capabilities}
+     * @param autoremove If true, set the auto-remove flag for this container
+     * @param port       Port to {@link CreateContainerCmd#withExposedPorts(ExposedPort...) expose} in the container
+     *                   If set to {@code null}, the {@code portContainer} will still be exposed but not mapped.
+     * @param mapDaemon  If true, {@link HostConfig#withBinds(Binds) bind} (volume mount) the Docker socket from the
+     *                   host machine (/var/run/docker.sock)
+     * @return The docker container id
+     * @throws InterruptedException
+     */
+    public String run(String imageid, List<String> env, boolean gpu, boolean autoremove, int port, boolean mapDaemon) throws InterruptedException {
+        return run(imageid, env, gpu, autoremove, port, null, mapDaemon);
+    }
+
+    /**
+     * Run the given Docker image in a container.
+     *
+     * @param imageid       The Docker image name
+     * @param gpu           If true, enable {@link DeviceRequest#withCapabilities(List) GPU capabilities}
+     * @param autoremove    If true, set the auto-remove flag for this container
+     * @param portContainer Port to {@link CreateContainerCmd#withExposedPorts(ExposedPort...) expose} in the container
+     * @param portHost      {@link HostConfig#withPortBindings(Ports) Bind} the given port on the host to {@code portContainer}.
+     *                      If set to {@code null}, the {@code portContainer} will still be exposed but not mapped.
+     * @param mapDaemon     If true, {@link HostConfig#withBinds(Binds) bind} (volume mount) the Docker socket from the
+     *                      host machine (/var/run/docker.sock)
      * @return The docker container id
      * @throws InterruptedException
      */
     public String run(String imageid, boolean gpu, boolean autoremove, int portContainer, int portHost, boolean mapDaemon) throws InterruptedException {
+        return run(imageid, null, gpu, autoremove, portContainer, portHost, mapDaemon);
+    }
 
+    /**
+     * Run the given Docker image in a container.
+     *
+     * @param imageid       The Docker image name
+     * @param env           A list of environment variables to set at runtime
+     * @param gpu           If true, enable {@link DeviceRequest#withCapabilities(List) GPU capabilities}
+     * @param autoremove    If true, set the auto-remove flag for this container
+     * @param portContainer Port to {@link CreateContainerCmd#withExposedPorts(ExposedPort...) expose} in the container
+     * @param portHost      {@link HostConfig#withPortBindings(Ports) Bind} the given port on the host to {@code portContainer}.
+     *                      If set to {@code null}, the {@code portContainer} will still be exposed but not mapped.
+     * @param mapDaemon     If true, {@link HostConfig#withBinds(Binds) bind} (volume mount) the Docker socket from the
+     *                      host machine (/var/run/docker.sock)
+     * @return The docker container id
+     * @throws InterruptedException
+     */
+    public String run(String imageid, List<String> env, boolean gpu, boolean autoremove, int portContainer, Integer portHost, boolean mapDaemon) throws InterruptedException {
+        HostConfig cfg = new HostConfig()
+                .withPublishAllPorts(true);
 
-        HostConfig cfg = new HostConfig();
         if (autoremove) {
             cfg = cfg.withAutoRemove(true);
         }
@@ -588,14 +614,21 @@ public class DUUIDockerInterface {
                 .withCapabilities(ImmutableList.of(ImmutableList.of("gpu")))));
         }
 
-        cfg.withPortBindings(new PortBinding(new Ports.Binding(null, String.valueOf(portHost)), new ExposedPort(portContainer)));
+        if (!Objects.isNull(portHost) && portHost > 0) {
+            cfg.withPortBindings(new PortBinding(new Ports.Binding(null, String.valueOf(portHost)), new ExposedPort(portContainer)));
+        }
 
         if (mapDaemon) {
             cfg = cfg.withBinds(Bind.parse("/var/run/docker.sock:/var/run/docker.sock"));
         }
+
         CreateContainerCmd cmd = _docker.createContainerCmd(imageid)
             .withHostConfig(cfg)
-            .withExposedPorts(ExposedPort.tcp(portContainer)).withPublishAllPorts(true);
+            .withExposedPorts(ExposedPort.tcp(portContainer));
+
+        if (!Objects.isNull(env) && !env.isEmpty()) {
+            cmd = cmd.withEnv(env);
+        }
 
         CreateContainerResponse feedback = cmd.exec();
         _docker.startContainerCmd(feedback.getId()).exec();

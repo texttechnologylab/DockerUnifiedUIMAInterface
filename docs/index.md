@@ -18,6 +18,15 @@ Automatic analysis of large text corpora is a complex task. This complexity part
 
 [![Discord-Server](http://img.shields.io/badge/Join-Discord_Server-fc0098.svg)](https://discord.gg/DxsgfbK7Jh)
 
+## Multimodality
+
+In addition to textual corpora, there are multimodal corpora that contain a significant amount of data from a variety of codes (e.g., iconographic, textual) that are currently made processable by only a few tools. What the research community needs here is an effective, distributed system that provides a processing pipeline for the integration of reusable tools for analyzing such corpora. Such systems currently exist for text corpora, but rarely for video corpora. In order to close this gap, the **Multimodal Docker Unified UIMA Interface** was developed as an extension of **DUUI** enabling the annotation and processing of multimodal corpora based on the UIMA standard.
+
+[![Paper-Multimodality](http://img.shields.io/badge/paper-KONVENS--2025-fb4ace.svg)](https://aclanthology.org/2025.konvens-1.22)
+[![Conference](http://img.shields.io/badge/conference-KONVENS--2025-fb4ace.svg)](https://konvens-2025.hs-hannover.de/)
+
+
+
 
 # TLDR
 * [Javadoc](javadoc)
@@ -161,6 +170,11 @@ Alexander Leonhardt, Giuseppe Abrami, Daniel Baumartz and Alexander Mehler. (202
 
 Giuseppe Abrami, Markos Genios, Filip Fitzermann, Daniel Baumartz and Alexander Mehler. (2025). "Docker Unified UIMA Interface: New perspectives for NLP on big data" SoftwareX, Volume 29, 2025, 102033, ISSN 2352-7110, [[LINK](https://doi.org/10.1016/j.softx.2024.102033)]
 
+## Cite Multimodal DUUI
+
+Daniel Bundan, Giuseppe Abrami and Alexander Mehler. 2025. Multimodal Docker Unified UIMA Interface: "New Horizons for Distributed Microservice-Oriented Processing of Corpora using UIMA." Proceedings of the 21st Conference on Natural Language Processing (KONVENS 2025): Long and Short Papers, 257–268. [LINK](https://aclanthology.org/2025.konvens-1.22) [PDF](https://aclanthology.org/2025.konvens-1.22.pdf)
+
+
 ## More Work on DUUI
 
 Giuseppe Abrami and Alexander Mehler. August, 2024. Efficient, uniform and scalable parallel NLP pre-processing with DUUI: Perspectives and Best Practice for the Digital Humanities. Digital Humanities Conference 2024 - Book of Abstracts (DH 2024), 15–18 [[LINK](https://doi.org/10.5281/zenodo.13761079)] [[POSTER](https://www.texttechnologylab.org/wp-content/uploads/2024/12/DH2024_Poster.pdf)] 
@@ -244,6 +258,21 @@ Giuseppe Abrami, Daniel Baumartz and Alexander Mehler. 2025. "DUUI: A Toolbox fo
   doi       = {10.5281/zenodo.14943128},
   url       = {https://doi.org/10.5281/zenodo.14943128},
   poster    = {https://zenodo.org/records/14944575}
+}
+
+@inproceedings{Bundan:Abrami:Mehler:2025,
+  author    = {Bundan, Daniel and Abrami, Giuseppe and Mehler, Alexander},
+  title     = {Multimodal Docker Unified {UIMA} Interface: New Horizons for Distributed Microservice-Oriented Processing of Corpora using {UIMA}},
+  booktitle = {Proceedings of the 21st Conference on Natural Language Processing (KONVENS 2025): Long and Short Papers},
+  year      = {2025},
+  editor    = {Wartena, Christian and Heid, Ulrich},
+  location  = {Hildesheim, Germany},
+  address   = {Hannover, Germany},
+  publisher = {HsH Applied Academics},
+  pages     = {257--268},
+  series    = {KONVENS '25},
+  url       = {https://aclanthology.org/2025.konvens-1.22/},
+  pdf       = {https://aclanthology.org/2025.konvens-1.22.pdf}
 }
 
 ```

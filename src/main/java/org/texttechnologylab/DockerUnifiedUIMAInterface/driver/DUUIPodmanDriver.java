@@ -309,7 +309,10 @@ public class DUUIPodmanDriver implements IDUUIDriverInterface {
                         }, _luaContext, skipVerification);
                         System.out.printf("[PodmanDriver][%s][Podman Replication %d/%d] Container for image %s is online (URL http://127.0.0.1:%d) and seems to understand DUUI V1 format!\n", uuid, i + 1, comp.getScale(), comp.getImageName(), port);
 
-                        comp.addInstance(new DUUIDockerDriver.ComponentInstance(containerId, port, layer));
+                        /// Add one replica of the instantiated component per worker
+                        for (int j = 0; j < comp.getWorkers(); j++) {
+                            comp.addInstance(new DUUIDockerDriver.ComponentInstance(containerId, port, layer.copy()));
+                        }
                     } catch (Exception e) {
 
                         e.printStackTrace();
@@ -440,8 +443,23 @@ public class DUUIPodmanDriver implements IDUUIDriverInterface {
             return this;
         }
 
+        /**
+         * Start the given number of parallel instances (containers).
+         * @param scale Number of containers to start.
+         * @return {@code this}
+         */
         public DUUIPodmanDriver.Component withScale(int scale) {
             _component.withScale(scale);
+            return this;
+        }
+
+        /**
+         * Set the maximum concurrency-level of each component by instantiating the multiple replicas per container.
+         * @param workers Number of replicas per container.
+         * @return {@code this}
+         */
+        public DUUIPodmanDriver.Component withWorkers(int workers) {
+            _component.withWorkers(workers);
             return this;
         }
 
