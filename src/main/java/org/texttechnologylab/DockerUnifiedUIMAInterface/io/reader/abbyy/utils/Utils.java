@@ -1,7 +1,7 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.io.reader.abbyy.utils;
 
 import com.google.common.base.Strings;
-import org.apache.commons.lang.StringUtils;
+import org.testcontainers.shaded.org.apache.commons.lang3.StringUtils;
 
 public class Utils {
     public static int parseInt(String s) {

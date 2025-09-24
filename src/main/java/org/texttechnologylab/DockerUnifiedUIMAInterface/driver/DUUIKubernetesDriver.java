@@ -57,6 +57,9 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
 
     private IDUUIConnectionHandler _wsclient;
 
+    private static int _port = 9715;
+    private static String sNamespace = "default";
+
     /**
      * Constructor.
      *
@@ -68,7 +71,7 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
 
         _interface = new DUUIDockerInterface();
 
-        _container_timeout = 10000;
+        _container_timeout = 1000;
         _client = HttpClient.newHttpClient();
 
         _active_components = new HashMap<>();
@@ -123,7 +126,7 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
                 .withName(name)
                 .withImage(image)
                 .addNewPort()
-                    .withContainerPort(10001)
+                    .withContainerPort(_port)
                 .endPort()
                 .endContainer()
                 .withNewAffinity()
@@ -142,7 +145,7 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
                 .endSpec()
                 .build();
 
-            deployment = k8s.apps().deployments().inNamespace("default").resource(deployment).create();
+            deployment = k8s.apps().deployments().inNamespace(sNamespace).resource(deployment).create();
         }
     }
 
@@ -154,7 +157,7 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
      */
     public static Service createService(String name) {
         try (KubernetesClient client = new KubernetesClientBuilder().build()) {
-            String namespace = Optional.ofNullable(client.getNamespace()).orElse("default");
+            String namespace = Optional.ofNullable(client.getNamespace()).orElse(sNamespace);
             Service service = new ServiceBuilder()
                 .withNewMetadata()
                 .withName(name)
@@ -164,7 +167,7 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
                 .addNewPort()
                 .withName("k-port")
                 .withProtocol("TCP")
-                    .withPort(10001)
+                    .withPort(_port)
                 .withTargetPort(new IntOrString(9714))
                 .endPort()
                 .withType("LoadBalancer")
@@ -306,7 +309,7 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
     public static void deleteDeployment(String name) {
         try (KubernetesClient k8s = new KubernetesClientBuilder().build()) {
             // Argument namespace could be generalized.
-            k8s.apps().deployments().inNamespace("default")
+            k8s.apps().deployments().inNamespace(sNamespace)
                 .withName(name)
                 .delete();
         }
@@ -320,7 +323,7 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
     public static void deleteService(String name) {
         try (KubernetesClient client = new DefaultKubernetesClient()) {
             // Argument namespace could be generalized.
-            client.services().inNamespace("default").withName(name).delete();
+            client.services().inNamespace(sNamespace).withName(name).delete();
         }
     }
 

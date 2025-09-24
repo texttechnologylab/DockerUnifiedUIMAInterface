@@ -7,7 +7,9 @@ import com.github.dockerjava.api.command.*;
 import com.github.dockerjava.api.exception.DockerClientException;
 import com.github.dockerjava.api.exception.NotModifiedException;
 import com.github.dockerjava.api.model.*;
+import com.github.dockerjava.core.DefaultDockerClientConfig;
 import com.github.dockerjava.core.DockerClientBuilder;
+import com.github.dockerjava.core.DockerClientImpl;
 import com.github.dockerjava.core.command.LogContainerResultCallback;
 import com.github.dockerjava.httpclient5.ApacheDockerHttpClient;
 import com.github.dockerjava.transport.DockerHttpClient;
@@ -164,7 +166,17 @@ public class DUUIDockerInterface {
     public DUUIDockerInterface() throws IOException {
 
         if (!System.getProperty("os.name").contains("Windows")) {
-            _docker = DockerClientBuilder.getInstance().build();
+//            _docker = DockerClientBuilder.getInstance().build();
+            var config = DefaultDockerClientConfig.createDefaultConfigBuilder().build();
+            DockerHttpClient pClient = new ApacheDockerHttpClient.Builder()
+                    .dockerHost(config.getDockerHost())
+                    .sslConfig(config.getSSLConfig())
+                    .maxConnections(100)
+                    .connectionTimeout(Duration.ofSeconds(30))
+                    .responseTimeout(Duration.ofSeconds(45))
+                    .build();
+            _docker = DockerClientImpl.getInstance(config, pClient);
+
         } else {
             // Windows
             DockerHttpClient http = null;

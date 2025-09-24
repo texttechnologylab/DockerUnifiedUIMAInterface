@@ -1,4 +1,4 @@
-import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Sentence;
+import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
@@ -9,26 +9,15 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIReaderComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.*;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.DUUIAsynchronousProcessor;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.io.DUUICollectionReader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.reader.DUUIDynamicReaderLazy;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.segmentation.DUUISegmentationStrategyByAnnotationFast;
-import org.texttechnologylab.annotation.type.Image;
-import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
+
 import java.io.File;
 import java.io.IOException;
 import java.net.URISyntaxException;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.nio.file.Files;
+import java.net.URL;
 import java.nio.file.Path;
-import java.util.LinkedList;
 import java.util.List;
-import java.util.UUID;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.apache.uima.fit.factory.AnalysisEngineFactory.createEngineDescription;
 
@@ -127,17 +116,21 @@ public class ReaderCompTest {
         //DUUIPipelineComponent readerComp = new DUUIRemoteDriver.Component("http://0.0.0.0:9714").build();
 
 
-        DUUIPipelineComponent readerComp = new DUUIDockerDriver.Component("duui-annis_reader:0.1")
+        DUUIPipelineComponent readerComp = new DUUIDockerDriver.Component("docker.texttechnologylab.org/duui-annis_reader_unfinished:0.1")
                 .withScale(iWorker).withImageFetching()
                 .build().withTimeout(30);
 
 
         List<DUUIPipelineComponent> compList = List.of(readerComp);
-        Path filePath = Path.of("/home/staff_homes/lehammer/Documents/work/AnnisReader/data/test_data/DDD-AD-Genesis.zip");
+
+        ClassLoader classLoader = ReaderCompTest.class.getClassLoader();
+        URL fAnnis = classLoader.getResource("reading/DDD-AD-Benediktiner_Regel.zip");
+
+        Path filePath = Path.of(fAnnis.getPath());
         DUUIDynamicReaderLazy dynamicReader = new DUUIDynamicReaderLazy(filePath, compList);
 
 
-        String sOutputPath = "/home/staff_homes/lehammer/Downloads/B_out";
+        String sOutputPath = "/tmp/annis/";
         // Asynchroner reader für die Input-Dateien
         DUUIAsynchronousProcessor pProcessor = new DUUIAsynchronousProcessor(dynamicReader);
         new File(sOutputPath).mkdir();

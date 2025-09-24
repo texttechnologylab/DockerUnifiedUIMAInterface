@@ -389,15 +389,28 @@ public class DUUIFileReaderLazy implements DUUICollectionReader {
                     DocumentMetaData dmd = DocumentMetaData.get(empty);
                     if (dmd != null) {
                         String sURI = dmd.getDocumentUri();
-                        String sBase = dmd.getDocumentBaseUri();
-                        String sNewOutput = sURI.replace(sBase, this.targetLocation)+this._targetEnding;
-                        File tFile = new File(sNewOutput);
+                        String sBase = "";
+                        if (dmd.getDocumentBaseUri() != null) {
+                            sBase = dmd.getDocumentBaseUri();
+                        }
+                        File tFile = null;
+                        String sNewOutput = "";
+                        if (sBase.length() > 0) {
+                            sNewOutput = sURI.replace(sBase, this.targetLocation) + this._targetEnding;
+                            tFile = new File(sNewOutput);
+                        } else {
+                            tFile = new File(this.targetLocation + "/" + dmd.getDocumentId() + "." + this._targetEnding);
+                            sNewOutput = dmd.getDocumentId() + "." + this._targetEnding;
+                        }
+                        System.out.println(tFile.getAbsolutePath());
                         if(tFile.exists()){
                             bSkip = true;
                             _skipNumber.incrementAndGet();
                             if (_skipNumber.get() % 100 == 0) {
                                 System.out.println("Skip: (" + _skipNumber.get() + ")\t" + sNewOutput);
                             }
+                            // clear document for next decoding
+                            empty.reset();
                         }
                     }
                 }

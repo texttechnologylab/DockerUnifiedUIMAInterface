@@ -96,6 +96,7 @@ public class DUUIPodmanDriver implements IDUUIDriverInterface {
                 }
             }
             path = "/run/user/" + uid + "/podman/podman.sock";
+            System.out.println(path);
         }
 
         return path;
