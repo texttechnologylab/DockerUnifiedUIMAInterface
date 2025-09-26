@@ -57,6 +57,8 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
 
     private IDUUIConnectionHandler _wsclient;
 
+    private int iScaleBuffer = 0;
+
     private static int _port = 9715;
     private static String sNamespace = "default";
 
@@ -75,6 +77,20 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
         _client = HttpClient.newHttpClient();
 
         _active_components = new HashMap<>();
+    }
+
+    public DUUIKubernetesDriver withScaleBuffer(int iValue) {
+        this.iScaleBuffer = iValue;
+        return this;
+    }
+
+    public DUUIKubernetesDriver withScaleBuffer() {
+        this.iScaleBuffer = 1;
+        return this;
+    }
+
+    public int getScaleBuffer() {
+        return this.iScaleBuffer;
     }
 
     @Override
@@ -261,7 +277,7 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
              * Add "a" in front of the name, because according to the kubernetes-rules the names must start
              * with alphabetical character (must not start with digit)
              */
-            createDeployment("a" + uuid, dockerImage, scale, comp.getLabels());  // Erstelle Deployment
+            createDeployment("a" + uuid, dockerImage, scale + getScaleBuffer(), comp.getLabels());  // Erstelle Deployment
             service = createService("a" + uuid);  // Erstelle service und gebe diesen zurück
         } catch (Exception e) {
             deleteDeployment("a" + uuid);

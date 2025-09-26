@@ -16,10 +16,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIDockerDriver;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIPodmanDriver;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIUIMADriver;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.*;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.exception.ImageException;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.annotation.type.Image;
@@ -69,6 +66,7 @@ public class PPRTest {
         DUUIRemoteDriver remoteDriver = new DUUIRemoteDriver();
         DUUIDockerDriver dockerDriver = new DUUIDockerDriver();
         DUUIPodmanDriver podmanDriver = new DUUIPodmanDriver();
+        DUUIKubernetesDriver kubernetesDriver = new DUUIKubernetesDriver().withScaleBuffer(1);
 
         // Hinzufügen der einzelnen Driver zum Composer
         pComposer.addDriver(uima_driver, remoteDriver, dockerDriver, podmanDriver);

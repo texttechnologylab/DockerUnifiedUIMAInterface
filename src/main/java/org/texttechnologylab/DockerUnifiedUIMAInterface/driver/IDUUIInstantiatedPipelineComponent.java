@@ -49,7 +49,7 @@ public interface IDUUIInstantiatedPipelineComponent {
     public String getTargetView();
     public String getUniqueComponentKey();
 
-    public int postTries = 10;
+    public int postTries = 50;
 
     /**
      * Returns the TypeSystem used for the DUUI component used.
@@ -90,11 +90,17 @@ public interface IDUUIInstantiatedPipelineComponent {
                     return TypeSystemDescriptionFactory.createTypeSystemDescription();
                 }
             } catch (Exception e) {
-                System.out.printf("Cannot reach endpoint trying again %d/%d...\n",tries+1,100);
+                System.out.printf("Cannot reach endpoint trying again %d/%d...\n", tries + 1, postTries);
+                try {
+                    Thread.sleep(comp.getPipelineComponent().getTimeout());
+                } catch (InterruptedException ex) {
+                    throw new RuntimeException(ex);
+                }
             }
         }
         throw new ResourceInitializationException(new Exception("Endpoint is unreachable!"));
     }
+
 
     /**
      * Calling the DUUI component
