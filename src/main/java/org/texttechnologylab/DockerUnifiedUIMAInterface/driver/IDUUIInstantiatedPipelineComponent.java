@@ -4,10 +4,12 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface.driver;
 import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.uima.cas.CASException;
+import org.apache.uima.cas.CASRuntimeException;
 import org.apache.uima.fit.factory.TypeSystemDescriptionFactory;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
+import org.apache.uima.util.CasCopier;
 import org.javatuples.Triplet;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUICommunicationLayer;
@@ -28,6 +30,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * The interface for the instance of each component that is executed in a pipeline.
@@ -110,7 +113,7 @@ public interface IDUUIInstantiatedPipelineComponent {
      * @throws CASException
      * @throws PipelineComponentException
      */
-    public static void process(JCas jc, IDUUIInstantiatedPipelineComponent comp, DUUIPipelineDocumentPerformance perf) throws CASException, PipelineComponentException {
+    public static void process(final JCas jc, IDUUIInstantiatedPipelineComponent comp, DUUIPipelineDocumentPerformance perf) throws CASException, PipelineComponentException {
         Triplet<IDUUIUrlAccessible,Long,Long> queue = comp.getComponent();
 
         IDUUICommunicationLayer layer = queue.getValue0().getCommunicationLayer();
@@ -118,45 +121,41 @@ public interface IDUUIInstantiatedPipelineComponent {
 
         try {
             DUUIPipelineComponent pipelineComponent = comp.getPipelineComponent();
-            String viewName = pipelineComponent.getViewName();
-            JCas viewJc;
-            if(viewName == null) {
-                viewJc = jc;
-            }
-            else {
+
+            final String sourceViewName = pipelineComponent.getSourceView();
+            final JCas sourceView = jc.getView(sourceViewName);
+
+            final String targetViewName = pipelineComponent.getTargetView();
+            JCas targetView = sourceView;
+            if (targetViewName != null & !Objects.equals(sourceViewName, targetViewName)) {
                 try {
-                    viewJc = jc.getView(viewName);
-                }
-                catch(CASException e) {
-                    if(pipelineComponent.getCreateViewFromInitialView()) {
-                        viewJc = jc.createView(viewName);
-                        viewJc.setDocumentText(jc.getDocumentText());
-                        viewJc.setDocumentLanguage(jc.getDocumentLanguage());
-                    }
-                    else {
+                    targetView = jc.getView(targetViewName);
+                } catch (CASException | CASRuntimeException e) {
+                    targetView = jc.createView(targetViewName);
+                    if (pipelineComponent.getInitializeTargetView()) {
+                        targetView.setDocumentText(sourceView.getDocumentText());
+                        targetView.setDocumentLanguage(sourceView.getDocumentLanguage());
+                        try {
+                            DocumentMetaData documentMetaData = DocumentMetaData.get(sourceView);
+                            CasCopier casCopier = new CasCopier(sourceView.getCas(), targetView.getCas());
+                            casCopier.copyFs(documentMetaData).addToIndexes();
+                        } catch (IllegalArgumentException ignored) {}
+                    } else {
                         throw e;
                     }
                 }
             }
 
             if (layer.supportsProcess()) {
-                JCas sourceCas = viewJc.getView(comp.getSourceView());
-                JCas targetCas;
-                try {
-                    targetCas = viewJc.getView(comp.getTargetView());
-                } catch (CASException e) {
-                    targetCas = viewJc.createView(comp.getTargetView());
-                }
-
                 layer.process(
-                        sourceCas,
+                        sourceView,
                         new DUUIHttpRequestHandler(_client, queue.getValue0().generateURL(), pipelineComponent.getTimeout()),
                         comp.getParameters(),
-                        targetCas
+                        targetView
                 );
 
                 ReproducibleAnnotation ann = new ReproducibleAnnotation(jc);
-                ann.setDescription(comp.getPipelineComponent().getFinalizedRepresentation());
+                ann.setDescription(pipelineComponent.getFinalizedRepresentation());
                 ann.setCompression(DUUIPipelineComponent.compressionMethod);
                 ann.setTimestamp(System.nanoTime());
                 ann.setPipelineName(perf.getRunKey());
@@ -168,7 +167,7 @@ public interface IDUUIInstantiatedPipelineComponent {
             ByteArrayOutputStream out = new ByteArrayOutputStream(1024*1024);
 
             // Invoke Lua serialize()
-            layer.serialize(viewJc,out,comp.getParameters(), comp.getSourceView());
+            layer.serialize(jc, out, comp.getParameters(), targetViewName);
 
             byte[] ok = out.toByteArray();
             long sizeArray = ok.length;
@@ -183,7 +182,7 @@ public interface IDUUIInstantiatedPipelineComponent {
                 try {
                     HttpRequest request = HttpRequest.newBuilder()
                             .uri(URI.create(queue.getValue0().generateURL() + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS))
-                            .timeout(Duration.ofSeconds(comp.getPipelineComponent().getTimeout()))
+                            .timeout(Duration.ofSeconds(pipelineComponent.getTimeout()))
                             .POST(HttpRequest.BodyPublishers.ofByteArray(ok))
                             .version(HttpClient.Version.HTTP_1_1)
                             .build();
@@ -194,7 +193,7 @@ public interface IDUUIInstantiatedPipelineComponent {
     //                e.printStackTrace();
                     System.out.printf("Cannot reach endpoint trying again %d/%d...\n",tries+1,postTries);
                     try {
-                        Thread.sleep(comp.getPipelineComponent().getTimeout());
+                        Thread.sleep(pipelineComponent.getTimeout());
                     } catch (InterruptedException ex) {
                         throw new RuntimeException(ex);
                     }
@@ -213,17 +212,17 @@ public interface IDUUIInstantiatedPipelineComponent {
                 long annotatorEnd = System.nanoTime();
                 long deserializeStart = annotatorEnd;
 
-                    layer.deserialize(viewJc, st, comp.getTargetView());
+                layer.deserialize(jc, st, comp.getTargetView());
 
                 long deserializeEnd = System.nanoTime();
 
                 ReproducibleAnnotation ann = new ReproducibleAnnotation(jc);
-                ann.setDescription(comp.getPipelineComponent().getFinalizedRepresentation());
+                ann.setDescription(pipelineComponent.getFinalizedRepresentation());
                 ann.setCompression(DUUIPipelineComponent.compressionMethod);
                 ann.setTimestamp(System.nanoTime());
                 ann.setPipelineName(perf.getRunKey());
                 ann.addToIndexes();
-                perf.addData(serializeEnd-serializeStart,deserializeEnd-deserializeStart,annotatorEnd-annotatorStart,queue.getValue2()-queue.getValue1(),deserializeEnd-queue.getValue1(), String.valueOf(comp.getPipelineComponent().getFinalizedRepresentationHash()), sizeArray, jc, null);
+                perf.addData(serializeEnd-serializeStart,deserializeEnd-deserializeStart,annotatorEnd-annotatorStart,queue.getValue2()-queue.getValue1(),deserializeEnd-queue.getValue1(), String.valueOf(pipelineComponent.getFinalizedRepresentationHash()), sizeArray, jc, null);
 
             } else {
                 ByteArrayInputStream st = new ByteArrayInputStream(resp.body());
@@ -238,7 +237,7 @@ public interface IDUUIInstantiatedPipelineComponent {
 
                     String error = "Expected response 200, got " + resp.statusCode() + ": " + responseBody;
 
-                    perf.addData(serializeEnd - serializeStart, deserializeEnd - deserializeStart, annotatorEnd - annotatorStart, queue.getValue2() - queue.getValue1(), deserializeEnd - queue.getValue1(), String.valueOf(comp.getPipelineComponent().getFinalizedRepresentationHash()), sizeArray, jc, error);
+                    perf.addData(serializeEnd - serializeStart, deserializeEnd - deserializeStart, annotatorEnd - annotatorStart, queue.getValue2() - queue.getValue1(), deserializeEnd - queue.getValue1(), String.valueOf(pipelineComponent.getFinalizedRepresentationHash()), sizeArray, jc, error);
                 }
 
                 if (!pipelineComponent.getIgnoringHTTP200Error()) {
@@ -291,28 +290,32 @@ public interface IDUUIInstantiatedPipelineComponent {
 
             DUUIPipelineComponent pipelineComponent = comp.getPipelineComponent();
 
-            String viewName = pipelineComponent.getViewName();
-            JCas viewJc;
-            if(viewName == null) {
-                viewJc = jc;
-            }
-            else {
+            final String sourceViewName = pipelineComponent.getSourceView();
+            final JCas sourceView = jc.getView(sourceViewName);
+
+            final String targetViewName = pipelineComponent.getTargetView();
+            JCas targetView = sourceView;
+            if (targetViewName != null & !Objects.equals(sourceViewName, targetViewName)) {
                 try {
-                    viewJc = jc.getView(viewName);
-                }
-                catch(CASException e) {
-                    if(pipelineComponent.getCreateViewFromInitialView()) {
-                        viewJc = jc.createView(viewName);
-                        viewJc.setDocumentText(jc.getDocumentText());
-                        viewJc.setDocumentLanguage(jc.getDocumentLanguage());
-                    }
-                    else {
+                    targetView = jc.getView(targetViewName);
+                } catch (CASException | CASRuntimeException e) {
+                    targetView = jc.createView(targetViewName);
+                    if (pipelineComponent.getInitializeTargetView()) {
+                        targetView.setDocumentText(sourceView.getDocumentText());
+                        targetView.setDocumentLanguage(sourceView.getDocumentLanguage());
+                        try {
+                            DocumentMetaData documentMetaData = DocumentMetaData.get(sourceView);
+                            CasCopier casCopier = new CasCopier(sourceView.getCas(), targetView.getCas());
+                            casCopier.copyFs(documentMetaData).addToIndexes();
+                        } catch (IllegalArgumentException ignored) {}
+                    } else {
                         throw e;
                     }
                 }
             }
+
             // lua serialize call()
-            layer.serialize(viewJc,out,comp.getParameters(), comp.getSourceView());
+            layer.serialize(jc,out,comp.getParameters(), comp.getSourceView());
 
             // ok is the message.
             byte[] ok = out.toByteArray();
@@ -323,8 +326,6 @@ public interface IDUUIInstantiatedPipelineComponent {
 
             if (handler.getClass() == DUUIWebsocketAlt.class){
                 String error = null;
-
-                JCas finalViewJc = viewJc;
 
                 List<ByteArrayInputStream> results = handler.send(ok);
 
@@ -340,7 +341,7 @@ public interface IDUUIInstantiatedPipelineComponent {
                      * Merging results before deserializing.
                      */
                     result = layer.merge(results);
-                    layer.deserialize(finalViewJc, result, comp.getTargetView());
+                    layer.deserialize(jc, result, comp.getTargetView());
                 }
                 catch(Exception e) {
                     e.printStackTrace();

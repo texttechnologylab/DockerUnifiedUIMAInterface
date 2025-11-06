@@ -1,11 +1,11 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.driver;
 
+import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.uima.UIMAException;
 import org.apache.uima.analysis_engine.AnalysisEngine;
 import org.apache.uima.analysis_engine.AnalysisEngineDescription;
-import org.apache.uima.analysis_engine.AnalysisEngineProcessException;
 import org.apache.uima.cas.CASException;
 import org.apache.uima.cas.CASRuntimeException;
 import org.apache.uima.fit.factory.AnalysisEngineFactory;
@@ -16,6 +16,7 @@ import org.apache.uima.resource.ResourceSpecifier;
 import org.apache.uima.resource.metadata.ConfigurationParameter;
 import org.apache.uima.resource.metadata.NameValuePair;
 import org.apache.uima.resource.metadata.TypeSystemDescription;
+import org.apache.uima.util.CasCopier;
 import org.apache.uima.util.InvalidXMLException;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.exception.PipelineComponentException;
@@ -374,18 +375,24 @@ public class DUUIUIMADriver implements IDUUIDriverInterface {
         long mutexEnd = System.nanoTime();
         try {
             long annotatorStart = mutexEnd;
-            JCas jc;
-            String viewName = component.getPipelineComponent().getViewName();
-            if (viewName == null) {
-                jc = aCas;
-            } else {
+            String sourceViewName = component.getPipelineComponent().getSourceView();
+            JCas sourceView = aCas.getView(sourceViewName);
+
+            JCas targetView = sourceView;
+            String targetViewName = component.getPipelineComponent().getTargetView();
+            if (targetViewName != null && !Objects.equals(sourceViewName, targetViewName)) {
                 try {
-                    jc = aCas.getView(viewName);
+                    targetView = sourceView.getView(targetViewName);
                 } catch (CASException | CASRuntimeException e) {
-                    if (component.getPipelineComponent().getCreateViewFromInitialView()) {
-                        jc = aCas.createView(viewName);
-                        jc.setDocumentText(aCas.getDocumentText());
-                        jc.setDocumentLanguage(aCas.getDocumentLanguage());
+                    targetView = aCas.createView(targetViewName);
+                    if (component.getPipelineComponent().getInitializeTargetView()) {
+                        targetView.setDocumentText(sourceView.getDocumentText());
+                        targetView.setDocumentLanguage(sourceView.getDocumentLanguage());
+                        try {
+                            DocumentMetaData documentMetaData = DocumentMetaData.get(sourceView);
+                            CasCopier casCopier = new CasCopier(sourceView.getCas(), targetView.getCas());
+                            casCopier.copyFs(documentMetaData).addToIndexes();
+                        } catch (IllegalArgumentException ignored) {}
                     } else {
                         throw e;
                     }
@@ -393,15 +400,15 @@ public class DUUIUIMADriver implements IDUUIDriverInterface {
             }
 
 //            if (composer.shouldShutdown()) return;
-            engine.process(jc);
+            engine.process(targetView);
             long annotatorEnd = System.nanoTime();
-            ReproducibleAnnotation ann = new ReproducibleAnnotation(jc);
+            ReproducibleAnnotation ann = new ReproducibleAnnotation(targetView);
             ann.setDescription(component.getPipelineComponent().getFinalizedRepresentation());
             ann.setCompression(DUUIPipelineComponent.compressionMethod);
             ann.setTimestamp(System.nanoTime());
             ann.setPipelineName(perf.getRunKey());
             ann.addToIndexes();
-            perf.addData(0, 0, annotatorEnd - annotatorStart, mutexEnd - mutexStart, annotatorEnd - mutexStart, String.valueOf(component.getPipelineComponent().getFinalizedRepresentationHash()), 0, jc, null);
+            perf.addData(0, 0, annotatorEnd - annotatorStart, mutexEnd - mutexStart, annotatorEnd - mutexStart, String.valueOf(component.getPipelineComponent().getFinalizedRepresentationHash()), 0, targetView, null);
         } catch (Exception e) {
 
             // track error docs
