@@ -1,11 +1,13 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.driver;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.commons.compress.compressors.CompressorInputStream;
 import org.apache.commons.compress.compressors.CompressorOutputStream;
 import org.apache.commons.compress.compressors.CompressorStreamFactory;
 import org.apache.uima.analysis_engine.AnalysisEngineDescription;
+import org.apache.uima.cas.CAS;
 import org.apache.uima.fit.factory.AnalysisEngineFactory;
 import org.apache.uima.util.InvalidXMLException;
 import org.json.JSONArray;
@@ -28,8 +30,8 @@ import java.util.*;
  * @author Alexander Leonhardt
  */
 public class DUUIPipelineComponent {
-    private HashMap<String, String> _options;
-    private HashMap<String,String> _parameters;
+    private Map<String, String> _options;
+    private Map<String,String> _parameters;
 
     private AnalysisEngineDescription _engine;
     private String _finalizedEncoded;
@@ -65,7 +67,7 @@ public class DUUIPipelineComponent {
 
     private static String versionInformation = "version";
     private static String writeToViewName = "uimaViewName";
-    private static String initialViewFromInitialViewName = "uimaViewInitializeFromInitial";
+    private static String initializeTargetView = "uimaViewInitializeFromInitial";
 
     private static String componentName = "name";
 
@@ -114,6 +116,9 @@ public class DUUIPipelineComponent {
         cos.close();
         _finalizedEncoded = Base64.getEncoder().encodeToString(out.toByteArray());
         _finalizedEncodedHash = _finalizedEncoded.hashCode();
+
+        _options = ImmutableMap.copyOf(_options);
+        _parameters = ImmutableMap.copyOf(_parameters);
     }
 
     public String getFinalizedRepresentation() {
@@ -466,39 +471,70 @@ public class DUUIPipelineComponent {
         return Boolean.parseBoolean(result);
     }
 
+    /**
+     * @deprecated Use {@link #withTargetView(String)} instead
+     */
+    @Deprecated
     public DUUIPipelineComponent withWriteToView(String viewName) {
-        return withWriteToView(viewName,false);
-    }
-
-    public DUUIPipelineComponent withWriteToView(String viewName, boolean createViewFromInitialView) {
-        if(_finalizedEncoded!=null) {
-            throw new RuntimeException("DUUIPipelineComponent has already been finalized, it is immutable now!");
-        }
-
-        if(viewName==null) {
-            _options.remove(writeToViewName);
-            _options.remove(initialViewFromInitialViewName);
-            return this;
-        }
-        _options.put(writeToViewName,viewName);
-        _options.put(initialViewFromInitialViewName,String.valueOf(createViewFromInitialView));
+        System.err.printf("[DEPRECATED] DUUIPipelineComponent.withWriteToView(String) is deprecated, use withTargetView(String) instead.%n");
+        this.withTargetView(viewName);
         return this;
     }
 
-    public Boolean getCreateViewFromInitialView() {
-        String value = _options.get(initialViewFromInitialViewName);
-        if(value == null) return null;
+    /**
+     * @deprecated Use {@link #withTargetView(String)} and {@link #withInitializeTargetView(boolean)} instead
+     */
+    @Deprecated
+    public DUUIPipelineComponent withWriteToView(String viewName, boolean initializeTargetView) {
+        System.err.printf("[DEPRECATED] DUUIPipelineComponent.withWriteToView(String, boolean) is deprecated, use withTargetView(String) and withInitializeTargetView(boolean) instead.%n");
+        if (viewName == null) {
+            this.withTargetView(CAS.NAME_DEFAULT_SOFA);
+            this.withInitializeTargetView(false);
+            return this;
+        }
+        this.withTargetView(viewName);
+        this.withInitializeTargetView(initializeTargetView);
+        return this;
+    }
+
+    /**
+     * If set {@code true} and the configured {@link #withTargetView(String) target view} does not exist,
+     * the {@code Sofa}s {@link org.apache.uima.jcas.JCas#setDocumentText(String) document text},
+     * {@link org.apache.uima.jcas.JCas#setDocumentLanguage(String) document language} from the
+     * {@link org.apache.uima.jcas.tcas.DocumentAnnotation DocumentAnnotation}, and&mdash;if present&mdash;the
+     * {@link de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData DocumentMetaData}
+     *  will be copied from the {@link #withSourceView(String) source view} ({@code _InitialView} by default).
+     */
+    public DUUIPipelineComponent withInitializeTargetView(boolean bool) {
+        if(_finalizedEncoded!=null) {
+            throw new RuntimeException("DUUIPipelineComponent has already been finalized, it is immutable now!");
+        }
+        _options.put(initializeTargetView, String.valueOf(bool));
+        return this;
+    }
+
+    public Boolean getInitializeTargetView() {
+        String value = _options.get(initializeTargetView);
+        if (value == null) return false;
         return Boolean.valueOf(value);
     }
 
+    /**
+     * @deprecated Use {@link #getTargetView()} instead
+     */
+    @Deprecated
     public String getViewName() {
-        return getViewName(null);
+        System.err.printf("[DEPRECATED] DUUIPipelineComponent.getViewName() is deprecated, use getTargetView() instead.%n");
+        return this.getTargetView();
     }
 
+    /**
+     * @deprecated Use {@link #getTargetView()} instead
+     */
+    @Deprecated
     public String getViewName(String defaultValue) {
-        String value = _options.get(writeToViewName);
-        if(value==null) return defaultValue;
-        return value;
+        System.err.printf("[DEPRECATED] DUUIPipelineComponent.getViewName(String) is deprecated, use getTargetView() instead.%n");
+        return _options.getOrDefault(targetView, defaultValue);
     }
 
     public String toJson() {
@@ -538,24 +574,44 @@ public class DUUIPipelineComponent {
         return this;
     }
 
+    /**
+     * Sets source and target view to {@code viewName}.
+     */
     public DUUIPipelineComponent withView(String viewName){
+        if (_finalizedEncoded != null) {
+            throw new RuntimeException("DUUIPipelineComponent has already been finalized, it is immutable now!");
+        }
         withSourceView(viewName);
         withTargetView(viewName);
         return this;
     }
 
     public DUUIPipelineComponent withSourceView(String viewName) {
+        if (_finalizedEncoded != null) {
+            throw new RuntimeException("DUUIPipelineComponent has already been finalized, it is immutable now!");
+        }
+        if (viewName == null) {
+            viewName = CAS.NAME_DEFAULT_SOFA;
+        }
         _options.put(sourceView, viewName);
         return this;
     }
 
-
     public DUUIPipelineComponent withTargetView(String viewName) {
+        if (_finalizedEncoded != null) {
+            throw new RuntimeException("DUUIPipelineComponent has already been finalized, it is immutable now!");
+        }
+        if (viewName == null) {
+            viewName = CAS.NAME_DEFAULT_SOFA;
+        }
         _options.put(targetView, viewName);
         return this;
     }
 
     public DUUIPipelineComponent withTimeout(long lLong) {
+        if (_finalizedEncoded != null) {
+            throw new RuntimeException("DUUIPipelineComponent has already been finalized, it is immutable now!");
+        }
         _parameters.put(timeout, String.valueOf(lLong));
         return this;
     }
@@ -634,19 +690,11 @@ public class DUUIPipelineComponent {
     }
 
     public String getSourceView() {
-        String result = _options.get(sourceView);
-        if(result == null) {
-            return "_InitialView";
-        }
-        return result;
+        return _options.getOrDefault(sourceView, CAS.NAME_DEFAULT_SOFA);
     }
 
     public String getTargetView() {
-        String result = _options.get(targetView);
-        if(result == null) {
-            return "_InitialView";
-        }
-        return result;
+        return _options.getOrDefault(targetView, CAS.NAME_DEFAULT_SOFA);
     }
 
     public DUUIPipelineComponent clearParameters() {
