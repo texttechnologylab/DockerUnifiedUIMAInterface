@@ -23,7 +23,7 @@ import java.io.StringWriter;
 
 /**
  * Pretty-prints xml, supplied as a string.
- *
+ * <p>
  * eg.
  * <pre>
  * {@code String formattedXml = new XmlFormatter().format("<tag><nested>hello</nested></tag>");}
@@ -31,83 +31,83 @@ import java.io.StringWriter;
  */
 public class XMLFormatter {
 
-	public XMLFormatter() {
-	}
+    public XMLFormatter() {
+    }
 
-	public static String format(String unformattedXml) {
-		try {
-			final Document document = parseXmlFile(unformattedXml);
-			Transformer transformer = TransformerFactory.newInstance().newTransformer();
-			transformer.setOutputProperty(OutputKeys.INDENT, "yes");
-			 transformer.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "no");
+    public static String format(String unformattedXml) {
+        try {
+            final Document document = parseXmlFile(unformattedXml);
+            Transformer transformer = TransformerFactory.newInstance().newTransformer();
+            transformer.setOutputProperty(OutputKeys.INDENT, "yes");
+            transformer.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "no");
 //			    transformer.setOutputProperty(OutputKeys.METHOD, "xml");
 //			    transformer.setOutputProperty(OutputKeys.ENCODING, "UTF-8");
-			    transformer.setOutputProperty("{http://xml.apache.org/xslt}indent-amount", "2");
+            transformer.setOutputProperty("{http://xml.apache.org/xslt}indent-amount", "2");
 
 
-			//initialize StreamResult with File object to save to file
-			StreamResult result = new StreamResult(new StringWriter());
-			DOMSource source = new DOMSource(document);
-			transformer.transform(source, result);
-			String xmlString = result.getWriter().toString();
-			return(xmlString);
+            //initialize StreamResult with File object to save to file
+            StreamResult result = new StreamResult(new StringWriter());
+            DOMSource source = new DOMSource(document);
+            transformer.transform(source, result);
+            String xmlString = result.getWriter().toString();
+            return (xmlString);
 
 
-		} catch (TransformerException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		return null;
-	}
+        } catch (TransformerException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+        return null;
+    }
 
-	public static String printDocument(String unformattedXml) throws IOException, TransformerException {
-		final Document document = parseXmlFile(unformattedXml);
+    public static String printDocument(String unformattedXml) throws IOException, TransformerException {
+        final Document document = parseXmlFile(unformattedXml);
 
-	    TransformerFactory tf = TransformerFactory.newInstance();
-	    Transformer transformer = tf.newTransformer();
-	    transformer.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "no");
-	    transformer.setOutputProperty(OutputKeys.METHOD, "xml");
-	    transformer.setOutputProperty(OutputKeys.INDENT, "yes");
-	    transformer.setOutputProperty(OutputKeys.ENCODING, "UTF-8");
-	    transformer.setOutputProperty("{http://xml.apache.org/xslt}indent-amount", "4");
+        TransformerFactory tf = TransformerFactory.newInstance();
+        Transformer transformer = tf.newTransformer();
+        transformer.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "no");
+        transformer.setOutputProperty(OutputKeys.METHOD, "xml");
+        transformer.setOutputProperty(OutputKeys.INDENT, "yes");
+        transformer.setOutputProperty(OutputKeys.ENCODING, "UTF-8");
+        transformer.setOutputProperty("{http://xml.apache.org/xslt}indent-amount", "4");
 
-		StreamResult result = new StreamResult(new StringWriter());
-	    DOMSource source = new DOMSource(document);
-		transformer.transform(source, result);
-		String xmlString = result.getWriter().toString();
-		return(xmlString);
-	}
+        StreamResult result = new StreamResult(new StringWriter());
+        DOMSource source = new DOMSource(document);
+        transformer.transform(source, result);
+        String xmlString = result.getWriter().toString();
+        return (xmlString);
+    }
 
-	private static Document parseXmlFile(String in) {
-		try {
-			DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
-			DocumentBuilder db = dbf.newDocumentBuilder();
-			InputSource is = new InputSource(new StringReader(in));
-			return db.parse(is);
-		} catch (ParserConfigurationException e) {
-			throw new RuntimeException(e);
-		} catch (SAXException e) {
-			throw new RuntimeException(e);
-		} catch (IOException e) {
-			throw new RuntimeException(e);
-		}
-	}
+    private static Document parseXmlFile(String in) {
+        try {
+            DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+            DocumentBuilder db = dbf.newDocumentBuilder();
+            InputSource is = new InputSource(new StringReader(in));
+            return db.parse(is);
+        } catch (ParserConfigurationException e) {
+            throw new RuntimeException(e);
+        } catch (SAXException e) {
+            throw new RuntimeException(e);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
 
-	public static String getString(CAS jCas) {
-		ByteArrayOutputStream baos = new ByteArrayOutputStream();
-		try {
-			XmiCasSerializer.serialize(jCas, baos);
-		} catch (SAXException e) {
-			e.printStackTrace();
-		}
-		return baos.toString();
-	}
+    public static String getString(CAS jCas) {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        try {
+            XmiCasSerializer.serialize(jCas, baos);
+        } catch (SAXException e) {
+            e.printStackTrace();
+        }
+        return baos.toString();
+    }
 
-	public static String getPrettyString(CAS cas){
-		return format(getString(cas));
-	}
+    public static String getPrettyString(CAS cas) {
+        return format(getString(cas));
+    }
 
-	public static String getPrettyString(JCas jcas){
-		return format(getString(jcas.getCas()));
-	}
+    public static String getPrettyString(JCas jcas) {
+        return format(getString(jcas.getCas()));
+    }
 }

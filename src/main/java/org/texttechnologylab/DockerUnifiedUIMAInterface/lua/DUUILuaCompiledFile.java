@@ -12,9 +12,9 @@ import java.util.Objects;
  * @author Manuel Schaaf
  */
 public class DUUILuaCompiledFile {
-    private Globals _globals;
-    private LuaValue _sethook;
-    private DUUILuaSandbox _sandbox;
+    private final Globals _globals;
+    private final LuaValue _sethook;
+    private final DUUILuaSandbox _sandbox;
 
     DUUILuaCompiledFile(Globals globals, LuaValue sethook, DUUILuaSandbox sandbox) {
         _globals = globals;
@@ -91,7 +91,6 @@ public class DUUILuaCompiledFile {
      * @param name name of the symbol to get
      * @return the globally defined {@link LuaValue}
      * @throws NullPointerException if the symbol does not exist, use {@link #hasGlobal} to check for {@code null}'s
-     *
      * @see #hasGlobal
      */
     public LuaValue getGlobal(String name) {

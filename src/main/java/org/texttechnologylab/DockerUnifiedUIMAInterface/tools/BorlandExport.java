@@ -2,14 +2,12 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface.tools;
 
 import org.apache.uima.UimaContext;
 import org.apache.uima.analysis_engine.AnalysisEngineProcessException;
-import org.apache.uima.cas.SerialFormat;
 import org.apache.uima.fit.descriptor.ConfigurationParameter;
 import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.jcas.tcas.Annotation;
 import org.apache.uima.json.JsonCasSerializer;
 import org.apache.uima.resource.ResourceInitializationException;
-import org.apache.uima.util.CasIOUtils;
 import org.dkpro.core.api.io.JCasFileWriter_ImplBase;
 import org.texttechnologylab.annotation.AnnotationComment;
 import org.texttechnologylab.duui.ReproducibleAnnotation;
@@ -27,8 +25,8 @@ public class BorlandExport extends JCasFileWriter_ImplBase {
     @ConfigurationParameter(name = PARM_OUTPUTFILE, mandatory = false, defaultValue = "/tmp/export.bf.txt")
     protected String output;
 
-    private Map<String, BorlandUtils.DATATYPE> nodes = new HashMap<>();
-    private Map<String, BorlandUtils.DATATYPE> edges = new HashMap<>();
+    private final Map<String, BorlandUtils.DATATYPE> nodes = new HashMap<>();
+    private final Map<String, BorlandUtils.DATATYPE> edges = new HashMap<>();
 
     public static StringBuilder outputString = new StringBuilder();
 
@@ -51,49 +49,21 @@ public class BorlandExport extends JCasFileWriter_ImplBase {
 
     }
 
-    @Override
-    public void process(JCas jCas) throws AnalysisEngineProcessException {
+    public static String getEntities(Set<Annotation> pSet) {
 
-        Map<String, Object> objectMap = new HashMap<>();
+        StringBuilder sb = new StringBuilder();
 
-        List<AnnotationComment> acList = JCasUtil.select(jCas, AnnotationComment.class).stream().filter(ac->{
-            return ac.getKey().equalsIgnoreCase("content");
-        }).collect(Collectors.toList());
 
-        String sID = acList.get(0).getValue();
-        if(acList.size()==1){
-            objectMap.put("verb", acList.get(0).getValue());
-        }
-        objectMap.put("chatgpt", jCas.getDocumentText());
+        pSet.stream().forEach(a -> {
 
-        Set<ReproducibleAnnotation> removeSet = new HashSet<>(0);
-        JCasUtil.select(jCas, ReproducibleAnnotation.class).stream().forEach(rp -> {
-            removeSet.add(rp);
-        });
-        removeSet.stream().forEach(rp -> {
-            rp.removeFromIndexes();
-        });
-
-        ByteArrayOutputStream jsonOut = new ByteArrayOutputStream();
-        try {
-            String sXML = XMLFormatter.getString(jCas.getCas());
-
-            while (sXML.contains("\n")){
-                sXML = sXML.replaceAll("\n", " ");
+            if (sb.length() > 0) {
+                sb.append(BorlandUtils.delemiter);
             }
-            objectMap.put("xmi", sXML);
-            JsonCasSerializer.jsonSerialize(jCas.getCas(), jsonOut);
-            objectMap.put("json", jsonOut.toString().replaceAll("\n", " "));
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
 
-        try {
-            BorlandUtils.writeVertex(sID.replaceAll("/", "_"), objectMap, new File(output));
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-        //outputString.append(BorlandUtils.addVertex());
+        });
+
+        return sb.toString();
+
 
     }
 
@@ -110,21 +80,49 @@ public class BorlandExport extends JCasFileWriter_ImplBase {
         super.destroy();
     }
 
-    public static String getEntities(Set<Annotation> pSet){
+    @Override
+    public void process(JCas jCas) throws AnalysisEngineProcessException {
 
-        StringBuilder sb = new StringBuilder();
+        Map<String, Object> objectMap = new HashMap<>();
 
+        List<AnnotationComment> acList = JCasUtil.select(jCas, AnnotationComment.class).stream().filter(ac -> {
+            return ac.getKey().equalsIgnoreCase("content");
+        }).collect(Collectors.toList());
 
-        pSet.stream().forEach(a->{
+        String sID = acList.get(0).getValue();
+        if (acList.size() == 1) {
+            objectMap.put("verb", acList.get(0).getValue());
+        }
+        objectMap.put("chatgpt", jCas.getDocumentText());
 
-            if(sb.length()>0){
-                sb.append(BorlandUtils.delemiter);
-            }
-
+        Set<ReproducibleAnnotation> removeSet = new HashSet<>(0);
+        JCasUtil.select(jCas, ReproducibleAnnotation.class).stream().forEach(rp -> {
+            removeSet.add(rp);
+        });
+        removeSet.stream().forEach(rp -> {
+            rp.removeFromIndexes();
         });
 
-        return sb.toString();
+        ByteArrayOutputStream jsonOut = new ByteArrayOutputStream();
+        try {
+            String sXML = XMLFormatter.getString(jCas.getCas());
 
+            while (sXML.contains("\n")) {
+                sXML = sXML.replaceAll("\n", " ");
+            }
+            objectMap.put("xmi", sXML);
+            JsonCasSerializer.jsonSerialize(jCas.getCas(), jsonOut);
+            objectMap.put("json", jsonOut.toString().replaceAll("\n", " "));
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
+        try {
+            BorlandUtils.writeVertex(sID.replaceAll("/", "_"), objectMap, new File(output));
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        //outputString.append(BorlandUtils.addVertex());
 
     }
 }

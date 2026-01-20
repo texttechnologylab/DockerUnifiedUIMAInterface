@@ -11,8 +11,8 @@ import java.util.HashSet;
 import java.util.Vector;
 
 public class DUUIMockStorageBackend implements IDUUIStorageBackend {
-    private HashSet<String> _runs;
-    private HashMap<String,Vector<DUUIPipelineDocumentPerformance>> _performance;
+    private final HashSet<String> _runs;
+    private final HashMap<String, Vector<DUUIPipelineDocumentPerformance>> _performance;
 
     public DUUIMockStorageBackend() {
         _runs = new HashSet<>();
@@ -23,7 +23,7 @@ public class DUUIMockStorageBackend implements IDUUIStorageBackend {
         return _runs;
     }
 
-    public HashMap<String,Vector<DUUIPipelineDocumentPerformance>> getPerformanceMonitoring() {
+    public HashMap<String, Vector<DUUIPipelineDocumentPerformance>> getPerformanceMonitoring() {
         return _performance;
     }
 
@@ -37,12 +37,11 @@ public class DUUIMockStorageBackend implements IDUUIStorageBackend {
 
     public void addMetricsForDocument(DUUIPipelineDocumentPerformance perf) {
         Vector<DUUIPipelineDocumentPerformance> vec = _performance.get(perf.getRunKey());
-        if(vec == null) {
+        if (vec == null) {
             vec = new Vector<>();
             vec.add(perf);
-            _performance.put(perf.getRunKey(),vec);
-        }
-        else {
+            _performance.put(perf.getRunKey(), vec);
+        } else {
             vec.add(perf);
         }
     }

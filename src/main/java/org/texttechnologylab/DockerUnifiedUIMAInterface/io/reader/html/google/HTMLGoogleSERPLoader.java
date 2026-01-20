@@ -17,7 +17,6 @@ import javax.xml.parsers.ParserConfigurationException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.zip.GZIPInputStream;
@@ -72,11 +71,11 @@ public class HTMLGoogleSERPLoader extends DefaultHandler {
             Paragraph paragraph = new Paragraph(jCas, begin, end);
             paragraph.addToIndexes();
 
-		AnnotationComment originalUrl = new AnnotationComment(jCas);
-		originalUrl.setKey("google_serp_link");
-		originalUrl.setValue(link);
-		originalUrl.setReference(paragraph);
-		originalUrl.addToIndexes();
+            AnnotationComment originalUrl = new AnnotationComment(jCas);
+            originalUrl.setKey("google_serp_link");
+            originalUrl.setValue(link);
+            originalUrl.setReference(paragraph);
+            originalUrl.addToIndexes();
 
             try {
                 java.net.URL url = new URI(link).toURL();
@@ -102,8 +101,7 @@ public class HTMLGoogleSERPLoader extends DefaultHandler {
                 urlAnno.setFragment(url.getRef());
                 urlAnno.addToIndexes();
 
-            }
-            catch (Exception e) {
+            } catch (Exception e) {
                 // ignored
             }
         }

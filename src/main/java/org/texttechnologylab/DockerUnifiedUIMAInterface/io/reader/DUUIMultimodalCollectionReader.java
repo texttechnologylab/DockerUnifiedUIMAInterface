@@ -6,7 +6,6 @@ import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.commons.compress.compressors.CompressorInputStream;
 import org.apache.commons.compress.compressors.CompressorStreamFactory;
 import org.apache.commons.io.FileUtils;
-import org.apache.commons.io.IOUtils;
 import org.apache.uima.cas.impl.XmiCasDeserializer;
 import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
@@ -35,19 +34,19 @@ public class DUUIMultimodalCollectionReader implements DUUICollectionReader {
 
     private String _path;
     private ConcurrentLinkedQueue<String> _filePaths;
-    private ConcurrentLinkedQueue<String> _filePathsBackup;
-    private ConcurrentLinkedQueue<ByteReadFuture> _loadedFiles;
+    private final ConcurrentLinkedQueue<String> _filePathsBackup;
+    private final ConcurrentLinkedQueue<ByteReadFuture> _loadedFiles;
 
-    private String _viewName;
+    private final String _viewName;
 
-    private int _initialSize;
-    private AtomicInteger _docNumber;
-    private long _maxMemory;
-    private AtomicLong _currentMemorySize;
+    private final int _initialSize;
+    private final AtomicInteger _docNumber;
+    private final long _maxMemory;
+    private final AtomicLong _currentMemorySize;
 
     private boolean _addMetadata = true;
 
-    private String _targetPath = null;
+    private final String _targetPath = null;
 
     private String _language = null;
 
@@ -85,9 +84,7 @@ public class DUUIMultimodalCollectionReader implements DUUICollectionReader {
             }
             String[] sSplit = sContent.split("\n");
 
-            for (String s : sSplit) {
-                _filePaths.add(s);
-            }
+            Collections.addAll(_filePaths, sSplit);
 
         } else {
             File fl = new File(folder);
@@ -167,10 +164,7 @@ public class DUUIMultimodalCollectionReader implements DUUICollectionReader {
     }
 
     private static boolean getSortFromMode(AsyncCollectionReader.DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE mode) {
-        if (mode == AsyncCollectionReader.DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE.RANDOM) {
-            return false;
-        }
-        return true;
+        return mode != AsyncCollectionReader.DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE.RANDOM;
     }
 
     public static void addFilesToConcurrentList(File folder, String ending, ConcurrentLinkedQueue<String> paths) {
@@ -179,7 +173,7 @@ public class DUUIMultimodalCollectionReader implements DUUICollectionReader {
         for (int i = 0; i < listOfFiles.length; i++) {
             if (listOfFiles[i].isFile()) {
                 if (listOfFiles[i].getName().endsWith(ending)) {
-                    paths.add(listOfFiles[i].getPath().toString());
+                    paths.add(listOfFiles[i].getPath());
                 }
             } else if (listOfFiles[i].isDirectory()) {
                 addFilesToConcurrentList(listOfFiles[i], ending, paths);
@@ -317,7 +311,7 @@ public class DUUIMultimodalCollectionReader implements DUUICollectionReader {
             try {
                 mView = empty.getView(_viewName);
 
-            }catch (Exception e){
+            } catch (Exception e) {
                 mView = empty.createView(_viewName);
             }
 
@@ -328,8 +322,8 @@ public class DUUIMultimodalCollectionReader implements DUUICollectionReader {
             String mimeType = Files.probeContentType(fFile.toPath());
 
 
-            if(mimeType == null){
-                if(fileExtension.equals("xmi")){
+            if (mimeType == null) {
+                if (fileExtension.equals("xmi")) {
                     mimeType = "application/xmi";
                 }
             }
@@ -338,7 +332,7 @@ public class DUUIMultimodalCollectionReader implements DUUICollectionReader {
 
             String sofaString = "";
 
-            switch(mimeType.split("/")[0]){
+            switch (mimeType.split("/")[0]) {
                 case "image":
                 case "video":
                 case "audio":
@@ -351,16 +345,15 @@ public class DUUIMultimodalCollectionReader implements DUUICollectionReader {
 
                     break;
                 case "application":
-                    if(fileExtension.equals("xmi")) {
+                    if (fileExtension.equals("xmi")) {
                         InputStream decodedFile = new ByteArrayInputStream(Files.readAllBytes(fFile.toPath()));
                         XmiCasDeserializer.deserialize(decodedFile, mView.getCas(), true);
                         break;
-                    }
-                    else if(mimeType.split("/")[1].equals("x-gzip")){
+                    } else if (mimeType.split("/")[1].equals("x-gzip")) {
                         CompressorInputStream decodedFile = new CompressorStreamFactory(true).createCompressorInputStream(CompressorStreamFactory.GZIP, new ByteArrayInputStream(Files.readAllBytes(fFile.toPath())));
                         XmiCasDeserializer.deserialize(decodedFile, mView.getCas(), true);
                         break;
-                    }else if(mimeType.split("/")[1].equals("x-xz")){
+                    } else if (mimeType.split("/")[1].equals("x-xz")) {
                         CompressorInputStream decodedFile = new CompressorStreamFactory(true).createCompressorInputStream(CompressorStreamFactory.XZ, new ByteArrayInputStream(Files.readAllBytes(fFile.toPath())));
                         XmiCasDeserializer.deserialize(decodedFile, mView.getCas(), true);
                         break;
@@ -370,15 +363,14 @@ public class DUUIMultimodalCollectionReader implements DUUICollectionReader {
                     mView.setSofaDataString(sofaString, mimeType);
                     break;
                 default:
-                    try{
+                    try {
                         sofaString = readFile(fFile);
-                    }catch(Exception e){
+                    } catch (Exception e) {
                         sofaString = Base64.encodeBase64String(FileUtils.readFileToByteArray(fFile));
                     }
                     mView.setSofaDataString(sofaString, mimeType);
                     break;
             }
-            ;
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -464,9 +456,9 @@ public class DUUIMultimodalCollectionReader implements DUUICollectionReader {
         String result = "";
         Scanner myReader = new Scanner(file);
         while (myReader.hasNextLine()) {
-            if(result == ""){
+            if (result == "") {
                 result = myReader.nextLine();
-            }else{
+            } else {
                 result += "\n" + myReader.nextLine();
             }
         }
@@ -475,8 +467,8 @@ public class DUUIMultimodalCollectionReader implements DUUICollectionReader {
     }
 
     class ByteReadFuture {
-        private String _path;
-        private byte[] _bytes;
+        private final String _path;
+        private final byte[] _bytes;
 
         public ByteReadFuture(String path, byte[] bytes) {
             _path = path;

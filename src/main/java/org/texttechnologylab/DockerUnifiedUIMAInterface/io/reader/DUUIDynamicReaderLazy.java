@@ -34,7 +34,6 @@ public class DUUIDynamicReaderLazy implements DUUICollectionReader {
     protected AtomicInteger _processedCasCount;
 
 
-
     public DUUIDynamicReaderLazy(String zip_path, List<DUUIPipelineComponent> readerComponents) throws InterruptedException, CompressorException, IOException, URISyntaxException, UIMAException, SAXException {
         this(Path.of(zip_path), readerComponents);
     }
@@ -61,9 +60,9 @@ public class DUUIDynamicReaderLazy implements DUUICollectionReader {
     class ComponentInitWithLatch implements Runnable {
         private final AtomicInteger _counter;
         private final CountDownLatch _latch;
-        private DUUIPipelineComponent _component;
+        private final DUUIPipelineComponent _component;
         private final Path _filePath;
-        private ConcurrentHashMap<DUUIPipelineComponent, DUUIReaderComposer> _compMap;
+        private final ConcurrentHashMap<DUUIPipelineComponent, DUUIReaderComposer> _compMap;
 
         public ComponentInitWithLatch(DUUIPipelineComponent component,
                                       AtomicInteger counter,
@@ -112,7 +111,7 @@ public class DUUIDynamicReaderLazy implements DUUICollectionReader {
 
             // Hinzufügen der einzelnen Driver zum Composer
             composer.addDriver(docker_driver, uima_driver
-                    ,swarm_driver, remote_driver);
+                    , swarm_driver, remote_driver);
             try {
                 composer.add(this._component);
             } catch (InvalidXMLException | SAXException | CompressorException | IOException e) {
