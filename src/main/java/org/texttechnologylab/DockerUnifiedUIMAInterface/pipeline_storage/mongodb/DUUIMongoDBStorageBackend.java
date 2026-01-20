@@ -2,9 +2,8 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.mongod
 
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
-import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.MongoCollection;
-
+import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.Filters;
 import org.bson.Document;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
@@ -68,27 +67,27 @@ public class DUUIMongoDBStorageBackend implements IDUUIStorageBackend {
         MongoCollection<Document> documentPerformanceCollection = database.getCollection("pipeline_document_perf");
 
         documentCollection.insertOne(
-                new Document("documentSize",            perf.getDocumentSize())
-                        .append("waitTime",             perf.getDocumentWaitTime())
-                        .append("totalTime",            perf.getTotalTime())
-                        .append("document",             perf.getDocument())
+                new Document("documentSize", perf.getDocumentSize())
+                        .append("waitTime", perf.getDocumentWaitTime())
+                        .append("totalTime", perf.getTotalTime())
+                        .append("document", perf.getDocument())
                         .append("annotationsTypeCount", perf.getAnnotationTypesCount())
         );
 
         for (DUUIPipelinePerformancePoint point : perf.getPerformancePoints()) {
             documentPerformanceCollection.insertOne(
                     new Document("pipelinename", perf.getRunKey())
-                            .append("componenthash",          point.getKey())
-                            .append("durationSerialize",      point.getDurationSerialize())
-                            .append("durationDeserialize",    point.getDurationDeserialize())
-                            .append("durationAnnotator",      point.getDurationAnnotator())
-                            .append("durationMutexWait",      point.getDurationMutexWait())
+                            .append("componenthash", point.getKey())
+                            .append("durationSerialize", point.getDurationSerialize())
+                            .append("durationDeserialize", point.getDurationDeserialize())
+                            .append("durationAnnotator", point.getDurationAnnotator())
+                            .append("durationMutexWait", point.getDurationMutexWait())
                             .append("durationComponentTotal", point.getDurationComponentTotal())
-                            .append("totalAnnotations",       point.getNumberOfAnnotations())
-                            .append("documentSize",           point.getDocumentSize())
-                            .append("serializedSize",         point.getSerializedSize())
-                            .append("error",                  point.getError())
-                            .append("document",               point.getDocument())
+                            .append("totalAnnotations", point.getNumberOfAnnotations())
+                            .append("documentSize", point.getDocumentSize())
+                            .append("serializedSize", point.getSerializedSize())
+                            .append("error", point.getError())
+                            .append("document", point.getDocument())
             );
         }
     }

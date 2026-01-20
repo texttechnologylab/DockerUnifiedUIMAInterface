@@ -2,13 +2,13 @@
  * Copyright 2017
  * Ubiquitous Knowledge Processing (UKP) Lab
  * Technische Universität Darmstadt
- *   
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *   
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- *   
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -22,16 +22,14 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface.io;
 
 import static java.lang.Math.round;
 
-public class ProgressMeter
-{
+public class ProgressMeter {
     private final long _start;
     private long _preLast;
     private long _last;
     private long _count;
     private long _limit;
 
-    public ProgressMeter(long limit)
-    {
+    public ProgressMeter(long limit) {
         _start = System.currentTimeMillis();
         _last = System.currentTimeMillis();
         _preLast = System.currentTimeMillis();
@@ -43,55 +41,54 @@ public class ProgressMeter
         _limit = limit;
     }
 
-    public void next()
-    {
+    public static String milliToStringShort(final long milli) {
+        final long fracs = milli % 1000;
+        final long seconds = milli / 1000;
+        final long minutes = seconds / 60;
+        final long hours = minutes / 60;
+        return String.format("%02d:%02d:%02d.%-3d", hours, (minutes % 60), (seconds % 60), fracs);
+    }
+
+    public void next() {
         _count++;
         _preLast = _last;
         _last = System.currentTimeMillis();
     }
 
-    public long getCount()
-    {
+    public long getCount() {
         return _count;
     }
 
-    public void setDone(final long count)
-    {
+    public void setDone(final long count) {
         _count = count;
         _preLast = _last;
         _last = System.currentTimeMillis();
     }
 
-    public void setLeft(final long count)
-    {
+    public void setLeft(final long count) {
         _count = _limit - count;
         _preLast = _last;
         _last = System.currentTimeMillis();
     }
 
-    public long getTimeSoFar()
-    {
+    public long getTimeSoFar() {
         return _last - _start;
     }
 
-    public long getEstimatedTime()
-    {
+    public long getEstimatedTime() {
         return round(((double) (getTimeSoFar()) / _count) * _limit);
     }
 
-    public long getRemainingTime()
-    {
+    public long getRemainingTime() {
         return round(getEstimatedTime() - getTimeSoFar());
     }
 
-    public int getPercentage()
-    {
+    public int getPercentage() {
         return 100 - (int) (((_limit - _count) * 100) / _limit);
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         final StringBuilder sb = new StringBuilder();
         sb.append(_count);
         sb.append(" of ");
@@ -114,14 +111,5 @@ public class ProgressMeter
             sb.append(")");
         }
         return sb.toString();
-    }
-
-    public static String milliToStringShort(final long milli)
-    {
-        final long fracs = milli % 1000;
-        final long seconds = milli / 1000;
-        final long minutes = seconds / 60;
-        final long hours = minutes / 60;
-        return String.format("%02d:%02d:%02d.%-3d", hours, (minutes % 60), (seconds % 60), fracs);
     }
 }

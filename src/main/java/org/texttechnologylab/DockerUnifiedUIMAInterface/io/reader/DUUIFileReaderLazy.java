@@ -122,9 +122,7 @@ public class DUUIFileReaderLazy implements DUUICollectionReader {
             }
             String[] sSplit = sContent.split("\n");
 
-            for (String s : sSplit) {
-                _filePaths.add(s);
-            }
+            Collections.addAll(_filePaths, sSplit);
 
         } else {
             File fl = new File(folder);
@@ -162,7 +160,7 @@ public class DUUIFileReaderLazy implements DUUICollectionReader {
 
         this.debugCount = debugCount;
 
-        System.out.printf("Starting lazy loading...");
+        System.out.print("Starting lazy loading...");
         _docNumber = new AtomicInteger(0);
         _skipNumber = new AtomicInteger(0);
         _repairedNumber = new AtomicInteger(0);
@@ -181,10 +179,7 @@ public class DUUIFileReaderLazy implements DUUICollectionReader {
     }
 
     private static boolean getSortFromMode(AsyncCollectionReader.DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE mode) {
-        if (mode == AsyncCollectionReader.DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE.RANDOM) {
-            return false;
-        }
-        return true;
+        return mode != AsyncCollectionReader.DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE.RANDOM;
     }
 
     public static void addFilesToConcurrentList(File folder, String ending, ConcurrentLinkedQueue<String> paths, AtomicInteger iCounter) {
@@ -193,7 +188,7 @@ public class DUUIFileReaderLazy implements DUUICollectionReader {
         for (int i = 0; i < listOfFiles.length; i++) {
             if (listOfFiles[i].isFile()) {
                 if (listOfFiles[i].getName().endsWith(ending)) {
-                    paths.add(listOfFiles[i].getPath().toString());
+                    paths.add(listOfFiles[i].getPath());
                     iCounter.incrementAndGet();
                 }
             } else if (listOfFiles[i].isDirectory()) {
@@ -285,7 +280,7 @@ public class DUUIFileReaderLazy implements DUUICollectionReader {
         boolean bRepair = false;
 
         do {
-            bSkip=false;
+            bSkip = false;
             bRepair = false;
             ByteReadFuture future = _loadedFiles.poll();
 
@@ -339,10 +334,10 @@ public class DUUIFileReaderLazy implements DUUICollectionReader {
                 }
             } catch (Exception e) {
 
-                if(e instanceof SAXParseException){
+                if (e instanceof SAXParseException) {
                     try {
                         String rString = "";
-                        if(result.endsWith(".gz")){
+                        if (result.endsWith(".gz")) {
                             File decompressedFile = ArchiveUtils.decompressGZ(new File(result));
                             rString = IOUtils.toString(new FileInputStream(decompressedFile), StandardCharsets.UTF_8);
                             decompressedFile.delete();
@@ -377,14 +372,13 @@ public class DUUIFileReaderLazy implements DUUICollectionReader {
                     } catch (SAXException ex) {
                         ex.printStackTrace();
                     }
-                }
-                else{
+                } else {
                     e.printStackTrace();
                 }
 
             }
 
-            if(this.targetLocation.length()>0) {
+            if (this.targetLocation.length() > 0) {
                 try {
                     DocumentMetaData dmd = DocumentMetaData.get(empty);
                     if (dmd != null) {
@@ -403,7 +397,7 @@ public class DUUIFileReaderLazy implements DUUICollectionReader {
                             sNewOutput = dmd.getDocumentId() + "." + this._targetEnding;
                         }
                         System.out.println(tFile.getAbsolutePath());
-                        if(tFile.exists()){
+                        if (tFile.exists()) {
                             bSkip = true;
                             _skipNumber.incrementAndGet();
                             if (_skipNumber.get() % 100 == 0) {
@@ -413,8 +407,7 @@ public class DUUIFileReaderLazy implements DUUICollectionReader {
                             empty.reset();
                         }
                     }
-                }
-                catch (Exception e){
+                } catch (Exception e) {
                     e.printStackTrace();
                 }
             }
@@ -432,17 +425,17 @@ public class DUUIFileReaderLazy implements DUUICollectionReader {
 //                System.out.printf("skip\t (%d) \t %s \t %s\n", _docNumber.get(), progress, result);
 //            }
 //            else {
-                if (iCurSize - progress.getCount() > debugCount) {
-                    if (val % debugCount == 0 || val == 0) {
-                        System.out.printf("%s: \t %s \t %s\t (S: %s / R: %s)\n", progress, getSize(result), result, _skipNumber.get(), _repairedNumber.get());
-                    }
-                } else {
-                    System.out.printf("%s: \t %s \t %s\n", progress, getSize(result), result);
+            if (iCurSize - progress.getCount() > debugCount) {
+                if (val % debugCount == 0 || val == 0) {
+                    System.out.printf("%s: \t %s \t %s\t (S: %s / R: %s)\n", progress, getSize(result), result, _skipNumber.get(), _repairedNumber.get());
                 }
+            } else {
+                System.out.printf("%s: \t %s \t %s\n", progress, getSize(result), result);
+            }
 //            }
 
         }
-        while(bSkip);
+        while (bSkip);
 
         if (_addMetadata) {
             if (JCasUtil.select(empty, DocumentMetaData.class).size() == 0) {

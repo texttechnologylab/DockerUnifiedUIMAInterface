@@ -1,7 +1,9 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.connection.mongodb;
 
-import com.mongodb.MongoClient;
-import com.mongodb.*;
+import com.mongodb.BasicDBObject;
+import com.mongodb.MongoClientSettings;
+import com.mongodb.MongoCredential;
+import com.mongodb.ServerAddress;
 import com.mongodb.client.*;
 import com.mongodb.client.model.Filters;
 import com.mongodb.client.result.UpdateResult;
@@ -22,7 +24,7 @@ public class MongoDBConnectionHandler {
     /**
      * The connection with the MongoDB
      */
-    private com.mongodb.MongoClient pClient = null;
+    private MongoClient pClient = null;
 
     /**
      * The object for the selected Database
@@ -50,24 +52,32 @@ public class MongoDBConnectionHandler {
     private void init() {
 
         // defind credentials (Username, database, password)
-        MongoCredential credential = MongoCredential.createScramSha1Credential(pConfig.getMongoUsername(), pConfig.getAuthDatabase(), pConfig.getMongoPassword().toCharArray());
+        MongoCredential credential = MongoCredential.createCredential(pConfig.getMongoUsername(), pConfig.getAuthDatabase(), pConfig.getMongoPassword().toCharArray());
         // defining Hostname and Port
         ServerAddress seed = new ServerAddress(pConfig.getMongoHostname(), pConfig.getMongoPort());
         List<ServerAddress> seeds = new ArrayList(0);
         seeds.add(seed);
         // defining some Options
-        MongoClientOptions options = MongoClientOptions.builder()
-                .connectionsPerHost(pConfig.getConnectionCount())
-                .socketTimeout(pConfig.getSocketTimeOut())
-                .maxWaitTime(pConfig.getMaxWaitTime())
-                .socketKeepAlive(true)
-                .serverSelectionTimeout(pConfig.getServerSelectionTimeout())
-                .connectTimeout(pConfig.getConnectionCount())
-                .sslEnabled(pConfig.getConnectionSSL())
+        MongoClientSettings options = MongoClientSettings.builder()
+                .credential(credential)
+                .applyToClusterSettings(b -> {
+                    b.hosts(seeds);
+                })
+                .applyToConnectionPoolSettings(b -> {
+                    b.maxConnecting(pConfig.getConnectionCount());
+                    b.maxWaitTime(pConfig.getMaxWaitTime(), TimeUnit.SECONDS);
+                })
+                .applyToSocketSettings(b -> {
+                    b.readTimeout(pConfig.getSocketTimeOut(), TimeUnit.SECONDS);
+                    b.connectTimeout(pConfig.getConnectionTimeOut(), TimeUnit.SECONDS);
+                })
+                .applyToSslSettings(b -> {
+                    b.enabled(pConfig.getConnectionSSL());
+                })
                 .build();
 
         // connect to MongoDB
-        pClient = new MongoClient(seeds, credential, options);
+        pClient = MongoClients.create(options);
 
         // select database
         pDatabase = pClient.getDatabase(pConfig.getMongoDatabase());

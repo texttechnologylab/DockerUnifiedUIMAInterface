@@ -40,8 +40,7 @@ public class RemoveOverlappingAnnotations extends JCasAnnotator_ImplBase {
 
         for (Class pClass : pClasses) {
             JCasUtil.select(jCas, pClass).stream().forEach(a -> {
-                if (a instanceof Annotation) {
-                    Annotation pA = (Annotation) a;
+                if (a instanceof Annotation pA) {
                     boundings.add(pA.getBegin() + "-" + pA.getEnd());
                 }
             });

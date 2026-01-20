@@ -2,25 +2,17 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface.driver;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.uima.fit.factory.TypeSystemDescriptionFactory;
-import org.apache.uima.resource.ResourceInitializationException;
-import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.javatuples.Triplet;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.UUID;
 
-public interface IDUUIInstantiatedPipelineReaderComponent extends IDUUIInstantiatedPipelineComponent{
+public interface IDUUIInstantiatedPipelineReaderComponent extends IDUUIInstantiatedPipelineComponent {
 
     // Helper function to merge byte arrays
     private static byte[] mergeArrays(byte[]... arrays) {
@@ -37,8 +29,8 @@ public interface IDUUIInstantiatedPipelineReaderComponent extends IDUUIInstantia
         return result;
     }
 
-    public static int initComponent(IDUUIInstantiatedPipelineComponent comp, Path filePath) {
-        Triplet<IDUUIUrlAccessible,Long,Long> queue = comp.getComponent();
+    static int initComponent(IDUUIInstantiatedPipelineComponent comp, Path filePath) {
+        Triplet<IDUUIUrlAccessible, Long, Long> queue = comp.getComponent();
         comp.addComponent(queue.getValue0());
         //System.out.printf("Address %s\n",queue.getValue0().generateURL()+ DUUIComposer.V1_COMPONENT_ENDPOINT_TYPESYSTEM);
         String initPath = "/v1/init";
@@ -92,10 +84,10 @@ public interface IDUUIInstantiatedPipelineReaderComponent extends IDUUIInstantia
                 }
                 return nDocs;
             } catch (Exception e) {
-                System.out.printf("Cannot reach endpoint trying again %d/%d...\n",tries+1,100);
+                System.out.printf("Cannot reach endpoint trying again %d/%d...\n", tries + 1, 100);
             }
         }
         return nDocs;
     }
-    
+
 }

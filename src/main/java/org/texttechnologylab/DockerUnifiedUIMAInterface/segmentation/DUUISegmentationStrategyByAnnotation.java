@@ -1,6 +1,5 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.segmentation;
 
-import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import org.apache.uima.UIMAException;
 import org.apache.uima.cas.Type;
 import org.apache.uima.fit.factory.JCasFactory;
@@ -117,13 +116,11 @@ public class DUUISegmentationStrategyByAnnotation extends DUUISegmentationStrate
         if (annotations.isEmpty()) {
             if (!ignoreMissingAnnotations) {
                 throw new IllegalArgumentException("No annotations of type \"" + SegmentationClass.getCanonicalName() + "\" for CAS segmentation found!");
-            }
-            else {
+            } else {
                 System.err.println("No annotations of type \"" + SegmentationClass.getCanonicalName() + "\" for CAS segmentation found!");
                 System.err.println("Running without segmentation, this might take a while.");
             }
-        }
-        else {
+        } else {
             System.out.println("Found " + annotations.size() + " annotations of type \"" + SegmentationClass.getCanonicalName() + "\" for CAS segmentation.");
         }
 
@@ -177,6 +174,7 @@ public class DUUISegmentationStrategyByAnnotation extends DUUISegmentationStrate
 
     /**
      * Apply user roles to the proposed segment.
+     *
      * @return true if break allowed (the default), else false
      */
     boolean checkUserRules(int segmentBegin, int annotationEnd) {
@@ -193,8 +191,9 @@ public class DUUISegmentationStrategyByAnnotation extends DUUISegmentationStrate
 
     /**
      * Create a new CAS for this segment of the document.
+     *
      * @param segmentBegin The begin position of the segment
-     * @param segmentEnd The end position of the segment
+     * @param segmentEnd   The end position of the segment
      */
     void createSegment(int segmentBegin, int segmentEnd) {
         // Note we do not handle errors here as this should normally not fail as annotations should not exceed the
@@ -218,21 +217,20 @@ public class DUUISegmentationStrategyByAnnotation extends DUUISegmentationStrate
         // wheather they are needed by the tool or not
         for (TOP annotation : JCasUtil.select(jCasInput, TOP.class)) {
             boolean hasPosition = false;
-            if (annotation instanceof Annotation) {
+            if (annotation instanceof Annotation positionAnnotation) {
                 hasPosition = true;
                 // Make sure annotation is in segment bounds
                 // TODO or spans the full document???
-                Annotation positionAnnotation = (Annotation) annotation;
                 if (
                         !(positionAnnotation.getBegin() == 0 && positionAnnotation.getEnd() == jCasInput.getDocumentText().length()) &&
-                        !(positionAnnotation.getBegin() >= segmentBegin && positionAnnotation.getEnd() <= segmentEnd)
+                                !(positionAnnotation.getBegin() >= segmentBegin && positionAnnotation.getEnd() <= segmentEnd)
                 ) {
                     continue;
                 }
             }
 
             // Annotation either has no position, or is in segment bounds
-            TOP copy = (TOP) copierNext.copyFs(annotation);
+            TOP copy = copierNext.copyFs(annotation);
             if (hasPosition) {
                 // Shift begin and end to segment
                 Annotation positionCopy = (Annotation) copy;
@@ -338,6 +336,7 @@ public class DUUISegmentationStrategyByAnnotation extends DUUISegmentationStrate
     /**
      * Recombine the segments back into the output cas
      * Note that this should rely only on the given segment cas to allow for parallelization later
+     *
      * @param jCasSegment The segment cas to merge into the output cas
      */
     @Override
@@ -377,8 +376,7 @@ public class DUUISegmentationStrategyByAnnotation extends DUUISegmentationStrate
             }
 
             // Also check if this is an internal "meta annotation"
-            if (annotation instanceof AnnotationComment) {
-                AnnotationComment comment = (AnnotationComment) annotation;
+            if (annotation instanceof AnnotationComment comment) {
                 if (comment.getKey().equals(DUUI_SEGMENTED_POS) || comment.getKey().equals(DUUI_SEGMENTED_REF)) {
                     deletedCounter++;
                     continue;
@@ -386,7 +384,7 @@ public class DUUISegmentationStrategyByAnnotation extends DUUISegmentationStrate
             }
 
             // This is a new annotation, copy
-            TOP copy = (TOP) copier.copyFs(annotation);
+            TOP copy = copier.copyFs(annotation);
             boolean hasPosition = (annotation instanceof Annotation);
             if (hasPosition) {
                 // Shift begin and end back to original

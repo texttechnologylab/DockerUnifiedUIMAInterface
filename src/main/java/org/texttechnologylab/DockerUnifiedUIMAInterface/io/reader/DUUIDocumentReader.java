@@ -51,11 +51,11 @@ public class DUUIDocumentReader implements DUUICollectionReader {
         // restoreFromSavePath(); This needs clarification.
         try {
             preProcessor = builder
-                .inputHandler
-                .listDocuments(
-                    builder.inputPaths,
-                    builder.inputFileExtension,
-                    builder.recursive);
+                    .inputHandler
+                    .listDocuments(
+                            builder.inputPaths,
+                            builder.inputFileExtension,
+                            builder.recursive);
 
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -72,8 +72,8 @@ public class DUUIDocumentReader implements DUUICollectionReader {
         loadedDocuments = new ConcurrentLinkedQueue<>();
 
         composer.addEvent(
-            DUUIEvent.Sender.READER,
-            String.format("Processing %d files.", documentQueue.size())
+                DUUIEvent.Sender.READER,
+                String.format("Processing %d files.", documentQueue.size())
         );
 
         initialSize = documentQueue.size();
@@ -104,101 +104,46 @@ public class DUUIDocumentReader implements DUUICollectionReader {
         }
     }
 
+    public static List<DUUIDocument> loadDocumentsFromPath(String path, String fileExtension, boolean recursive) throws IOException {
+        DUUILocalDocumentHandler handler = new DUUILocalDocumentHandler();
+        return handler.readDocuments(
+                handler
+                        .listDocuments(path, fileExtension, recursive)
+                        .stream()
+                        .map(DUUIDocument::getPath)
+                        .collect(Collectors.toList())
+        );
+    }
+
     private void removeSmallFiles() {
         composer.addEvent(
-            DUUIEvent.Sender.READER,
-            String.format("Skip files smaller than %d bytes.", builder.minimumDocumentSize));
+                DUUIEvent.Sender.READER,
+                String.format("Skip files smaller than %d bytes.", builder.minimumDocumentSize));
 
         composer.addEvent(
-            DUUIEvent.Sender.READER,
-            String.format("Number of files before skipping %d.", preProcessor.size()));
+                DUUIEvent.Sender.READER,
+                String.format("Number of files before skipping %d.", preProcessor.size()));
 
         preProcessor = preProcessor
-            .stream()
-            .filter(document -> document.getSize() >= builder.minimumDocumentSize)
-            .collect(Collectors.toList());
+                .stream()
+                .filter(document -> document.getSize() >= builder.minimumDocumentSize)
+                .collect(Collectors.toList());
 
         composer.addEvent(
-            DUUIEvent.Sender.READER,
-            String.format("Number of files after skipping %d.", preProcessor.size()));
+                DUUIEvent.Sender.READER,
+                String.format("Number of files after skipping %d.", preProcessor.size()));
     }
 
     private void sortFilesAscending() {
         preProcessor = preProcessor
-            .stream()
-            .sorted(Comparator.comparingLong(DUUIDocument::getSize))
-            .collect(Collectors.toList());
+                .stream()
+                .sorted(Comparator.comparingLong(DUUIDocument::getSize))
+                .collect(Collectors.toList());
 
         composer.addEvent(
-            DUUIEvent.Sender.READER,
-            "Sorted files by size in ascending order"
-        );
-    }
-
-    private void removeDocumentsInTarget() {
-        if (builder.outputHandler == null) return;
-
-        composer.addEvent(
-            DUUIEvent.Sender.READER,
-            String.format("Checking output location %s for existing documents.", builder.outputPath));
-
-
-        List<DUUIDocument> documentsInTarget;
-
-        try {
-            documentsInTarget = builder
-                .outputHandler
-                .listDocuments(
-                    builder.outputPath,
-                    builder.outputFileExtension,
-                    builder.recursive);
-        } catch (IOException e) {
-            return;
-        }
-
-
-        if (documentsInTarget.isEmpty()) {
-            composer.addEvent(
                 DUUIEvent.Sender.READER,
-                "Found 0 documents in output location. Keeping all files from input location.");
-            return;
-        }
-
-        composer.addEvent(
-            DUUIEvent.Sender.READER,
-            String.format(
-                "Found %d documents in output location. Checking against %d documents in input location.",
-                documentsInTarget.size(), preProcessor.size()));
-
-
-        Set<String> existingFiles = documentsInTarget
-            .stream()
-            .map(DUUIDocument::getPath)
-            .map(path -> path.replaceAll(builder.outputFileExtension, ""))
-            .map(path -> path.replaceAll(builder.inputFileExtension, ""))
-            .map(path -> Paths.get(path).getFileName().toString())
-            .collect(Collectors.toSet());
-
-        int removedCounter = 0;
-
-        List<DUUIDocument> preProcessorCopy = new ArrayList<>(preProcessor);
-
-        for (DUUIDocument document : preProcessorCopy) {
-            String stem = document
-                .getName()
-                .replaceAll(builder.inputFileExtension, "")
-                .replaceAll(builder.outputFileExtension, "");
-
-            if (!existingFiles.contains(stem)) continue;
-            preProcessor.remove(document);
-            removedCounter++;
-        }
-
-        composer.addEvent(
-            DUUIEvent.Sender.READER,
-            String.format(
-                "Removed %d documents from input location that are already present in output location. Keeping %d",
-                removedCounter, preProcessor.size()));
+                "Sorted files by size in ascending order"
+        );
     }
 
     public long getMaximumMemory() {
@@ -217,6 +162,72 @@ public class DUUIDocumentReader implements DUUICollectionReader {
     @Override
     public AdvancedProgressMeter getProgress() {
         return null;
+    }
+
+    private void removeDocumentsInTarget() {
+        if (builder.outputHandler == null) return;
+
+        composer.addEvent(
+                DUUIEvent.Sender.READER,
+                String.format("Checking output location %s for existing documents.", builder.outputPath));
+
+
+        List<DUUIDocument> documentsInTarget;
+
+        try {
+            documentsInTarget = builder
+                    .outputHandler
+                    .listDocuments(
+                            builder.outputPath,
+                            builder.outputFileExtension,
+                            builder.recursive);
+        } catch (IOException e) {
+            return;
+        }
+
+
+        if (documentsInTarget.isEmpty()) {
+            composer.addEvent(
+                    DUUIEvent.Sender.READER,
+                    "Found 0 documents in output location. Keeping all files from input location.");
+            return;
+        }
+
+        composer.addEvent(
+                DUUIEvent.Sender.READER,
+                String.format(
+                        "Found %d documents in output location. Checking against %d documents in input location.",
+                        documentsInTarget.size(), preProcessor.size()));
+
+
+        Set<String> existingFiles = documentsInTarget
+                .stream()
+                .map(DUUIDocument::getPath)
+                .map(path -> path.replaceAll(builder.outputFileExtension, ""))
+                .map(path -> path.replaceAll(builder.inputFileExtension, ""))
+                .map(path -> Paths.get(path).getFileName().toString())
+                .collect(Collectors.toSet());
+
+        int removedCounter = 0;
+
+        List<DUUIDocument> preProcessorCopy = new ArrayList<>(preProcessor);
+
+        for (DUUIDocument document : preProcessorCopy) {
+            String stem = document
+                    .getName()
+                    .replaceAll(builder.inputFileExtension, "")
+                    .replaceAll(builder.outputFileExtension, "");
+
+            if (!existingFiles.contains(stem)) continue;
+            preProcessor.remove(document);
+            removedCounter++;
+        }
+
+        composer.addEvent(
+                DUUIEvent.Sender.READER,
+                String.format(
+                        "Removed %d documents from input location that are already present in output location. Keeping %d",
+                        removedCounter, preProcessor.size()));
     }
 
     public DUUIDocument getNextDocument(JCas pCas) {
@@ -239,18 +250,18 @@ public class DUUIDocumentReader implements DUUICollectionReader {
         document.setStatus(DUUIStatus.DESERIALIZE);
 
         composer.addEvent(
-            DUUIEvent.Sender.READER,
-            String.format(
-                "Document %s decoded after %d ms",
-                document.getPath(),
-                timer.getDuration())
+                DUUIEvent.Sender.READER,
+                String.format(
+                        "Document %s decoded after %d ms",
+                        document.getPath(),
+                        timer.getDuration())
         );
 
         composer.addEvent(
-            DUUIEvent.Sender.READER,
-            String.format(
-                "Deserializing document %s",
-                document.getPath())
+                DUUIEvent.Sender.READER,
+                String.format(
+                        "Deserializing document %s",
+                        document.getPath())
         );
 
         timer.restart();
@@ -263,11 +274,11 @@ public class DUUIDocumentReader implements DUUICollectionReader {
 
         timer.stop();
         composer.addEvent(
-            DUUIEvent.Sender.READER,
-            String.format(
-                "Document %s deserialized after %d ms",
-                document.getPath(),
-                timer.getDuration())
+                DUUIEvent.Sender.READER,
+                String.format(
+                        "Document %s deserialized after %d ms",
+                        document.getPath(),
+                        timer.getDuration())
         );
 
         document.setDurationDeserialize(timer.getDuration());
@@ -292,80 +303,6 @@ public class DUUIDocumentReader implements DUUICollectionReader {
         }
 
         return document;
-    }
-
-    @Override
-    public void getNextCas(JCas pCas) {
-        if (composer.shouldShutdown()) {
-            return;
-        }
-
-        DUUIDocument document = pollDocument();
-        if (document == null) return;
-        document.setStartedAt();
-
-        Timer timer = new Timer();
-
-        timer.start();
-        InputStream decodedDocument = decodeDocument(document, timer);
-        timer.stop();
-
-        document.setDurationDecode(timer.getDuration());
-
-        document.setStatus(DUUIStatus.DESERIALIZE);
-
-        composer.addEvent(
-            DUUIEvent.Sender.READER,
-            String.format(
-                "Document %s decoded after %d ms",
-                document.getPath(),
-                timer.getDuration())
-        );
-
-        composer.addEvent(
-            DUUIEvent.Sender.READER,
-            String.format(
-                "Deserializing document %s",
-                document.getPath())
-        );
-
-        timer.restart();
-
-        try {
-            XmiCasDeserializer.deserialize(decodedDocument, pCas.getCas(), true);
-        } catch (Exception e) {
-            pCas.setDocumentText(document.getText().trim());
-        }
-
-        timer.stop();
-        composer.addEvent(
-            DUUIEvent.Sender.READER,
-            String.format(
-                "Document %s deserialized after %d ms",
-                document.getPath(),
-                timer.getDuration())
-        );
-
-        document.setDurationDeserialize(timer.getDuration());
-        document.setStatus(DUUIStatus.WAITING);
-
-        if (builder.addMetadata) {
-            if (JCasUtil.select(pCas, DocumentMetaData.class).isEmpty()) {
-                DocumentMetaData metadata = DocumentMetaData.create(pCas);
-                metadata.setDocumentId(document.getName());
-                metadata.setDocumentTitle(document.getName());
-                metadata.setDocumentUri(document.getPath());
-                metadata.addToIndexes();
-            } else {
-                DocumentMetaData metaData = JCasUtil.selectSingle(pCas, DocumentMetaData.class);
-                metaData.setDocumentUri(document.getPath());
-                metaData.addToIndexes();
-            }
-        }
-
-        if (builder.language != null && !builder.language.isEmpty()) {
-            pCas.setDocumentLanguage(builder.language);
-        }
     }
 
     private DUUIDocument pollDocument() {
@@ -400,14 +337,88 @@ public class DUUIDocumentReader implements DUUICollectionReader {
         return document;
     }
 
+    @Override
+    public void getNextCas(JCas pCas) {
+        if (composer.shouldShutdown()) {
+            return;
+        }
+
+        DUUIDocument document = pollDocument();
+        if (document == null) return;
+        document.setStartedAt();
+
+        Timer timer = new Timer();
+
+        timer.start();
+        InputStream decodedDocument = decodeDocument(document, timer);
+        timer.stop();
+
+        document.setDurationDecode(timer.getDuration());
+
+        document.setStatus(DUUIStatus.DESERIALIZE);
+
+        composer.addEvent(
+                DUUIEvent.Sender.READER,
+                String.format(
+                        "Document %s decoded after %d ms",
+                        document.getPath(),
+                        timer.getDuration())
+        );
+
+        composer.addEvent(
+                DUUIEvent.Sender.READER,
+                String.format(
+                        "Deserializing document %s",
+                        document.getPath())
+        );
+
+        timer.restart();
+
+        try {
+            XmiCasDeserializer.deserialize(decodedDocument, pCas.getCas(), true);
+        } catch (Exception e) {
+            pCas.setDocumentText(document.getText().trim());
+        }
+
+        timer.stop();
+        composer.addEvent(
+                DUUIEvent.Sender.READER,
+                String.format(
+                        "Document %s deserialized after %d ms",
+                        document.getPath(),
+                        timer.getDuration())
+        );
+
+        document.setDurationDeserialize(timer.getDuration());
+        document.setStatus(DUUIStatus.WAITING);
+
+        if (builder.addMetadata) {
+            if (JCasUtil.select(pCas, DocumentMetaData.class).isEmpty()) {
+                DocumentMetaData metadata = DocumentMetaData.create(pCas);
+                metadata.setDocumentId(document.getName());
+                metadata.setDocumentTitle(document.getName());
+                metadata.setDocumentUri(document.getPath());
+                metadata.addToIndexes();
+            } else {
+                DocumentMetaData metaData = JCasUtil.selectSingle(pCas, DocumentMetaData.class);
+                metaData.setDocumentUri(document.getPath());
+                metaData.addToIndexes();
+            }
+        }
+
+        if (builder.language != null && !builder.language.isEmpty()) {
+            pCas.setDocumentLanguage(builder.language);
+        }
+    }
+
     private InputStream decodeDocument(DUUIDocument document, Timer timer) {
         document.setStatus(DUUIStatus.DECODE);
 
         composer.addEvent(
-            DUUIEvent.Sender.READER,
-            String.format(
-                "Decoding document %s",
-                document.getPath())
+                DUUIEvent.Sender.READER,
+                String.format(
+                        "Decoding document %s",
+                        document.getPath())
         );
 
         timer.start();
@@ -421,29 +432,6 @@ public class DUUIDocumentReader implements DUUICollectionReader {
         }
         timer.stop();
         return decodedFile;
-    }
-
-    public CompletableFuture<Integer> getAsyncNextByteArray() {
-        DUUIDocument document = documentQueue.poll();
-        if (document == null) return CompletableFuture.completedFuture(1);
-
-        return CompletableFuture.supplyAsync(
-            () -> {
-                try {
-                    return builder.inputHandler.readDocument(document.getPath());
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-            }
-        ).thenApply(_document -> {
-            loadedDocuments.add(_document);
-            long factor = 1;
-            if (_document.getName().endsWith(".gz") || _document.getName().endsWith(".xz")) {
-                factor = 10;
-            }
-            currentMemorySize.getAndAdd(factor * document.getSize());
-            return 0;
-        });
     }
 
     @Override
@@ -473,36 +461,27 @@ public class DUUIDocumentReader implements DUUICollectionReader {
         return builder.outputHandler != null;
     }
 
-    public void upload(DUUIDocument document, JCas cas) throws IOException, SAXException {
-        if (builder.outputHandler == null || document.getUploadProgress() != 0) return;
+    public CompletableFuture<Integer> getAsyncNextByteArray() {
+        DUUIDocument document = documentQueue.poll();
+        if (document == null) return CompletableFuture.completedFuture(1);
 
-        composer.addEvent(DUUIEvent.Sender.READER, String.format("Uploading document %s", document.getPath()));
-
-        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-        XmiCasSerializer xmiCasSerializer = new XmiCasSerializer(null);
-        XMLSerializer sax2xml = new XMLSerializer(outputStream);
-
-        xmiCasSerializer.serialize(cas.getCas(), sax2xml.getContentHandler(), null, null, null);
-
-        String outputName = document
-            .getName()
-            .replace(document.getFileExtension(), builder.outputFileExtension);
-
-        DUUIDocument temp = new DUUIDocument(
-            outputName,
-            builder.outputPath + "/" + outputName,
-            outputStream.toByteArray()
-        );
-
-        builder
-            .outputHandler
-            .writeDocument(temp, builder.outputPath);
-
-        long sizeStore = document.getSize();
-        document.setBytes(new byte[]{});
-        document.setSize(sizeStore);
-        document.setUploadProgress(temp.getUploadProgress());
-        document.setStatus(DUUIStatus.COMPLETED);
+        return CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        return builder.inputHandler.readDocument(document.getPath());
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+        ).thenApply(_document -> {
+            loadedDocuments.add(_document);
+            long factor = 1;
+            if (_document.getName().endsWith(".gz") || _document.getName().endsWith(".xz")) {
+                factor = 10;
+            }
+            currentMemorySize.getAndAdd(factor * document.getSize());
+            return 0;
+        });
     }
 
     public static final class Builder {
@@ -606,14 +585,35 @@ public class DUUIDocumentReader implements DUUICollectionReader {
 
     }
 
-    public static List<DUUIDocument> loadDocumentsFromPath(String path, String fileExtension, boolean recursive) throws IOException {
-        DUUILocalDocumentHandler handler = new DUUILocalDocumentHandler();
-        return handler.readDocuments(
-            handler
-                .listDocuments(path, fileExtension, recursive)
-                .stream()
-                .map(DUUIDocument::getPath)
-                .collect(Collectors.toList())
+    public void upload(DUUIDocument document, JCas cas) throws IOException, SAXException {
+        if (builder.outputHandler == null || document.getUploadProgress() != 0) return;
+
+        composer.addEvent(DUUIEvent.Sender.READER, String.format("Uploading document %s", document.getPath()));
+
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        XmiCasSerializer xmiCasSerializer = new XmiCasSerializer(null);
+        XMLSerializer sax2xml = new XMLSerializer(outputStream);
+
+        xmiCasSerializer.serialize(cas.getCas(), sax2xml.getContentHandler(), null, null, null);
+
+        String outputName = document
+                .getName()
+                .replace(document.getFileExtension(), builder.outputFileExtension);
+
+        DUUIDocument temp = new DUUIDocument(
+                outputName,
+                builder.outputPath + "/" + outputName,
+                outputStream.toByteArray()
         );
+
+        builder
+                .outputHandler
+                .writeDocument(temp, builder.outputPath);
+
+        long sizeStore = document.getSize();
+        document.setBytes(new byte[]{});
+        document.setSize(sizeStore);
+        document.setUploadProgress(temp.getUploadProgress());
+        document.setStatus(DUUIStatus.COMPLETED);
     }
 }

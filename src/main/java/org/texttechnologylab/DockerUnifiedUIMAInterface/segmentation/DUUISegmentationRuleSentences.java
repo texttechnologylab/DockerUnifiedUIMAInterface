@@ -43,8 +43,8 @@ public class DUUISegmentationRuleSentences implements IDUUISegmentationRule {
         // Also check simple characters like line breaks, tabs, etc.
 
         Map<Character, Integer> leftBracketCount = new HashMap<>();
-        int leftStart = Math.max(0, end-1);
-        int leftEnd = Math.max(0, end-windowSize);
+        int leftStart = Math.max(0, end - 1);
+        int leftEnd = Math.max(0, end - windowSize);
         for (int i = leftStart; i > leftEnd; i--) {
             try {
                 Character c = docText.charAt(i);
@@ -66,15 +66,14 @@ public class DUUISegmentationRuleSentences implements IDUUISegmentationRule {
                     leftBracketCount.put(c, leftBracketCount.getOrDefault(c, 0) + 1);
                     // we dont break here as other brackets might be in the window as well
                 }
-            }
-            catch (Exception e) {
+            } catch (Exception e) {
                 //
             }
         }
 
         Map<Character, Integer> rightBracketCount = new HashMap<>();
-        int rightStart = Math.min(docText.length()-1, end);
-        int rightEnd = Math.min(docText.length()-1, end+windowSize);
+        int rightStart = Math.min(docText.length() - 1, end);
+        int rightEnd = Math.min(docText.length() - 1, end + windowSize);
         for (int i = rightStart; i <= rightEnd; i++) {
             try {
                 Character c = docText.charAt(i);
@@ -96,8 +95,7 @@ public class DUUISegmentationRuleSentences implements IDUUISegmentationRule {
                     rightBracketCount.put(c, rightBracketCount.getOrDefault(c, 0) - 1);
                     // we dont break here as other brackets might be in the window as well
                 }
-            }
-            catch (Exception e) {
+            } catch (Exception e) {
                 //
             }
         }

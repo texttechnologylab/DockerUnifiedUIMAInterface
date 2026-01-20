@@ -38,12 +38,12 @@ import java.util.Set;
 
 public class DUUICustomRestricedLuaJavaLib extends VarArgFunction {
 
-    static final int INIT           = 0;
-    static final int BINDCLASS      = 1;
-    static final int NEWINSTANCE	= 2;
-    static final int NEW			= 3;
-    static final int CREATEPROXY	= 4;
-    static final int LOADLIB		= 5;
+    static final int INIT = 0;
+    static final int BINDCLASS = 1;
+    static final int NEWINSTANCE = 2;
+    static final int NEW = 3;
+    static final int CREATEPROXY = 4;
+    static final int LOADLIB = 5;
 
     static final String[] NAMES = {
             "bindClass",
@@ -55,7 +55,7 @@ public class DUUICustomRestricedLuaJavaLib extends VarArgFunction {
 
     static final int METHOD_MODIFIERS_VARARGS = 0x80;
 
-    private Set<String> _allowedClasses;
+    private final Set<String> _allowedClasses;
 
     public DUUICustomRestricedLuaJavaLib(Set<String> allowedClasses) {
         _allowedClasses = allowedClasses;
@@ -74,15 +74,15 @@ public class DUUICustomRestricedLuaJavaLib extends VarArgFunction {
 
     public Varargs invoke(Varargs args) {
         try {
-            switch ( opcode ) {
+            switch (opcode) {
                 case INIT: {
                     // LuaValue modname = args.arg1();
                     LuaValue env = args.arg(2);
                     LuaTable t = new LuaTable();
                     int var5 = 0;
 
-                    for(int var6 = NAMES.length; var5 < var6; ++var5) {
-                        LibFunction var7 = (LibFunction)new DUUICustomRestricedLuaJavaLib(NAMES[var5],BINDCLASS + var5,_allowedClasses);
+                    for (int var6 = NAMES.length; var5 < var6; ++var5) {
+                        LibFunction var7 = new DUUICustomRestricedLuaJavaLib(NAMES[var5], BINDCLASS + var5, _allowedClasses);
                         t.set(NAMES[var5], var7);
                     }
                     env.set("luajava", t);
@@ -92,35 +92,35 @@ public class DUUICustomRestricedLuaJavaLib extends VarArgFunction {
                 case BINDCLASS: {
                     final Class clazz = classForName(args.checkjstring(1));
                     Class o = Class.forName("org.luaj.vm2.lib.jse.JavaClass");
-                    Method method = o.getDeclaredMethod("forClass",Class.class);
+                    Method method = o.getDeclaredMethod("forClass", Class.class);
                     method.setAccessible(true);
-                    return (Varargs) method.invoke(null,clazz);
+                    return (Varargs) method.invoke(null, clazz);
                 }
                 case NEWINSTANCE:
                 case NEW: {
                     // get constructor
                     final LuaValue c = args.checkvalue(1);
-                    final Class clazz = (opcode==NEWINSTANCE? classForName(c.tojstring()): (Class) c.checkuserdata(Class.class));
+                    final Class clazz = (opcode == NEWINSTANCE ? classForName(c.tojstring()) : (Class) c.checkuserdata(Class.class));
                     final Varargs consargs = args.subargs(2);
                     Class o = Class.forName("org.luaj.vm2.lib.jse.JavaClass");
-                    Method method = o.getDeclaredMethod("forClass",Class.class);
+                    Method method = o.getDeclaredMethod("forClass", Class.class);
                     method.setAccessible(true);
-                    Object javaclass = method.invoke(null,clazz);
+                    Object javaclass = method.invoke(null, clazz);
                     Method constructor = javaclass.getClass().getMethod("getConstructor");
                     constructor.setAccessible(true);
-                    return ((LuaValue)constructor.invoke(javaclass)).invoke(consargs);
+                    return ((LuaValue) constructor.invoke(javaclass)).invoke(consargs);
                 }
 
                 case CREATEPROXY: {
-                    final int niface = args.narg()-1;
-                    if ( niface <= 0 )
+                    final int niface = args.narg() - 1;
+                    if (niface <= 0)
                         throw new LuaError("no interfaces");
-                    final LuaValue lobj = args.checktable(niface+1);
+                    final LuaValue lobj = args.checktable(niface + 1);
 
                     // get the interfaces
                     final Class[] ifaces = new Class[niface];
-                    for ( int i=0; i<niface; i++ )
-                        ifaces[i] = classForName(args.checkjstring(i+1));
+                    for (int i = 0; i < niface; i++)
+                        ifaces[i] = classForName(args.checkjstring(i + 1));
 
                     // create the invocation handler
                     InvocationHandler handler = new ProxyInvocationHandler(lobj);
@@ -129,23 +129,23 @@ public class DUUICustomRestricedLuaJavaLib extends VarArgFunction {
                     Object proxy = Proxy.newProxyInstance(getClass().getClassLoader(), ifaces, handler);
 
                     // return the proxy
-                    return LuaValue.userdataOf( proxy );
+                    return LuaValue.userdataOf(proxy);
                 }
                 case LOADLIB: {
                     // get constructor
                     String classname = args.checkjstring(1);
                     String methodname = args.checkjstring(2);
                     Class clazz = classForName(classname);
-                    Method method = clazz.getMethod(methodname, new Class[] {});
-                    Object result = method.invoke(clazz, new Object[] {});
-                    if ( result instanceof LuaValue ) {
+                    Method method = clazz.getMethod(methodname);
+                    Object result = method.invoke(clazz);
+                    if (result instanceof LuaValue) {
                         return (LuaValue) result;
                     } else {
                         return NIL;
                     }
                 }
                 default:
-                    throw new LuaError("not yet supported: "+this);
+                    throw new LuaError("not yet supported: " + this);
             }
         } catch (LuaError e) {
             throw e;
@@ -162,39 +162,34 @@ public class DUUICustomRestricedLuaJavaLib extends VarArgFunction {
 
     // load classes using app loader to allow luaj to be used as an extension
     protected Class classForName(String name) throws ClassNotFoundException {
-        if(_allowedClasses.contains(name)) {
+        if (_allowedClasses.contains(name)) {
             return Class.forName(name, true, ClassLoader.getSystemClassLoader());
         }
-        throw new RuntimeException("Trying to load restricted class \""+name+"\"");
+        throw new RuntimeException("Trying to load restricted class \"" + name + "\"");
     }
 
-    private static final class ProxyInvocationHandler implements InvocationHandler {
-        private final LuaValue lobj;
-
-        private ProxyInvocationHandler(LuaValue lobj) {
-            this.lobj = lobj;
-        }
+    private record ProxyInvocationHandler(LuaValue lobj) implements InvocationHandler {
 
         public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
 
             String name = method.getName();
             LuaValue func = lobj.get(name);
-            if ( func.isnil() )
+            if (func.isnil())
                 return null;
             boolean isvarargs = ((method.getModifiers() & METHOD_MODIFIERS_VARARGS) != 0);
-            int n = args!=null? args.length: 0;
+            int n = args != null ? args.length : 0;
             LuaValue[] v;
-            if ( isvarargs ) {
+            if (isvarargs) {
                 Object o = args[--n];
-                int m = Array.getLength( o );
-                v = new LuaValue[n+m];
-                for ( int i=0; i<n; i++ )
+                int m = Array.getLength(o);
+                v = new LuaValue[n + m];
+                for (int i = 0; i < n; i++)
                     v[i] = CoerceJavaToLua.coerce(args[i]);
-                for ( int i=0; i<m; i++ )
-                    v[i+n] = CoerceJavaToLua.coerce(Array.get(o,i));
+                for (int i = 0; i < m; i++)
+                    v[i + n] = CoerceJavaToLua.coerce(Array.get(o, i));
             } else {
                 v = new LuaValue[n];
-                for ( int i=0; i<n; i++ )
+                for (int i = 0; i < n; i++)
                     v[i] = CoerceJavaToLua.coerce(args[i]);
             }
             LuaValue result = func.invoke(v).arg1();

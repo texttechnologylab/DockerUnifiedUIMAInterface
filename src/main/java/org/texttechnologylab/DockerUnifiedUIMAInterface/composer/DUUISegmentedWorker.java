@@ -62,8 +62,7 @@ public class DUUISegmentedWorker implements Runnable {
                     } else {
                         break;
                     }
-                }
-                catch (Exception e) {
+                } catch (Exception e) {
                     e.printStackTrace();
                 }
             }
@@ -89,8 +88,7 @@ public class DUUISegmentedWorker implements Runnable {
                 e.printStackTrace();
                 System.err.println(e.getMessage());
                 System.err.println("Error in pipeline part " + pipelinePart.getUUID() + ", continuing with next document!");
-            }
-            finally {
+            } finally {
                 collectionReader.updateCas(jCas, pipelinePart.getUUID(), status, pipelineUUIDs);
             }
         }
