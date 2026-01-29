@@ -295,12 +295,7 @@ public class FineReaderEventHandler extends DefaultHandler {
                 List<AbbyyToken> tokens,
                 boolean lastTokenWasSpace
         ) {
-            this.pages = ImmutableList.copyOf(pages);
-            this.blocks = ImmutableList.copyOf(blocks);
-            this.paragraphs = ImmutableList.copyOf(paragraphs);
-            this.lines = ImmutableList.copyOf(lines);
-            this.tokens = ImmutableList.copyOf(tokens);
-            this.lastTokenWasSpace = lastTokenWasSpace;
+            this(ImmutableList.copyOf(pages), ImmutableList.copyOf(blocks), ImmutableList.copyOf(paragraphs), ImmutableList.copyOf(lines), ImmutableList.copyOf(tokens), lastTokenWasSpace);
         }
     }
 
