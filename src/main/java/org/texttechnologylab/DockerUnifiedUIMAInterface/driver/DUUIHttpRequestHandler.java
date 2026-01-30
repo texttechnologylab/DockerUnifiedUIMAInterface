@@ -38,7 +38,7 @@ public class DUUIHttpRequestHandler {
      * Provides various convenience methods for the retrieval and decoding of the body.
      *
      * @param statusCode An HTTP status code
-     * @param body The response body in a byte array
+     * @param body       The response body in a byte array
      */
     public record Response(int statusCode, byte[] body) {
         /**

@@ -18,7 +18,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
  */
 public class DUUISqliteStorageBackend implements IDUUIStorageBackend {
     private ConcurrentLinkedQueue<Connection> _client;
-    private String _sqliteUrl;
+    private final String _sqliteUrl;
 
 
     /**
@@ -26,24 +26,11 @@ public class DUUISqliteStorageBackend implements IDUUIStorageBackend {
      */
     private final boolean trackErrorDocs;
 
-    /**
-     * Should error documents be tracked in the database?
-     * @return true if error documents should be tracked, false otherwise
-     */
-    @Override
-    public boolean shouldTrackErrorDocs() {
-        return trackErrorDocs;
-    }
-
-    public DUUISqliteStorageBackend(String sqliteurl) throws SQLException, IOException, InterruptedException {
-        this(sqliteurl, true);
-    }
-
     public DUUISqliteStorageBackend(String sqliteurl, boolean trackErrorDocs) throws IOException, SQLException, InterruptedException {
         this.trackErrorDocs = trackErrorDocs;
 
         _client = null;
-        _sqliteUrl = "jdbc:sqlite:"+sqliteurl;
+        _sqliteUrl = "jdbc:sqlite:" + sqliteurl;
 
         _client = null;
         try {
@@ -71,26 +58,40 @@ public class DUUISqliteStorageBackend implements IDUUIStorageBackend {
         _client.add(conn);
     }
 
+    public DUUISqliteStorageBackend(String sqliteurl) throws SQLException, IOException, InterruptedException {
+        this(sqliteurl, true);
+    }
+
+    /**
+     * Should error documents be tracked in the database?
+     *
+     * @return true if error documents should be tracked, false otherwise
+     */
+    @Override
+    public boolean shouldTrackErrorDocs() {
+        return trackErrorDocs;
+    }
+
     public DUUISqliteStorageBackend withConnectionPoolSize(int poolsize) throws SQLException {
-        for(int i = 1; i < poolsize; i++) {
+        for (int i = 1; i < poolsize; i++) {
             _client = new ConcurrentLinkedQueue<>();
             _client.add(DriverManager.getConnection(_sqliteUrl));
-            System.out.printf("[DUUISqliteStorageBackend] Populated connection pool %d/%d\n",i,poolsize);
+            System.out.printf("[DUUISqliteStorageBackend] Populated connection pool %d/%d\n", i, poolsize);
         }
         return this;
     }
 
     public void shutdown() throws UnknownHostException {
-        System.out.printf("[DUUISqliteStorageBackend] Shutting down.\n");
+        System.out.print("[DUUISqliteStorageBackend] Shutting down.\n");
     }
 
     public void addNewRun(String name, DUUIComposer composer) throws SQLException {
         Connection conn = null;
-        while(conn == null) {
+        while (conn == null) {
             conn = _client.poll();
         }
 
-        PreparedStatement dStmt = conn.prepareStatement("DELETE FROM pipeline WHERE name = ?");;
+        PreparedStatement dStmt = conn.prepareStatement("DELETE FROM pipeline WHERE name = ?");
         dStmt.setString(1, name);
         dStmt.execute();
 
@@ -109,20 +110,20 @@ public class DUUISqliteStorageBackend implements IDUUIStorageBackend {
 
 
         PreparedStatement stmt = conn.prepareStatement("INSERT INTO pipeline (name,workers) VALUES (?,?)");
-        stmt.setString(1,name);
-        stmt.setLong(2,composer.getWorkerCount());
+        stmt.setString(1, name);
+        stmt.setLong(2, composer.getWorkerCount());
         stmt.executeUpdate();
 
-        for(DUUIPipelineComponent comp : composer.getPipeline()) {
+        for (DUUIPipelineComponent comp : composer.getPipeline()) {
             String value = comp.toJson();
 
             // Note switched from "value.hashCode()" to the "finalized" hash to be able to match the value to table "pipeline_document_perf"
             long hash = comp.getFinalizedRepresentationHash();
 
             PreparedStatement stmt2 = conn.prepareStatement("INSERT INTO pipeline_component (hash,name,description) VALUES (?,?,?)");
-            stmt2.setLong(1,hash);
-            stmt2.setString(2,name);
-            stmt2.setString(3,value);
+            stmt2.setLong(1, hash);
+            stmt2.setString(2, name);
+            stmt2.setString(3, value);
             stmt2.executeUpdate();
         }
         _client.add(conn);
@@ -131,7 +132,7 @@ public class DUUISqliteStorageBackend implements IDUUIStorageBackend {
     @Override
     public void addMetricsForDocument(DUUIPipelineDocumentPerformance perf) {
         Connection conn = null;
-        while(conn == null) {
+        while (conn == null) {
             conn = _client.poll();
         }
         try {
@@ -140,30 +141,29 @@ public class DUUISqliteStorageBackend implements IDUUIStorageBackend {
             stmt.setLong(1, perf.getDocumentSize());
             stmt.setLong(2, perf.getDocumentWaitTime());
             stmt.setLong(3, perf.getTotalTime());
-            stmt.setString(4,perf.getDocument());
+            stmt.setString(4, perf.getDocument());
             stmt.executeUpdate();
-        }
-        catch(SQLException e) {
+        } catch (SQLException e) {
             e.printStackTrace();
         }
 
-        for(DUUIPipelinePerformancePoint points : perf.getPerformancePoints()) {
+        for (DUUIPipelinePerformancePoint points : perf.getPerformancePoints()) {
             PreparedStatement stmt2 = null;
             try {
                 stmt2 = conn.prepareStatement("INSERT INTO pipeline_document_perf(pipelinename,componenthash,durationSerialize,durationDeserialize,durationAnnotator,durationMutexWait,durationComponentTotal,totalAnnotations, documentSize, serializedSize, error,document) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)");
 
-                stmt2.setString(1,perf.getRunKey());
-                stmt2.setLong(2,Long.parseLong(points.getKey()));
-                stmt2.setLong(3,points.getDurationSerialize());
-                stmt2.setLong(4,points.getDurationDeserialize());
-                stmt2.setLong(5,points.getDurationAnnotator());
-                stmt2.setLong(6,points.getDurationMutexWait());
-                stmt2.setLong(7,points.getDurationComponentTotal());
-                stmt2.setLong(8,points.getNumberOfAnnotations());
-                stmt2.setLong(9,points.getDocumentSize());
-                stmt2.setLong(10,points.getSerializedSize());
-                stmt2.setString(11,points.getError());
-                stmt2.setString(12,points.getDocument());
+                stmt2.setString(1, perf.getRunKey());
+                stmt2.setLong(2, Long.parseLong(points.getKey()));
+                stmt2.setLong(3, points.getDurationSerialize());
+                stmt2.setLong(4, points.getDurationDeserialize());
+                stmt2.setLong(5, points.getDurationAnnotator());
+                stmt2.setLong(6, points.getDurationMutexWait());
+                stmt2.setLong(7, points.getDurationComponentTotal());
+                stmt2.setLong(8, points.getNumberOfAnnotations());
+                stmt2.setLong(9, points.getDocumentSize());
+                stmt2.setLong(10, points.getSerializedSize());
+                stmt2.setString(11, points.getError());
+                stmt2.setString(12, points.getDocument());
                 stmt2.executeUpdate();
             } catch (SQLException e) {
                 e.printStackTrace();
@@ -175,15 +175,16 @@ public class DUUISqliteStorageBackend implements IDUUIStorageBackend {
     public IDUUIPipelineComponent loadComponent(String id) {
         return new IDUUIPipelineComponent();
     }
+
     public void finalizeRun(String name, Instant start, Instant end) throws SQLException {
         Connection conn = null;
-        while(conn == null) {
+        while (conn == null) {
             conn = _client.poll();
         }
         PreparedStatement stmt2 = conn.prepareStatement("INSERT INTO pipeline_perf(name,startTime,endTime) VALUES (?,?,?)");
-        stmt2.setString(1,name);
-        stmt2.setLong(2,start.toEpochMilli());
-        stmt2.setLong(3,end.toEpochMilli());
+        stmt2.setString(1, name);
+        stmt2.setLong(2, start.toEpochMilli());
+        stmt2.setLong(3, end.toEpochMilli());
         stmt2.executeUpdate();
         _client.add(conn);
     }

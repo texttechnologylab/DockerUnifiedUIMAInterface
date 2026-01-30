@@ -17,7 +17,7 @@ public class DUUISegmentationStrategyByDelemiter extends DUUISegmentationStrateg
     private int iLength = 500000;
     private String sDelemiter;
 
-    private Set<String> currentOffset = new HashSet<>();
+    private final Set<String> currentOffset = new HashSet<>();
 
     private JCas emptyCas = null;
 
@@ -29,8 +29,8 @@ public class DUUISegmentationStrategyByDelemiter extends DUUISegmentationStrateg
         super();
     }
 
-    public DUUISegmentationStrategyByDelemiter withLength(int iLength){
-        this.iLength=iLength;
+    public DUUISegmentationStrategyByDelemiter withLength(int iLength) {
+        this.iLength = iLength;
         return this;
     }
 
@@ -48,12 +48,12 @@ public class DUUISegmentationStrategyByDelemiter extends DUUISegmentationStrateg
         return this;
     }
 
-    public int getSegments(){
+    public int getSegments() {
         return this.currentOffset.size();
     }
 
-    public DUUISegmentationStrategyByDelemiter withDelemiter(String sValue){
-        this.sDelemiter=sValue;
+    public DUUISegmentationStrategyByDelemiter withDelemiter(String sValue) {
+        this.sDelemiter = sValue;
         return this;
     }
 
@@ -62,15 +62,14 @@ public class DUUISegmentationStrategyByDelemiter extends DUUISegmentationStrateg
     public JCas getNextSegment() {
         emptyCas.reset();
 
-        if(currentOffset.size()==0){
+        if (currentOffset.size() == 0) {
             return null;
         }
 
         // TODO
         try {
             DocumentMetaData.copy(jCasInput, emptyCas);
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             // ignore
         }
 
@@ -83,7 +82,7 @@ public class DUUISegmentationStrategyByDelemiter extends DUUISegmentationStrateg
         emptyCas.setDocumentLanguage(jCasInput.getDocumentLanguage());
         AnnotationComment da = new AnnotationComment(emptyCas);
         da.setKey("offset");
-        da.setValue(""+iStart);
+        da.setValue("" + iStart);
         da.addToIndexes();
 
         currentOffset.remove(sOffset);
@@ -105,23 +104,22 @@ public class DUUISegmentationStrategyByDelemiter extends DUUISegmentationStrateg
 
         int iCount = 0;
 
-        while((iCount+iLength)<tLength){
+        while ((iCount + iLength) < tLength) {
 
             String sSubText = "";
-            if(tLength>(int) (iCount+this.iLength)) {
-                sSubText = sText.substring(iCount, (int) (iCount + this.iLength));
-            }
-            else{
+            if (tLength > (iCount + this.iLength)) {
+                sSubText = sText.substring(iCount, iCount + this.iLength);
+            } else {
                 sSubText = sText;
             }
             int iLastPoint = sSubText.lastIndexOf(this.sDelemiter);
 //            System.out.println(iLastPoint);
-            sSubText = sSubText.substring(0, iLastPoint>0 ? (iLastPoint+1) : sSubText.length());
+            sSubText = sSubText.substring(0, iLastPoint > 0 ? (iLastPoint + 1) : sSubText.length());
 //            System.out.println(sSubText);
-            currentOffset.add(iCount+"-"+(sSubText.length()+iCount));
+            currentOffset.add(iCount + "-" + (sSubText.length() + iCount));
 
 //            System.out.println(iCount+"\t"+sSubText.length());
-            iCount = iCount+sSubText.length();
+            iCount = iCount + sSubText.length();
 
             if (iOverlap > 0) {
                 if (iCount + iOverlap < tLength) {
@@ -139,8 +137,8 @@ public class DUUISegmentationStrategyByDelemiter extends DUUISegmentationStrateg
 
 
         }
-        if(iCount<tLength){
-            currentOffset.add(iCount+"-"+tLength);
+        if (iCount < tLength) {
+            currentOffset.add(iCount + "-" + tLength);
         }
 
 //        currentOffset.stream().forEach(co->{
@@ -151,17 +149,17 @@ public class DUUISegmentationStrategyByDelemiter extends DUUISegmentationStrateg
     @Override
     public void merge(JCas jCasSegment) {
         int iOffset;
-        AnnotationComment offset = JCasUtil.select(jCasSegment, AnnotationComment.class).stream().filter(ac->{
+        AnnotationComment offset = JCasUtil.select(jCasSegment, AnnotationComment.class).stream().filter(ac -> {
             return ac.getKey().equalsIgnoreCase("offset");
         }).findFirst().get();
 
-        if(offset!=null){
+        if (offset != null) {
             iOffset = Integer.valueOf(offset.getValue());
         } else {
             iOffset = 0;
         }
 
-        if(iOffset>0) {
+        if (iOffset > 0) {
 //            System.out.println("Offset: "+iOffset);
             JCasUtil.select(jCasSegment, Annotation.class).stream().forEach(a -> {
                 a.setBegin(a.getBegin() + iOffset);

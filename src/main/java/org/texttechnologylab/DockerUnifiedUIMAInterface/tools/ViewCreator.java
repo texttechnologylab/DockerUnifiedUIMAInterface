@@ -1,9 +1,5 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.tools;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-
 import org.apache.uima.UimaContext;
 import org.apache.uima.analysis_engine.AnalysisEngineProcessException;
 import org.apache.uima.cas.CASException;
@@ -12,6 +8,10 @@ import org.apache.uima.fit.component.JCasAnnotator_ImplBase;
 import org.apache.uima.fit.descriptor.ConfigurationParameter;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.resource.ResourceInitializationException;
+
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 /**
  * @param PARAM_TARGET_VIEW   Name of the target view to create, mandatory.
@@ -42,11 +42,11 @@ public class ViewCreator extends JCasAnnotator_ImplBase {
     /**
      * The types to copy from the source view.
      * Must be a list of the fully qualified class name of the types.
-     * 
+     *
      * @apiNote You can use the
-     *          {@link org.apache.uima.jcas.cas.TOP#_TypeName _TypeName} field of
-     *          any {@link org.apache.uima.jcas.tcas.Annotation annotation} to
-     *          access the fully qualified class name for convenience.
+     * {@link org.apache.uima.jcas.cas.TOP#_TypeName _TypeName} field of
+     * any {@link org.apache.uima.jcas.tcas.Annotation annotation} to
+     * access the fully qualified class name for convenience.
      */
     public static final String PARAM_TYPES_TO_COPY = "typesToCopy";
     @ConfigurationParameter(name = PARAM_TYPES_TO_COPY, mandatory = false, defaultValue = {})
@@ -65,7 +65,7 @@ public class ViewCreator extends JCasAnnotator_ImplBase {
     /**
      * @return An immutable copy of the {@link #typesToCopy}.
      * @apiNote The returned set can only be empty prior to
-     *          {@link #initialize initialization}.
+     * {@link #initialize initialization}.
      */
     public Set<String> getTypeSet() {
         return Set.copyOf(this.typeSet);
@@ -73,11 +73,11 @@ public class ViewCreator extends JCasAnnotator_ImplBase {
 
     /**
      * Initializes the annotator.
-     * 
+     * <p>
      * You can either drop or retain specific types from the CAS.
      * The mode of operations is determined automatically based on the
      * configuration.
-     * 
+     *
      * @throws ResourceInitializationException If {@link #PARAM_TARGET_VIEW} is
      *                                         empty.
      */

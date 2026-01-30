@@ -9,6 +9,7 @@ public interface SerializeJSON<T> {
 
     /**
      * Serialize
+     *
      * @return
      */
     String serialize();

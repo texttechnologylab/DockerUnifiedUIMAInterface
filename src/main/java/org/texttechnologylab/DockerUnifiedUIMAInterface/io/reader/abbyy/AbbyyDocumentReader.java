@@ -3,6 +3,7 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface.io.reader.abbyy;
 import com.google.common.base.Strings;
 import com.google.gson.Gson;
 import com.google.gson.JsonParseException;
+import com.google.gson.reflect.TypeToken;
 import de.tudarmstadt.ukp.dkpro.core.api.anomaly.type.Anomaly;
 import de.tudarmstadt.ukp.dkpro.core.api.anomaly.type.SuggestedAction;
 import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
@@ -39,7 +40,6 @@ import org.texttechnologylab.annotation.ocr.abbyy.Line;
 import org.texttechnologylab.annotation.ocr.abbyy.Page;
 import org.texttechnologylab.annotation.uce.Metadata;
 import org.xml.sax.SAXException;
-import com.google.gson.reflect.TypeToken;
 
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParser;
@@ -605,7 +605,7 @@ public class AbbyyDocumentReader extends JCasCollectionReader_ImplBase {
         FineReaderEventHandler.ParsedDocument parsedDocument = parseFiles(files);
 
         // Build SOFA string, remove HTML escapes
-        String text = parsedDocument.tokens.stream().map(AbbyyToken::toString).collect(Collectors.joining(""));
+        String text = parsedDocument.tokens().stream().map(AbbyyToken::toString).collect(Collectors.joining(""));
         if (unescapeHTML) {
             text = StringEscapeUtils.unescapeHtml(text);
         }
@@ -619,7 +619,7 @@ public class AbbyyDocumentReader extends JCasCollectionReader_ImplBase {
 
         // Add parsed elements to CAS
         if (addPages) {
-            for (AbbyyPage page : parsedDocument.pages) {
+            for (AbbyyPage page : parsedDocument.pages()) {
                 jCas.addFsToIndexes(page.into(jCas));
 
                 PageOfArticleMetadata pageOfArticleMetadata = pageMetaDataLookup.get(page.pageId);
@@ -627,17 +627,17 @@ public class AbbyyDocumentReader extends JCasCollectionReader_ImplBase {
             }
         }
         if (addBlocks) {
-            for (AbbyyBlock block : parsedDocument.blocks) {
+            for (AbbyyBlock block : parsedDocument.blocks()) {
                 jCas.addFsToIndexes(block.into(jCas));
             }
         }
         if (addParagraphs) {
-            for (AbbyyParagraph paragraph : parsedDocument.paragraphs) {
+            for (AbbyyParagraph paragraph : parsedDocument.paragraphs()) {
                 jCas.addFsToIndexes(paragraph.into(jCas));
             }
         }
         if (addLines) {
-            for (AbbyyLine line : parsedDocument.lines) {
+            for (AbbyyLine line : parsedDocument.lines()) {
                 if (!addLineFormat) {
                     line.setFormat(null);
                 }
@@ -650,7 +650,7 @@ public class AbbyyDocumentReader extends JCasCollectionReader_ImplBase {
             }
         }
         if (addTokens) {
-            for (AbbyyToken token : parsedDocument.tokens) {
+            for (AbbyyToken token : parsedDocument.tokens()) {
                 if (!token.isSpace()) {
                     jCas.addFsToIndexes(token.into(jCas));
                 }

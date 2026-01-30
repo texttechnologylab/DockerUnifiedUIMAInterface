@@ -9,12 +9,19 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 
 public class DUUILinearExecutionPlanGenerator implements IDUUIExecutionPlanGenerator {
-    private Vector<DUUIComposer.PipelinePart> _pipeline;
+    private final Vector<DUUIComposer.PipelinePart> _pipeline;
 
+    public IDUUIExecutionPlan generate(JCas jc) {
+        return new DUUILinearExecutionPlan(_pipeline, jc);
+    }
+
+    public DUUILinearExecutionPlanGenerator(Vector<DUUIComposer.PipelinePart> pipeline) {
+        _pipeline = pipeline;
+    }
 
     public class DUUILinearExecutionPlan implements IDUUIExecutionPlan {
-        private Vector<DUUIComposer.PipelinePart> _pipeline;
-        private JCas _jc;
+        private final Vector<DUUIComposer.PipelinePart> _pipeline;
+        private final JCas _jc;
         int _index;
 
         public DUUILinearExecutionPlan(Vector<DUUIComposer.PipelinePart> flow, JCas jc) {
@@ -31,17 +38,16 @@ public class DUUILinearExecutionPlanGenerator implements IDUUIExecutionPlanGener
 
         public List<IDUUIExecutionPlan> getNextExecutionPlans() {
             LinkedList<IDUUIExecutionPlan> exec = new LinkedList<>();
-            if(_index < _pipeline.size()) {
+            if (_index < _pipeline.size()) {
                 exec.add(new DUUILinearExecutionPlan(_pipeline, _jc, _index + 1));
             }
             return exec;
         }
 
         public DUUIComposer.PipelinePart getPipelinePart() {
-            if(_index < _pipeline.size()) {
+            if (_index < _pipeline.size()) {
                 return _pipeline.get(_index);
-            }
-            else {
+            } else {
                 return null;
             }
         }
@@ -54,13 +60,5 @@ public class DUUILinearExecutionPlanGenerator implements IDUUIExecutionPlanGener
         public Future<IDUUIExecutionPlan> awaitMerge() {
             return CompletableFuture.completedFuture(this);
         }
-    }
-
-    public DUUILinearExecutionPlanGenerator(Vector<DUUIComposer.PipelinePart> pipeline) {
-        _pipeline = pipeline;
-    }
-
-    public IDUUIExecutionPlan generate(JCas jc) {
-        return new DUUILinearExecutionPlan(_pipeline,jc);
     }
 }

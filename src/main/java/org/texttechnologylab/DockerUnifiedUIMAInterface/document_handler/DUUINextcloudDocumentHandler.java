@@ -9,7 +9,6 @@ import org.aarboard.nextcloud.api.exception.NextcloudApiException;
 import org.aarboard.nextcloud.api.provisioning.ProvisionConnector;
 import org.aarboard.nextcloud.api.provisioning.User;
 import org.aarboard.nextcloud.api.utils.ConnectorCommon;
-import org.aarboard.nextcloud.api.utils.WebdavInputStream;
 import org.aarboard.nextcloud.api.webdav.AWebdavHandler;
 import org.aarboard.nextcloud.api.webdav.Folders;
 import org.aarboard.nextcloud.api.webdav.pathresolver.NextcloudVersion;
@@ -20,22 +19,18 @@ import org.apache.http.auth.NTCredentials;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
 import org.apache.http.client.config.AuthSchemes;
-import org.apache.http.client.config.CookieSpecs;
-import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.utils.URIBuilder;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.DUUIStatus;
 
 import javax.xml.namespace.QName;
-import java.io.*;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.nio.charset.Charset;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -44,113 +39,12 @@ import java.util.stream.Collectors;
 
 public class DUUINextcloudDocumentHandler implements IDUUIDocumentHandler, IDUUIFolderPickerApi {
 
-    class NCFolders extends Folders {
-
-        private WebDavPathResolver _resolver;
-
-        public NCFolders(ServerConfig serverConfig) {
-            super(serverConfig);
-
-            _resolver = WebDavPathResolverBuilder.get(WebDavPathResolverBuilder.TYPE.FILES)
-                    .ofVersion(NextcloudVersion.get(getServerVersion()))
-                    .withUserName(userId)
-                    .withBasePathSuffix("files")
-                    .withBasePathPrefix(_serverConfig.getSubPathPrefix()).build();
-        }
-
-        protected Sardine buildAuthSardine() {
-            return buildAuthSardine0();
-        }
-
-        protected String buildWebdavPath(String remotePath) {
-            return buildWebdavPath(_resolver, remotePath);
-        }
-    }
-
-    class NCFiles extends org.aarboard.nextcloud.api.webdav.Files {
-
-        private WebDavPathResolver _resolver;
-
-        public NCFiles(ServerConfig serverConfig) {
-            super(serverConfig);
-            _resolver = WebDavPathResolverBuilder.get(WebDavPathResolverBuilder.TYPE.FILES)
-                .ofVersion(NextcloudVersion.get(getServerVersion()))
-                .withUserName(userId)
-                .withBasePathSuffix("files")
-                .withBasePathPrefix(_serverConfig.getSubPathPrefix()).build();
-        }
-
-        protected Sardine buildAuthSardine() {
-            return buildAuthSardine0();
-        }
-
-        protected String buildWebdavPath(String remotePath) {
-            return buildWebdavPath(_resolver, remotePath);
-        }
-    }
-
-    class OpenSardine extends SardineImpl {
-
-
-        private CredentialsProvider createDefaultCredentialsProvider(String username, String password, String domain, String workstation) {
-            CredentialsProvider provider = new BasicCredentialsProvider();
-            if (username != null) {
-                provider.setCredentials(
-                        new AuthScope(AuthScope.ANY_HOST, AuthScope.ANY_PORT, AuthScope.ANY_REALM, AuthSchemes.NTLM),
-                        new NTCredentials(username, password, workstation, domain));
-                provider.setCredentials(
-                        new AuthScope(AuthScope.ANY_HOST, AuthScope.ANY_PORT, AuthScope.ANY_REALM, AuthSchemes.BASIC),
-                        new UsernamePasswordCredentials(username, password));
-                provider.setCredentials(
-                        new AuthScope(AuthScope.ANY_HOST, AuthScope.ANY_PORT, AuthScope.ANY_REALM, AuthSchemes.DIGEST),
-                        new UsernamePasswordCredentials(username, password));
-                provider.setCredentials(
-                        new AuthScope(AuthScope.ANY_HOST, AuthScope.ANY_PORT, AuthScope.ANY_REALM, AuthSchemes.SPNEGO),
-                        new NTCredentials(username, password, workstation, domain));
-                provider.setCredentials(
-                        new AuthScope(AuthScope.ANY_HOST, AuthScope.ANY_PORT, AuthScope.ANY_REALM, AuthSchemes.KERBEROS),
-                        new UsernamePasswordCredentials(username, password));
-            }
-            return provider;
-        }
-
-        private HttpClientBuilder createHttpClientBuilder(String username, String password) {
-            return this.configure(null,
-                this.createDefaultCredentialsProvider(username, password, null, null))
-                    .disableCookieManagement();
-        }
-
-        public void addCookies(String username, String password) {
-            this.client = createHttpClientBuilder(username, password).build();
-        }
-
-        public OpenSardine(String username, String password) {
-            super(username, password);
-            addCookies(username, password);
-        }
-
-        @Override
-        public void shutdown() throws IOException {
-            if (isShutdown.get()) super.shutdown();
-        }
-    }
-
-
-    private final AtomicBoolean isShutdown = new AtomicBoolean(false);
-    private final NCFolders folders;
-    private final NCFiles files;
-    private final String userId;
-    private final String loginName;
-    ServerConfig _serverConfig;
-    Sardine _sardine;
-    URL _serviceUrl;
-
     /**
      * Create a new NextCloudDocumentHandler
      *
-     * @param serverName      A URL containing the server address. (e.g.: "https://nextcloud.texttechnologylab.org/")
-     * @param loginName       The username used to log in to a NextCloud account.
-     * @param password       The password for the user.
+     * @param serverName A URL containing the server address. (e.g.: "https://nextcloud.texttechnologylab.org/")
+     * @param loginName  The username used to log in to a NextCloud account.
+     * @param password   The password for the user.
      */
     public DUUINextcloudDocumentHandler(String serverName, String loginName, String password) {
         this.loginName = loginName;
@@ -167,8 +61,8 @@ public class DUUINextcloudDocumentHandler implements IDUUIDocumentHandler, IDUUI
 
             User user = pc.getCurrentUser();
             userId = user.getId();
-            folders  = new NCFolders(_serverConfig);
-            files    = new NCFiles(_serverConfig);
+            folders = new NCFolders(_serverConfig);
+            files = new NCFiles(_serverConfig);
             System.out.printf("[DUUINextCloudConnector] Connected to NextCloud %s as %s%n",
                     files.getServerVersion(), user.getDisplayname());
         } catch (NextcloudApiException e) {
@@ -188,14 +82,74 @@ public class DUUINextcloudDocumentHandler implements IDUUIDocumentHandler, IDUUI
         }
     }
 
-
     public void shutdown() {
         if (!isShutdown.compareAndSet(false, true)) return;
 
         try {
             _sardine.shutdown();
             ConnectorCommon.shutdown();
-        } catch (IOException e) { throw new RuntimeException(e); }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * Removes part of the path.
+     * e.g.: From "remote.php/[username]/files/document.txt" to "document.txt"
+     * Required for reading and writing files, since the full path causes an error.
+     *
+     * @param path A path for a file on a Nextcloud server.
+     */
+    private String removeWebDavFromPath(String path) {
+        int substringIndex = path.indexOf(loginName);
+
+        if (substringIndex != -1) {
+            return path.substring(substringIndex + loginName.length());
+        } else if (path.contains("/remote.php/webdav/")) {
+            return path.replace("/remote.php/webdav/", "");
+        }
+
+        return path;
+    }
+
+
+    private final AtomicBoolean isShutdown = new AtomicBoolean(false);
+    private final NCFolders folders;
+    private final NCFiles files;
+    private final String userId;
+    private final String loginName;
+    ServerConfig _serverConfig;
+    Sardine _sardine;
+    URL _serviceUrl;
+
+    @Override
+    public void writeDocuments(List<DUUIDocument> documents, String path) {
+        Set<String> seenNames = new HashSet<>();
+        documents.stream()
+                .filter(doc -> seenNames.add(doc.getName()))
+                .parallel().forEach(d -> writeDocument(d, path));
+    }
+
+    @Override
+    public List<DUUIDocument> listDocuments(String path, String fileExtension, boolean recursive) {
+
+        try {
+            return CompletableFuture.supplyAsync(() -> listFolderContent(path, recursive ? -1 : 1)
+                    .stream()
+                    .filter(res -> !res.isDirectory())
+                    .filter(res -> fileExtension.isEmpty() || res.getPath().endsWith(fileExtension))
+                    .map(res -> {
+                        String fsize = res.getCustomProps().get("size");
+                        long size = fsize != null && !fsize.isEmpty() ? Long.parseLong(fsize) : 0;
+                        String fpath = removeWebDavFromPath(res.getPath());
+
+                        return new DUUIDocument(res.getDisplayName(), fpath, size);
+                    })
+                    .collect(Collectors.toList())).get();
+        } catch (InterruptedException | ExecutionException e) {
+            throw new RuntimeException(e);
+        }
+
     }
 
     public static void main(String[] args) throws IOException {
@@ -238,7 +192,6 @@ public class DUUINextcloudDocumentHandler implements IDUUIDocumentHandler, IDUUI
     }
 
 
-
     Sardine buildAuthSardine0() {
         if (_sardine != null) return _sardine;
 
@@ -253,23 +206,30 @@ public class DUUINextcloudDocumentHandler implements IDUUIDocumentHandler, IDUUI
         return _sardine;
     }
 
-    /**
-     * Removes part of the path.
-     * e.g.: From "remote.php/[username]/files/document.txt" to "document.txt"
-     * Required for reading and writing files, since the full path causes an error.
-     *
-     * @param path      A path for a file on a Nextcloud server.
-     */
-    private String removeWebDavFromPath(String path) {
-        int substringIndex = path.indexOf(loginName);
+    public List<DavResource> listFolderContent(String remotePath, int depth) {
+        String pathPrefix = AWebdavHandler.WEB_DAV_BASE_PATH;
+        String path = new URIBuilder()
+                .setScheme("https")
+                .setHost(_serverConfig.getServerName())
+                .setPort(_serverConfig.getPort())
+                .setPath(pathPrefix + remotePath).toString();
 
-        if (substringIndex != -1) {
-            return path.substring(substringIndex + loginName.length());
-        } else if (path.contains("/remote.php/webdav/")) {
-            return path.replace("/remote.php/webdav/", "");
+        List<DavResource> resources;
+        try {
+            Set<QName> props = new HashSet<>();
+            props.add(new QName("DAV:", "displayname", "d"));
+            props.add(new QName("http://owncloud.org/ns", "size", "oc"));
+
+//            System.out.println("Searching for folder " + path);
+//            long startTime = System.currentTimeMillis();
+            resources = buildAuthSardine0().list(path, depth, props);
+//            startTime = System.currentTimeMillis() - startTime;
+//            System.out.println("Found " + resources.size() + " folders in " + startTime + "ms");
+        } catch (IOException e) {
+            throw new NextcloudApiException(e);
         }
 
-        return path;
+        return resources;
     }
 
     /**
@@ -306,11 +266,38 @@ public class DUUINextcloudDocumentHandler implements IDUUIDocumentHandler, IDUUI
     }
 
     @Override
-    public void writeDocuments(List<DUUIDocument> documents, String path) {
-        Set<String> seenNames = new HashSet<>();
-        documents.stream()
-            .filter(doc -> seenNames.add(doc.getName()))
-            .parallel().forEach(d -> writeDocument(d, path));
+    public DUUIFolder getFolderStructure() {
+
+        DUUIFolder root = new DUUIFolder("/", "Files");
+
+        Map<String, DUUIFolder> parentMap = new HashMap<>();
+        parentMap.put("/", root);
+
+        try {
+            CompletableFuture.supplyAsync(() -> listFolderContent("/", -1)
+                    .stream()
+                    .filter(DavResource::isDirectory)
+                    .map(res -> {
+                        String f = "/" + removeWebDavFromPath(res.getPath());
+
+                        if (f.equals("/")) return 0;
+
+                        String[] splitPath = f.split("/");
+                        String folderName = res.getDisplayName();
+                        DUUIFolder folder = new DUUIFolder(f, folderName);
+                        String parent = splitPath.length > 2 ? splitPath[splitPath.length - 2] : "/";
+
+                        parentMap.put(folderName, folder);
+                        parentMap.get(parent).addChild(folder);
+
+                        return 1;
+                    }).toList()
+            ).get();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+
+        return root;
     }
 
     @Override
@@ -336,86 +323,94 @@ public class DUUINextcloudDocumentHandler implements IDUUIDocumentHandler, IDUUI
                 .collect(Collectors.toList());
     }
 
-    @Override
-    public List<DUUIDocument> listDocuments(String path, String fileExtension, boolean recursive) {
+    class NCFolders extends Folders {
 
-        try {
-            return CompletableFuture.supplyAsync(() -> listFolderContent(path, recursive ? -1 : 1)
-                .stream()
-                .filter(res -> !res.isDirectory())
-                .filter( res -> fileExtension.isEmpty() || res.getPath().endsWith(fileExtension))
-                .map(res -> {
-                    String fsize = res.getCustomProps().get("size");
-                    long size = fsize != null && !fsize.isEmpty() ? Long.parseLong(fsize) : 0;
-                    String fpath = removeWebDavFromPath(res.getPath());
+        private final WebDavPathResolver _resolver;
 
-                    return new DUUIDocument(res.getDisplayName(), fpath, size);
-                })
-                .collect(Collectors.toList())).get();
-        } catch (InterruptedException | ExecutionException e) {
-            throw new RuntimeException(e);
+        public NCFolders(ServerConfig serverConfig) {
+            super(serverConfig);
+
+            _resolver = WebDavPathResolverBuilder.get(WebDavPathResolverBuilder.TYPE.FILES)
+                    .ofVersion(NextcloudVersion.get(getServerVersion()))
+                    .withUserName(userId)
+                    .withBasePathSuffix("files")
+                    .withBasePathPrefix(_serverConfig.getSubPathPrefix()).build();
         }
 
+        protected Sardine buildAuthSardine() {
+            return buildAuthSardine0();
+        }
+
+        protected String buildWebdavPath(String remotePath) {
+            return buildWebdavPath(_resolver, remotePath);
+        }
     }
 
-    public List<DavResource> listFolderContent(String remotePath, int depth) {
-        String pathPrefix = AWebdavHandler.WEB_DAV_BASE_PATH;
-        String path = new URIBuilder()
-            .setScheme("https")
-            .setHost(_serverConfig.getServerName())
-            .setPort(_serverConfig.getPort())
-            .setPath(pathPrefix + remotePath).toString();
+    class NCFiles extends org.aarboard.nextcloud.api.webdav.Files {
 
-        List<DavResource> resources;
-        try {
-            Set<QName> props= new HashSet<>();
-            props.add(new QName("DAV:", "displayname", "d"));
-            props.add(new QName("http://owncloud.org/ns", "size", "oc"));
+        private final WebDavPathResolver _resolver;
 
-//            System.out.println("Searching for folder " + path);
-//            long startTime = System.currentTimeMillis();
-            resources = buildAuthSardine0().list(path, depth, props);
-//            startTime = System.currentTimeMillis() - startTime;
-//            System.out.println("Found " + resources.size() + " folders in " + startTime + "ms");
-        } catch (IOException e) {
-            throw new NextcloudApiException(e);
+        public NCFiles(ServerConfig serverConfig) {
+            super(serverConfig);
+            _resolver = WebDavPathResolverBuilder.get(WebDavPathResolverBuilder.TYPE.FILES)
+                    .ofVersion(NextcloudVersion.get(getServerVersion()))
+                    .withUserName(userId)
+                    .withBasePathSuffix("files")
+                    .withBasePathPrefix(_serverConfig.getSubPathPrefix()).build();
         }
 
-        return resources;
+        protected Sardine buildAuthSardine() {
+            return buildAuthSardine0();
+        }
+
+        protected String buildWebdavPath(String remotePath) {
+            return buildWebdavPath(_resolver, remotePath);
+        }
     }
 
-    @Override
-    public DUUIFolder getFolderStructure() {
+    class OpenSardine extends SardineImpl {
 
-        DUUIFolder root = new DUUIFolder("/", "Files");
 
-        Map<String, DUUIFolder> parentMap = new HashMap<>();
-        parentMap.put("/", root);
-
-        try {
-            CompletableFuture.supplyAsync(() -> listFolderContent("/", -1)
-                .stream()
-                .filter(DavResource::isDirectory)
-                .map(res -> {
-                    String f = "/" + removeWebDavFromPath(res.getPath());
-
-                    if (f.equals("/")) return 0;
-
-                    String[] splitPath = f.split("/");
-                    String folderName = res.getDisplayName();
-                    DUUIFolder folder = new DUUIFolder(f, folderName);
-                    String parent = splitPath.length > 2 ? splitPath[splitPath.length - 2] : "/";
-
-                    parentMap.put(folderName, folder);
-                    parentMap.get(parent).addChild(folder);
-
-                    return 1;
-                }).toList()
-            ).get();
-        } catch (Exception e) {
-            throw new RuntimeException(e);
+        private CredentialsProvider createDefaultCredentialsProvider(String username, String password, String domain, String workstation) {
+            CredentialsProvider provider = new BasicCredentialsProvider();
+            if (username != null) {
+                provider.setCredentials(
+                        new AuthScope(AuthScope.ANY_HOST, AuthScope.ANY_PORT, AuthScope.ANY_REALM, AuthSchemes.NTLM),
+                        new NTCredentials(username, password, workstation, domain));
+                provider.setCredentials(
+                        new AuthScope(AuthScope.ANY_HOST, AuthScope.ANY_PORT, AuthScope.ANY_REALM, AuthSchemes.BASIC),
+                        new UsernamePasswordCredentials(username, password));
+                provider.setCredentials(
+                        new AuthScope(AuthScope.ANY_HOST, AuthScope.ANY_PORT, AuthScope.ANY_REALM, AuthSchemes.DIGEST),
+                        new UsernamePasswordCredentials(username, password));
+                provider.setCredentials(
+                        new AuthScope(AuthScope.ANY_HOST, AuthScope.ANY_PORT, AuthScope.ANY_REALM, AuthSchemes.SPNEGO),
+                        new NTCredentials(username, password, workstation, domain));
+                provider.setCredentials(
+                        new AuthScope(AuthScope.ANY_HOST, AuthScope.ANY_PORT, AuthScope.ANY_REALM, AuthSchemes.KERBEROS),
+                        new UsernamePasswordCredentials(username, password));
+            }
+            return provider;
         }
 
-        return root;
+        private HttpClientBuilder createHttpClientBuilder(String username, String password) {
+            return this.configure(null,
+                            this.createDefaultCredentialsProvider(username, password, null, null))
+                    .disableCookieManagement();
+        }
+
+        public void addCookies(String username, String password) {
+            this.client = createHttpClientBuilder(username, password).build();
+        }
+
+        public OpenSardine(String username, String password) {
+            super(username, password);
+            addCookies(username, password);
+        }
+
+        @Override
+        public void shutdown() throws IOException {
+            if (isShutdown.get()) super.shutdown();
+        }
     }
 }

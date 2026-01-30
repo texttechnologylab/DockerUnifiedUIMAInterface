@@ -1,11 +1,5 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.tools;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.function.Predicate;
-import java.util.stream.Collectors;
-
 import org.apache.uima.UimaContext;
 import org.apache.uima.analysis_engine.AnalysisEngineProcessException;
 import org.apache.uima.cas.Type;
@@ -14,10 +8,16 @@ import org.apache.uima.fit.descriptor.ConfigurationParameter;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.resource.ResourceInitializationException;
 
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
+
 /**
  * A {@link JCasAnnotator_ImplBase JCasAnnotator} that drops or retains specific
  * types from processed CASes.
- * 
+ *
  * @author Manuel Stoeckel
  * @version 0.2.0
  */
@@ -25,13 +25,13 @@ public class AnnotationDropper extends JCasAnnotator_ImplBase {
     /**
      * The types to drop from the CAS.
      * Must be the fully qualified class name of the type.
-     * 
+     *
      * @apiNote You can use the
-     *          {@link org.apache.uima.jcas.cas.TOP#_TypeName _TypeName} field of
-     *          any {@link org.apache.uima.jcas.tcas.Annotation annotation} to
-     *          access the fully qualified class name for convenience.
+     * {@link org.apache.uima.jcas.cas.TOP#_TypeName _TypeName} field of
+     * any {@link org.apache.uima.jcas.tcas.Annotation annotation} to
+     * access the fully qualified class name for convenience.
      * @apiNote Only one of {@link #PARAM_TYPES_TO_DROP} or
-     *          {@link #PARAM_TYPES_TO_RETAIN} can be set.
+     * {@link #PARAM_TYPES_TO_RETAIN} can be set.
      */
     public static final String PARAM_TYPES_TO_DROP = "typesToDrop";
     @ConfigurationParameter(name = PARAM_TYPES_TO_DROP, mandatory = false, defaultValue = {})
@@ -40,15 +40,15 @@ public class AnnotationDropper extends JCasAnnotator_ImplBase {
     /**
      * The types to drop from the CAS.
      * Must be the fully qualified class name of the type.
-     * 
+     *
      * @apiNote WARNING: Make sure to include integral base types like
-     *          {@link org.apache.uima.jcas.cas.Sofa Sofa}!
+     * {@link org.apache.uima.jcas.cas.Sofa Sofa}!
      * @apiNote You can use the
-     *          {@link org.apache.uima.jcas.cas.TOP#_TypeName _TypeName} field of
-     *          any {@link org.apache.uima.jcas.tcas.Annotation annotation} to
-     *          access the fully qualified class name for convenience.
+     * {@link org.apache.uima.jcas.cas.TOP#_TypeName _TypeName} field of
+     * any {@link org.apache.uima.jcas.tcas.Annotation annotation} to
+     * access the fully qualified class name for convenience.
      * @apiNote Only one of {@link #PARAM_TYPES_TO_DROP} or
-     *          {@link #PARAM_TYPES_TO_RETAIN} can be set.
+     * {@link #PARAM_TYPES_TO_RETAIN} can be set.
      */
     public static final String PARAM_TYPES_TO_RETAIN = "typesToRetain";
     @ConfigurationParameter(name = PARAM_TYPES_TO_RETAIN, mandatory = false, defaultValue = {})
@@ -65,7 +65,7 @@ public class AnnotationDropper extends JCasAnnotator_ImplBase {
 
     /**
      * @return The mode of operation.
-     *         Will always be either {@link Mode#RETAIN} or {@link Mode#DROP}.
+     * Will always be either {@link Mode#RETAIN} or {@link Mode#DROP}.
      * @throws IllegalStateException If the mode is unset (i.e. prior to
      *                               {@link #initialize initialization}).
      */
@@ -84,7 +84,7 @@ public class AnnotationDropper extends JCasAnnotator_ImplBase {
     /**
      * @return An immutable copy of the {@link #typeSet}.
      * @apiNote The returned set can only be empty prior to
-     *          {@link #initialize initialization}.
+     * {@link #initialize initialization}.
      */
     public Set<String> getTypeSet() {
         return Set.copyOf(this.typeSet);
@@ -92,11 +92,11 @@ public class AnnotationDropper extends JCasAnnotator_ImplBase {
 
     /**
      * Initializes the annotator.
-     * 
+     * <p>
      * You can either drop or retain specific types from the CAS.
      * The mode of operations is determined automatically based on the
      * configuration.
-     * 
+     *
      * @throws IllegalArgumentException If both parameters
      *                                  {@link #PARAM_TYPES_TO_DROP} and
      *                                  {@link #PARAM_TYPES_TO_RETAIN} are set.

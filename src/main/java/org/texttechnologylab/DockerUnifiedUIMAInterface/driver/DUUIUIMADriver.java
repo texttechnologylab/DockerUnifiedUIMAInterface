@@ -5,7 +5,6 @@ import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.uima.UIMAException;
 import org.apache.uima.analysis_engine.AnalysisEngine;
 import org.apache.uima.analysis_engine.AnalysisEngineDescription;
-import org.apache.uima.analysis_engine.AnalysisEngineProcessException;
 import org.apache.uima.cas.CASException;
 import org.apache.uima.cas.CASRuntimeException;
 import org.apache.uima.fit.factory.AnalysisEngineFactory;
@@ -33,14 +32,12 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static java.lang.String.format;
-
 /**
  *
  * @author Alexander Leonhardt
  */
 public class DUUIUIMADriver implements IDUUIDriverInterface {
-    private HashMap<String, InstantiatedComponent> _engines;
+    private final HashMap<String, InstantiatedComponent> _engines;
     private boolean _enable_debug;
 
     public DUUIUIMADriver() {
@@ -57,154 +54,9 @@ public class DUUIUIMADriver implements IDUUIDriverInterface {
         return this;
     }
 
-    public static class InstantiatedComponent {
-        private ConcurrentLinkedQueue<AnalysisEngine> _engines;
-        private DUUIPipelineComponent _component;
-
-        public InstantiatedComponent(DUUIPipelineComponent component) {
-            _engines = new ConcurrentLinkedQueue<AnalysisEngine>();
-            _component = component;
-        }
-
-        static boolean isCompatible(DUUIPipelineComponent component) throws InvalidXMLException, IOException, SAXException {
-            return component.getEngine() != null;
-        }
-
-        public DUUIPipelineComponent getPipelineComponent() {
-            return _component;
-        }
-
-        public InstantiatedComponent add(AnalysisEngine engine) {
-            _engines.add(engine);
-            return this;
-        }
-
-        public ConcurrentLinkedQueue<AnalysisEngine> getEngines() {
-            return _engines;
-        }
-    }
-
-
-    public static class Component {
-        private DUUIPipelineComponent component;
-        private AnalysisEngineDescription _engine;
-
-        public Component(AnalysisEngineDescription desc) throws IOException, SAXException, URISyntaxException {
-            component = new DUUIPipelineComponent();
-            component.withEngine(desc);
-            _engine = desc;
-        }
-
-        public Component(DUUIPipelineComponent pComponent) throws IOException, SAXException, URISyntaxException, InvalidXMLException {
-            component = pComponent;
-            _engine = pComponent.getEngine();
-        }
-
-        /**
-         * Set the maximum concurrency-level for this component by instantiating the given number of replicas.
-         * @param scale Number of replicas.
-         * @return {@code this}
-         */
-        public Component withScale(int scale) {
-            component.withScale(scale);
-            return this;
-        }
-
-        /**
-         * Set the maximum concurrency-level for this component by instantiating the given number of replicas.
-         * @param workers Number of replicas.
-         * @return {@code this}
-         * @apiNote Alias for {@link #withScale(int)}. Inter-component concurrency via
-         * {@link org.apache.uima.analysis_engine.impl.MultiprocessingAnalysisEngine_impl MultiprocessingAnalysisEngines}
-         * is not yet supported.
-         */
-        public Component withWorkers(int workers) {
-            component.withScale(workers);
-            return this;
-        }
-
-        public Component withParameter(String key, String value) {
-            component.withParameter(key, value);
-            return this;
-        }
-
-        public Component withDescription(String description) {
-            component.withDescription(description);
-            return this;
-        }
-
-        static private String[] extractNames(AnalysisEngineDescription engine, int recursionDepth) throws InvalidXMLException {
-            List<String> lst = new ArrayList<String>();
-            String offset = "";
-            for (int i = 0; i < recursionDepth; i++) {
-                offset += "  ";
-            }
-            if (engine.isPrimitive()) {
-                lst.add(offset + engine.getAnnotatorImplementationName());
-            } else {
-                Map<String, ResourceSpecifier> spec = engine.getDelegateAnalysisEngineSpecifiers();
-                for (String x : spec.keySet()) {
-                    ResourceSpecifier res = spec.get(x);
-                    if (res instanceof AnalysisEngineDescription) {
-                        for (String inner : extractNames((AnalysisEngineDescription) res, recursionDepth + 1)) {
-                            lst.add(inner);
-                        }
-                        lst.add("");
-                    }
-                }
-            }
-            String[] arr = new String[lst.size()];
-            lst.toArray(arr);
-            return arr;
-        }
-
-        public void describeAnalysisEngine() throws InvalidXMLException {
-            String[] names = extractNames(_engine, 0);
-            for (String i : names) {
-                System.out.println(i);
-            }
-        }
-
-        public Component setAnalysisEngineParameter(String key, Object value) throws IOException, SAXException {
-            _engine.getAnalysisEngineMetaData()
-                .getConfigurationParameterSettings()
-                .setParameterValue(key, value);
-            return this;
-        }
-
-        public String getAnnotatorName() {
-            if (_engine.isPrimitive()) {
-                return _engine.getAnnotatorImplementationName();
-            }
-            return null;
-        }
-
-        public DUUIPipelineComponent build() throws IOException, SAXException {
-            component.withDriver(DUUIUIMADriver.class);
-            return component;
-        }
-
-        public Component withName(String name) {
-            component.withName(name);
-            return this;
-        }
-    }
-
-    public boolean canAccept(DUUIPipelineComponent component) throws InvalidXMLException, IOException, SAXException {
-        return InstantiatedComponent.isCompatible(component);
-    }
-
-    public void printConcurrencyGraph(String uuid) {
-        InstantiatedComponent component = _engines.get(uuid);
-        if (component == null) {
-            throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
-        }
-        System.out.printf("[UIMADriver][%s]: Maximum concurrency %d\n", uuid, component.getEngines().size());
-    }
-
     static private String[] extractNames(AnalysisEngineDescription engine, String uuid, int recursionDepth) throws InvalidXMLException {
         List<String> lst = new ArrayList<String>();
-        System.out.println(format("[UIMADriver][DEBUG][%s] Dumping annotator layout and parameters:", uuid));
+        System.out.printf("[UIMADriver][DEBUG][%s] Dumping annotator layout and parameters:%n", uuid);
         String offset = "";
         for (int i = 0; i < recursionDepth; i++) {
             offset += "  ";
@@ -236,7 +88,7 @@ public class DUUIUIMADriver implements IDUUIDriverInterface {
                             serialized += "]";
                             lst.add(offset + "Value: " + serialized);
                         } else {
-                            lst.add(offset + "Value: " + String.valueOf((float) result));
+                            lst.add(offset + "Value: " + (float) result);
                         }
                         break;
                     case ConfigurationParameter.TYPE_STRING:
@@ -248,7 +100,7 @@ public class DUUIUIMADriver implements IDUUIDriverInterface {
                             serialized += "]";
                             lst.add(offset + "Value: " + serialized);
                         } else {
-                            lst.add(offset + "Value: " + (String) result);
+                            lst.add(offset + "Value: " + result);
                         }
                         break;
                     case ConfigurationParameter.TYPE_BOOLEAN:
@@ -260,7 +112,7 @@ public class DUUIUIMADriver implements IDUUIDriverInterface {
                             serialized += "]";
                             lst.add(offset + "Value: " + serialized);
                         } else {
-                            lst.add(offset + "Value: " + String.valueOf((Boolean) result));
+                            lst.add(offset + "Value: " + result);
                         }
                         break;
                     case ConfigurationParameter.TYPE_INTEGER:
@@ -272,7 +124,7 @@ public class DUUIUIMADriver implements IDUUIDriverInterface {
                             serialized += "]";
                             lst.add(offset + "Value: " + serialized);
                         } else {
-                            lst.add(offset + "Value: " + String.valueOf((Integer) result));
+                            lst.add(offset + "Value: " + result);
                         }
                         break;
                     default:
@@ -285,9 +137,7 @@ public class DUUIUIMADriver implements IDUUIDriverInterface {
             for (String x : spec.keySet()) {
                 ResourceSpecifier res = spec.get(x);
                 if (res instanceof AnalysisEngineDescription) {
-                    for (String inner : DUUIUIMADriver.extractNames((AnalysisEngineDescription) res, uuid, recursionDepth + 1)) {
-                        lst.add(inner);
-                    }
+                    Collections.addAll(lst, DUUIUIMADriver.extractNames((AnalysisEngineDescription) res, uuid, recursionDepth + 1));
                     lst.add("");
                 }
             }
@@ -295,6 +145,58 @@ public class DUUIUIMADriver implements IDUUIDriverInterface {
         String[] arr = new String[lst.size()];
         lst.toArray(arr);
         return arr;
+    }
+
+    /**
+     * init reader component
+     * TODO: is this needed?
+     *
+     * @param uuid
+     * @param filePath
+     * @return
+     */
+    @Override
+    public int initReaderComponent(String uuid, Path filePath) {
+        return 0;
+    }
+
+    public boolean canAccept(DUUIPipelineComponent component) throws InvalidXMLException, IOException, SAXException {
+        return InstantiatedComponent.isCompatible(component);
+    }
+
+    public void printConcurrencyGraph(String uuid) {
+        InstantiatedComponent component = _engines.get(uuid);
+        if (component == null) {
+            throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
+        }
+        System.out.printf("[UIMADriver][%s]: Maximum concurrency %d\n", uuid, component.getEngines().size());
+    }
+
+    public static class InstantiatedComponent {
+        private final ConcurrentLinkedQueue<AnalysisEngine> _engines;
+        private final DUUIPipelineComponent _component;
+
+        public InstantiatedComponent(DUUIPipelineComponent component) {
+            _engines = new ConcurrentLinkedQueue<AnalysisEngine>();
+            _component = component;
+        }
+
+        static boolean isCompatible(DUUIPipelineComponent component) throws InvalidXMLException, IOException, SAXException {
+            return component.getEngine() != null;
+        }
+
+        public DUUIPipelineComponent getPipelineComponent() {
+            return _component;
+        }
+
+        public InstantiatedComponent add(AnalysisEngine engine) {
+            _engines.add(engine);
+            return this;
+        }
+
+        public ConcurrentLinkedQueue<AnalysisEngine> getEngines() {
+            return _engines;
+        }
     }
 
     public String instantiate(DUUIPipelineComponent component, JCas jc, boolean skipVerification, AtomicBoolean shutdown) throws InterruptedException, TimeoutException, UIMAException, SAXException, IOException {
@@ -348,16 +250,109 @@ public class DUUIUIMADriver implements IDUUIDriverInterface {
         return TypeSystemDescriptionFactory.createTypeSystemDescription();
     }
 
-    /**
-     * init reader component
-     * TODO: is this needed?
-     * @param uuid
-     * @param filePath
-     * @return
-     */
-    @Override
-    public int initReaderComponent(String uuid, Path filePath) {
-        return 0;
+    public static class Component {
+        private final DUUIPipelineComponent component;
+        private final AnalysisEngineDescription _engine;
+
+        public Component(AnalysisEngineDescription desc) throws IOException, SAXException, URISyntaxException {
+            component = new DUUIPipelineComponent();
+            component.withEngine(desc);
+            _engine = desc;
+        }
+
+        public Component(DUUIPipelineComponent pComponent) throws IOException, SAXException, URISyntaxException, InvalidXMLException {
+            component = pComponent;
+            _engine = pComponent.getEngine();
+        }
+
+        static private String[] extractNames(AnalysisEngineDescription engine, int recursionDepth) throws InvalidXMLException {
+            List<String> lst = new ArrayList<String>();
+            String offset = "";
+            for (int i = 0; i < recursionDepth; i++) {
+                offset += "  ";
+            }
+            if (engine.isPrimitive()) {
+                lst.add(offset + engine.getAnnotatorImplementationName());
+            } else {
+                Map<String, ResourceSpecifier> spec = engine.getDelegateAnalysisEngineSpecifiers();
+                for (String x : spec.keySet()) {
+                    ResourceSpecifier res = spec.get(x);
+                    if (res instanceof AnalysisEngineDescription) {
+                        Collections.addAll(lst, extractNames((AnalysisEngineDescription) res, recursionDepth + 1));
+                        lst.add("");
+                    }
+                }
+            }
+            String[] arr = new String[lst.size()];
+            lst.toArray(arr);
+            return arr;
+        }
+
+        /**
+         * Set the maximum concurrency-level for this component by instantiating the given number of replicas.
+         *
+         * @param scale Number of replicas.
+         * @return {@code this}
+         */
+        public Component withScale(int scale) {
+            component.withScale(scale);
+            return this;
+        }
+
+        public Component withParameter(String key, String value) {
+            component.withParameter(key, value);
+            return this;
+        }
+
+        public Component withDescription(String description) {
+            component.withDescription(description);
+            return this;
+        }
+
+        /**
+         * Set the maximum concurrency-level for this component by instantiating the given number of replicas.
+         *
+         * @param workers Number of replicas.
+         * @return {@code this}
+         * @apiNote Alias for {@link #withScale(int)}. Inter-component concurrency via
+         * {@link org.apache.uima.analysis_engine.impl.MultiprocessingAnalysisEngine_impl MultiprocessingAnalysisEngines}
+         * is not yet supported.
+         */
+        public Component withWorkers(int workers) {
+            component.withScale(workers);
+            return this;
+        }
+
+        public void describeAnalysisEngine() throws InvalidXMLException {
+            String[] names = extractNames(_engine, 0);
+            for (String i : names) {
+                System.out.println(i);
+            }
+        }
+
+        public Component setAnalysisEngineParameter(String key, Object value) throws IOException, SAXException {
+            _engine.getAnalysisEngineMetaData()
+                    .getConfigurationParameterSettings()
+                    .setParameterValue(key, value);
+            return this;
+        }
+
+        public String getAnnotatorName() {
+            if (_engine.isPrimitive()) {
+                return _engine.getAnnotatorImplementationName();
+            }
+            return null;
+        }
+
+        public DUUIPipelineComponent build() throws IOException, SAXException {
+            component.withDriver(DUUIUIMADriver.class);
+            return component;
+        }
+
+        public Component withName(String name) {
+            component.withName(name);
+            return this;
+        }
     }
 
     public void run(String uuid, JCas aCas, DUUIPipelineDocumentPerformance perf, DUUIComposer composer) throws CASException, PipelineComponentException {

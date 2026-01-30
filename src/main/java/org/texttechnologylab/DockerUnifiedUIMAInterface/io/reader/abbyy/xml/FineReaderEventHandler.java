@@ -284,14 +284,9 @@ public class FineReaderEventHandler extends DefaultHandler {
         this.unifyWhitespaces = unifyWhitespaces;
     }
 
-    public static class ParsedDocument {
-        final public ImmutableList<AbbyyPage> pages;
-        final public ImmutableList<AbbyyBlock> blocks;
-        final public ImmutableList<AbbyyParagraph> paragraphs;
-        final public ImmutableList<AbbyyLine> lines;
-        final public ImmutableList<AbbyyToken> tokens;
-        final public boolean lastTokenWasSpace;
-
+    public record ParsedDocument(ImmutableList<AbbyyPage> pages, ImmutableList<AbbyyBlock> blocks,
+                                 ImmutableList<AbbyyParagraph> paragraphs, ImmutableList<AbbyyLine> lines,
+                                 ImmutableList<AbbyyToken> tokens, boolean lastTokenWasSpace) {
         public ParsedDocument(
                 List<AbbyyPage> pages,
                 List<AbbyyBlock> blocks,
@@ -300,12 +295,7 @@ public class FineReaderEventHandler extends DefaultHandler {
                 List<AbbyyToken> tokens,
                 boolean lastTokenWasSpace
         ) {
-            this.pages = ImmutableList.copyOf(pages);
-            this.blocks = ImmutableList.copyOf(blocks);
-            this.paragraphs = ImmutableList.copyOf(paragraphs);
-            this.lines = ImmutableList.copyOf(lines);
-            this.tokens = ImmutableList.copyOf(tokens);
-            this.lastTokenWasSpace = lastTokenWasSpace;
+            this(ImmutableList.copyOf(pages), ImmutableList.copyOf(blocks), ImmutableList.copyOf(paragraphs), ImmutableList.copyOf(lines), ImmutableList.copyOf(tokens), lastTokenWasSpace);
         }
     }
 

@@ -1,7 +1,6 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.io.writer;
 
 import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
-import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Sentence;
 import org.apache.commons.io.FileUtils;
 import org.apache.uima.cas.CASException;
 import org.apache.uima.fit.descriptor.ConfigurationParameter;
@@ -40,26 +39,26 @@ public class AudioSegmentWriter extends JCasFileWriter_ImplBase {
 
             MultimodalUtil.getAllCoveredAudio(jCas.getView(audioTokenView), audioFileView, AudioToken.class, "wav").forEach(file -> {
 
-                    String moveTo = getTargetLocation();
+                        String moveTo = getTargetLocation();
 
-                    if(!moveTo.endsWith("/") && !moveTo.endsWith("\\")){
-                        moveTo = moveTo + "/";
-                    }
-
-                    String documentName;
-
-                    if(finalMeta != null && finalMeta.getDocumentId() != null){
-                        documentName = finalMeta.getDocumentId() + "_";
-                    }else{
-                        documentName = "File_";
-                    }
-
-                    try {
-                        FileUtils.moveFile(new File(file.getAbsolutePath()), new File(moveTo + documentName + file.getName()));
-                    } catch (IOException e) {
-                        e.printStackTrace();
+                        if (!moveTo.endsWith("/") && !moveTo.endsWith("\\")) {
+                            moveTo = moveTo + "/";
                         }
-                }
+
+                        String documentName;
+
+                        if (finalMeta != null && finalMeta.getDocumentId() != null) {
+                            documentName = finalMeta.getDocumentId() + "_";
+                        } else {
+                            documentName = "File_";
+                        }
+
+                        try {
+                            FileUtils.moveFile(new File(file.getAbsolutePath()), new File(moveTo + documentName + file.getName()));
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    }
 
             );
         } catch (CASException e) {

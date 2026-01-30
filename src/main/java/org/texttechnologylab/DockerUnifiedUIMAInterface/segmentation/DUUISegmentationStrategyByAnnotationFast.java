@@ -20,7 +20,7 @@ public class DUUISegmentationStrategyByAnnotationFast extends DUUISegmentationSt
     private int iLength = 500000;
     private Class pClass;
 
-    private Set<String> currentOffset = new HashSet<>();
+    private final Set<String> currentOffset = new HashSet<>();
 
     private JCas emptyCas = null;
 
@@ -77,10 +77,10 @@ public class DUUISegmentationStrategyByAnnotationFast extends DUUISegmentationSt
         JCasUtil.selectCovered(jCasInput, Annotation.class, iStart, iEnde).forEach(a -> {
             try {
                 if (!(a instanceof DocumentMetaData)) {
-                    TOP fs = (TOP) a.getClass().getConstructor(JCas.class).newInstance(emptyCas);
+                    TOP fs = a.getClass().getConstructor(JCas.class).newInstance(emptyCas);
                     fs.getType().getFeatures().forEach(f -> {
                         try {
-                            fs.setFeatureValueFromString(f, ((TOP) a).getFeatureValueAsString(f));
+                            fs.setFeatureValueFromString(f, a.getFeatureValueAsString(f));
                         } catch (Exception e) {
 //                        System.out.println(e.getMessage());
                         }

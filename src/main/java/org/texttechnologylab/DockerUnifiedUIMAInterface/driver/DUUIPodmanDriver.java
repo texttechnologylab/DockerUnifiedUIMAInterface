@@ -53,13 +53,13 @@ import static org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIDocker
 public class DUUIPodmanDriver implements IDUUIDriverInterface {
 
     private PodmanClient _interface = null;
-    private HttpClient _client;
+    private final HttpClient _client;
 
     private Vertx _vertx = null;
     private DUUILuaContext _luaContext = null;
-    private int _container_timeout;
+    private final int _container_timeout;
 
-    private HashMap<String, DUUIDockerDriver.InstantiatedComponent> _active_components;
+    private final HashMap<String, DUUIDockerDriver.InstantiatedComponent> _active_components;
 
 
     public DUUIPodmanDriver() throws IOException, SAXException {
@@ -206,7 +206,7 @@ public class DUUIPodmanDriver implements IDUUIDriverInterface {
     public String instantiate(DUUIPipelineComponent component, JCas jc, boolean skipVerification, AtomicBoolean shutdown) throws Exception {
 
         String uuid = UUID.randomUUID().toString();
-        while (_active_components.containsKey(uuid.toString())) {
+        while (_active_components.containsKey(uuid)) {
             uuid = UUID.randomUUID().toString();
         }
 
@@ -304,7 +304,7 @@ public class DUUIPodmanDriver implements IDUUIDriverInterface {
                         }
                         final int iCopy = i;
                         final String uuidCopy = uuid;
-                        IDUUICommunicationLayer layer = responsiveAfterTime(getLocalhost() + ":" + String.valueOf(port), jc, _container_timeout, _client, (msg) -> {
+                        IDUUICommunicationLayer layer = responsiveAfterTime(getLocalhost() + ":" + port, jc, _container_timeout, _client, (msg) -> {
                             System.out.printf("[PodmanDriver][%s][Podman Replication %d/%d] %s\n", uuidCopy, iCopy + 1, comp.getScale(), msg);
                         }, _luaContext, skipVerification);
                         System.out.printf("[PodmanDriver][%s][Podman Replication %d/%d] Container for image %s is online (URL http://127.0.0.1:%d) and seems to understand DUUI V1 format!\n", uuid, i + 1, comp.getScale(), comp.getImageName(), port);
@@ -351,6 +351,7 @@ public class DUUIPodmanDriver implements IDUUIDriverInterface {
 
     /**
      * init reader component
+     *
      * @param uuid
      * @param filePath
      * @return
@@ -400,14 +401,14 @@ public class DUUIPodmanDriver implements IDUUIDriverInterface {
             destroy(s);
         }
         try {
-            Thread.sleep(3000l);
+            Thread.sleep(3000L);
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
     }
 
     public static class Component {
-        private DUUIPipelineComponent _component;
+        private final DUUIPipelineComponent _component;
 
         public Component(String target) throws URISyntaxException, IOException {
             _component = new DUUIPipelineComponent();
@@ -445,6 +446,7 @@ public class DUUIPodmanDriver implements IDUUIDriverInterface {
 
         /**
          * Start the given number of parallel instances (containers).
+         *
          * @param scale Number of containers to start.
          * @return {@code this}
          */
@@ -455,6 +457,7 @@ public class DUUIPodmanDriver implements IDUUIDriverInterface {
 
         /**
          * Set the maximum concurrency-level of each component by instantiating the multiple replicas per container.
+         *
          * @param workers Number of replicas per container.
          * @return {@code this}
          */

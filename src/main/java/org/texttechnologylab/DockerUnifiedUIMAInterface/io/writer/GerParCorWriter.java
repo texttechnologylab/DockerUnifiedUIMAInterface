@@ -38,7 +38,7 @@ import java.util.Set;
  */
 public class GerParCorWriter extends JCasFileWriter_ImplBase {
 
-    private static Set<String> classNames = new HashSet<>(0);
+    private static final Set<String> classNames = new HashSet<>(0);
 
     public static final String PARAM_DBConnection = "dbconnection";
     private final String GRIDID = "gridid";
@@ -104,10 +104,10 @@ public class GerParCorWriter extends JCasFileWriter_ImplBase {
 
         if (sGridId.length() > 0) {
 
-            Bson bQuery= BsonDocument.parse("{\"filename\": \""+sGridId+"\"}" );
+            Bson bQuery = BsonDocument.parse("{\"filename\": \"" + sGridId + "\"}");
 
             for (GridFSFile gridFSFile : gridFS.find(bQuery)) {
-                System.out.println("Remove: "+gridFSFile.getObjectId());
+                System.out.println("Remove: " + gridFSFile.getObjectId());
                 gridFS.delete(gridFSFile.getObjectId());
             }
 
@@ -149,7 +149,7 @@ public class GerParCorWriter extends JCasFileWriter_ImplBase {
                 pDocument.put("meta", pMeta);
 
                 this.dbConnectionHandler.updateObject(sDocumentId, pDocument);
-                System.out.println("Write: "+sDocumentId);
+                System.out.println("Write: " + sDocumentId);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -160,6 +160,7 @@ public class GerParCorWriter extends JCasFileWriter_ImplBase {
 
     /**
      * Count Annotations in JCas
+     *
      * @param pCas
      * @return
      */
@@ -192,6 +193,7 @@ public class GerParCorWriter extends JCasFileWriter_ImplBase {
 
     /**
      * Get Meta-Informations
+     *
      * @param pCas
      * @return
      */

@@ -1,7 +1,5 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.tools;
 
-import de.tudarmstadt.ukp.dkpro.core.api.lexmorph.type.pos.POS;
-import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import org.apache.uima.UimaContext;
 import org.apache.uima.analysis_engine.AnalysisEngineProcessException;
 import org.apache.uima.fit.descriptor.ConfigurationParameter;
@@ -21,7 +19,7 @@ import java.util.Map;
 
 public class CountAnnotations extends JCasFileWriter_ImplBase {
 
-    private static Map<String, Integer> annoCount = new HashMap();
+    private static final Map<String, Integer> annoCount = new HashMap();
 
     public static final String PARAM_NAME = "name";
     @ConfigurationParameter(name = PARAM_NAME, mandatory = false, defaultValue = "project.json")
@@ -36,22 +34,22 @@ public class CountAnnotations extends JCasFileWriter_ImplBase {
     @Override
     public void destroy() {
 
-            String sTargetLocation = this.getTargetLocation();
+        String sTargetLocation = this.getTargetLocation();
 
-            JSONArray tArray = new JSONArray();
+        JSONArray tArray = new JSONArray();
 
-            annoCount.keySet().forEach(k->{
-                JSONObject tObject = new JSONObject();
-                tObject.put("name", k);
-                tObject.put("value", annoCount.get(k));
-                tArray.put(tObject);
-            });
+        annoCount.keySet().forEach(k -> {
+            JSONObject tObject = new JSONObject();
+            tObject.put("name", k);
+            tObject.put("value", annoCount.get(k));
+            tArray.put(tObject);
+        });
 
-            try {
-                FileUtils.writeContent(tArray.toString(1), new File(sTargetLocation+"/"+this.sName));
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
+        try {
+            FileUtils.writeContent(tArray.toString(1), new File(sTargetLocation + "/" + this.sName));
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
 
         super.destroy();
     }
@@ -60,16 +58,16 @@ public class CountAnnotations extends JCasFileWriter_ImplBase {
     public void process(JCas jCas) throws AnalysisEngineProcessException {
 
 
-        JCasUtil.select(jCas, TOP.class).forEach(a->{
+        JCasUtil.select(jCas, TOP.class).forEach(a -> {
             String sType = a.getType().getName();
 //
 //            if(a instanceof POS){
 //                sType = ((POS)a).getPosValue();
 //            }
 
-            int iCount =0;
+            int iCount = 0;
 
-            if(annoCount.containsKey(sType)){
+            if (annoCount.containsKey(sType)) {
                 iCount = annoCount.get(sType);
             }
             iCount++;
