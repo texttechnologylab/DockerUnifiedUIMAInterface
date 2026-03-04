@@ -5,6 +5,7 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.AdvancedProgr
 
 /**
  * Interface for a CollectionReader
+ *
  * @author Giuseppe Abrami
  */
 public interface DUUICollectionReader {
@@ -18,24 +19,28 @@ public interface DUUICollectionReader {
 
     /**
      * Fill and get the next JCas
+     *
      * @param pCas
      */
-    public void getNextCas(JCas pCas);
+    void getNextCas(JCas pCas);
 
     /**
      * Are there still cas to be processed?
+     *
      * @return
      */
-    public boolean hasNext();
+    boolean hasNext();
 
     /**
      * Get size of Collection
+     *
      * @return
      */
     long getSize();
 
     /**
      * How many JCas have already been processed?
+     *
      * @return
      */
     long getDone();

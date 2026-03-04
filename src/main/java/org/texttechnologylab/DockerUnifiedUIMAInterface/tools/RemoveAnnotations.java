@@ -23,19 +23,19 @@ public class RemoveAnnotations extends JCasAnnotator_ImplBase {
         List<SharedData> annoList3 = JCasUtil.select(jCas, SharedData.class).stream().collect(Collectors.toList());
         List<ReproducibleAnnotation> annoReproducibleAnnotation = JCasUtil.select(jCas, ReproducibleAnnotation.class).stream().collect(Collectors.toList());
 
-        annoList.stream().filter(a->{
+        annoList.stream().filter(a -> {
             return !(a instanceof DocumentMetaData);
         }).forEach(annotation -> {
             annotation.removeFromIndexes();
         });
 
-        annoList2.stream().forEach(annotation->{
+        annoList2.stream().forEach(annotation -> {
             annotation.removeFromIndexes();
         });
-        annoList3.stream().forEach(annotation->{
+        annoList3.stream().forEach(annotation -> {
             annotation.removeFromIndexes();
         });
-        annoReproducibleAnnotation.stream().forEach(annotation->{
+        annoReproducibleAnnotation.stream().forEach(annotation -> {
             annotation.removeFromIndexes();
         });
 

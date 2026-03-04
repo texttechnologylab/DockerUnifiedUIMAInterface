@@ -25,23 +25,26 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public interface IDUUIDriverInterface {
     /**
      * Method for defining the Lua context to be used, which determines the transfer type between Composer and components.
-     * @see DUUILuaContext
+     *
      * @param luaContext
+     * @see DUUILuaContext
      */
-    public void setLuaContext(DUUILuaContext luaContext);
+    void setLuaContext(DUUILuaContext luaContext);
 
     /**
      * Method for checking whether the selected component can be used via the driver.
+     *
      * @param component
      * @return
      * @throws InvalidXMLException
      * @throws IOException
      * @throws SAXException
      */
-    public boolean canAccept(DUUIPipelineComponent component) throws InvalidXMLException, IOException, SAXException;
+    boolean canAccept(DUUIPipelineComponent component) throws InvalidXMLException, IOException, SAXException;
 
     /**
      * Initialisation method
+     *
      * @param component
      * @param jc
      * @param skipVerification
@@ -49,20 +52,21 @@ public interface IDUUIDriverInterface {
      * @return
      * @throws Exception
      */
-    public String instantiate(DUUIPipelineComponent component, JCas jc, boolean skipVerification, AtomicBoolean shutdown) throws Exception;
+    String instantiate(DUUIPipelineComponent component, JCas jc, boolean skipVerification, AtomicBoolean shutdown) throws Exception;
 
     /**
      * Visualisation of the concurrency
+     *
      * @param uuid
      */
-    public void printConcurrencyGraph(String uuid);
+    void printConcurrencyGraph(String uuid);
 
     //TODO: public InputOutput get_inputs_and_outputs(String uuid)
     //Example: get_typesystem(...)
 
     /**
      * Returns the TypeSystem used for the respective component.
-     * @see TypeSystemDescription
+     *
      * @param uuid
      * @return
      * @throws InterruptedException
@@ -70,20 +74,23 @@ public interface IDUUIDriverInterface {
      * @throws SAXException
      * @throws CompressorException
      * @throws ResourceInitializationException
+     * @see TypeSystemDescription
      */
-    public TypeSystemDescription get_typesystem(String uuid) throws InterruptedException, IOException, SAXException, CompressorException, ResourceInitializationException;
+    TypeSystemDescription get_typesystem(String uuid) throws InterruptedException, IOException, SAXException, CompressorException, ResourceInitializationException;
 
     /**
      * Initializes a Reader Component
+     *
      * @param uuid
      * @param filePath
      * @return
      * @throws Exception
      */
-    public int initReaderComponent(String uuid, Path filePath) throws Exception;
+    int initReaderComponent(String uuid, Path filePath) throws Exception;
 
     /**
      * Starting a component.
+     *
      * @param uuid
      * @param aCas
      * @param perf
@@ -91,18 +98,19 @@ public interface IDUUIDriverInterface {
      * @throws CASException
      * @throws PipelineComponentException
      */
-    public void run(String uuid, JCas aCas, DUUIPipelineDocumentPerformance perf, DUUIComposer composer) throws CASException, PipelineComponentException, CompressorException, IOException, InterruptedException, SAXException, CommunicationLayerException;
+    void run(String uuid, JCas aCas, DUUIPipelineDocumentPerformance perf, DUUIComposer composer) throws CASException, PipelineComponentException, CompressorException, IOException, InterruptedException, SAXException, CommunicationLayerException;
 
     /**
      * Destruction of a component
+     *
      * @param uuid
      * @return
      */
-    public boolean destroy(String uuid);
+    boolean destroy(String uuid);
 
     /**
      * Shutting down the driver
      */
-    public void shutdown();
+    void shutdown();
 
 }

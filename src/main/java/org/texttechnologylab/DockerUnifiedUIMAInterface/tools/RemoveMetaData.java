@@ -16,7 +16,7 @@ public class RemoveMetaData extends JCasAnnotator_ImplBase {
 
         List<AnnotatorMetaData> annoList2 = JCasUtil.select(jCas, AnnotatorMetaData.class).stream().collect(Collectors.toList());
 
-        annoList2.stream().forEach(annotation->{
+        annoList2.stream().forEach(annotation -> {
             annotation.removeFromIndexes();
         });
 

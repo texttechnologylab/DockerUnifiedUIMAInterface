@@ -8,8 +8,8 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 
 public class DUUIPipelineAnnotationComponent {
-    private ReproducibleAnnotation _annotation;
-    private DUUIPipelineComponent _decoded;
+    private final ReproducibleAnnotation _annotation;
+    private final DUUIPipelineComponent _decoded;
 
     public DUUIPipelineAnnotationComponent(ReproducibleAnnotation ann) throws CompressorException, URISyntaxException, IOException {
         _annotation = ann;

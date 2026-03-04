@@ -2,8 +2,8 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface.io.reader.abbyy.xml.ele
 
 import org.apache.uima.jcas.JCas;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.reader.abbyy.utils.Utils;
-import org.xml.sax.Attributes;
 import org.texttechnologylab.annotation.ocr.abbyy.Format;
+import org.xml.sax.Attributes;
 
 public class AbbyyFormat extends AbstractAnnotation {
     private final String lang;

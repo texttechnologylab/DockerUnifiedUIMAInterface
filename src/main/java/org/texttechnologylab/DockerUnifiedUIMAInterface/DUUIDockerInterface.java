@@ -186,8 +186,7 @@ public class DUUIDockerInterface {
                         .responseTimeout(Duration.ofMinutes(10))
                         .dockerHost(URI.create("npipe:////./pipe/docker_engine"))
                         .build();
-            }
-            catch (Exception e){
+            } catch (Exception e) {
                 http = new ApacheDockerHttpClient.Builder()
                         .connectionTimeout(Duration.ofSeconds(5))
                         .responseTimeout(Duration.ofMinutes(10))
@@ -211,7 +210,7 @@ public class DUUIDockerInterface {
      */
     public int extract_port_mapping(String containerid) throws InterruptedException {
         InspectContainerResponse container
-            = _docker.inspectContainerCmd(containerid).exec();
+                = _docker.inspectContainerCmd(containerid).exec();
 
         int innerport = 0;
         for (Map.Entry<ExposedPort, Ports.Binding[]> port : container.getNetworkSettings().getPorts().getBindings().entrySet()) {
@@ -233,7 +232,7 @@ public class DUUIDockerInterface {
      */
     public int extract_port_mapping(String containerid, int portMapping) throws InterruptedException {
         InspectContainerResponse container
-            = _docker.inspectContainerCmd(containerid).exec();
+                = _docker.inspectContainerCmd(containerid).exec();
 
         int innerport = 0;
         for (Map.Entry<ExposedPort, Ports.Binding[]> port : container.getNetworkSettings().getPorts().getBindings().entrySet()) {
@@ -261,10 +260,7 @@ public class DUUIDockerInterface {
      * @return true if in container false otherwise
      */
     public boolean inside_container() {
-        if (new File("/.dockerenv").exists()) {
-            return true;
-        }
-        return false;
+        return new File("/.dockerenv").exists();
     }
 
     /**
@@ -291,14 +287,14 @@ public class DUUIDockerInterface {
     public String get_logs(String containerid) throws InterruptedException {
         final List<String> logs = new ArrayList<>();
         InspectContainerResponse container
-            = _docker.inspectContainerCmd(containerid).exec();
+                = _docker.inspectContainerCmd(containerid).exec();
         _docker.logContainerCmd(containerid).withContainerId(containerid).withStdOut(true).withStdErr(true)
-            .withTimestamps(true).withTail(5).exec(new LogContainerResultCallback() {
-                @Override
-                public void onNext(Frame item) {
-                    logs.add(item.toString());
-                }
-            }).awaitCompletion();
+                .withTimestamps(true).withTail(5).exec(new LogContainerResultCallback() {
+                    @Override
+                    public void onNext(Frame item) {
+                        logs.add(item.toString());
+                    }
+                }).awaitCompletion();
         String completelog = "";
         for (String x : logs) {
             completelog += x;
@@ -336,15 +332,15 @@ public class DUUIDockerInterface {
      */
     public void export_to_new_image(String containerid, String imagename) {
         if (!imagename.equals("")) {
-            String split[] = imagename.split("!");
+            String[] split = imagename.split("!");
             _docker.commitCmd(containerid).withRepository(split[0]).withTag(split[1]).exec();
         }
     }
 
     public Image getLocalImage(String imageName) {
         List<Image> images = _docker.listImagesCmd()
-            .withShowAll(true)
-            .exec();
+                .withShowAll(true)
+                .exec();
         for (Image i : images) {
             if (i.getId() == imageName) {
                 return i;
@@ -373,13 +369,13 @@ public class DUUIDockerInterface {
             cfg.withPassword(password);
             cfg.withUsername(username);
             _docker.pushImageCmd(remoteName)
-                .withAuthConfig(cfg)
-                .exec(new PushImageStdout())
-                .awaitCompletion();
+                    .withAuthConfig(cfg)
+                    .exec(new PushImageStdout())
+                    .awaitCompletion();
         } else {
             _docker.pushImageCmd(remoteName)
-                .exec(new PushImageStdout())
-                .awaitCompletion();
+                    .exec(new PushImageStdout())
+                    .awaitCompletion();
         }
     }
 
@@ -421,8 +417,8 @@ public class DUUIDockerInterface {
         }
 
         List<Image> images = _docker.listImagesCmd()
-            .withShowAll(true)
-            .exec();
+                .withShowAll(true)
+                .exec();
         for (Image i : images) {
             if (i.getId() == imageName) {
                 return true;
@@ -451,8 +447,8 @@ public class DUUIDockerInterface {
 
     public String build(Path builddir, List<String> buildArgs) {
         BuildImageCmd buildCmd = _docker.buildImageCmd().withPull(true)
-            .withBaseDirectory(builddir.toFile())
-            .withDockerfile(Paths.get(builddir.toString(), "dockerfile").toFile());
+                .withBaseDirectory(builddir.toFile())
+                .withDockerfile(Paths.get(builddir.toString(), "dockerfile").toFile());
 
         for (String buildArg : buildArgs) {
             String[] fields = buildArg.split("=", 2);
@@ -498,14 +494,14 @@ public class DUUIDockerInterface {
                 cfg.withUsername(username);
                 cfg.withPassword(password);
                 ResultCallbackTemplate temp = _docker.pullImageCmd(tag)
-                    .withAuthConfig(cfg)
-                    .exec(new PullImageStdout(shutdown));
+                        .withAuthConfig(cfg)
+                        .exec(new PullImageStdout(shutdown));
                 temp.onError(new Exception());
                 temp.awaitCompletion();
             } else {
 
                 ResultCallbackTemplate template = _docker.pullImageCmd(tag)
-                    .exec(new PullImageStdout(shutdown));
+                        .exec(new PullImageStdout(shutdown));
 
                 // What is the purpose of throwing an Exception every time?
                 template.awaitCompletion();
@@ -611,7 +607,7 @@ public class DUUIDockerInterface {
         }
         if (gpu) {
             cfg = cfg.withDeviceRequests(ImmutableList.of(new DeviceRequest()
-                .withCapabilities(ImmutableList.of(ImmutableList.of("gpu")))));
+                    .withCapabilities(ImmutableList.of(ImmutableList.of("gpu")))));
         }
 
         if (!Objects.isNull(portHost) && portHost > 0) {
@@ -623,8 +619,8 @@ public class DUUIDockerInterface {
         }
 
         CreateContainerCmd cmd = _docker.createContainerCmd(imageid)
-            .withHostConfig(cfg)
-            .withExposedPorts(ExposedPort.tcp(portContainer));
+                .withHostConfig(cfg)
+                .withExposedPorts(ExposedPort.tcp(portContainer));
 
         if (!Objects.isNull(env) && !env.isEmpty()) {
             cmd = cmd.withEnv(env);

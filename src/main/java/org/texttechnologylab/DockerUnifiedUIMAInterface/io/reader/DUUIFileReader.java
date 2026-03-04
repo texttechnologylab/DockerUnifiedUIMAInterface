@@ -40,17 +40,17 @@ public class DUUIFileReader implements DUUICollectionReader {
 
     private String _path;
     private ConcurrentLinkedQueue<String> _filePaths;
-    private ConcurrentLinkedQueue<String> _filePathsBackup;
-    private ConcurrentLinkedQueue<ByteReadFuture> _loadedFiles;
+    private final ConcurrentLinkedQueue<String> _filePathsBackup;
+    private final ConcurrentLinkedQueue<ByteReadFuture> _loadedFiles;
 
-    private int _initialSize;
-    private AtomicInteger _docNumber;
-    private long _maxMemory;
-    private AtomicLong _currentMemorySize;
+    private final int _initialSize;
+    private final AtomicInteger _docNumber;
+    private final long _maxMemory;
+    private final AtomicLong _currentMemorySize;
 
     private boolean _addMetadata = true;
 
-    private String _targetPath = null;
+    private final String _targetPath = null;
 
     private String _language = null;
 
@@ -80,7 +80,7 @@ public class DUUIFileReader implements DUUICollectionReader {
     }
 
 
-
+    @Deprecated
     public DUUIFileReader(String folder, String ending, int debugCount, int sampleSize, AsyncCollectionReader.DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE sampleMode, String savePath, boolean bAddMetadata, String language, int skipSmallerFiles) {
         this(folder, ending, debugCount, getRandomFromMode(sampleMode, sampleSize), getSortFromMode(sampleMode), savePath, bAddMetadata, language, skipSmallerFiles, savePath, null);
     }
@@ -110,9 +110,7 @@ public class DUUIFileReader implements DUUICollectionReader {
             }
             String[] sSplit = sContent.split("\n");
 
-            for (String s : sSplit) {
-                _filePaths.add(s);
-            }
+            Collections.addAll(_filePaths, sSplit);
 
         } else {
             File fl = new File(folder);
@@ -192,10 +190,7 @@ public class DUUIFileReader implements DUUICollectionReader {
     }
 
     private static boolean getSortFromMode(AsyncCollectionReader.DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE mode) {
-        if (mode == AsyncCollectionReader.DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE.RANDOM) {
-            return false;
-        }
-        return true;
+        return mode != AsyncCollectionReader.DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE.RANDOM;
     }
 
     public static void addFilesToConcurrentList(File folder, String ending, ConcurrentLinkedQueue<String> paths) {
@@ -204,7 +199,7 @@ public class DUUIFileReader implements DUUICollectionReader {
         for (int i = 0; i < listOfFiles.length; i++) {
             if (listOfFiles[i].isFile()) {
                 if (listOfFiles[i].getName().endsWith(ending)) {
-                    paths.add(listOfFiles[i].getPath().toString());
+                    paths.add(listOfFiles[i].getPath());
                 }
             } else if (listOfFiles[i].isDirectory()) {
                 addFilesToConcurrentList(listOfFiles[i], ending, paths);

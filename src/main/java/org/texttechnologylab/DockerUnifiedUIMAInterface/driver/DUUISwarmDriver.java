@@ -40,7 +40,7 @@ import static java.lang.String.format;
  */
 public class DUUISwarmDriver implements IDUUIDriverInterface {
     private final DUUIDockerInterface _interface;
-    private HttpClient _client;
+    private final HttpClient _client;
     private IDUUIConnectionHandler _wsclient;
     private final HashMap<String, DUUISwarmDriver.InstantiatedComponent> _active_components;
     private int _container_timeout;
@@ -210,6 +210,7 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
 
     /**
      * init reader component
+     *
      * @param uuid
      * @param filePath
      * @return
@@ -294,9 +295,9 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
         private final String _reg_password;
         private final String _reg_username;
         private final Map<String, String> _parameters;
-        private String _sourceView;
-        private String _targetView;
-        private DUUIPipelineComponent _component;
+        private final String _sourceView;
+        private final String _targetView;
+        private final DUUIPipelineComponent _component;
         private String sHost = "localhost";
 
 
@@ -374,7 +375,7 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
 
             if (_websocket) {
                 swarmDriver._wsclient = new DUUIWebsocketAlt(
-                    getServiceUrl().replaceFirst("http", "ws") + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS_WEBSOCKET, _ws_elements);
+                        getServiceUrl().replaceFirst("http", "ws") + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS_WEBSOCKET, _ws_elements);
             } else {
                 swarmDriver._wsclient = null;
             }
@@ -418,9 +419,13 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
             return _parameters;
         }
 
-        public String getSourceView() {return _sourceView; }
+        public String getSourceView() {
+            return _sourceView;
+        }
 
-        public String getTargetView() {return _targetView; }
+        public String getTargetView() {
+            return _targetView;
+        }
 
         public Triplet<IDUUIUrlAccessible, Long, Long> getComponent() {
             long mutexStart = System.nanoTime();
@@ -438,7 +443,7 @@ public class DUUISwarmDriver implements IDUUIDriverInterface {
     }
 
     public static class Component {
-        private DUUIPipelineComponent component;
+        private final DUUIPipelineComponent component;
 
         public Component(String globalRegistryImageName) throws URISyntaxException, IOException {
             component = new DUUIPipelineComponent();

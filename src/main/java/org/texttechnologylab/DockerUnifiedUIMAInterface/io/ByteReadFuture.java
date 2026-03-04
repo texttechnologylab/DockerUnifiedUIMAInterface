@@ -1,8 +1,8 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.io;
 
 public class ByteReadFuture {
-    private String _path;
-    private byte[] _bytes;
+    private final String _path;
+    private final byte[] _bytes;
 
     public ByteReadFuture(String path, byte[] bytes) {
         _path = path;

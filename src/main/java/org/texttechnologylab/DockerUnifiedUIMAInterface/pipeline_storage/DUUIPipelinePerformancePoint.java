@@ -8,18 +8,18 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class DUUIPipelinePerformancePoint {
-    private String _componentKey;
-    private Long _durationSerialize;
-    private Long _durationDeserialize;
-    private Long _durationAnnotator;
-    private Long _durationMutexWait;
-    private Long _durationComponentTotal;
+    private final String _componentKey;
+    private final Long _durationSerialize;
+    private final Long _durationDeserialize;
+    private final Long _durationAnnotator;
+    private final Long _durationMutexWait;
+    private final Long _durationComponentTotal;
     private Long _numberAnnotations;
     private Long _documentSize;
-    private Long _serializedSize;
+    private final Long _serializedSize;
 
-    private String error;
-    private String document;
+    private final String error;
+    private final String document;
 
     public DUUIPipelinePerformancePoint(long durationSerialize, long durationDeserialize, long durationAnnotator, long durationMutexWait, long durationComponentTotal,
                                         String componentKey, long serializedSize, JCas jc, String error, String document) {
@@ -32,15 +32,13 @@ public class DUUIPipelinePerformancePoint {
         _durationMutexWait = durationMutexWait;
         try {
             _numberAnnotations = JCasUtil.select(jc, TOP.class).stream().count();
-        }
-        catch (Exception e){
-            _numberAnnotations=0l;
+        } catch (Exception e) {
+            _numberAnnotations = 0L;
         }
         try {
             _documentSize = Long.valueOf(jc.getDocumentText().length());
-        }
-        catch (Exception e){
-            _documentSize=-1l;
+        } catch (Exception e) {
+            _documentSize = -1L;
         }
         _serializedSize = serializedSize;
 

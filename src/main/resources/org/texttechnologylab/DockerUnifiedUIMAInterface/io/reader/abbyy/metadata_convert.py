@@ -80,12 +80,12 @@ class PagesList(list[Page]):
             (
                 row.pop(key)
                 for key in (
-                    "page_ids",
-                    "page_contents",
-                    "page_labels",
-                    "page_urls",
-                    "page_text_urls",
-                )
+                "page_ids",
+                "page_contents",
+                "page_labels",
+                "page_urls",
+                "page_text_urls",
+            )
             ),
         )
         return [

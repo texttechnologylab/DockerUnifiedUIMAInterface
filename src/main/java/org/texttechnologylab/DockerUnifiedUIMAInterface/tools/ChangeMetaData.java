@@ -14,12 +14,11 @@ public class ChangeMetaData extends JCasAnnotator_ImplBase {
         DocumentMetaData dmd = null;
         try {
             dmd = DocumentMetaData.get(jCas);
-        }
-        catch (Exception e){
+        } catch (Exception e) {
             dmd = DocumentMetaData.create(jCas);
         }
 
-        if(dmd.getDocumentUri()==null){
+        if (dmd.getDocumentUri() == null) {
             String sID = dmd.getDocumentId();
             char alpha = sID.toCharArray()[0];
             char beta = sID.toCharArray()[1];
@@ -28,19 +27,19 @@ public class ChangeMetaData extends JCasAnnotator_ImplBase {
             String sBeta = String.valueOf(beta).toLowerCase();
             sAlpha = replaceUmlaut(sAlpha);
             sBeta = replaceUmlaut(sBeta);
-            if(isNumeric(sAlpha) || isNumeric(sBeta)){
+            if (isNumeric(sAlpha) || isNumeric(sBeta)) {
                 sAlpha = "0";
                 sBeta = "0";
             }
 
 
-            dmd.setDocumentUri("/storage/projects/abrami/verbs/xmi/"+sAlpha+"/"+sBeta+"/"+sID);
+            dmd.setDocumentUri("/storage/projects/abrami/verbs/xmi/" + sAlpha + "/" + sBeta + "/" + sID);
             dmd.setDocumentBaseUri("/storage/projects/abrami/verbs/xmi");
         }
 
     }
 
-    public boolean isNumeric(String sInput){
+    public boolean isNumeric(String sInput) {
         Pattern pattern = Pattern.compile("-?\\d+(\\.\\d+)?");
         if (sInput == null) {
             return false;
@@ -49,7 +48,7 @@ public class ChangeMetaData extends JCasAnnotator_ImplBase {
 
     }
 
-    public String replaceUmlaut(String sInput){
+    public String replaceUmlaut(String sInput) {
 
         return sInput.replace("ü", "ue")
                 .replace("ö", "oe")

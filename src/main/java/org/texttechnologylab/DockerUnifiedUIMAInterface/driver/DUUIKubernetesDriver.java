@@ -49,18 +49,17 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
 
     private final KubernetesClient _kube_client;
 
-    private HashMap<String, InstantiatedComponent> _active_components;
+    private static final int _port = 9715;
     private DUUILuaContext _luaContext;
     private final DUUIDockerInterface _interface;
-    private HttpClient _client;
-    private int _container_timeout;
+    private static final String sNamespace = "default";
+    private final HashMap<String, InstantiatedComponent> _active_components;
 
     private IDUUIConnectionHandler _wsclient;
 
     private int iScaleBuffer = 0;
-
-    private static int _port = 9715;
-    private static String sNamespace = "default";
+    private final HttpClient _client;
+    private final int _container_timeout;
 
     /**
      * Constructor.
@@ -128,38 +127,38 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
             // Load Deployment YAML Manifest into Java object
             Deployment deployment;
             deployment = new DeploymentBuilder()
-                .withNewMetadata()
-                .withName(name)
-                .endMetadata()
-                .withNewSpec()
-                .withReplicas(replicas)
-                .withNewTemplate()
-                .withNewMetadata()
-                .addToLabels("pipeline-uid", name)
-                .endMetadata()
-                .withNewSpec()
-                .addNewContainer()
-                .withName(name)
-                .withImage(image)
-                .addNewPort()
+                    .withNewMetadata()
+                    .withName(name)
+                    .endMetadata()
+                    .withNewSpec()
+                    .withReplicas(replicas)
+                    .withNewTemplate()
+                    .withNewMetadata()
+                    .addToLabels("pipeline-uid", name)
+                    .endMetadata()
+                    .withNewSpec()
+                    .addNewContainer()
+                    .withName(name)
+                    .withImage(image)
+                    .addNewPort()
                     .withContainerPort(_port)
-                .endPort()
-                .endContainer()
-                .withNewAffinity()
-                .withNewNodeAffinity()
-                .withNewRequiredDuringSchedulingIgnoredDuringExecution()
-                .addAllToNodeSelectorTerms(terms)
-                .endRequiredDuringSchedulingIgnoredDuringExecution()
-                .endNodeAffinity()
-                .endAffinity()
-                .endSpec()
+                    .endPort()
+                    .endContainer()
+                    .withNewAffinity()
+                    .withNewNodeAffinity()
+                    .withNewRequiredDuringSchedulingIgnoredDuringExecution()
+                    .addAllToNodeSelectorTerms(terms)
+                    .endRequiredDuringSchedulingIgnoredDuringExecution()
+                    .endNodeAffinity()
+                    .endAffinity()
+                    .endSpec()
 
-                .endTemplate()
-                .withNewSelector()
-                .addToMatchLabels("pipeline-uid", name)
-                .endSelector()
-                .endSpec()
-                .build();
+                    .endTemplate()
+                    .withNewSelector()
+                    .addToMatchLabels("pipeline-uid", name)
+                    .endSelector()
+                    .endSpec()
+                    .build();
 
             deployment = k8s.apps().deployments().inNamespace(sNamespace).resource(deployment).create();
         }
@@ -175,26 +174,26 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
         try (KubernetesClient client = new KubernetesClientBuilder().build()) {
             String namespace = Optional.ofNullable(client.getNamespace()).orElse(sNamespace);
             Service service = new ServiceBuilder()
-                .withNewMetadata()
-                .withName(name)
-                .endMetadata()
-                .withNewSpec()
-                .withSelector(Collections.singletonMap("pipeline-uid", name))  // Has to match the label of the deployment.
-                .addNewPort()
-                .withName("k-port")
-                .withProtocol("TCP")
+                    .withNewMetadata()
+                    .withName(name)
+                    .endMetadata()
+                    .withNewSpec()
+                    .withSelector(Collections.singletonMap("pipeline-uid", name))  // Has to match the label of the deployment.
+                    .addNewPort()
+                    .withName("k-port")
+                    .withProtocol("TCP")
                     .withPort(_port)
-                .withTargetPort(new IntOrString(9714))
-                .endPort()
-                .withType("LoadBalancer")
-                .endSpec()
-                .build();
+                    .withTargetPort(new IntOrString(9714))
+                    .endPort()
+                    .withType("LoadBalancer")
+                    .endSpec()
+                    .build();
 
             service = client.services().inNamespace(namespace).resource(service).create();
             logger.info("Created service with name {}", service.getMetadata().getName());
 
             String serviceURL = client.services().inNamespace(namespace).withName(service.getMetadata().getName())
-                .getURL("k-port");
+                    .getURL("k-port");
             logger.info("Service URL {}", serviceURL);
 
             return service;
@@ -250,6 +249,20 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
     }
 
     /**
+     * Deletes the Deployment from the kubernetes cluster.
+     *
+     * @author Markos Genios
+     */
+    public static void deleteDeployment(String name) {
+        try (KubernetesClient k8s = new KubernetesClientBuilder().build()) {
+            // Argument namespace could be generalized.
+            k8s.apps().deployments().inNamespace(sNamespace)
+                    .withName(name)
+                    .delete();
+        }
+    }
+
+    /**
      * Creates Deployment and Service. Puts the new component, which includes the Pods with their image to the active components.
      *
      * @param component
@@ -263,7 +276,7 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
     @Override
     public String instantiate(DUUIPipelineComponent component, JCas jc, boolean skipVerification, AtomicBoolean shutdown) throws Exception {
         String uuid = UUID.randomUUID().toString();  // Erstelle ID für die neue Komponente.
-        while (_active_components.containsKey(uuid.toString())) {  // Stelle sicher, dass ID nicht bereits existiert (?)
+        while (_active_components.containsKey(uuid)) {  // Stelle sicher, dass ID nicht bereits existiert (?)
             uuid = UUID.randomUUID().toString();
         }
         InstantiatedComponent comp = new InstantiatedComponent(component);  // Initialisiere Komponente
@@ -316,21 +329,6 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
         return shutdown.get() ? null : uuid;
     }
 
-
-    /**
-     * Deletes the Deployment from the kubernetes cluster.
-     *
-     * @author Markos Genios
-     */
-    public static void deleteDeployment(String name) {
-        try (KubernetesClient k8s = new KubernetesClientBuilder().build()) {
-            // Argument namespace could be generalized.
-            k8s.apps().deployments().inNamespace(sNamespace)
-                .withName(name)
-                .delete();
-        }
-    }
-
     /**
      * Deletes the service from the kubernetes cluster.
      *
@@ -359,6 +357,7 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
 
     /**
      * init reader component
+     *
      * @param uuid
      * @param filePath
      * @return
@@ -418,9 +417,9 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
      * @author Markos Genios
      */
     public static class ComponentInstance implements IDUUIUrlAccessible {
-        private String _pod_ip;
+        private final String _pod_ip;
         private IDUUIConnectionHandler _handler;
-        private IDUUICommunicationLayer _communicationLayer;
+        private final IDUUICommunicationLayer _communicationLayer;
 
         /**
          * Constructor.
@@ -467,23 +466,23 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
 
     static class InstantiatedComponent implements IDUUIInstantiatedPipelineComponent {
 
-        private String _image_name;
+        private final String _image_name;
         private int _service_port;
-        private boolean _gpu;
+        private final boolean _gpu;
         private final ConcurrentLinkedQueue<ComponentInstance> _components;
-        private boolean _keep_running_after_exit;
-        private int _scale;
-        private boolean _withImageFetching;
-        private Map<String, String> _parameters;
-        private String _sourceView;
-        private String _targetView;
-        private DUUIPipelineComponent _component;
+        private final boolean _keep_running_after_exit;
+        private final int _scale;
+        private final boolean _withImageFetching;
+        private final Map<String, String> _parameters;
+        private final String _sourceView;
+        private final String _targetView;
+        private final DUUIPipelineComponent _component;
 
         private final boolean _websocket;
 
-        private int _ws_elements;  // Dieses Attribut wird irgendwie dem _wsclient-String am Ende angeheftet. Ka wieso.
-        private List<String> _labels;
-        private String _uniqueComponentKey = "";
+        private final int _ws_elements;  // Dieses Attribut wird irgendwie dem _wsclient-String am Ende angeheftet. Ka wieso.
+        private final List<String> _labels;
+        private final String _uniqueComponentKey = "";
 
         InstantiatedComponent(DUUIPipelineComponent comp) {
             _component = comp;
@@ -516,7 +515,7 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
 
             if (_websocket) {
                 kubeDriver._wsclient = new DUUIWebsocketAlt(
-                    getServiceUrl().replaceFirst("http", "ws") + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS_WEBSOCKET, _ws_elements);
+                        getServiceUrl().replaceFirst("http", "ws") + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS_WEBSOCKET, _ws_elements);
             } else {
                 kubeDriver._wsclient = null;
             }
@@ -563,9 +562,13 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
             return _parameters;
         }
 
-        public String getSourceView() {return _sourceView; }
+        public String getSourceView() {
+            return _sourceView;
+        }
 
-        public String getTargetView() {return _targetView; }
+        public String getTargetView() {
+            return _targetView;
+        }
 
         @Override
         public String getUniqueComponentKey() {
@@ -632,7 +635,7 @@ public class DUUIKubernetesDriver implements IDUUIDriverInterface {
      * @author Markos Genios
      */
     public static class Component {
-        private DUUIPipelineComponent _component;  // Dieses Attribut wird letztlich der Methode "instantiate" übergeben.
+        private final DUUIPipelineComponent _component;  // Dieses Attribut wird letztlich der Methode "instantiate" übergeben.
 
         /**
          * Constructor. Creates Instance of Class Component.

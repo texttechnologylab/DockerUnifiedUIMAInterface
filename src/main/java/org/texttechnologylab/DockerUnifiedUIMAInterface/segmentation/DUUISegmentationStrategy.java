@@ -51,8 +51,7 @@ public abstract class DUUISegmentationStrategy implements IDUUISegmentationStrat
                     DocumentMetaData.get(jCasTarget).setLanguage(jCasSource.getDocumentLanguage());
                 }
             }
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             System.err.println("Error copying DocumentMetaData: " + e.getMessage());
             e.printStackTrace();
         }

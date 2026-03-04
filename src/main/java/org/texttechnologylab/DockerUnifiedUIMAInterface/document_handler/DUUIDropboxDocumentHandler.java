@@ -1,13 +1,18 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.document_handler;
 
-import com.dropbox.core.*;
+import com.dropbox.core.DbxDownloader;
+import com.dropbox.core.DbxException;
+import com.dropbox.core.DbxRequestConfig;
+import com.dropbox.core.RateLimitException;
 import com.dropbox.core.oauth.DbxCredential;
 import com.dropbox.core.util.IOUtil;
 import com.dropbox.core.v2.DbxClientV2;
 import com.dropbox.core.v2.files.*;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.DUUIStatus;
 
-import java.io.*;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
@@ -105,9 +110,9 @@ public class DUUIDropboxDocumentHandler implements IDUUIDocumentHandler, IDUUIFo
                 writeDocumentChunked(document, path + document.getName(), progressListener);
             } else {
                 client.files()
-                    .uploadBuilder(path + document.getName())
-                    .withMode(writeMode)
-                    .uploadAndFinish(document.toInputStream(), progressListener);
+                        .uploadBuilder(path + document.getName())
+                        .withMode(writeMode)
+                        .uploadAndFinish(document.toInputStream(), progressListener);
             }
         } catch (RateLimitException exception) {
             try {
@@ -118,10 +123,10 @@ public class DUUIDropboxDocumentHandler implements IDUUIDocumentHandler, IDUUIFo
             }
         } catch (DbxException e) {
             throw new IOException(String.format(
-                "There has been a conflict because a file with the name %s already exists at %s.\n" +
-                    "To overwrite existing files use write mode Overwrite instead of Add.",
-                document.getName(),
-                path));
+                    "There has been a conflict because a file with the name %s already exists at %s.\n" +
+                            "To overwrite existing files use write mode Overwrite instead of Add.",
+                    document.getName(),
+                    path));
         }
     }
 
@@ -154,10 +159,10 @@ public class DUUIDropboxDocumentHandler implements IDUUIDocumentHandler, IDUUIFo
                 // Initialize the sessionId and start the upload.
                 if (sessionId == null) {
                     sessionId = client
-                        .files()
-                        .uploadSessionStart()
-                        .uploadAndFinish(stream, CHUNK_SIZE, progressListener)
-                        .getSessionId();
+                            .files()
+                            .uploadSessionStart()
+                            .uploadAndFinish(stream, CHUNK_SIZE, progressListener)
+                            .getSessionId();
                     uploadProgress += CHUNK_SIZE;
                 }
 
@@ -165,9 +170,9 @@ public class DUUIDropboxDocumentHandler implements IDUUIDocumentHandler, IDUUIFo
 
                 while ((size - uploadProgress) > CHUNK_SIZE) {
                     client
-                        .files()
-                        .uploadSessionAppendV2(cursor)
-                        .uploadAndFinish(stream, CHUNK_SIZE, progressListener);
+                            .files()
+                            .uploadSessionAppendV2(cursor)
+                            .uploadAndFinish(stream, CHUNK_SIZE, progressListener);
 
                     uploadProgress += CHUNK_SIZE;
                     cursor = new UploadSessionCursor(sessionId, uploadProgress);
@@ -175,14 +180,14 @@ public class DUUIDropboxDocumentHandler implements IDUUIDocumentHandler, IDUUIFo
 
                 long remaining = size - uploadProgress;
                 CommitInfo commitInfo = CommitInfo
-                    .newBuilder(path)
-                    .withMode(writeMode)
-                    .build();
+                        .newBuilder(path)
+                        .withMode(writeMode)
+                        .build();
 
                 client
-                    .files()
-                    .uploadSessionFinish(cursor, commitInfo)
-                    .uploadAndFinish(stream, remaining, progressListener);
+                        .files()
+                        .uploadSessionFinish(cursor, commitInfo)
+                        .uploadAndFinish(stream, remaining, progressListener);
 
             } catch (DbxException exception) {
                 throw new IOException(exception);
@@ -215,8 +220,8 @@ public class DUUIDropboxDocumentHandler implements IDUUIDocumentHandler, IDUUIFo
 
         try {
             DbxDownloader<FileMetadata> downloader = client
-                .files()
-                .download(addLeadingSlashToPath(path));
+                    .files()
+                    .download(addLeadingSlashToPath(path));
 
             downloader.download(fileContentOutput, progressListener);
             fileContentOutput.close();
@@ -254,27 +259,27 @@ public class DUUIDropboxDocumentHandler implements IDUUIDocumentHandler, IDUUIFo
 
         try {
             result = client
-                .files()
-                .listFolderBuilder(path)
-                .withRecursive(recursive)
-                .start();
+                    .files()
+                    .listFolderBuilder(path)
+                    .withRecursive(recursive)
+                    .start();
 
         } catch (DbxException e) {
             throw new IOException(e);
         }
 
         return result
-            .getEntries()
-            .stream()
-            .filter(metadata
-                -> metadata.getPathLower().endsWith(fileExtension)
-                && metadata instanceof FileMetadata) // Only FileMetadata includes the size since folders have no size.
-            .map(metadata
-                -> new DUUIDocument(
-                metadata.getName(),
-                metadata.getPathLower(),
-                ((FileMetadata) metadata).getSize()))
-            .collect(Collectors.toList());
+                .getEntries()
+                .stream()
+                .filter(metadata
+                        -> metadata.getPathLower().endsWith(fileExtension)
+                        && metadata instanceof FileMetadata) // Only FileMetadata includes the size since folders have no size.
+                .map(metadata
+                        -> new DUUIDocument(
+                        metadata.getName(),
+                        metadata.getPathLower(),
+                        ((FileMetadata) metadata).getSize()))
+                .collect(Collectors.toList());
 
     }
 
@@ -300,10 +305,10 @@ public class DUUIDropboxDocumentHandler implements IDUUIDocumentHandler, IDUUIFo
         }
 
         result.getEntries().stream()
-            .filter(f -> f instanceof FolderMetadata)
-            .map(f -> getFolderStructure(((FolderMetadata) f).getPathLower(), f.getName()))
-            .filter(Objects::nonNull)
-            .forEach(root::addChild);
+                .filter(f -> f instanceof FolderMetadata)
+                .map(f -> getFolderStructure(f.getPathLower(), f.getName()))
+                .filter(Objects::nonNull)
+                .forEach(root::addChild);
 
         return root;
     }

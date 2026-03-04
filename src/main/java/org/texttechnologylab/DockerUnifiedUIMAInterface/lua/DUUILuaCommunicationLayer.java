@@ -1,6 +1,5 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.lua;
 
-import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.cas.CASException;
 import org.apache.uima.jcas.JCas;
 import org.luaj.vm2.LuaError;
@@ -10,11 +9,9 @@ import org.luaj.vm2.lib.jse.CoerceLuaToJava;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUICommunicationLayer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIHttpRequestHandler;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.exception.CommunicationLayerException;
-import org.xml.sax.SAXException;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
@@ -24,10 +21,10 @@ import java.util.Map;
  * @author Alexander Leonhardt
  */
 public class DUUILuaCommunicationLayer implements IDUUICommunicationLayer {
-    private String _script;
-    private String _origin;
-    private DUUILuaContext _globalContext;
-    private DUUILuaCompiledFile _file;
+    private final String _script;
+    private final String _origin;
+    private final DUUILuaContext _globalContext;
+    private final DUUILuaCompiledFile _file;
 
     public DUUILuaCommunicationLayer(String script, String origin, DUUILuaContext globalContext) {
         _script = script;
@@ -96,9 +93,9 @@ public class DUUILuaCommunicationLayer implements IDUUICommunicationLayer {
 
         JCas tJc;
 
-        try{
+        try {
             tJc = jc.getView(targetView);
-        }catch (Exception e){
+        } catch (Exception e) {
             tJc = jc.createView(targetView);
         }
 
@@ -111,7 +108,7 @@ public class DUUILuaCommunicationLayer implements IDUUICommunicationLayer {
 
 
     public IDUUICommunicationLayer copy() {
-        return new DUUILuaCommunicationLayer(_script,_origin,_globalContext);
+        return new DUUILuaCommunicationLayer(_script, _origin, _globalContext);
     }
 
     @Override
@@ -122,7 +119,7 @@ public class DUUILuaCommunicationLayer implements IDUUICommunicationLayer {
     @Override
     public String myLuaTestMerging() {
         // Die Funktion von Lua wird hier aufgerufen
-        _file.call("merging",null, null);
+        _file.call("merging", null, null);
         return "merging.................. ";
     }
 

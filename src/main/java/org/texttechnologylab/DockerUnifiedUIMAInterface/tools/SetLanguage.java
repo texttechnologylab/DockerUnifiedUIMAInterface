@@ -14,8 +14,6 @@ public class SetLanguage extends JCasAnnotator_ImplBase {
 
     @Override
     public void process(JCas jCas) throws AnalysisEngineProcessException {
-
         jCas.setDocumentLanguage(language);
-
     }
 }

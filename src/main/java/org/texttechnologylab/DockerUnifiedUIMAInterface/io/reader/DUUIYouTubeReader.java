@@ -1,7 +1,6 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.io.reader;
 
 import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
-import org.apache.commons.io.FileUtils;
 import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.jcas.cas.FSList;
@@ -32,14 +31,14 @@ public class DUUIYouTubeReader implements DUUICollectionReader {
 
     private String _path;
     private ConcurrentLinkedQueue<YouTubeVideo> _youtubeVideos;
-    private ConcurrentLinkedQueue<YouTubeVideo> _youtubeVideosBackup;
+    private final ConcurrentLinkedQueue<YouTubeVideo> _youtubeVideosBackup;
 
-    private String _viewName;
+    private final String _viewName;
 
-    private int _initialSize;
-    private AtomicInteger _docNumber;
-    private long _maxMemory;
-    private AtomicLong _currentMemorySize;
+    private final int _initialSize;
+    private final AtomicInteger _docNumber;
+    private final long _maxMemory;
+    private final AtomicLong _currentMemorySize;
 
     private boolean _addMetadata = true;
 
@@ -49,8 +48,8 @@ public class DUUIYouTubeReader implements DUUICollectionReader {
 
     private int debugCount = 25;
 
-    private Map<String, List<String>> _videosPlaylists;
-    private String _apiKey;
+    private final Map<String, List<String>> _videosPlaylists;
+    private final String _apiKey;
 
     public DUUIYouTubeReader(String youtubeLink, String apiKey) throws IOException, InterruptedException {
         this(youtubeLink, apiKey, "_InitialView", 25, getRandomFromMode(null, -1), true, null);
@@ -69,7 +68,7 @@ public class DUUIYouTubeReader implements DUUICollectionReader {
         _apiKey = apiKey;
         _viewName = viewName;
 
-        if(youtubeLink.contains("&list=")) {  // Is playlist
+        if (youtubeLink.contains("&list=")) {  // Is playlist
 
             String[] parameters = youtubeLink.split("&");
 
@@ -84,7 +83,7 @@ public class DUUIYouTubeReader implements DUUICollectionReader {
             try {
                 String pageToken = "";
 
-                do{
+                do {
                     List<YouTubeVideo> pagedVideos = new LinkedList<>();
 
                     JSONObject jsonObject = getPlaylistVideos(playlistId, pageToken);
@@ -95,57 +94,56 @@ public class DUUIYouTubeReader implements DUUICollectionReader {
                         String videoId = jsonItems.getJSONObject(i).getJSONObject("contentDetails").getString("videoId");
                         pagedVideos.add(new YouTubeVideo(videoId));
 
-                        _videosPlaylists.put(videoId, Arrays.asList(playlistId));
+                        _videosPlaylists.put(videoId, List.of(playlistId));
                     }
 
-                    if(_addMetadata){
+                    if (_addMetadata) {
                         generateBulkMetadata(pagedVideos);
                     }
 
-                    if(jsonObject.has("nextPageToken"))
+                    if (jsonObject.has("nextPageToken"))
                         pageToken = jsonObject.getString("nextPageToken");
                     else
                         pageToken = "";
 
                     _youtubeVideos.addAll(pagedVideos);
-                }while(!pageToken.equals(""));
+                } while (!pageToken.equals(""));
 
             } catch (Exception e) {
                 throw e;
             }
-        }else if(youtubeLink.contains("watch?v")) {  // Is single video
+        } else if (youtubeLink.contains("watch?v")) {  // Is single video
             youtubeLink = youtubeLink.split("watch\\?v=")[1].split("&")[0];
 
             YouTubeVideo video = new YouTubeVideo(youtubeLink);
             _youtubeVideos.add(video);
 
-            if(_addMetadata){
+            if (_addMetadata) {
                 generateMetadata(video);
             }
-        }else if(youtubeLink.contains("youtu.be/")){  // Is single video with shortened url
+        } else if (youtubeLink.contains("youtu.be/")) {  // Is single video with shortened url
             youtubeLink = youtubeLink.split("youtu.be/")[1].split("&")[0];
 
             YouTubeVideo video = new YouTubeVideo(youtubeLink);
             _youtubeVideos.add(video);
 
-            if(_addMetadata){
+            if (_addMetadata) {
                 generateMetadata(video);
             }
-        }else{  // Is Channel
+        } else {  // Is Channel
 
             String pageToken = "";
             String channelId = null;
 
-            if(youtubeLink.contains("/@")){
+            if (youtubeLink.contains("/@")) {
                 channelId = getChannelIdByHandle(youtubeLink.split("@")[1].split("/")[0]);
-            }
-            else if(youtubeLink.contains("/channel/")){
+            } else if (youtubeLink.contains("/channel/")) {
                 channelId = youtubeLink.split("/channel/")[1].split("/")[0];
             }
 
-            if(channelId != null){
+            if (channelId != null) {
 
-                do{
+                do {
                     List<YouTubeVideo> pagedVideos = new LinkedList<>();
 
                     JSONObject jsonObject = getChannelVideosByChannelId(channelId, "");
@@ -155,25 +153,25 @@ public class DUUIYouTubeReader implements DUUICollectionReader {
                     for (int i = 0; i < jsonItems.length(); i++) {
                         JSONObject idRequestObject = jsonItems.getJSONObject(i).getJSONObject("id");
 
-                        if(!idRequestObject.has("videoId")) continue;  // Found own channel instead of video
+                        if (!idRequestObject.has("videoId")) continue;  // Found own channel instead of video
 
                         String videoId = idRequestObject.getString("videoId");
                         pagedVideos.add(new YouTubeVideo(videoId));
                         System.out.println("Added video: " + i);
                     }
 
-                    if(_addMetadata){
+                    if (_addMetadata) {
                         generateBulkMetadata(pagedVideos);
                     }
 
-                    if(jsonObject.has("nextPageToken"))
+                    if (jsonObject.has("nextPageToken"))
                         pageToken = jsonObject.getString("nextPageToken");
                     else
                         pageToken = "";
 
                     _youtubeVideos.addAll(pagedVideos);
 
-                }while(!pageToken.equals(""));
+                } while (!pageToken.equals(""));
 
             }
 
@@ -205,10 +203,7 @@ public class DUUIYouTubeReader implements DUUICollectionReader {
     }
 
     private static boolean getSortFromMode(AsyncCollectionReader.DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE mode) {
-        if (mode == AsyncCollectionReader.DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE.RANDOM) {
-            return false;
-        }
-        return true;
+        return mode != AsyncCollectionReader.DUUI_ASYNC_COLLECTION_READER_SAMPLE_MODE.RANDOM;
     }
 
     public static void addFilesToConcurrentList(File folder, String ending, ConcurrentLinkedQueue<String> paths) {
@@ -217,7 +212,7 @@ public class DUUIYouTubeReader implements DUUICollectionReader {
         for (int i = 0; i < listOfFiles.length; i++) {
             if (listOfFiles[i].isFile()) {
                 if (listOfFiles[i].getName().endsWith(ending)) {
-                    paths.add(listOfFiles[i].getPath().toString());
+                    paths.add(listOfFiles[i].getPath());
                 }
             } else if (listOfFiles[i].isDirectory()) {
                 addFilesToConcurrentList(listOfFiles[i], ending, paths);
@@ -317,13 +312,13 @@ public class DUUIYouTubeReader implements DUUICollectionReader {
             try {
                 ytView = empty.getView(_viewName);
 
-            }catch (Exception e){
+            } catch (Exception e) {
                 ytView = empty.createView(_viewName);
             }
 
             ytView.setSofaDataString(result.getVideoUrl(), "text/x-uri");
 
-            if(_addMetadata)
+            if (_addMetadata)
                 setVideoMetadata(result, ytView);
 
         } catch (Exception e) {
@@ -409,13 +404,13 @@ public class DUUIYouTubeReader implements DUUICollectionReader {
         JSONObject jsonObject = new JSONObject(response.body().toString());
         JSONArray resultArray = jsonObject.getJSONArray("items");
 
-        if(resultArray.length() == 0) return null;
+        if (resultArray.length() == 0) return null;
 
         return resultArray.getJSONObject(0).getJSONObject("id").getString("channelId");
     }
 
     private JSONObject getChannelVideosByChannelId(String channelId, String pageToken) throws IOException, InterruptedException {
-        String url = "https://www.googleapis.com/youtube/v3/search?key=" + _apiKey + "&channelId=" + channelId +"&part=id&order=date&maxResults=50&pageToken=" + pageToken;
+        String url = "https://www.googleapis.com/youtube/v3/search?key=" + _apiKey + "&channelId=" + channelId + "&part=id&order=date&maxResults=50&pageToken=" + pageToken;
 
         HttpClient client = HttpClient.newHttpClient();
         HttpRequest request = HttpRequest.newBuilder()
@@ -427,15 +422,15 @@ public class DUUIYouTubeReader implements DUUICollectionReader {
         return new JSONObject(response.body().toString());
     }
 
-    private void setVideoMetadata(YouTubeVideo video, JCas jCas) throws IOException, InterruptedException{
+    private void setVideoMetadata(YouTubeVideo video, JCas jCas) throws IOException, InterruptedException {
 
         YouTube youTube = new YouTube(jCas);
 
-        if(_videosPlaylists.containsKey(video.getVideoId())){
+        if (_videosPlaylists.containsKey(video.getVideoId())) {
             List<String> playlistIds = _videosPlaylists.get(video.getVideoId());
             Playlist[] playlists = new Playlist[_videosPlaylists.get(video.getVideoId()).size()];
 
-            for (int i = 0; i < playlistIds.size(); i++){
+            for (int i = 0; i < playlistIds.size(); i++) {
                 Playlist playlist = new Playlist(jCas);
 
                 String playlistUrl = "https://www.googleapis.com/youtube/v3/playlists?part=snippet&id=" + playlistIds.get(i) + "&key=" + _apiKey;
@@ -486,14 +481,14 @@ public class DUUIYouTubeReader implements DUUICollectionReader {
     }
 
     private void generateBulkMetadata(List<YouTubeVideo> videos) throws IOException, InterruptedException {
-        if(videos.isEmpty()) return;
+        if (videos.isEmpty()) return;
 
         String ids = "";
 
-        for(YouTubeVideo video : videos){
-            if(ids.equals("")){
+        for (YouTubeVideo video : videos) {
+            if (ids.equals("")) {
                 ids = video.getVideoId();
-            }else{
+            } else {
                 ids += "," + video.getVideoId();
             }
         }
@@ -511,7 +506,7 @@ public class DUUIYouTubeReader implements DUUICollectionReader {
 
         JSONArray items = jsonObject.getJSONArray("items");
 
-        for(int i = 0; i < items.length(); i++){
+        for (int i = 0; i < items.length(); i++) {
             JSONObject snippet = items.getJSONObject(i).getJSONObject("snippet");
             JSONObject statistics = items.getJSONObject(i).getJSONObject("statistics");
             JSONObject contentDetails = items.getJSONObject(i).getJSONObject("contentDetails");
@@ -521,20 +516,20 @@ public class DUUIYouTubeReader implements DUUICollectionReader {
     }
 
 
-    private int youtubeDateToInt(String youtubeDate){
+    private int youtubeDateToInt(String youtubeDate) {
         String[] dateElements = youtubeDate.split("T")[0].split("-");  // Seperate date and time
 
-        if(dateElements[0].length() == 1)
+        if (dateElements[0].length() == 1)
             dateElements[0] = "0" + dateElements[0];
 
-        if(dateElements[1].length() == 1)
+        if (dateElements[1].length() == 1)
             dateElements[1] = "0" + dateElements[1];
 
         int iCreateDate = Integer.parseInt(dateElements[2] + dateElements[1] + dateElements[0]);
         return iCreateDate;
     }
 
-    private int currentDateToInt(){
+    private int currentDateToInt() {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("ddMMyyyy");
         return Integer.parseInt(ZonedDateTime.now().format(formatter));
     }
@@ -543,9 +538,9 @@ public class DUUIYouTubeReader implements DUUICollectionReader {
         String result = "";
         Scanner myReader = new Scanner(file);
         while (myReader.hasNextLine()) {
-            if(result == ""){
+            if (result == "") {
                 result = myReader.nextLine();
-            }else{
+            } else {
                 result += "\n" + myReader.nextLine();
             }
         }
@@ -553,8 +548,8 @@ public class DUUIYouTubeReader implements DUUICollectionReader {
         return result;
     }
 
-    class YouTubeVideo{
-        private String _id;
+    class YouTubeVideo {
+        private final String _id;
         private String _channelName;
         private String _channelUrl;
         private String _title;
@@ -563,19 +558,19 @@ public class DUUIYouTubeReader implements DUUICollectionReader {
         private int _likes;
         private int _createDate;
 
-        public YouTubeVideo(String id){
+        public YouTubeVideo(String id) {
             _id = id;
         }
 
-        public String getVideoId(){
+        public String getVideoId() {
             return _id;
         }
 
-        public String getVideoUrl(){
+        public String getVideoUrl() {
             return "https://www.youtube.com/watch?v=" + _id;
         }
 
-        public void setMetadata(JSONObject snippet, JSONObject statistics, JSONObject contentDetails){
+        public void setMetadata(JSONObject snippet, JSONObject statistics, JSONObject contentDetails) {
 
             _title = snippet.getString("title");
             _channelName = snippet.getString("channelTitle");
@@ -583,18 +578,18 @@ public class DUUIYouTubeReader implements DUUICollectionReader {
             String sDuration = contentDetails.getString("duration").substring(2);
             int iDuration = 0;
 
-            if(sDuration.contains("H")){
+            if (sDuration.contains("H")) {
                 String[] hours = sDuration.split("H");
                 String[] minutes = hours[1].split("M");
                 String seconds = minutes[1].split("S")[0];
 
                 iDuration = Integer.parseInt(hours[0]) * 360 + Integer.parseInt(minutes[0]) * 60 + Integer.parseInt(seconds);
-            }else if(sDuration.contains("M")){
+            } else if (sDuration.contains("M")) {
                 String[] minutes = sDuration.split("M");
                 String seconds = minutes[1].split("S")[0];
 
                 iDuration = Integer.parseInt(minutes[0]) * 60 + Integer.parseInt(seconds);
-            }else if(sDuration.contains("S")){
+            } else if (sDuration.contains("S")) {
                 String seconds = sDuration.split("S")[0];
 
                 iDuration = Integer.parseInt(seconds);

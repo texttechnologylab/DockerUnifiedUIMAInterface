@@ -20,6 +20,7 @@ public class DUUICompressionHelper {
 
     /**
      * Constructor using a {@link CompressorStreamFactory} and a compression method.
+     *
      * @param method
      */
     public DUUICompressionHelper(String method) {
@@ -29,6 +30,7 @@ public class DUUICompressionHelper {
 
     /**
      * Compresses a string.
+     *
      * @param input The string to compress.
      * @return The compressed string as a base64 encoded string.
      * @throws IOException
@@ -36,7 +38,7 @@ public class DUUICompressionHelper {
      */
     public String compress(String input) throws IOException, CompressorException {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        CompressorOutputStream output = _factory.createCompressorOutputStream(_method,out);
+        CompressorOutputStream output = _factory.createCompressorOutputStream(_method, out);
         output.write(input.getBytes(StandardCharsets.UTF_8));
         output.close();
         return new String(Base64.getEncoder().encode(out.toByteArray()), StandardCharsets.UTF_8);
@@ -44,6 +46,7 @@ public class DUUICompressionHelper {
 
     /**
      * Decompresses a string.
+     *
      * @param input The compressed string as a base64 encoded string.
      * @return The decompressed string.
      * @throws IOException

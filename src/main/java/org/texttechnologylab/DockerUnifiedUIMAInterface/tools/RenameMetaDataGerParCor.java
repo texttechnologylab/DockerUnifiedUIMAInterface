@@ -29,7 +29,7 @@ public class RenameMetaDataGerParCor extends JCasAnnotator_ImplBase {
 
         String sID = dmd.getDocumentId();
         while (sID.startsWith(" ")) {
-            sID = sID.substring(1, sID.length());
+            sID = sID.substring(1);
         }
         DocumentAnnotation da = null;
         try {

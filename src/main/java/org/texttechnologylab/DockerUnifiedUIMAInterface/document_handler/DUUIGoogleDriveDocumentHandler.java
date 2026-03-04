@@ -75,7 +75,7 @@ public class DUUIGoogleDriveDocumentHandler implements IDUUIDocumentHandler, IDU
         }
 
         String query =
-            "mimeType='application/vnd.google-apps.folder' and name='" + folderName + "' and '" + maybeParentFolder.get().getId() + "' in parents";
+                "mimeType='application/vnd.google-apps.folder' and name='" + folderName + "' and '" + maybeParentFolder.get().getId() + "' in parents";
         FileList result = service.files().list()
                 .setQ(query)
                 .setFields("files(id, name, parents)")
@@ -125,7 +125,7 @@ public class DUUIGoogleDriveDocumentHandler implements IDUUIDocumentHandler, IDU
 
 //        DUUIGoogleDriveDocumentHandler handler = new DUUIGoogleDriveDocumentHandler();
 //        DUUIDocument doc = handler.readDocument(handler.getFileId("firstpdf.pdf"));
-            //
+        //
 //
 //        doc.setName("secondpdf.pdf");
 //
@@ -134,7 +134,6 @@ public class DUUIGoogleDriveDocumentHandler implements IDUUIDocumentHandler, IDU
 //        System.out.println(handler.getFolderStructure().toJson().toString());
 
     }
-
 
 
     @Override
@@ -148,7 +147,7 @@ public class DUUIGoogleDriveDocumentHandler implements IDUUIDocumentHandler, IDU
 
         document.setUploadProgress(0);
         service.files().create(file, new InputStreamContent(null, document.toInputStream()))
-            .execute();
+                .execute();
         document.setUploadProgress(100);
     }
 
@@ -214,7 +213,7 @@ public class DUUIGoogleDriveDocumentHandler implements IDUUIDocumentHandler, IDU
         return files.get(0).getId();
     }
 
-    private String getAllSubFolders(String parent)  {
+    private String getAllSubFolders(String parent) {
 
         FileList result = null;
         try {
@@ -226,7 +225,7 @@ public class DUUIGoogleDriveDocumentHandler implements IDUUIDocumentHandler, IDU
             return String.format("'%s' in parents ", parent);
         }
 
-        List<File> files =  result.getFiles();
+        List<File> files = result.getFiles();
 
         String subfolders = files.stream()
                 .map(File::getId)
@@ -265,7 +264,7 @@ public class DUUIGoogleDriveDocumentHandler implements IDUUIDocumentHandler, IDU
                 .setFields("files(id, name, size)")
                 .execute();
 
-        List<File> files =  result.getFiles();
+        List<File> files = result.getFiles();
 
         List<DUUIDocument> documents;
 
@@ -273,9 +272,9 @@ public class DUUIGoogleDriveDocumentHandler implements IDUUIDocumentHandler, IDU
             documents = List.of();
         } else {
             documents = files.stream()
-                .filter(File::getIsAppAuthorized)
-                .map(f -> new DUUIDocument(f.getName(), f.getId(), f.getSize()))
-                .collect(Collectors.toList());
+                    .filter(File::getIsAppAuthorized)
+                    .map(f -> new DUUIDocument(f.getName(), f.getId(), f.getSize()))
+                    .collect(Collectors.toList());
         }
 
         return documents;
@@ -301,7 +300,7 @@ public class DUUIGoogleDriveDocumentHandler implements IDUUIDocumentHandler, IDU
             return root;
         }
 
-        List<File> files =  result.getFiles();
+        List<File> files = result.getFiles();
 
         for (File file : files) {
             DUUIFolder f = new DUUIFolder(file.getId(), file.getName());

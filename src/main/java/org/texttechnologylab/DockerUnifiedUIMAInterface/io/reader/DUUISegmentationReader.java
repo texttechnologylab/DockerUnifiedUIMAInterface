@@ -35,9 +35,9 @@ import org.texttechnologylab.annotation.AnnotationComment;
 import org.xml.sax.SAXException;
 
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -87,116 +87,53 @@ public class DUUISegmentationReader implements DUUICollectionDBReader {
         }
     }
 
-    static class Segmenter implements Runnable {
-        private final BlockingQueue<PathMessage> queue;
-        private final GridFSBucket mongoBucket;
-        private final DUUISegmentationStrategy segmentationStrategy;
+    protected static String getRelativePath(JCas aJCas, boolean stripExtension, boolean escapeFilename) {
+        DocumentMetaData meta = DocumentMetaData.get(aJCas);
+        String baseUri = meta.getDocumentBaseUri();
+        String docUri = meta.getDocumentUri();
 
-        public Segmenter(BlockingQueue<PathMessage> queue, MongoDBConfig mongoConfig, DUUISegmentationStrategy segmentationStrategy) {
-            this.queue = queue;
-
-            // TODO use single connection (pool?) for all threads?
-            MongoDBConnectionHandler mongoConnectionHandler = new MongoDBConnectionHandler(mongoConfig);
-
-            this.mongoBucket = GridFSBuckets.create(mongoConnectionHandler.getDatabase(), MONGO_BUCKET_NAME);
-
-            this.segmentationStrategy = segmentationStrategy;
-        }
-
-        @Override
-        public void run() {
-            long docCounter = 0;
-            JCas jCas;
-            try {
-                jCas = JCasFactory.createJCas();
-            } catch (UIMAException e) {
-                throw new RuntimeException(e);
+        if (baseUri != null && baseUri.length() != 0) {
+            // In some cases, the baseUri may not end with a slash - if so, we add one
+            if (baseUri.length() > 0 && !baseUri.endsWith("/")) {
+                baseUri += '/';
             }
 
-            while (true) {
-                Path path = null;
-                try {
-                    PathMessage message = queue.poll(10, TimeUnit.SECONDS);
-                    if (message != null) {
-                        if (message.path == null) {
-                            break;
-                        }
-                        path = message.path;
-                    }
-                } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
-                }
-
-                if (path != null) {
-                    System.out.println(Thread.currentThread().getId() + " - start " + path);
-
-                    try {
-                        IDUUITransport transport = new GZIPLocalFile(path);
-                        IDUUIFormat format = new XmiLoader(true);
-                        format.load(transport.load(), jCas);
-
-                        String docId = UUID.randomUUID().toString();
-
-                        if (segmentationStrategy instanceof DUUISegmentationStrategyNone) {
-                            System.err.println("No segmentation strategy set, using full document!");
-                        } else {
-                            segmentationStrategy.initialize(jCas);
-                            long segmentIndex = 0;
-                            JCas jCasSegmented = segmentationStrategy.getNextSegment();
-                            while (jCasSegmented != null) {
-                                store(jCasSegmented, docId, segmentIndex);
-                                jCasSegmented = segmentationStrategy.getNextSegment();
-                                segmentIndex++;
-                            }
-                        }
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
-
-                    jCas.reset();
-                    docCounter++;
-                    System.out.println(Thread.currentThread().getId() + " - done " + docCounter + ": " + path);
-                }
+            if ((docUri == null) || !docUri.startsWith(baseUri)) {
+                throw new IllegalStateException("Base URI [" + baseUri
+                        + "] is not a prefix of document URI [" + docUri + "]");
             }
-        }
-
-        private void store(JCas jCas, String docId, long segmentIndex) {
-            DocumentMetaData meta = DocumentMetaData.get(jCas);
-
-            // TODO multiple compression methods
-            GridFSUploadOptions options = new GridFSUploadOptions()
-                    .metadata(new Document()
-                            .append("type", "uima")
-                            .append("compressed", true)
-                            .append("compression", "gzip")
-                            .append("duui_document_id", docId)
-                            .append("duui_segment_index", segmentIndex)
-                            .append("document_id", meta.getDocumentId())
-                            .append("document_uri", meta.getDocumentUri())
-                            .append("document_base_uri", meta.getDocumentBaseUri())
-                            .append("document_title", meta.getDocumentTitle())
-                            .append("collection_id", meta.getCollectionId())
-                            .append("duui_status_finished", false)
-                            .append("duui_status_tools", new ArrayList<>())
-                    );
-
-            String segmentId = getGridId(docId, segmentIndex);
-            try (GridFSUploadStream upload = this.mongoBucket.openUploadStream(segmentId, options)) {
-
-                // Add metainfo
-                // TODO use special annotation type?
-                AnnotationComment comment = new AnnotationComment(jCas);
-                comment.setKey(DUUI_SEGMENTATION_READER_SEGMENT_ID);
-                comment.setValue(segmentId);
-                comment.addToIndexes();
-
-                // TODO different compressions using io/transport/format
-                try (GZIPOutputStream gzip = new GZIPOutputStream(upload)) {
-                    XmiCasSerializer.serialize(jCas.getCas(), gzip);
-                }
-            } catch (Exception e) {
-                throw new RuntimeException(e);
+            String relativeDocumentPath = docUri.substring(baseUri.length());
+            if (stripExtension) {
+                relativeDocumentPath = FilenameUtils.removeExtension(relativeDocumentPath);
             }
+
+            // relativeDocumentPath must not start with as slash - if there are any, remove them
+            while (relativeDocumentPath.startsWith("/")) {
+                relativeDocumentPath = relativeDocumentPath.substring(1);
+            }
+
+            if (!escapeFilename) {
+                relativeDocumentPath = URLDecoder.decode(relativeDocumentPath, StandardCharsets.UTF_8);
+            }
+
+            return relativeDocumentPath;
+        } else {
+            if (meta.getDocumentId() == null) {
+                throw new IllegalStateException(
+                        "Neither base URI/document URI nor document ID set");
+            }
+
+            String relativeDocumentPath = meta.getDocumentId();
+
+            if (stripExtension) {
+                relativeDocumentPath = FilenameUtils.removeExtension(relativeDocumentPath);
+            }
+
+            if (escapeFilename) {
+                relativeDocumentPath = URLEncoder.encode(relativeDocumentPath, StandardCharsets.UTF_8);
+            }
+
+            return relativeDocumentPath;
         }
     }
 
@@ -491,65 +428,116 @@ public class DUUISegmentationReader implements DUUICollectionDBReader {
         return mongoCollection.countDocuments(new Document("metadata.duui_status_finished", true));
     }
 
-    protected static String getRelativePath(JCas aJCas, boolean stripExtension, boolean escapeFilename) {
-        DocumentMetaData meta = DocumentMetaData.get(aJCas);
-        String baseUri = meta.getDocumentBaseUri();
-        String docUri = meta.getDocumentUri();
+    static class Segmenter implements Runnable {
+        private final BlockingQueue<PathMessage> queue;
+        private final GridFSBucket mongoBucket;
+        private final DUUISegmentationStrategy segmentationStrategy;
 
-        if (baseUri != null && baseUri.length() != 0) {
-            // In some cases, the baseUri may not end with a slash - if so, we add one
-            if (baseUri.length() > 0 && !baseUri.endsWith("/")) {
-                baseUri += '/';
+        public Segmenter(BlockingQueue<PathMessage> queue, MongoDBConfig mongoConfig, DUUISegmentationStrategy segmentationStrategy) {
+            this.queue = queue;
+
+            // TODO use single connection (pool?) for all threads?
+            MongoDBConnectionHandler mongoConnectionHandler = new MongoDBConnectionHandler(mongoConfig);
+
+            this.mongoBucket = GridFSBuckets.create(mongoConnectionHandler.getDatabase(), MONGO_BUCKET_NAME);
+
+            this.segmentationStrategy = segmentationStrategy;
+        }
+
+        @Override
+        public void run() {
+            long docCounter = 0;
+            JCas jCas;
+            try {
+                jCas = JCasFactory.createJCas();
+            } catch (UIMAException e) {
+                throw new RuntimeException(e);
             }
 
-            if ((docUri == null) || !docUri.startsWith(baseUri)) {
-                throw new IllegalStateException("Base URI [" + baseUri
-                        + "] is not a prefix of document URI [" + docUri + "]");
-            }
-            String relativeDocumentPath = docUri.substring(baseUri.length());
-            if (stripExtension) {
-                relativeDocumentPath = FilenameUtils.removeExtension(relativeDocumentPath);
-            }
-
-            // relativeDocumentPath must not start with as slash - if there are any, remove them
-            while (relativeDocumentPath.startsWith("/")) {
-                relativeDocumentPath = relativeDocumentPath.substring(1);
-            }
-
-            if (!escapeFilename) {
+            while (true) {
+                Path path = null;
                 try {
-                    relativeDocumentPath = URLDecoder.decode(relativeDocumentPath, "UTF-8");
-                } catch (UnsupportedEncodingException e) {
-                    // UTF-8 must be supported on all Java platforms per specification. This should
-                    // not happen.
-                    throw new IllegalStateException(e);
+                    PathMessage message = queue.poll(10, TimeUnit.SECONDS);
+                    if (message != null) {
+                        if (message.path == null) {
+                            break;
+                        }
+                        path = message.path;
+                    }
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+
+                if (path != null) {
+                    System.out.println(Thread.currentThread().threadId() + " - start " + path);
+
+                    try {
+                        IDUUITransport transport = new GZIPLocalFile(path);
+                        IDUUIFormat format = new XmiLoader(true);
+                        format.load(transport.load(), jCas);
+
+                        String docId = UUID.randomUUID().toString();
+
+                        if (segmentationStrategy instanceof DUUISegmentationStrategyNone) {
+                            System.err.println("No segmentation strategy set, using full document!");
+                        } else {
+                            segmentationStrategy.initialize(jCas);
+                            long segmentIndex = 0;
+                            JCas jCasSegmented = segmentationStrategy.getNextSegment();
+                            while (jCasSegmented != null) {
+                                store(jCasSegmented, docId, segmentIndex);
+                                jCasSegmented = segmentationStrategy.getNextSegment();
+                                segmentIndex++;
+                            }
+                        }
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+
+                    jCas.reset();
+                    docCounter++;
+                    System.out.println(Thread.currentThread().threadId() + " - done " + docCounter + ": " + path);
                 }
             }
+        }
 
-            return relativeDocumentPath;
-        } else {
-            if (meta.getDocumentId() == null) {
-                throw new IllegalStateException(
-                        "Neither base URI/document URI nor document ID set");
-            }
+        private void store(JCas jCas, String docId, long segmentIndex) {
+            DocumentMetaData meta = DocumentMetaData.get(jCas);
 
-            String relativeDocumentPath = meta.getDocumentId();
+            // TODO multiple compression methods
+            GridFSUploadOptions options = new GridFSUploadOptions()
+                    .metadata(new Document()
+                            .append("type", "uima")
+                            .append("compressed", true)
+                            .append("compression", "gzip")
+                            .append("duui_document_id", docId)
+                            .append("duui_segment_index", segmentIndex)
+                            .append("document_id", meta.getDocumentId())
+                            .append("document_uri", meta.getDocumentUri())
+                            .append("document_base_uri", meta.getDocumentBaseUri())
+                            .append("document_title", meta.getDocumentTitle())
+                            .append("collection_id", meta.getCollectionId())
+                            .append("duui_status_finished", false)
+                            .append("duui_status_tools", new ArrayList<>())
+                    );
 
-            if (stripExtension) {
-                relativeDocumentPath = FilenameUtils.removeExtension(relativeDocumentPath);
-            }
+            String segmentId = getGridId(docId, segmentIndex);
+            try (GridFSUploadStream upload = this.mongoBucket.openUploadStream(segmentId, options)) {
 
-            if (escapeFilename) {
-                try {
-                    relativeDocumentPath = URLEncoder.encode(relativeDocumentPath, "UTF-8");
-                } catch (UnsupportedEncodingException e) {
-                    // UTF-8 must be supported on all Java platforms per specification. This should
-                    // not happen.
-                    throw new IllegalStateException(e);
+                // Add metainfo
+                // TODO use special annotation type?
+                AnnotationComment comment = new AnnotationComment(jCas);
+                comment.setKey(DUUI_SEGMENTATION_READER_SEGMENT_ID);
+                comment.setValue(segmentId);
+                comment.addToIndexes();
+
+                // TODO different compressions using io/transport/format
+                try (GZIPOutputStream gzip = new GZIPOutputStream(upload)) {
+                    XmiCasSerializer.serialize(jCas.getCas(), gzip);
                 }
+            } catch (Exception e) {
+                throw new RuntimeException(e);
             }
-
-            return relativeDocumentPath;
         }
     }
 }

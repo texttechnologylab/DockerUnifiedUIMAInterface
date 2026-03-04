@@ -15,19 +15,19 @@ public class DUUIDocumentDecoder {
         try {
             if (fileExtension.equalsIgnoreCase(CompressorStreamFactory.GZIP)) {
                 return new CompressorStreamFactory()
-                    .createCompressorInputStream(
-                        CompressorStreamFactory.GZIP,
-                        document.toInputStream()
-                    );
+                        .createCompressorInputStream(
+                                CompressorStreamFactory.GZIP,
+                                document.toInputStream()
+                        );
 
             }
 
             if (fileExtension.equalsIgnoreCase(CompressorStreamFactory.XZ)) {
                 return new CompressorStreamFactory()
-                    .createCompressorInputStream(
-                        CompressorStreamFactory.XZ,
-                        document.toInputStream()
-                    );
+                        .createCompressorInputStream(
+                                CompressorStreamFactory.XZ,
+                                document.toInputStream()
+                        );
             }
         } catch (CompressorException e) {
             throw new IOException("Document is not in the correct format ." + fileExtension);

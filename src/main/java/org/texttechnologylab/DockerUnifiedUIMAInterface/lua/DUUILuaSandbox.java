@@ -10,7 +10,7 @@ import java.util.Set;
  */
 public class DUUILuaSandbox {
     public boolean _enable_io;
-    public boolean  _enable_coroutines;
+    public boolean _enable_coroutines;
     public boolean _enable_os;
     public int _max_instruction_count;
 

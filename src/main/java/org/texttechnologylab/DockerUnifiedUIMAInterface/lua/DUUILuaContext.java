@@ -19,8 +19,9 @@ import java.util.Map;
  * @author Alexander Leonhardt
  */
 public class DUUILuaContext {
-    private Map<String,String> _luaScripts;
+    private final Map<String, String> _luaScripts;
     private DUUILuaSandbox _sandbox;
+
     public DUUILuaContext() {
         _sandbox = null;
         _luaScripts = new HashMap<>();
@@ -28,7 +29,7 @@ public class DUUILuaContext {
 
     public DUUILuaContext withGlobalLibrary(String globalName, URI path) throws IOException {
         System.out.println(path);
-        _luaScripts.put(globalName,Files.readString(Path.of(path)));
+        _luaScripts.put(globalName, Files.readString(Path.of(path)));
         return this;
     }
 
@@ -36,9 +37,9 @@ public class DUUILuaContext {
         return this.withGlobalLibrary(
                 "json",
                 DUUILuaContext.class.getClassLoader().getResource(
-                        "org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/json.lua"
-                )
-                .openStream()
+                                "org/texttechnologylab/DockerUnifiedUIMAInterface/lua_stdlib/json.lua"
+                        )
+                        .openStream()
         );
     }
 
@@ -48,17 +49,17 @@ public class DUUILuaContext {
     }
 
     public DUUILuaContext withGlobalLibrary(String globalName, InputStream module) throws IOException {
-        _luaScripts.put(globalName,new String(module.readAllBytes()));
+        _luaScripts.put(globalName, new String(module.readAllBytes()));
         return this;
     }
 
     public DUUILuaContext withGlobalLibrary(String globalName, Path module_path) throws IOException {
-        _luaScripts.put(globalName,Files.readString(module_path));
+        _luaScripts.put(globalName, Files.readString(module_path));
         return this;
     }
 
     public DUUILuaCompiledFile compileFile(String file) {
-        if(_sandbox==null) {
+        if (_sandbox == null) {
             Globals globals = new Globals();
             globals.load(new JseBaseLib());
             globals.load(new PackageLib());
@@ -78,11 +79,10 @@ public class DUUILuaContext {
                 LuaValue valsec = globals.load(val.getValue(), "global_script" + val.getKey(), globals);
                 globals.set(val.getKey(), valsec.call());
             }
-            LuaValue chunk = globals.load(file, "main",globals);
+            LuaValue chunk = globals.load(file, "main", globals);
             chunk.call();
-            return new DUUILuaCompiledFile(globals, null,null);
-        }
-        else {
+            return new DUUILuaCompiledFile(globals, null, null);
+        } else {
             Globals user_globals = new Globals();
             user_globals.load(new JseBaseLib());
             user_globals.load(new PackageLib());
@@ -92,22 +92,21 @@ public class DUUILuaContext {
             user_globals.load(new JseMathLib());
             user_globals.load(new DebugLib());
 
-            if(_sandbox.getEnabledCoroutines()) {
+            if (_sandbox.getEnabledCoroutines()) {
                 user_globals.load(new CoroutineLib());
             }
 
-            if(_sandbox.getEnabledIo()) {
+            if (_sandbox.getEnabledIo()) {
                 user_globals.load(new JseIoLib());
             }
 
-            if(_sandbox.getEnabledOs()) {
+            if (_sandbox.getEnabledOs()) {
                 user_globals.load(new JseOsLib());
             }
 
-            if(_sandbox.getEnabledAllJavaClasses()) {
+            if (_sandbox.getEnabledAllJavaClasses()) {
                 user_globals.load(new LuajavaLib());
-            }
-            else {
+            } else {
                 user_globals.load(new DUUICustomRestricedLuaJavaLib(_sandbox.getAllowedJavaClasses()));
             }
             LoadState.install(user_globals);
@@ -127,18 +126,18 @@ public class DUUILuaContext {
                     throw new Error("Script overran resource while compiling");
                 }
             };
-            sethook.invoke(LuaValue.varargsOf(new LuaValue[] { thread, hookfunc,
-                    LuaValue.EMPTYSTRING, LuaValue.valueOf(_sandbox.getMaxInstructionCount()) }));
+            sethook.invoke(LuaValue.varargsOf(new LuaValue[]{thread, hookfunc,
+                    LuaValue.EMPTYSTRING, LuaValue.valueOf(_sandbox.getMaxInstructionCount())}));
 
             Varargs result = thread.resume(LuaValue.NIL);
-            if(!result.arg1().toboolean()) {
+            if (!result.arg1().toboolean()) {
                 throw new RuntimeException(result.arg(2).tojstring());
             }
-            return new DUUILuaCompiledFile(user_globals, sethook,_sandbox);
+            return new DUUILuaCompiledFile(user_globals, sethook, _sandbox);
         }
     }
 
-    public Map<String,String> withGlobalScripts() {
+    public Map<String, String> withGlobalScripts() {
         return _luaScripts;
     }
 }

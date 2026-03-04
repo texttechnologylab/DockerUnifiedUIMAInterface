@@ -1,13 +1,11 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface;
 
-import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.uima.cas.CASException;
 import org.apache.uima.cas.impl.XmiCasDeserializer;
 import org.apache.uima.cas.impl.XmiCasSerializer;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.util.TypeSystemUtil;
 import org.json.JSONObject;
-import org.luaj.vm2.LuaValue;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIHttpRequestHandler;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.exception.CommunicationLayerException;
 import org.xml.sax.SAXException;
@@ -19,7 +17,7 @@ import java.util.List;
 import java.util.Map;
 
 public class DUUIFallbackCommunicationLayer implements IDUUICommunicationLayer {
-    public void serialize(JCas jc, ByteArrayOutputStream out, Map<String,String> parameters, String sourceView) throws CommunicationLayerException, CASException {
+    public void serialize(JCas jc, ByteArrayOutputStream out, Map<String, String> parameters, String sourceView) throws CommunicationLayerException, CASException {
         try {
             JSONObject obj = new JSONObject();
             ByteArrayOutputStream arr = new ByteArrayOutputStream();

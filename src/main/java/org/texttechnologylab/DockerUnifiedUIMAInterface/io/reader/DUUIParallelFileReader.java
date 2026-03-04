@@ -22,7 +22,7 @@ public class DUUIParallelFileReader implements Runnable {
     boolean bRunning = true;
     int iThreadLevels = 0;
     Set<DUUIParallelFileReader> subThreads = new HashSet<>(0);
-    private int iMaxThreads = 3;
+    private final int iMaxThreads = 3;
 
     public DUUIParallelFileReader(File pFile, String sEnding, Collection<String> pResult) {
         this(pFile, sEnding, pResult, 0);
@@ -52,7 +52,7 @@ public class DUUIParallelFileReader implements Runnable {
 
                 while (subThreads.size() == iMaxThreads) {
                     try {
-                        Thread.sleep(1000l);
+                        Thread.sleep(1000L);
                     } catch (InterruptedException e) {
                         throw new RuntimeException(e);
                     }

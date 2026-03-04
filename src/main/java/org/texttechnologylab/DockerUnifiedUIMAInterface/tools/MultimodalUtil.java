@@ -6,18 +6,15 @@ import org.apache.uima.cas.CASException;
 import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.jcas.tcas.Annotation;
-import org.texttechnologylab.annotation.AnnotationComment;
 import org.texttechnologylab.annotation.type.AudioToken;
 import org.texttechnologylab.annotation.type.Coordinate;
 import org.texttechnologylab.annotation.type.SubImage;
 
 import javax.imageio.ImageIO;
 import java.awt.*;
-import java.awt.geom.Path2D;
 import java.awt.image.BufferedImage;
 import java.awt.image.RenderedImage;
 import java.io.*;
-import java.nio.file.Files;
 import java.util.*;
 import java.util.List;
 
@@ -25,7 +22,8 @@ public class MultimodalUtil {
 
     /**
      * Converts each AudioTokens into its own audio snippet.
-     * @param audioTokenView The view in which the audio tokens are stored
+     *
+     * @param audioTokenView  The view in which the audio tokens are stored
      * @param annotationClass TThe annotation the covered elements are derived from
      * @return List of files, each file containing the audio content.
      * @throws CASException
@@ -36,9 +34,10 @@ public class MultimodalUtil {
 
     /**
      * Converts each AudioTokens into its own audio snippet.
-     * @param audioTokenView The view in which the audio tokens are stored
+     *
+     * @param audioTokenView  The view in which the audio tokens are stored
      * @param annotationClass The annotation the covered elements are derived from
-     * @param targetFormat File format for the output file. (like "wav" or "mp3")
+     * @param targetFormat    File format for the output file. (like "wav" or "mp3")
      * @return List of files, each file containing the audio content.
      * @throws CASException
      */
@@ -48,10 +47,11 @@ public class MultimodalUtil {
 
     /**
      * Converts each AudioTokens into its own audio snippet.
-     * @param audioTokenView The view in which the audio tokens are stored
+     *
+     * @param audioTokenView  The view in which the audio tokens are stored
      * @param annotationClass The annotation the covered elements are derived from
-     * @param audioFileView The view containing the entire audio file in its sofa string (If null, tries to auto-detect)
-     * @param targetFormat File format for the output file. (like "wav" or "mp3")
+     * @param audioFileView   The view containing the entire audio file in its sofa string (If null, tries to auto-detect)
+     * @param targetFormat    File format for the output file. (like "wav" or "mp3")
      * @return List of files, each file containing the audio content.
      * @throws CASException
      */
@@ -67,16 +67,16 @@ public class MultimodalUtil {
 
             List<AudioToken> tokens = JCasUtil.selectOverlapping(AudioToken.class, annotation).stream().toList();
 
-            for(AudioToken token : tokens){
+            for (AudioToken token : tokens) {
                 System.out.println(token.getTimeStart() + " " + token.getTimeEnd());
-                if(token.getTimeStart() < startTime)
+                if (token.getTimeStart() < startTime)
                     startTime = token.getTimeStart();
 
-                if(token.getTimeEnd() > endTime)
+                if (token.getTimeEnd() > endTime)
                     endTime = token.getTimeEnd();
             }
 
-            if(startTime == Integer.MAX_VALUE) {
+            if (startTime == Integer.MAX_VALUE) {
                 return;
             }
 
@@ -98,8 +98,9 @@ public class MultimodalUtil {
 
     /**
      * Converts a AudioToken into its own audio snippet
+     *
      * @param audioTokenView The view in which the audio tokens are stored
-     * @param audioToken The audio token class (like AudioToken)
+     * @param audioToken     The audio token class (like AudioToken)
      * @return A file containing the audio segment
      * @throws CASException
      */
@@ -109,9 +110,10 @@ public class MultimodalUtil {
 
     /**
      * Converts a AudioToken into its own audio snippet
+     *
      * @param audioTokenView The view in which the audio tokens are stored
-     * @param audioToken The audio token class (like AudioToken)
-     * @param targetFormat File format for the output file. (like "wav" or "mp3")
+     * @param audioToken     The audio token class (like AudioToken)
+     * @param targetFormat   File format for the output file. (like "wav" or "mp3")
      * @return A file containing the audio segment
      * @throws CASException
      */
@@ -121,22 +123,23 @@ public class MultimodalUtil {
 
     /**
      * Converts a AudioToken into its own audio snippet
+     *
      * @param audioTokenView The view in which the audio tokens are stored
-     * @param audioToken The audio token class (like AudioToken)
-     * @param audioFileView The view containing the entire audio file in its sofa string (If null, tries to auto-detect)
-     * @param targetFormat File format for the output file. (like "wav" or "mp3")
+     * @param audioToken     The audio token class (like AudioToken)
+     * @param audioFileView  The view containing the entire audio file in its sofa string (If null, tries to auto-detect)
+     * @param targetFormat   File format for the output file. (like "wav" or "mp3")
      * @return A file containing the audio segment
      * @throws CASException
      */
     public static File getCoveredAudio(JCas audioTokenView, JCas audioFileView, AudioToken audioToken, String targetFormat) throws CASException {
 
-        if(audioFileView == null)
+        if (audioFileView == null)
             audioFileView = findAudioView(audioTokenView);
 
         String inputFileName = "temp_" + audioFileView.getViewName();
         String outputFileName = getOutputName(audioTokenView, audioToken, targetFormat);
 
-        if(!new File(inputFileName).exists()) {
+        if (!new File(inputFileName).exists()) {
             // Convert encoded string to file
             OutputStream stream = null;
             try {
@@ -170,12 +173,12 @@ public class MultimodalUtil {
 
     private static void getEveryAudioSegment(JCas audioTokenCas, JCas audioFileView, List<String> commands) throws CASException {
 
-        if(audioFileView == null)
+        if (audioFileView == null)
             audioFileView = findAudioView(audioTokenCas);
 
         String inputFileName = "temp_" + audioFileView.getViewName();
 
-        if(!new File(inputFileName).exists()) {
+        if (!new File(inputFileName).exists()) {
             // Convert encoded string to file
             OutputStream stream = null;
             try {
@@ -204,16 +207,17 @@ public class MultimodalUtil {
 
     /**
      * Tries to find the view which contains the entire audio file in its sofa string
+     *
      * @param fromJCas JCas to search the views in
      * @throws CASException
      */
     public static JCas findAudioView(JCas fromJCas) throws CASException {
         Iterator<JCas> iter = fromJCas.getViewIterator();
 
-        while(iter.hasNext()){
+        while (iter.hasNext()) {
             JCas view = iter.next();
 
-            if(view.getSofaMimeType().startsWith("audio/")){
+            if (view.getSofaMimeType().startsWith("audio/")) {
                 return view;
             }
         }
@@ -224,7 +228,8 @@ public class MultimodalUtil {
 
     /**
      * Converts each AudioToken into its own video snippet.
-     * @param audioTokenView The view in which the audio tokens are stored
+     *
+     * @param audioTokenView  The view in which the audio tokens are stored
      * @param annotationClass The annotation the covered elements are derived from
      * @return List of files, each file containing the video content.
      * @throws CASException
@@ -235,8 +240,9 @@ public class MultimodalUtil {
 
     /**
      * Converts each AudioToken into its own audio snippet.
-     * @param videoFileView The view containing the entire video file in its sofa string (If null, tries to auto-detect)
-     * @param audioTokenView The view in which the audio tokens are stored
+     *
+     * @param videoFileView   The view containing the entire video file in its sofa string (If null, tries to auto-detect)
+     * @param audioTokenView  The view in which the audio tokens are stored
      * @param annotationClass The annotation the covered elements are derived from
      * @return List of files, each file containing the audio content.
      * @throws CASException
@@ -247,16 +253,17 @@ public class MultimodalUtil {
 
     /**
      * Converts each AudioToken into its own audio snippet.
-     * @param videoFileView The view containing the entire video file in its sofa string (If null, tries to auto-detect)
-     * @param audioTokenView The view in which the audio tokens are stored
+     *
+     * @param videoFileView   The view containing the entire video file in its sofa string (If null, tries to auto-detect)
+     * @param audioTokenView  The view in which the audio tokens are stored
      * @param annotationClass The annotation the covered elements are derived from
-     * @param targetFormat File format for the output file. (like "mp4" or "webm")
+     * @param targetFormat    File format for the output file. (like "mp4" or "webm")
      * @return List of files, each file containing the audio content.
      * @throws CASException
      */
     public static <T extends Annotation> List<File> getAllCoveredVideo(JCas audioTokenView, JCas videoFileView, Class<T> annotationClass, String targetFormat) throws CASException {
 
-        if(videoFileView == null){
+        if (videoFileView == null) {
             videoFileView = findVideoView(audioTokenView);
         }
 
@@ -270,15 +277,15 @@ public class MultimodalUtil {
 
             List<AudioToken> tokens = JCasUtil.selectOverlapping(AudioToken.class, annotation).stream().toList();
 
-            for(AudioToken token : tokens){
-                if(token.getTimeStart() < startTime)
+            for (AudioToken token : tokens) {
+                if (token.getTimeStart() < startTime)
                     startTime = token.getTimeStart();
 
-                if(token.getTimeEnd() > endTime)
+                if (token.getTimeEnd() > endTime)
                     endTime = token.getTimeEnd();
             }
 
-            if(startTime == Integer.MAX_VALUE)
+            if (startTime == Integer.MAX_VALUE)
                 return;
 /*
             System.out.println("============================");
@@ -305,29 +312,31 @@ public class MultimodalUtil {
 
     /**
      * Converts each AudioTokens into its own audio snippet.
+     *
      * @param videoFileView The view containing the entire video file in its sofa string (If null, tries to auto-detect)
-     * @param audioToken The audio token class (like AudioToken)
+     * @param audioToken    The audio token class (like AudioToken)
      * @return List of files, each file containing the audio content.
      * @throws CASException
      */
-    public static File getCoveredVideo(JCas videoFileView, AudioToken audioToken){
+    public static File getCoveredVideo(JCas videoFileView, AudioToken audioToken) {
         return getCoveredVideo(videoFileView, audioToken, "mp4");
     }
 
     /**
      * Converts each AudioTokens into its own audio snippet.
+     *
      * @param videoFileView The view containing the entire video file in its sofa string (If null, tries to auto-detect)
-     * @param audioToken The audio token class (like AudioToken)
-     * @param targetFormat File format for the output file. (like "mp4" or "webm")
+     * @param audioToken    The audio token class (like AudioToken)
+     * @param targetFormat  File format for the output file. (like "mp4" or "webm")
      * @return List of files, each file containing the audio content.
      * @throws CASException
      */
-    public static File getCoveredVideo(JCas videoFileView, AudioToken audioToken, String targetFormat){
+    public static File getCoveredVideo(JCas videoFileView, AudioToken audioToken, String targetFormat) {
 
         String inputFileName = "temp_" + videoFileView.getViewName();
         String outputFileName = getOutputName(videoFileView, audioToken, targetFormat);
 
-        if(!new File("temp_" + videoFileView.getViewName()).exists()) {
+        if (!new File("temp_" + videoFileView.getViewName()).exists()) {
             // Convert encoded string to file
             OutputStream stream = null;
             try {
@@ -357,11 +366,11 @@ public class MultimodalUtil {
         return outputFile;
     }
 
-    private static void getEveryVideoSegment(JCas videoViewCas, List<String> commands){
+    private static void getEveryVideoSegment(JCas videoViewCas, List<String> commands) {
 
         String inputFileName = "temp_" + videoViewCas.getViewName();
 
-        if(!new File("temp_" + videoViewCas.getViewName()).exists()) {
+        if (!new File("temp_" + videoViewCas.getViewName()).exists()) {
             // Convert encoded string to file
             OutputStream stream = null;
             try {
@@ -388,16 +397,17 @@ public class MultimodalUtil {
 
     /**
      * Tries to find the view which contains the entire video file in its sofa string
+     *
      * @param fromJCas JCas to search the views in
      * @throws CASException
      */
     public static JCas findVideoView(JCas fromJCas) throws CASException {
         Iterator<JCas> iter = fromJCas.getViewIterator();
 
-        while(iter.hasNext()){
+        while (iter.hasNext()) {
             JCas view = iter.next();
 
-            if(view.getSofaMimeType().startsWith("video/")){
+            if (view.getSofaMimeType().startsWith("video/")) {
                 return view;
             }
         }
@@ -405,11 +415,11 @@ public class MultimodalUtil {
         return fromJCas;
     }
 
-    private static void executeFFMpeg(String absoluteInputPath, String output, float startTime, float endTime){
+    private static void executeFFMpeg(String absoluteInputPath, String output, float startTime, float endTime) {
         try {
             // -ss: seeking (skipping forward x seconds)
             // -t: duration
-            ProcessBuilder pb = new ProcessBuilder("ffmpeg", "-ss,", Float.toString(startTime), "-t", Float.toString(endTime - startTime),  "-i", absoluteInputPath, output);
+            ProcessBuilder pb = new ProcessBuilder("ffmpeg", "-ss,", Float.toString(startTime), "-t", Float.toString(endTime - startTime), "-i", absoluteInputPath, output);
 
             pb.redirectOutput(ProcessBuilder.Redirect.INHERIT);
             pb.redirectError(ProcessBuilder.Redirect.INHERIT);
@@ -423,13 +433,13 @@ public class MultimodalUtil {
         }
     }
 
-    private static void executeFFMpeg(String absoluteInputPath, List<String> commands){
+    private static void executeFFMpeg(String absoluteInputPath, List<String> commands) {
         try {
             // -ss: seeking (skipping forward x seconds)
             // -t: duration
             ProcessBuilder pb = new ProcessBuilder("ffmpeg", "-i", absoluteInputPath);
 
-            for(String outputCommand : commands){
+            for (String outputCommand : commands) {
                 pb.command().addAll(Arrays.stream(outputCommand.split(" ")).toList());
             }
 
@@ -447,22 +457,24 @@ public class MultimodalUtil {
 
     /**
      * Gets subimages as independent image files in .png
+     *
      * @param jCas The JCas containing SubImage Annotations
      * @return A List of files, each containing a SubImage. Files get deleted on exit
      */
-    public static List<File> getSubImages(JCas jCas){
+    public static List<File> getSubImages(JCas jCas) {
         return getSubImages(jCas, "png");
     }
 
     /**
      * Gets subimages as independent image files
-     * @param jCas The JCas containing SubImage Annotations
+     *
+     * @param jCas      The JCas containing SubImage Annotations
      * @param extension Changes the subimages images file extension
      * @return A List of files, each containing a SubImage. Files get deleted on exit
      */
     public static List<File> getSubImages(JCas jCas, String extension) {
 
-        if(extension.startsWith("."))
+        if (extension.startsWith("."))
             extension = extension.substring(1);
         String finalExtension = extension;
 
@@ -471,9 +483,9 @@ public class MultimodalUtil {
 
         JCasUtil.select(jCas, SubImage.class).forEach(subImage -> {
             String mainImageB64 = "";
-            if(subImage.getParent().getSrc() == null){
+            if (subImage.getParent().getSrc() == null) {
                 mainImageB64 = jCas.getSofaDataString();
-            }else{
+            } else {
                 mainImageB64 = subImage.getParent().getSrc();
             }
 
@@ -483,16 +495,16 @@ public class MultimodalUtil {
 
                 Polygon polygon = new Polygon();
 
-                for(int i = 0; i < subImage.getCoordinates().size(); i++){
+                for (int i = 0; i < subImage.getCoordinates().size(); i++) {
 
-                        Coordinate coordniate = subImage.getCoordinates().get(i);
-                        polygon.addPoint(coordniate.getX(), coordniate.getY());
+                    Coordinate coordniate = subImage.getCoordinates().get(i);
+                    polygon.addPoint(coordniate.getX(), coordniate.getY());
                 }
 
                 Rectangle bounds = polygon.getBounds();
 
                 BufferedImage bSubImage;
-                if(finalExtension.equals("png") || finalExtension.equals("tiff") || finalExtension.equals("gif") || finalExtension.equals("apng"))
+                if (finalExtension.equals("png") || finalExtension.equals("tiff") || finalExtension.equals("gif") || finalExtension.equals("apng"))
                     bSubImage = new BufferedImage(bounds.width, bounds.height, BufferedImage.TYPE_INT_ARGB);  // Alpha channel support
                 else
                     bSubImage = new BufferedImage(bounds.width, bounds.height, BufferedImage.TYPE_INT_RGB);  // No alpha
@@ -500,7 +512,7 @@ public class MultimodalUtil {
                 // Copy pixels form main image to new subimage
                 for (int x = bounds.x; x < bounds.x + bounds.width; x++) {
                     for (int y = bounds.y; y < bounds.y + bounds.height; y++) {
-                        if(polygon.contains(x, y)){
+                        if (polygon.contains(x, y)) {
                             int iColor = bImage.getRGB(x, y);
                             bSubImage.setRGB(x - bounds.x, y - bounds.y, iColor);
                         }
@@ -523,8 +535,8 @@ public class MultimodalUtil {
         return subImages;
     }
 
-    private static String getOutputName(JCas jCas, AudioToken audioToken, String format){
-        if(format.startsWith(".")){
+    private static String getOutputName(JCas jCas, AudioToken audioToken, String format) {
+        if (format.startsWith(".")) {
             format = format.substring(1);
         }
 
@@ -538,8 +550,8 @@ public class MultimodalUtil {
         return documentId + audioToken._id() + "_" + audioToken.getTimeStart() + "-" + audioToken.getTimeEnd() + "." + format;
     }
 
-    private static String getOutputName(JCas jCas, Annotation annotation, String format){
-        if(format.startsWith(".")){
+    private static String getOutputName(JCas jCas, Annotation annotation, String format) {
+        if (format.startsWith(".")) {
             format = format.substring(1);
         }
 
@@ -549,10 +561,10 @@ public class MultimodalUtil {
             documentId = meta.getDocumentId() + "_";
         }
 
-        return documentId + annotation._id() + "_" + annotation.getBegin()+ "-" + annotation.getEnd() + "." + format;
+        return documentId + annotation._id() + "_" + annotation.getBegin() + "-" + annotation.getEnd() + "." + format;
     }
 
-    private static String getOutputName(JCas jCas, SubImage subImage, String format){
+    private static String getOutputName(JCas jCas, SubImage subImage, String format) {
 
         String documentId = "";
         if (JCasUtil.select(jCas, DocumentMetaData.class).size() > 0) {

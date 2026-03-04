@@ -1,7 +1,7 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.io.reader.abbyy.utils;
 
 import com.google.common.base.Strings;
-import org.testcontainers.shaded.org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 
 public class Utils {
     public static int parseInt(String s) {
@@ -19,8 +19,8 @@ public class Utils {
     public static boolean parseBoolean(String s) {
         return !Strings.isNullOrEmpty(s) && (
                 StringUtils.isNumeric(s) && Integer.parseInt(s) > 0
-                ||
-                Boolean.parseBoolean(s)
+                        ||
+                        Boolean.parseBoolean(s)
         );
     }
 

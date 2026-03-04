@@ -35,15 +35,139 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * @author Alexander Leonhardt
  */
 public class DUUIRemoteDriver implements IDUUIDriverInterface {
-    private HashMap<String, InstantiatedComponent> _components;
-    private HttpClient _client;
+    private final HashMap<String, InstantiatedComponent> _components;
+    private final HttpClient _client;
     private IDUUIConnectionHandler _wsclient = null;
-    private DUUICompressionHelper _helper;
+    private final DUUICompressionHelper _helper;
     private DUUILuaContext _luaContext;
 
+    public String instantiate(DUUIPipelineComponent component, JCas jc, boolean skipVerification, AtomicBoolean shutdown) throws Exception {
+        String uuid = UUID.randomUUID().toString();
+        while (_components.containsKey(uuid)) {
+            uuid = UUID.randomUUID().toString();
+        }
+        InstantiatedComponent comp = new InstantiatedComponent(component);
+
+        final String uuidCopy = uuid;
+        boolean added_communication_layer = false;
+
+        for (String url : comp.getUrls()) {
+            if (shutdown.get()) return null;
+
+            /**
+             * @see
+             * @edited
+             * Dawit Terefe
+             *
+             * Starts the websocket connection.
+             */
+            if (comp.isWebsocket()) {
+                String websocketUrl = url.replaceFirst("http", "ws")
+                        + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS_WEBSOCKET;
+                _wsclient = new DUUIWebsocketAlt(websocketUrl, comp.getWebsocketElements());
+            }
+            IDUUICommunicationLayer layer = DUUIDockerDriver.responsiveAfterTime(url, jc, 100000, _client, (msg) -> {
+                System.out.printf("[RemoteDriver][%s] %s\n", uuidCopy, msg);
+            }, _luaContext, skipVerification);
+            // Request to get input_output
+            // {"inputs": ["de.sentence.tudarmstadt",...], "outputs": ["de.sentence.token",...]}
+            // /v1/details/input_output
+            if (!added_communication_layer) {
+                added_communication_layer = true;
+            }
+            for (int i = 0; i < comp.getWorkers(); i++) {
+                /**
+                 * @see
+                 * @edited
+                 * Dawit Terefe
+                 *
+                 * Saves websocket client in ComponentInstance for
+                 * retrieval in process_handler-function.
+                 */
+                comp.addComponent(new ComponentInstance(url, layer.copy(), _wsclient));
+            }
+            _components.put(uuid, comp);
+            System.out.printf("[RemoteDriver][%s] Remote URL %s is online and seems to understand DUUI V1 format!\n", uuid, url);
+
+            System.out.printf("[RemoteDriver][%s] Maximum concurrency for this endpoint %d\n", uuid, comp.getWorkers());
+        }
+
+        return shutdown.get() ? null : uuid;
+    }
+
+    public void setLuaContext(DUUILuaContext luaContext) {
+        _luaContext = luaContext;
+    }
+
+    private static class ComponentInstance implements IDUUIUrlAccessible {
+        String _url;
+        IDUUIConnectionHandler _handler;
+        IDUUICommunicationLayer _communication_layer;
+
+        ComponentInstance(String val, IDUUICommunicationLayer layer) {
+            _url = val;
+            _communication_layer = layer;
+            _handler = null;
+        }
+
+        ComponentInstance(String val, IDUUICommunicationLayer layer, IDUUIConnectionHandler handler) {
+            _url = val;
+            _handler = handler;
+            _communication_layer = layer;
+        }
+
+        public IDUUICommunicationLayer getCommunicationLayer() {
+            return _communication_layer;
+        }
+
+        public String generateURL() {
+            return _url;
+        }
+
+        public IDUUIConnectionHandler getHandler() {
+            return _handler;
+        }
+    }
+
+    /**
+     * init reader component
+     *
+     * @param uuid
+     * @param filePath
+     * @return
+     */
+    @Override
+    public int initReaderComponent(String uuid, Path filePath) {
+        DUUIRemoteDriver.InstantiatedComponent comp = _components.get(uuid);
+        if (comp == null) {
+            throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
+        }
+        return IDUUIInstantiatedPipelineReaderComponent.initComponent(comp, filePath);
+    }
+
+    public DUUIRemoteDriver(int timeout) {
+        _client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(timeout)).build();
+
+        _components = new HashMap<String, InstantiatedComponent>();
+        _helper = new DUUICompressionHelper(CompressorStreamFactory.ZSTANDARD);
+    }
+
+    public DUUIRemoteDriver() {
+        _components = new HashMap<String, InstantiatedComponent>();
+        _client = HttpClient.newHttpClient();
+        _helper = new DUUICompressionHelper(CompressorStreamFactory.ZSTANDARD);
+    }
+
+    public boolean canAccept(DUUIPipelineComponent component) {
+        List<String> urls = component.getUrl();
+        return urls != null && urls.size() > 0;
+    }
+
+    public void shutdown() {
+    }
 
     public static class Component {
-        private DUUIPipelineComponent component;
+        private final DUUIPipelineComponent component;
 
         public Component(String url) throws URISyntaxException, IOException {
             component = new DUUIPipelineComponent();
@@ -53,9 +177,7 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         public Component(String... url) throws URISyntaxException, IOException {
             component = new DUUIPipelineComponent();
             List<String> pList = new ArrayList<>();
-            for (String s : url) {
-                pList.add(s);
-            }
+            Collections.addAll(pList, url);
             component.withUrls(pList);
         }
 
@@ -71,11 +193,12 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
 
         /**
          * Set the maximum concurrency-level for this component by instantiating the given number of replicas per URL.
+         *
          * @param scale Number of replicas per given URL.
          * @return {@code this}
          * @apiNote Alias for {@link #withWorkers(int)}. To achieve component-level concurrency,
-         *      supply multiple (different) URL endpoints using the appropriate constructors:
-         *      {@link #Component(String...)} and {@link #Component(List)}.
+         * supply multiple (different) URL endpoints using the appropriate constructors:
+         * {@link #Component(String...)} and {@link #Component(List)}.
          */
         public Component withScale(int scale) {
             System.out.printf(
@@ -89,6 +212,7 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
 
         /**
          * Set the maximum concurrency-level for this component by instantiating the given number of replicas per URL.
+         *
          * @param workers Number of replicas per given URL.
          * @return {@code this}
          */
@@ -158,51 +282,33 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         }
     }
 
-    public void setLuaContext(DUUILuaContext luaContext) {
-        _luaContext = luaContext;
+    public void printConcurrencyGraph(String uuid) {
+        InstantiatedComponent component = _components.get(uuid);
+        if (component == null) {
+            throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
+        }
+        System.out.printf("[RemoteDriver][%s]: Maximum concurrency %d\n", uuid, component.getWorkers());
     }
 
-    private static class ComponentInstance implements IDUUIUrlAccessible {
-        String _url;
-        IDUUIConnectionHandler _handler;
-        IDUUICommunicationLayer _communication_layer;
-
-        ComponentInstance(String val, IDUUICommunicationLayer layer) {
-            _url = val;
-            _communication_layer = layer;
-            _handler = null;
+    public TypeSystemDescription get_typesystem(String uuid) throws InterruptedException, IOException, SAXException, CompressorException, ResourceInitializationException {
+        DUUIRemoteDriver.InstantiatedComponent comp = _components.get(uuid);
+        if (comp == null) {
+            throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
         }
-
-        ComponentInstance(String val, IDUUICommunicationLayer layer, IDUUIConnectionHandler handler) {
-            _url = val;
-            _handler = handler;
-            _communication_layer = layer;
-        }
-
-        public IDUUICommunicationLayer getCommunicationLayer() {
-            return _communication_layer;
-        }
-
-        public String generateURL() {
-            return _url;
-        }
-
-        public IDUUIConnectionHandler getHandler() {
-            return _handler;
-        }
+        return IDUUIInstantiatedPipelineComponent.getTypesystem(uuid, comp);
     }
 
     private static class InstantiatedComponent implements IDUUIInstantiatedPipelineComponent {
-        private List<String> _urls;
-        private int _maximum_concurrency;
-        private ConcurrentLinkedQueue<ComponentInstance> _components;
-        private String _uniqueComponentKey;
-        private Map<String, String> _parameters;
-        private String _sourceView;
-        private String _targetView;
-        private DUUIPipelineComponent _component;
-        private boolean _websocket;
-        private int _ws_elements;
+        private final List<String> _urls;
+        private final int _maximum_concurrency;
+        private final ConcurrentLinkedQueue<ComponentInstance> _components;
+        private final String _uniqueComponentKey;
+        private final Map<String, String> _parameters;
+        private final String _sourceView;
+        private final String _targetView;
+        private final DUUIPipelineComponent _component;
+        private final boolean _websocket;
+        private final int _ws_elements;
 
         public Triplet<IDUUIUrlAccessible, Long, Long> getComponent() {
             long mutexStart = System.nanoTime();
@@ -262,9 +368,13 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
             return _parameters;
         }
 
-        public String getSourceView() {return _sourceView; }
+        public String getSourceView() {
+            return _sourceView;
+        }
 
-        public String getTargetView() {return _targetView; }
+        public String getTargetView() {
+            return _targetView;
+        }
 
         public boolean isWebsocket() {
             return _websocket;
@@ -273,112 +383,6 @@ public class DUUIRemoteDriver implements IDUUIDriverInterface {
         public int getWebsocketElements() {
             return _ws_elements;
         }
-    }
-
-    public DUUIRemoteDriver(int timeout) {
-        _client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(timeout)).build();
-
-        _components = new HashMap<String, InstantiatedComponent>();
-        _helper = new DUUICompressionHelper(CompressorStreamFactory.ZSTANDARD);
-    }
-
-    public DUUIRemoteDriver() {
-        _components = new HashMap<String, InstantiatedComponent>();
-        _client = HttpClient.newHttpClient();
-        _helper = new DUUICompressionHelper(CompressorStreamFactory.ZSTANDARD);
-    }
-
-    public boolean canAccept(DUUIPipelineComponent component) {
-        List<String> urls = component.getUrl();
-        return urls != null && urls.size() > 0;
-    }
-
-    public void shutdown() {
-    }
-
-    public String instantiate(DUUIPipelineComponent component, JCas jc, boolean skipVerification, AtomicBoolean shutdown) throws Exception {
-        String uuid = UUID.randomUUID().toString();
-        while (_components.containsKey(uuid)) {
-            uuid = UUID.randomUUID().toString();
-        }
-        InstantiatedComponent comp = new InstantiatedComponent(component);
-
-        final String uuidCopy = uuid;
-        boolean added_communication_layer = false;
-
-        for (String url : comp.getUrls()) {
-            if (shutdown.get()) return null;
-
-            /**
-             * @see
-             * @edited
-             * Dawit Terefe
-             *
-             * Starts the websocket connection.
-             */
-            if (comp.isWebsocket()) {
-                String websocketUrl = url.replaceFirst("http", "ws")
-                    + DUUIComposer.V1_COMPONENT_ENDPOINT_PROCESS_WEBSOCKET;
-                _wsclient = new DUUIWebsocketAlt(websocketUrl, comp.getWebsocketElements());
-            }
-            IDUUICommunicationLayer layer = DUUIDockerDriver.responsiveAfterTime(url, jc, 100000, _client, (msg) -> {
-                System.out.printf("[RemoteDriver][%s] %s\n", uuidCopy, msg);
-            }, _luaContext, skipVerification);
-            // Request to get input_output
-            // {"inputs": ["de.sentence.tudarmstadt",...], "outputs": ["de.sentence.token",...]}
-            // /v1/details/input_output
-            if (!added_communication_layer) {
-                added_communication_layer = true;
-            }
-            for (int i = 0; i < comp.getWorkers(); i++) {
-                /**
-                 * @see
-                 * @edited
-                 * Dawit Terefe
-                 *
-                 * Saves websocket client in ComponentInstance for
-                 * retrieval in process_handler-function.
-                 */
-                comp.addComponent(new ComponentInstance(url, layer.copy(), _wsclient));
-            }
-            _components.put(uuid, comp);
-            System.out.printf("[RemoteDriver][%s] Remote URL %s is online and seems to understand DUUI V1 format!\n", uuid, url);
-
-            System.out.printf("[RemoteDriver][%s] Maximum concurrency for this endpoint %d\n", uuid, comp.getWorkers());
-        }
-
-        return shutdown.get() ? null : uuid;
-    }
-
-    public void printConcurrencyGraph(String uuid) {
-        InstantiatedComponent component = _components.get(uuid);
-        if (component == null) {
-            throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
-        }
-        System.out.printf("[RemoteDriver][%s]: Maximum concurrency %d\n", uuid, component.getWorkers());
-    }
-
-    public TypeSystemDescription get_typesystem(String uuid) throws InterruptedException, IOException, SAXException, CompressorException, ResourceInitializationException {
-        DUUIRemoteDriver.InstantiatedComponent comp = _components.get(uuid);
-        if (comp == null) {
-            throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
-        }
-        return IDUUIInstantiatedPipelineComponent.getTypesystem(uuid, comp);
-    }
-
-    /**
-     * init reader component
-     * @param uuid
-     * @param filePath
-     * @return
-     */
-    @Override
-    public int initReaderComponent(String uuid, Path filePath) {
-        DUUIRemoteDriver.InstantiatedComponent comp = _components.get(uuid);
-        if (comp == null) {
-            throw new InvalidParameterException("Invalid UUID, this component has not been instantiated by the local Driver");
-        }
-        return IDUUIInstantiatedPipelineReaderComponent.initComponent(comp, filePath);
     }
 
     public void run(String uuid, JCas aCas, DUUIPipelineDocumentPerformance perf, DUUIComposer composer) throws CASException, PipelineComponentException, CompressorException, IOException, InterruptedException, SAXException, CommunicationLayerException {

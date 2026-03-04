@@ -3,6 +3,7 @@ package org.texttechnologylab.DockerUnifiedUIMAInterface.io;
 import org.apache.uima.jcas.JCas;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.AdvancedProgressMeter;
 
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
@@ -10,6 +11,7 @@ import java.util.stream.LongStream;
 
 /**
  * Class for asynchronous processing of DUUI readers
+ *
  * @author Giuseppe Abrami
  */
 public class DUUIAsynchronousProcessor {
@@ -34,19 +36,19 @@ public class DUUIAsynchronousProcessor {
 
     /**
      * Constructor
+     *
      * @param pValues
      */
     public DUUIAsynchronousProcessor(DUUICollectionReader... pValues) {
 
-        for (DUUICollectionReader pValue : pValues) {
-            readerSet.add(pValue);
-        }
+        Collections.addAll(readerSet, pValues);
 
         System.out.printf("Found %d elements in total!", getSumMax());
     }
 
     /**
      * return the current progress
+     *
      * @return
      */
     public AdvancedProgressMeter getProgress() {
@@ -61,6 +63,7 @@ public class DUUIAsynchronousProcessor {
 
     /**
      * Sum all sizes
+     *
      * @return
      */
     private long getSumMax() {
@@ -72,6 +75,7 @@ public class DUUIAsynchronousProcessor {
 
     /**
      * Return the next CAS-object
+     *
      * @param empty
      * @return
      */
@@ -90,6 +94,7 @@ public class DUUIAsynchronousProcessor {
 
     /**
      * Is the processor, means all collection readers finish?
+     *
      * @return
      */
     public boolean isFinish() {

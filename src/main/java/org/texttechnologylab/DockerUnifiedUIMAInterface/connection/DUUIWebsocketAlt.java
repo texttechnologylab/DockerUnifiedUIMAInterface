@@ -13,32 +13,31 @@ import java.util.stream.Collectors;
 
 /**
  * @author Dawit Terefe, Givara Ebo
- *
+ * <p>
  * Interface between DUUIComposer and WebsocketClient.
  */
 @Deprecated
-public class DUUIWebsocketAlt implements IDUUIConnectionHandler{
+public class DUUIWebsocketAlt implements IDUUIConnectionHandler {
 
-    private static List<DUUIWebsocketAlt> clients = new ArrayList<>();
+    private static final List<DUUIWebsocketAlt> clients = new ArrayList<>();
     private WebsocketClient client;
-    private static Map<String, WebsocketClient> _clients = new HashMap<>();
+    private static final Map<String, WebsocketClient> _clients = new HashMap<>();
 
     public DUUIWebsocketAlt(String uri, int elements) throws InterruptedException, IOException {
         boolean connected;
 
         if (!_clients.containsKey(uri)) { // If not already connected to uri.
-            this.client = new WebsocketClient(URI.create(uri+"/?tokens_num="+elements)); //  Anzahl der Tokens
-            System.out.println("[DUUIWebsocketAlt]: Trying to connect to "+uri);
+            this.client = new WebsocketClient(URI.create(uri + "/?tokens_num=" + elements)); //  Anzahl der Tokens
+            System.out.println("[DUUIWebsocketAlt]: Trying to connect to " + uri);
             connected = this.client.connectBlocking();
             _clients.put(uri, this.client);
-        }
-        else { // If already connected to uri.
+        } else { // If already connected to uri.
             this.client = _clients.get(uri);
             connected = this.client.isOpen();
 
             if (!connected) { // If connection was closed.
-                System.out.println("[DUUIWebsocketAlt]: Trying to reconnect to "+uri);
-                this.client = new WebsocketClient(URI.create(uri+"/?tokens_num="+elements));
+                System.out.println("[DUUIWebsocketAlt]: Trying to reconnect to " + uri);
+                this.client = new WebsocketClient(URI.create(uri + "/?tokens_num=" + elements));
                 connected = this.client.connectBlocking();
             }
         }
@@ -52,7 +51,7 @@ public class DUUIWebsocketAlt implements IDUUIConnectionHandler{
 
         this.client.setConnectionLostTimeout(0);
         DUUIComposer._clients.add(this);
-        System.out.println("[DUUIWebsocketAlt] Remote URL %s is online and seems to understand DUUI V1 format!\n"+URI.create(uri));
+        System.out.println("[DUUIWebsocketAlt] Remote URL %s is online and seems to understand DUUI V1 format!\n" + URI.create(uri));
     }
 
     /**
@@ -77,7 +76,7 @@ public class DUUIWebsocketAlt implements IDUUIConnectionHandler{
             }
         }
 
-        List<ByteArrayInputStream> results = client.messageStack.subList(0, client.messageStack.size()-1)
+        List<ByteArrayInputStream> results = client.messageStack.subList(0, client.messageStack.size() - 1)
                 .stream()
                 .map(ByteArrayInputStream::new)
                 .collect(Collectors.toList());

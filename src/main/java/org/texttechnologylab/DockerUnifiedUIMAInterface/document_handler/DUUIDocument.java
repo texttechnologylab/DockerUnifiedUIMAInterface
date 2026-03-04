@@ -56,12 +56,10 @@ public class DUUIDocument {
     public DUUIDocument(String name, String path, JCas jCas) {
         if (jCas.getDocumentText() != null) {
             this.bytes = jCas.getDocumentText().getBytes(StandardCharsets.UTF_8);
-        }
-        else if (jCas.getSofaDataStream() != null) {
+        } else if (jCas.getSofaDataStream() != null) {
             try {
                 this.bytes = jCas.getSofaDataStream().readAllBytes();
-            }
-            catch (Exception e) {
+            } catch (Exception e) {
                 e.printStackTrace();
             }
         }
@@ -77,11 +75,10 @@ public class DUUIDocument {
             return true;
         }
 
-        if (!(o instanceof DUUIDocument)) {
+        if (!(o instanceof DUUIDocument _o)) {
             return false;
         }
 
-        DUUIDocument _o = (DUUIDocument) o;
         return _o.getPath().equals(getPath());
     }
 

@@ -9,9 +9,11 @@ import java.util.concurrent.Future;
  * Interface for execution plans of the DUUI composer pipleine.
  */
 public interface IDUUIExecutionPlan {
-    public List<IDUUIExecutionPlan> getNextExecutionPlans();
+    List<IDUUIExecutionPlan> getNextExecutionPlans();
 
-    public Future<IDUUIExecutionPlan> awaitMerge();
-    public JCas getJCas();
-    public DUUIComposer.PipelinePart getPipelinePart();
+    Future<IDUUIExecutionPlan> awaitMerge();
+
+    JCas getJCas();
+
+    DUUIComposer.PipelinePart getPipelinePart();
 }

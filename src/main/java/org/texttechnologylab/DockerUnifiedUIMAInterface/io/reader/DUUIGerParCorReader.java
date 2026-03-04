@@ -13,7 +13,6 @@ import org.bson.Document;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.mongodb.MongoDBConfig;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.mongodb.MongoDBConnectionHandler;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.io.DUUICollectionReader;
-import org.texttechnologylab.DockerUnifiedUIMAInterface.io.ProgressMeter;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.AdvancedProgressMeter;
 import org.texttechnologylab.annotation.AnnotationComment;
 import org.texttechnologylab.utilities.helper.ArchiveUtils;
@@ -35,8 +34,8 @@ public class DUUIGerParCorReader implements DUUICollectionReader {
 
 
     private AdvancedProgressMeter progress;
-    private ConcurrentLinkedQueue<Document> loadedItems = new ConcurrentLinkedQueue();
-    private ConcurrentLinkedQueue<Document> items = new ConcurrentLinkedQueue();
+    private final ConcurrentLinkedQueue<Document> loadedItems = new ConcurrentLinkedQueue();
+    private final ConcurrentLinkedQueue<Document> items = new ConcurrentLinkedQueue();
 
     private MongoDBConfig dbConfig = null;
     private MongoDBConnectionHandler mongoDBConnectionHandler = null;
@@ -45,7 +44,7 @@ public class DUUIGerParCorReader implements DUUICollectionReader {
 
     //_currentMemorySize.getAndAdd(-factor * (long) file.length);
 
-    private AtomicInteger docNumber = new AtomicInteger();
+    private final AtomicInteger docNumber = new AtomicInteger();
     private long _maxItems = 0;
 
     private MongoCursor<Document> results = null;
@@ -54,7 +53,7 @@ public class DUUIGerParCorReader implements DUUICollectionReader {
 
     private boolean bOverrideMeta = false;
 
-    private int iLimit = 100;
+    private final int iLimit = 100;
     private int iSkip = 0;
 
     public DUUIGerParCorReader(MongoDBConfig dbConfig) {
@@ -101,7 +100,7 @@ public class DUUIGerParCorReader implements DUUICollectionReader {
                             loadedItems.add(results.next());
                         }
                         try {
-                            Thread.sleep(1000l);
+                            Thread.sleep(1000L);
                         } catch (InterruptedException e) {
                             throw new RuntimeException(e);
                         }

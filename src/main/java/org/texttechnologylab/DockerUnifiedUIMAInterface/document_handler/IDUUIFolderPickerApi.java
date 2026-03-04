@@ -8,7 +8,7 @@ import java.util.stream.Collectors;
 
 public interface IDUUIFolderPickerApi {
 
-    public static class DUUIFolder {
+    class DUUIFolder {
 
         String id;
         String name;

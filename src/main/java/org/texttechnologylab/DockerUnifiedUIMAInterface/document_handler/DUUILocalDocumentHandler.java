@@ -8,11 +8,10 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public class DUUILocalDocumentHandler implements IDUUIDocumentHandler{
+public class DUUILocalDocumentHandler implements IDUUIDocumentHandler {
 
     @Override
     public void writeDocument(DUUIDocument document, String path) throws IOException {
@@ -39,9 +38,9 @@ public class DUUILocalDocumentHandler implements IDUUIDocumentHandler{
     public DUUIDocument readDocument(String path) throws IOException {
         Path _path = Paths.get(path);
         return new DUUIDocument(
-            _path.getFileName().toString(),
-            _path.toFile().getAbsolutePath().replace("\\", "/"),
-            Files.readAllBytes(_path)
+                _path.getFileName().toString(),
+                _path.toFile().getAbsolutePath().replace("\\", "/"),
+                Files.readAllBytes(_path)
         );
     }
 
@@ -63,27 +62,27 @@ public class DUUILocalDocumentHandler implements IDUUIDocumentHandler{
         if (files == null) return new ArrayList<>();
 
         return Stream
-            .of(files)
-            .filter(file -> !file.isDirectory() && file.getName().endsWith(fileExtension))
-            .map(file -> new DUUIDocument(
-                file.getName(),
-                file.getAbsolutePath().replace("\\", "/"),
-                file.length()))
-            .collect(Collectors.toList());
+                .of(files)
+                .filter(file -> !file.isDirectory() && file.getName().endsWith(fileExtension))
+                .map(file -> new DUUIDocument(
+                        file.getName(),
+                        file.getAbsolutePath().replace("\\", "/"),
+                        file.length()))
+                .collect(Collectors.toList());
     }
 
     private List<DUUIDocument> listDocumentsRecursive(String path, String fileExtension) throws IOException {
         try (Stream<Path> stream = Files.walk(Paths.get(path))) {
             return stream
-                .filter(Files::isRegularFile)
-                .map(file -> new DUUIDocument(
-                    file.getFileName().toString(),
+                    .filter(Files::isRegularFile)
+                    .map(file -> new DUUIDocument(
+                            file.getFileName().toString(),
 
-                    // This is only important if DUUI is run on Windows because Windows uses '\' as File.separator.
-                    file.toFile().getAbsolutePath().replace("\\", "/"),
-                    file.toFile().length())
-                ).filter(document -> document.getName().endsWith(fileExtension))
-                .collect(Collectors.toList());
+                            // This is only important if DUUI is run on Windows because Windows uses '\' as File.separator.
+                            file.toFile().getAbsolutePath().replace("\\", "/"),
+                            file.toFile().length())
+                    ).filter(document -> document.getName().endsWith(fileExtension))
+                    .collect(Collectors.toList());
         }
     }
 }

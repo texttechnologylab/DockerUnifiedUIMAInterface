@@ -50,8 +50,8 @@ public class TTLabXmiWriter extends JCasFileWriter_ImplBase {
 //            }
 //            else{
 
-                xmiCasSerializer.serialize(aJCas.getCas(), sax2xml.getContentHandler(), null, null,
-                        null);
+            xmiCasSerializer.serialize(aJCas.getCas(), sax2xml.getContentHandler(), null, null,
+                    null);
 //            }
 
 
@@ -59,8 +59,7 @@ public class TTLabXmiWriter extends JCasFileWriter_ImplBase {
                 writeTypeSystem(aJCas);
                 typeSystemWritten = true;
             }
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             throw new AnalysisEngineProcessException(e);
         }
 
@@ -106,8 +105,7 @@ public class TTLabXmiWriter extends JCasFileWriter_ImplBase {
 
     @Override
     public void initialize(UimaContext aContext)
-            throws ResourceInitializationException
-    {
+            throws ResourceInitializationException {
         super.initialize(aContext);
 
         if (!asList("1.0", "1.1").contains(version)) {
@@ -119,22 +117,19 @@ public class TTLabXmiWriter extends JCasFileWriter_ImplBase {
     }
 
     private void writeTypeSystem(JCas aJCas)
-            throws IOException, CASRuntimeException, SAXException
-    {
+            throws IOException, CASRuntimeException, SAXException {
         @SuppressWarnings("resource")
         OutputStream typeOS = null;
 
         try {
             if (typeSystemFile != null) {
                 typeOS = CompressionUtils.getOutputStream(typeSystemFile);
-            }
-            else {
+            } else {
                 typeOS = getOutputStream("TypeSystem", ".xml");
             }
 
             TypeSystemUtil.typeSystem2TypeSystemDescription(aJCas.getTypeSystem()).toXML(typeOS);
-        }
-        finally {
+        } finally {
             closeQuietly(typeOS);
         }
     }

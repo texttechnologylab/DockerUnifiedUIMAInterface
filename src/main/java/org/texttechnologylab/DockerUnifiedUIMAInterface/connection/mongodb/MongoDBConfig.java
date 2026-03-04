@@ -1,6 +1,7 @@
 package org.texttechnologylab.DockerUnifiedUIMAInterface.connection.mongodb;
 
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.util.Properties;
 
 /**
@@ -29,7 +30,7 @@ public class MongoDBConfig extends Properties {
 
     public MongoDBConfig(String sPath) throws IOException {
         String current = new File(".").getCanonicalPath();
-        BufferedReader lReader = new BufferedReader(new InputStreamReader(new FileInputStream(new File(sPath)), "UTF-8"));
+        BufferedReader lReader = new BufferedReader(new InputStreamReader(new FileInputStream(new File(sPath)), StandardCharsets.UTF_8));
         this.load(lReader);
         lReader.close();
     }

@@ -5,11 +5,9 @@ import org.apache.uima.fit.component.JCasAnnotator_ImplBase;
 import org.apache.uima.fit.descriptor.ConfigurationParameter;
 import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
-import org.apache.uima.jcas.cas.AnnotationBase;
 import org.apache.uima.jcas.cas.TOP;
 import org.texttechnologylab.annotation.AnnotationComment;
 
-import java.lang.annotation.Annotation;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -25,14 +23,14 @@ public class AnnotationCommentsRemover extends JCasAnnotator_ImplBase {
 
         Set<TOP> acRemove = new HashSet<>();
 
-        JCasUtil.select(jCas, AnnotationComment.class).stream().forEach(ac->{
-            if(ac.getKey().equalsIgnoreCase(key)){
+        JCasUtil.select(jCas, AnnotationComment.class).stream().forEach(ac -> {
+            if (ac.getKey().equalsIgnoreCase(key)) {
                 acRemove.add(ac);
                 acRemove.add(ac.getReference());
             }
         });
 
-        acRemove.stream().forEach(ac->{
+        acRemove.stream().forEach(ac -> {
             ac.removeFromIndexes();
         });
 
