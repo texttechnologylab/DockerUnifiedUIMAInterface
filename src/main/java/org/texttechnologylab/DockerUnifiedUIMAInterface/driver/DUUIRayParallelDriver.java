@@ -31,6 +31,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
 /**
@@ -45,7 +46,7 @@ import java.util.function.Consumer;
 public class DUUIRayParallelDriver implements IDUUIDriverInterface {
 
     // These keys are stripped before passing params to Lua
-    // num_workers is kept out of this set on purpose — Lua needs it for the request body
+    // num_workers is kept out of this set on purpose: Lua needs it for the request body
     private static final Set<String> RAY_PARALLEL_INTERNAL_KEYS = Set.of(
             "ray_parallel_component",
             "cpus_per_worker",
@@ -60,7 +61,9 @@ public class DUUIRayParallelDriver implements IDUUIDriverInterface {
             "working_dir",
             "entrypoint",
             "python_executable",
-            "cluster_url"
+            "cluster_url",
+            "stream_mode",
+            "total_documents"
     );
 
     // ConcurrentHashMap because run() and destroy() come from different threads
@@ -69,7 +72,7 @@ public class DUUIRayParallelDriver implements IDUUIDriverInterface {
     private DUUILuaContext luaContext;
     private final int connectionTimeout;
 
-    // Shared cluster state — first component starts it, last one stops it
+    // Shared cluster state: first component starts it, last one stops it
     private final Object rayLock = new Object();
     private boolean rayClusterStarted = false;
     private boolean clusterOwnedByDriver = false; // false when an existing cluster URL was provided
@@ -81,7 +84,7 @@ public class DUUIRayParallelDriver implements IDUUIDriverInterface {
     /** Ray file used to stop the cluster. Captured from the first component or set via {@link #withRaySource} */
     private volatile String activeRayExecutable = "ray";
 
-    /** Driver level ray file override — wins over the components ray_executable param when set */
+    /** Driver level ray file override, wins over the components ray_executable param when set */
     private volatile String userRaySource = null;
 
     /** Job ID from {@code ray job submit} needed to stop or delete the job later */
@@ -90,7 +93,7 @@ public class DUUIRayParallelDriver implements IDUUIDriverInterface {
     /** Dashboard address we submitted the job to passed again when stopping it */
     private volatile String activeDashboardAddress = null;
 
-    /** Gets the job ID from {@code ray job submit} output, e.g. {@code Job 'raysubmit_XXXX' submitted successfully} */
+    /** Gets the job ID from {@code ray job submit} output, e.g.Job "raysubmit_XXXX" submitted successfully */
     private static final java.util.regex.Pattern JOB_ID_PATTERN =
             java.util.regex.Pattern.compile("Job '(raysubmit_\\w+)'");
 
@@ -219,11 +222,11 @@ public class DUUIRayParallelDriver implements IDUUIDriverInterface {
         // Store ray executable
         activeRayExecutable = rayExec;
 
-        // External cluster: skip starting anything, just submit the job.
+        // External cluster: skip starting anything, just submit the job
         if (comp.getClusterUrl() != null) {
             System.out.printf("[RayParallelDriver][%s] Using existing Ray cluster at %s — skipping head/worker startup.%n",
                     uuid, comp.getClusterUrl());
-            // clusterOwnedByDriver stays false so we don't stop it on shutdown.
+            // clusterOwnedByDriver stays false so we don't stop it on shutdown
             submitRayJob(comp, uuid, rayExec);
             return;
         }
@@ -278,7 +281,7 @@ public class DUUIRayParallelDriver implements IDUUIDriverInterface {
         String workingDir = comp.getWorkingDir();
         String entrypoint = comp.getEntrypoint();
 
-        // Use external cluster's dashboard if given, otherwise localhost.
+        // Use external cluster's dashboard if given, otherwise localhost
         String dashboardAddress = comp.getClusterUrl() != null
                 ? comp.getClusterUrl()
                 : "http://localhost:" + comp.getDashboardPort();
@@ -456,6 +459,25 @@ public class DUUIRayParallelDriver implements IDUUIDriverInterface {
         }
     }
 
+    // ======== notifyCollectionSize ========
+
+    @Override
+    public void notifyCollectionSize(String uuid, long totalDocuments) {
+        InstantiatedComponent comp = components.get(uuid);
+        if (comp == null || !comp.isStreamMode()) return;
+
+        // Builder-set value takes priority over reader-reported size
+        if (comp.getTotalDocuments() > 0) return;
+
+        if (totalDocuments <= 0) {
+            throw new IllegalStateException(
+                    "[RayParallelDriver][" + uuid + "] Stream mode is enabled but the reader " +
+                    "reported unknown size (" + totalDocuments + "). " +
+                    "Call .withTotalDocuments(n) on the Component builder.");
+        }
+        comp.setTotalDocuments(totalDocuments);
+    }
+
     // ======== run ========
 
     @Override
@@ -469,19 +491,35 @@ public class DUUIRayParallelDriver implements IDUUIDriverInterface {
                     "Invalid UUID — component has not been instantiated by DUUIRayParallelDriver");
         }
 
+        if (comp.isStreamMode()) {
+            runStream(comp, aCas, perf);
+        } else {
+            runProcess(comp, aCas, perf);
+        }
+    }
+
+    /** Builds the Lua parameter map, stripping internal Ray keys */
+    private Map<String, String> buildLuaParams(InstantiatedComponent comp) {
+        Map<String, String> luaParams = new HashMap<>();
+        for (Map.Entry<String, String> entry : comp.getParameters().entrySet()) {
+            if (!RAY_PARALLEL_INTERNAL_KEYS.contains(entry.getKey())) {
+                luaParams.put(entry.getKey(), entry.getValue());
+            }
+        }
+        return luaParams;
+    }
+
+    /** Standard process path: one CAS in, one CAS out via /v1/process */
+    private void runProcess(InstantiatedComponent comp, JCas aCas, DUUIPipelineDocumentPerformance perf)
+            throws IOException, InterruptedException, CommunicationLayerException, CASException {
+
         Triplet<IDUUIUrlAccessible, Long, Long> queue = comp.getComponent();
         try {
             ComponentInstance instance = (ComponentInstance) queue.getValue0();
             IDUUICommunicationLayer layer = instance.getCommunicationLayer();
             String url = instance.generateURL();
 
-            // Remove keys before passing to Lua; num_workers stays so Lua can put it in the body
-            Map<String, String> luaParams = new HashMap<>();
-            for (Map.Entry<String, String> entry : comp.getParameters().entrySet()) {
-                if (!RAY_PARALLEL_INTERNAL_KEYS.contains(entry.getKey())) {
-                    luaParams.put(entry.getKey(), entry.getValue());
-                }
-            }
+            Map<String, String> luaParams = buildLuaParams(comp);
 
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             layer.serialize(aCas, out, luaParams, comp.getSourceView());
@@ -507,7 +545,75 @@ public class DUUIRayParallelDriver implements IDUUIDriverInterface {
             layer.deserialize(aCas, resultStream, comp.getTargetView());
 
         } finally {
-            // Always return the instance back, even on error
+            comp.addComponent(queue.getValue0());
+        }
+    }
+
+    /**
+     * Stream mode path: serialize and POST to /v1/stream for every document
+     * On the last document, also POST to /v1/finalize and deserialize the result into the CAS
+     * N−1 CAS objects are left unchanged
+     */
+    private void runStream(InstantiatedComponent comp, JCas aCas, DUUIPipelineDocumentPerformance perf)
+            throws IOException, InterruptedException, CommunicationLayerException, CASException {
+
+        long total = comp.getTotalDocuments();
+        if (total <= 0) {
+            throw new IllegalStateException("[RayParallelDriver] " +
+                    "Stream mode requires a known total document count. " +
+                    "Use .withTotalDocuments(n) on the Component builder, " +
+                    "or use a reader that reports getSize().");
+        }
+
+        Triplet<IDUUIUrlAccessible, Long, Long> queue = comp.getComponent();
+        try {
+            ComponentInstance instance = (ComponentInstance) queue.getValue0();
+            IDUUICommunicationLayer layer = instance.getCommunicationLayer();
+            String url = instance.generateURL();
+
+            Map<String, String> luaParams = buildLuaParams(comp);
+
+            // Serialize this document using the same Lua path as /v1/process
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            layer.serialize(aCas, out, luaParams, comp.getSourceView());
+
+            HttpRequest streamReq = HttpRequest.newBuilder()
+                    .uri(URI.create(url + DUUIComposer.V1_COMPONENT_ENDPOINT_STREAM))
+                    .timeout(Duration.ofSeconds(comp.getProcessingTimeout()))
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofByteArray(out.toByteArray()))
+                    .build();
+
+            HttpResponse<byte[]> streamResp = client.send(streamReq, HttpResponse.BodyHandlers.ofByteArray());
+            if (streamResp.statusCode() != 200) {
+                String body = new String(streamResp.body(), java.nio.charset.StandardCharsets.UTF_8);
+                throw new IOException("[RayParallelDriver] /v1/stream returned HTTP "
+                        + streamResp.statusCode() + ": " + body);
+            }
+
+            long count = comp.incrementAndGetStreamedCount();
+
+            if (count >= total) {
+                // Last document: finalize and write Ray result into this CAS
+                HttpRequest finalReq = HttpRequest.newBuilder()
+                        .uri(URI.create(url + DUUIComposer.V1_COMPONENT_ENDPOINT_FINALIZE))
+                        .timeout(Duration.ofSeconds(comp.getProcessingTimeout()))
+                        .header("Content-Type", "application/json")
+                        .POST(HttpRequest.BodyPublishers.noBody())
+                        .build();
+
+                HttpResponse<byte[]> finalResp = client.send(finalReq, HttpResponse.BodyHandlers.ofByteArray());
+                if (finalResp.statusCode() != 200) {
+                    String body = new String(finalResp.body(), java.nio.charset.StandardCharsets.UTF_8);
+                    throw new IOException("[RayParallelDriver] /v1/finalize returned HTTP "
+                            + finalResp.statusCode() + ": " + body);
+                }
+
+                layer.deserialize(aCas, new ByteArrayInputStream(finalResp.body()), comp.getTargetView());
+            }
+            // else: CAS is returned unchanged (pass-through for N−1 documents)
+
+        } finally {
             comp.addComponent(queue.getValue0());
         }
     }
@@ -537,13 +643,13 @@ public class DUUIRayParallelDriver implements IDUUIDriverInterface {
 
     @Override
     public boolean destroy(String uuid) {
-        // Check if this UUID was actually registered.
+        // Check if this UUID was actually registered
         InstantiatedComponent removed = components.remove(uuid);
         if (removed == null) return false;
 
         synchronized (rayLock) {
             int remaining = activeComponents.decrementAndGet();
-            // deleteJob overwrites keepJobAlive.
+            // deleteJob overwrites keepJobAlive
             if (remaining <= 0 && rayClusterStarted) {
                 if (deleteJob || !keepJobAlive) {
                     String capturedJobId = activeJobId; // capture before stopRayJob() clears it
@@ -606,7 +712,7 @@ public class DUUIRayParallelDriver implements IDUUIDriverInterface {
                     IDUUICommunicationLayer layer =
                             new DUUILuaCommunicationLayer(resp.body(), "ray_parallel_component", luaContext);
                     if (!skipVerification) {
-                        // Quick smoke-test: make sure Lua can serialize an empty CAS.
+                        // Quick smoke-test: make sure Lua can serialize an empty CAS
                         ByteArrayOutputStream stream = new ByteArrayOutputStream();
                         layer.serialize(jc, stream, null, "_InitialView");
                     }
@@ -634,19 +740,6 @@ public class DUUIRayParallelDriver implements IDUUIDriverInterface {
     // Component (builder)
     // =================
 
-    /**
-     * Builder for a Ray-parallel pipeline component.
-     *
-     * <pre>
-     * new DUUIRayParallelDriver.Component("/home/user/my_component", "letter_counter.py")
-     *     .withTaskUrl("http://127.0.0.1:25591")
-     *     .withNumWorkers(4)
-     *     .withCPUsPerWorker(2)
-     *     .withHeadNodePort(6379)
-     *     .withProcessingTimeout(120)
-     *     .build()
-     * </pre>
-     */
     public static class Component {
         private final DUUIPipelineComponent component;
         private final String workingDir;
@@ -665,15 +758,13 @@ public class DUUIRayParallelDriver implements IDUUIDriverInterface {
         private boolean keepJobAlive = false;
         private boolean deleteJob = false;
         private String clusterUrl = null;
+        private boolean streamMode = false;
+        private long totalDocuments = -1;
 
         public Component(String workingDir, String entrypoint) throws URISyntaxException, IOException {
-            this(workingDir, entrypoint, "python3");
-        }
-
-        public Component(String workingDir, String entrypoint, String pythonExecutable) throws URISyntaxException, IOException {
             this.workingDir = workingDir;
             this.entrypoint = entrypoint;
-            this.pythonExecutable = pythonExecutable;
+            this.pythonExecutable = "python3";
             component = new DUUIPipelineComponent();
             component.withParameter("ray_parallel_component", "true");
         }
@@ -693,9 +784,9 @@ public class DUUIRayParallelDriver implements IDUUIDriverInterface {
         }
 
         /**
-         * Dashboard URL of an existing Ray cluster (e.g. {@code "http://10.0.0.1:8265"}).
-         * When set, no nodes are started and the cluster is never stopped on shutdown —
-         * we just submit the job to it.
+         * Dashboard URL of an existing Ray cluster (e.g. {@code "http://10.0.0.1:8265"})
+         * When set, no nodes are started and the cluster is never stopped on shutdown;
+         * we just submit the job to it
          *
          * <pre>
          * new DUUIRayParallelDriver.Component("/home/user/my_component", "server.py")
@@ -742,17 +833,14 @@ public class DUUIRayParallelDriver implements IDUUIDriverInterface {
             return this;
         }
 
-        /** Python interpreter to use (default: {@code "python3"}) */
+        /** Python interpreter to use (default: "python3") */
         public Component withPythonExecutable(String pythonExecutable) {
             this.pythonExecutable = pythonExecutable;
             return this;
         }
 
         /**
-         * Ray executable name or full path (default: {@code "ray"})
-         * For stopping the cluster it's better to use the driver-level
-         * {@link DUUIRayParallelDriver#withRaySource(String)} — it's still available
-         * after the component is gone
+         * Ray executable name or full path (default: "ray")
          */
         public Component withRayExecutable(String executable) {
             this.rayExecutable = executable;
@@ -783,6 +871,31 @@ public class DUUIRayParallelDriver implements IDUUIDriverInterface {
          */
         public Component withDeleteJob(boolean delete) {
             this.deleteJob = delete;
+            return this;
+        }
+
+        /**
+         * Enable stream mode: every document's CAS is serialized and sent to {@code /v1/stream},
+         * the CAS is left unchanged, and only after all N documents are streamed does the driver
+         * call {@code /v1/finalize} and write the Ray job result into the last CAS
+         *
+         * <p>Stream mode requires a known document count. Either set it explicitly via
+         * {@link #withTotalDocuments(long)}, or use a collection reader that reports
+         * {@code getSize()} (e.g. {@code DUUIFileReader})
+         */
+        public Component withStreamMode(boolean streamMode) {
+            this.streamMode = streamMode;
+            return this;
+        }
+
+        /**
+         * Total number of documents to stream. Required when stream mode is enabled and the
+         * collection reader does not report a document count via {@code getSize()}
+         * If the reader reports a size, this value takes priority
+         */
+        public Component withTotalDocuments(long n) {
+            if (n < 1) throw new IllegalArgumentException("totalDocuments must be >= 1");
+            this.totalDocuments = n;
             return this;
         }
 
@@ -841,6 +954,8 @@ public class DUUIRayParallelDriver implements IDUUIDriverInterface {
             if (clusterUrl != null) {
                 component.withParameter("cluster_url", clusterUrl);
             }
+            component.withParameter("stream_mode", String.valueOf(streamMode));
+            component.withParameter("total_documents", String.valueOf(totalDocuments));
             return component;
         }
     }
@@ -888,6 +1003,9 @@ public class DUUIRayParallelDriver implements IDUUIDriverInterface {
         private final String workingDir;
         private final String entrypoint;
         private final String clusterUrl;
+        private final boolean streamMode;
+        private volatile long totalDocuments;
+        private final AtomicLong streamedCount = new AtomicLong(0);
 
         InstantiatedComponent(DUUIPipelineComponent comp) {
             component = comp;
@@ -913,6 +1031,8 @@ public class DUUIRayParallelDriver implements IDUUIDriverInterface {
             workingDir = parameters.getOrDefault("working_dir", null);
             entrypoint = parameters.getOrDefault("entrypoint", null);
             clusterUrl = parameters.getOrDefault("cluster_url", null);
+            streamMode = Boolean.parseBoolean(parameters.getOrDefault("stream_mode", "false"));
+            totalDocuments = Long.parseLong(parameters.getOrDefault("total_documents", "-1"));
         }
 
         @Override public DUUIPipelineComponent getPipelineComponent() { return component; }
@@ -957,5 +1077,9 @@ public class DUUIRayParallelDriver implements IDUUIDriverInterface {
         public String getWorkingDir() { return workingDir; }
         public String getEntrypoint() { return entrypoint; }
         public String getClusterUrl() { return clusterUrl; }
+        public boolean isStreamMode() { return streamMode; }
+        public long getTotalDocuments() { return totalDocuments; }
+        public void setTotalDocuments(long n) { this.totalDocuments = n; }
+        public long incrementAndGetStreamedCount() { return streamedCount.incrementAndGet(); }
     }
 }

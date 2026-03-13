@@ -763,6 +763,8 @@ public class DUUIComposer {
     public static final String V1_COMPONENT_ENDPOINT_PROCESS_WEBSOCKET = "/v1/process_websocket";
     public static final String V1_COMPONENT_ENDPOINT_TYPESYSTEM = "/v1/typesystem";
     public static final String V1_COMPONENT_ENDPOINT_COMMUNICATION_LAYER = "/v1/communication_layer";
+    public static final String V1_COMPONENT_ENDPOINT_STREAM = "/v1/stream";
+    public static final String V1_COMPONENT_ENDPOINT_FINALIZE = "/v1/finalize";
 
     public static List<IDUUIConnectionHandler> _clients = new ArrayList<>(); // Saves Websocket-Clients.
     private boolean _connection_open = false; // Let connection open for multiple consecutive use.
@@ -1252,6 +1254,11 @@ public class DUUIComposer {
                 emptyCasDocuments.add(JCasFactory.createJCas(desc));
             }
 
+            long asyncProcessorTotalDocs = collectionReader.getSize();
+            for (PipelinePart comp : _instantiatedPipeline) {
+                comp.getDriver().notifyCollectionSize(comp.getUUID(), asyncProcessorTotalDocs);
+            }
+
             Thread[] arr = new Thread[_workers];
             for (int i = 0; i < _workers; i++) {
                 System.out.printf("[Composer] Starting worker thread [%d/%d]\n", i + 1, _workers);
@@ -1406,6 +1413,10 @@ public class DUUIComposer {
 
             for (int i = 0; i < _cas_poolsize; i++) {
                 emptyCasDocuments.add(JCasFactory.createJCas(desc));
+            }
+
+            for (PipelinePart comp : _instantiatedPipeline) {
+                comp.getDriver().notifyCollectionSize(comp.getUUID(), -1L);
             }
 
             Thread[] arr = new Thread[_workers];
@@ -1600,6 +1611,9 @@ public class DUUIComposer {
             TypeSystemDescription desc = instantiate_pipeline();
             JCas jc = JCasFactory.createJCas(desc);
             Instant starttime = Instant.now();
+            for (PipelinePart comp : _instantiatedPipeline) {
+                comp.getDriver().notifyCollectionSize(comp.getUUID(), -1L);
+            }
             while (collectionReader.hasNext()) {
                 long waitTimeStart = System.nanoTime();
                 collectionReader.getNext(jc.getCas());
@@ -2019,6 +2033,10 @@ public class DUUIComposer {
                 if (desc == null || shouldShutdown()) {
                     shutdown();
                     return;
+                }
+
+                for (PipelinePart comp : _instantiatedPipeline) {
+                    comp.getDriver().notifyCollectionSize(comp.getUUID(), 1L);
                 }
             }
 

@@ -113,4 +113,15 @@ public interface IDUUIDriverInterface {
      */
     void shutdown();
 
+    /**
+     * Called by DUUIComposer after pipeline instantiation and before the pipeline loop.
+     * Tells each driver how many documents will be processed in total.
+     * RayParallelDriver uses this count to detect the last document in stream mode.
+     * Default implementation is a no-op so existing drivers don't need to override it.
+     *
+     * @param uuid UUID of the instantiated component
+     * @param totalDocuments Total number of documents, or -1 if unknown
+     */
+    default void notifyCollectionSize(String uuid, long totalDocuments) {}
+
 }
