@@ -298,7 +298,9 @@ class DUUIWorkerAsyncReader extends Thread {
                     waitTimeEnd - waitTimeStart,
                     _jc,
                     trackErrorDocs);
-            for (DUUIComposer.PipelinePart i : _flow) {
+            int failedAtIndex = -1;
+            for (int flowIndex = 0; flowIndex < _flow.size(); flowIndex++) {
+                DUUIComposer.PipelinePart i = _flow.get(flowIndex);
                 try {
                     // Segment document for each item in the pipeline separately
                     // TODO support "complete pipeline" segmentation to only segment once
@@ -340,7 +342,15 @@ class DUUIWorkerAsyncReader extends Thread {
                     e.printStackTrace();
                     System.err.println(e.getMessage());
                     System.out.println("Thread continues work with next document!");
+                    failedAtIndex = flowIndex;
                     break;
+                }
+            }
+            // Notify downstream components that this document will not arrive
+            if (failedAtIndex >= 0) {
+                for (int flowIndex = failedAtIndex + 1; flowIndex < _flow.size(); flowIndex++) {
+                    DUUIComposer.PipelinePart part = _flow.get(flowIndex);
+                    part.getDriver().notifyDocumentFailed(part.getUUID());
                 }
             }
 
@@ -429,7 +439,9 @@ class DUUIWorkerAsyncProcessor extends Thread {
                     waitTimeEnd - waitTimeStart,
                     _jc,
                     trackErrorDocs);
-            for (DUUIComposer.PipelinePart i : _flow) {
+            int failedAtIndex = -1;
+            for (int flowIndex = 0; flowIndex < _flow.size(); flowIndex++) {
+                DUUIComposer.PipelinePart i = _flow.get(flowIndex);
                 try {
                     // Segment document for each item in the pipeline separately
                     // TODO support "complete pipeline" segmentation to only segment once
@@ -474,10 +486,18 @@ class DUUIWorkerAsyncProcessor extends Thread {
                         System.err.println(e.getMessage());
                         e.printStackTrace();
                         System.out.println("Thread continues work with next document!");
+                        failedAtIndex = flowIndex;
                         break;
                     }
                 }
 
+            }
+            // Notify downstream components that this document will not arrive
+            if (failedAtIndex >= 0) {
+                for (int flowIndex = failedAtIndex + 1; flowIndex < _flow.size(); flowIndex++) {
+                    DUUIComposer.PipelinePart part = _flow.get(flowIndex);
+                    part.getDriver().notifyDocumentFailed(part.getUUID());
+                }
             }
 
             if (_backend != null) {

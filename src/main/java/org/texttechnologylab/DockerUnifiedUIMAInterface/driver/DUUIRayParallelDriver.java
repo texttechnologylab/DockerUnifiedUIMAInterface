@@ -484,6 +484,15 @@ public class DUUIRayParallelDriver implements IDUUIDriverInterface {
         comp.setTotalDocuments(totalDocuments);
     }
 
+    @Override
+    public void notifyDocumentFailed(String uuid){
+        InstantiatedComponent comp = components.get(uuid);
+        if(comp == null || !comp.isStreamMode()) return;
+
+        long remaining = comp.decrementAndGetTotalDocuments();
+        System.out.printf("[RayParallelDriver][%s] Document failed. Expected count reduced to %d%n", uuid, remaining);
+    }
+
     // ======== run ========
 
     @Override
@@ -1023,7 +1032,7 @@ public class DUUIRayParallelDriver implements IDUUIDriverInterface {
         private final String entrypoint;
         private final String clusterUrl;
         private final boolean streamMode;
-        private volatile long totalDocuments;
+        private final AtomicLong totalDocuments;
         private final AtomicLong streamedCount = new AtomicLong(0);
 
         InstantiatedComponent(DUUIPipelineComponent comp) {
@@ -1053,7 +1062,7 @@ public class DUUIRayParallelDriver implements IDUUIDriverInterface {
             entrypoint = parameters.getOrDefault("entrypoint", null);
             clusterUrl = parameters.getOrDefault("cluster_url", null);
             streamMode = Boolean.parseBoolean(parameters.getOrDefault("stream_mode", "false"));
-            totalDocuments = Long.parseLong(parameters.getOrDefault("total_documents", "-1"));
+            totalDocuments = new AtomicLong(Long.parseLong(parameters.getOrDefault("total_documents", "-1")));
         }
 
         @Override public DUUIPipelineComponent getPipelineComponent() { return component; }
@@ -1100,8 +1109,9 @@ public class DUUIRayParallelDriver implements IDUUIDriverInterface {
         public String getEntrypoint() { return entrypoint; }
         public String getClusterUrl() { return clusterUrl; }
         public boolean isStreamMode() { return streamMode; }
-        public long getTotalDocuments() { return totalDocuments; }
-        public void setTotalDocuments(long n) { this.totalDocuments = n; }
+        public long getTotalDocuments() { return totalDocuments.get(); }
+        public void setTotalDocuments(long n) { totalDocuments.set(n); }
+        public long decrementAndGetTotalDocuments() { return totalDocuments.decrementAndGet(); }
         public long incrementAndGetStreamedCount() { return streamedCount.incrementAndGet(); }
     }
 }
