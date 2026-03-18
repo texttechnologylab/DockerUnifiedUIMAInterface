@@ -54,6 +54,7 @@ public class DUUIRayParallelDriver implements IDUUIDriverInterface {
             "head_node_port",
             "dashboard_port",
             "processing_timeout",
+            "finalize_timeout",
             "ray_executable",
             "keep_alive",
             "keep_job_alive",
@@ -298,6 +299,11 @@ public class DUUIRayParallelDriver implements IDUUIDriverInterface {
                 "--no-wait"
         ));
 
+        if(comp.getClusterUrl() != null) {
+            cmd.add("--working-dir");
+            cmd.add(comp.getWorkingDir());
+        }
+
         cmd.add("--");
         cmd.add(comp.getPythonExecutable().replace("\r", ""));
 
@@ -314,7 +320,7 @@ public class DUUIRayParallelDriver implements IDUUIDriverInterface {
         }
 
         // Capture stdout to get the job ID. stderr goes to console as usual
-        String output = captureRayCommand(cmd, uuid, "job submit", new File(workingDir));
+        String output = captureRayCommand(cmd, uuid, "job submit", comp.getClusterUrl() == null ? new File(workingDir) : new File("./"));
         java.util.regex.Matcher m = JOB_ID_PATTERN.matcher(output);
         if (m.find()) {
             activeJobId = m.group(1);
@@ -472,8 +478,8 @@ public class DUUIRayParallelDriver implements IDUUIDriverInterface {
         if (totalDocuments <= 0) {
             throw new IllegalStateException(
                     "[RayParallelDriver][" + uuid + "] Stream mode is enabled but the reader " +
-                    "reported unknown size (" + totalDocuments + "). " +
-                    "Call .withTotalDocuments(n) on the Component builder.");
+                            "reported unknown size (" + totalDocuments + "). " +
+                            "Call .withTotalDocuments(n) on the Component builder.");
         }
         comp.setTotalDocuments(totalDocuments);
     }
@@ -597,7 +603,7 @@ public class DUUIRayParallelDriver implements IDUUIDriverInterface {
                 // Last document: finalize and write Ray result into this CAS
                 HttpRequest finalReq = HttpRequest.newBuilder()
                         .uri(URI.create(url + DUUIComposer.V1_COMPONENT_ENDPOINT_FINALIZE))
-                        .timeout(Duration.ofSeconds(comp.getProcessingTimeout()))
+                        .timeout(Duration.ofSeconds(comp.getFinalizeTimeout()))
                         .header("Content-Type", "application/json")
                         .POST(HttpRequest.BodyPublishers.noBody())
                         .build();
@@ -753,6 +759,7 @@ public class DUUIRayParallelDriver implements IDUUIDriverInterface {
         private int headNodePort = 6379;
         private int dashboardPort = 8265;
         private long processingTimeout = 300;
+        private long finalizeTimeout = -1; // -1 means fall back to processingTimeout
         private String rayExecutable = "ray";
         private boolean keepAlive = false;
         private boolean keepJobAlive = false;
@@ -830,6 +837,16 @@ public class DUUIRayParallelDriver implements IDUUIDriverInterface {
         /** Max seconds to wait for a single /v1/process response (default: 300) */
         public Component withProcessingTimeout(long seconds) {
             this.processingTimeout = seconds;
+            return this;
+        }
+
+        /**
+         * Max seconds to wait for /v1/finalize (default: same as processingTimeout)
+         * Set this to a larger value when finalize triggers long-running work such as model training
+         */
+        public Component withFinalizeTimeout(long seconds) {
+            if (seconds < 1) throw new IllegalArgumentException("finalizeTimeout must be >= 1");
+            this.finalizeTimeout = seconds;
             return this;
         }
 
@@ -944,6 +961,7 @@ public class DUUIRayParallelDriver implements IDUUIDriverInterface {
             component.withParameter("head_node_port", String.valueOf(headNodePort));
             component.withParameter("dashboard_port", String.valueOf(dashboardPort));
             component.withParameter("processing_timeout", String.valueOf(processingTimeout));
+            component.withParameter("finalize_timeout", String.valueOf(finalizeTimeout >= 1 ? finalizeTimeout : processingTimeout));
             component.withParameter("ray_executable", rayExecutable);
             component.withParameter("keep_alive", String.valueOf(keepAlive));
             component.withParameter("keep_job_alive", String.valueOf(keepJobAlive));
@@ -995,6 +1013,7 @@ public class DUUIRayParallelDriver implements IDUUIDriverInterface {
         private final int headNodePort;
         private final int dashboardPort;
         private final long processingTimeout;
+        private final long finalizeTimeout;
         private final String rayExecutable;
         private final boolean keepAlive;
         private final boolean keepJobAlive;
@@ -1023,6 +1042,8 @@ public class DUUIRayParallelDriver implements IDUUIDriverInterface {
             headNodePort = Integer.parseInt(parameters.getOrDefault("head_node_port", "6379"));
             dashboardPort = Integer.parseInt(parameters.getOrDefault("dashboard_port", "8265"));
             processingTimeout = Long.parseLong(parameters.getOrDefault("processing_timeout", "300"));
+            finalizeTimeout = Long.parseLong(parameters.getOrDefault("finalize_timeout",
+                    parameters.getOrDefault("processing_timeout", "300")));
             rayExecutable = parameters.getOrDefault("ray_executable", "ray");
             keepAlive = Boolean.parseBoolean(parameters.getOrDefault("keep_alive", "false"));
             keepJobAlive = Boolean.parseBoolean(parameters.getOrDefault("keep_job_alive", "false"));
@@ -1069,6 +1090,7 @@ public class DUUIRayParallelDriver implements IDUUIDriverInterface {
         public int getHeadNodePort() { return headNodePort; }
         public int getDashboardPort() { return dashboardPort; }
         public long getProcessingTimeout() { return processingTimeout; }
+        public long getFinalizeTimeout() { return finalizeTimeout; }
         public String getRayExecutable() { return rayExecutable; }
         public boolean isKeepAlive() { return keepAlive; }
         public boolean isKeepJobAlive() { return keepJobAlive; }
