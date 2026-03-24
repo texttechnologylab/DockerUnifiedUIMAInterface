@@ -75,6 +75,7 @@ public class DUUISegmentationStrategyByAnnotation extends DUUISegmentationStrate
         return this;
     }
 
+
     /**
      * @param maxAnnotationsPerSegment
      * @return

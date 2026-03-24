@@ -19,12 +19,16 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public class DUUIYouTubeReader implements DUUICollectionReader {
@@ -576,24 +580,7 @@ public class DUUIYouTubeReader implements DUUICollectionReader {
             _channelName = snippet.getString("channelTitle");
             _channelUrl = "https://www.youtube.com/channel/" + snippet.getString("channelId");
             String sDuration = contentDetails.getString("duration").substring(2);
-            int iDuration = 0;
-
-            if (sDuration.contains("H")) {
-                String[] hours = sDuration.split("H");
-                String[] minutes = hours[1].split("M");
-                String seconds = minutes[1].split("S")[0];
-
-                iDuration = Integer.parseInt(hours[0]) * 360 + Integer.parseInt(minutes[0]) * 60 + Integer.parseInt(seconds);
-            } else if (sDuration.contains("M")) {
-                String[] minutes = sDuration.split("M");
-                String seconds = minutes[1].split("S")[0];
-
-                iDuration = Integer.parseInt(minutes[0]) * 60 + Integer.parseInt(seconds);
-            } else if (sDuration.contains("S")) {
-                String seconds = sDuration.split("S")[0];
-
-                iDuration = Integer.parseInt(seconds);
-            }
+            int iDuration = parseToSeconds(sDuration);
 
             _duration = iDuration;
             _views = Integer.parseInt(statistics.getString("viewCount"));
@@ -601,5 +588,21 @@ public class DUUIYouTubeReader implements DUUICollectionReader {
 
             _createDate = youtubeDateToInt(snippet.getString("publishedAt"));
         }
+    }
+    private static final Pattern PATTERN =
+            Pattern.compile("(?:(\\d+)H)?(?:(\\d+)M)?(?:(\\d+)S)?");
+
+    public static int parseToSeconds(String input) {
+        Matcher m = PATTERN.matcher(input);
+
+        if (!m.matches()) {
+            throw new IllegalArgumentException("Ungültiges Format: " + input);
+        }
+
+        int hours = m.group(1) != null ? Integer.parseInt(m.group(1)) : 0;
+        int minutes = m.group(2) != null ? Integer.parseInt(m.group(2)) : 0;
+        int seconds = m.group(3) != null ? Integer.parseInt(m.group(3)) : 0;
+
+        return hours * 3600 + minutes * 60 + seconds;
     }
 }
