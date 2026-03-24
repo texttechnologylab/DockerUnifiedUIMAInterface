@@ -161,7 +161,7 @@ public class DUUIYouTubeReader implements DUUICollectionReader {
 
                         String videoId = idRequestObject.getString("videoId");
                         pagedVideos.add(new YouTubeVideo(videoId));
-                        System.out.println("Added video: " + i);
+//                        System.out.println("Added video: " + i);
                     }
 
                     if (_addMetadata) {
