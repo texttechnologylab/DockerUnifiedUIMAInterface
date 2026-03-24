@@ -8,10 +8,14 @@ import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.util.InvalidXMLException;
 import org.dkpro.core.io.xmi.XmiWriter;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIDockerDriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIRemoteDriver;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIUIMADriver;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.io.DUUIAsynchronousProcessor;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.io.reader.DUUIYouTubeReader;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.xml.sax.SAXException;
 
@@ -80,6 +84,29 @@ public class DUUI {
                 XmiWriter.PARAM_VERSION, "1.1",
                 XmiWriter.PARAM_COMPRESSION, "GZIP"
         )).build());
+
+    }
+
+    @Test
+    @DisplayName("YTDownloader")
+    public void runYTDownloader() throws Exception {
+
+        String chanelLink = "https://www.youtube.com/DDDD/videos";
+
+        String apiKey = "%%%%";
+
+        DUUIYouTubeReader duuiYouTubeReader = new DUUIYouTubeReader(chanelLink, apiKey);
+
+        pComposer.add(new DUUIUIMADriver.Component(createEngineDescription(XmiWriter.class,
+                XmiWriter.PARAM_TARGET_LOCATION, "/tmp/",
+                XmiWriter.PARAM_PRETTY_PRINT, true,
+                XmiWriter.PARAM_OVERWRITE, true,
+                XmiWriter.PARAM_VERSION, "1.1",
+                XmiWriter.PARAM_COMPRESSION, "GZIP"
+        )).build());
+
+        pComposer.resetPipeline();
+        pComposer.run(new DUUIAsynchronousProcessor(duuiYouTubeReader), "yt-test");
 
     }
 

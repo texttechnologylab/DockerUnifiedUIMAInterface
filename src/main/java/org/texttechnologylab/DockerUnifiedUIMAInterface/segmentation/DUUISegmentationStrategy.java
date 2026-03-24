@@ -28,6 +28,13 @@ public abstract class DUUISegmentationStrategy implements IDUUISegmentationStrat
      */
     protected List<IDUUISegmentationRule> segmentationRules = new ArrayList<>();
 
+    protected  boolean bDebug = false;
+
+    public DUUISegmentationStrategy withDebug() {
+        this.bDebug = true;
+        return this;
+    }
+
     /**
      * @param rule
      * @return
