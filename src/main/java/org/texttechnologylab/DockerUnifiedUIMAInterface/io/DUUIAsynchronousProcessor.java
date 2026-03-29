@@ -107,5 +107,11 @@ public class DUUIAsynchronousProcessor {
         return bReturn;
     }
 
+    /**
+     * Get the total number of documents across all readers. Returns -1 if unknown.
+     */
+    public long getSize() {
+        return getSumMax();
+    }
 
 }
