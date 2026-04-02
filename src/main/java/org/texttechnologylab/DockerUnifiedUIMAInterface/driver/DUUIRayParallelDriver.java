@@ -726,6 +726,8 @@ public class DUUIRayParallelDriver implements IDUUIDriverInterface {
                     }
                     rayClusterStarted = false;
                 }
+
+                client.shutdownNow();
             }
         }
         return true;
@@ -750,7 +752,7 @@ public class DUUIRayParallelDriver implements IDUUIDriverInterface {
                 }
             }
         }
-        client.close();
+        client.shutdownNow();
     }
 
     /**
