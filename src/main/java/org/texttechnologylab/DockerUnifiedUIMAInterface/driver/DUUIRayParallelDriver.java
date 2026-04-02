@@ -16,6 +16,9 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaContext;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
 import org.xml.sax.SAXException;
 
+import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
+import org.apache.uima.fit.factory.JCasFactory;
+
 import java.io.*;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -64,7 +67,9 @@ public class DUUIRayParallelDriver implements IDUUIDriverInterface {
             "python_executable",
             "cluster_url",
             "stream_mode",
-            "total_documents"
+            "total_documents",
+            "create_own_cas",
+            "create_own_cas_name"
     );
 
     // ConcurrentHashMap because run() and destroy() come from different threads
@@ -624,10 +629,27 @@ public class DUUIRayParallelDriver implements IDUUIDriverInterface {
                             + finalResp.statusCode() + ": " + body);
                 }
 
-                layer.deserialize(aCas, new ByteArrayInputStream(finalResp.body()), comp.getTargetView());
+                if (comp.isCreateOwnCas()) {
+                    TypeSystemDescription tsd = comp.getCachedTypeSystem();
+                    JCas resultCas = tsd != null
+                            ? JCasFactory.createJCas(tsd)
+                            : JCasFactory.createJCas();
+                    layer.deserialize(resultCas, new ByteArrayInputStream(finalResp.body()), comp.getTargetView());
+                    if (comp.getCasName() != null) {
+                        DocumentMetaData dmd = DocumentMetaData.create(resultCas);
+                        dmd.setDocumentTitle(comp.getCasName());
+                        dmd.setDocumentId(comp.getCasName());
+                        dmd.addToIndexes();
+                    }
+                    comp.setResultCas(resultCas);
+                } else {
+                    layer.deserialize(aCas, new ByteArrayInputStream(finalResp.body()), comp.getTargetView());
+                }
             }
             // else: CAS is returned unchanged (pass-through for N−1 documents)
 
+        } catch (ResourceInitializationException e) {
+            throw new RuntimeException(e);
         } finally {
             comp.addComponent(queue.getValue0());
         }
@@ -640,7 +662,34 @@ public class DUUIRayParallelDriver implements IDUUIDriverInterface {
             throws InterruptedException, IOException, SAXException, CompressorException, ResourceInitializationException {
         InstantiatedComponent comp = components.get(uuid);
         if (comp == null) throw new InvalidParameterException("Invalid UUID");
-        return IDUUIInstantiatedPipelineComponent.getTypesystem(uuid, comp);
+        TypeSystemDescription desc = IDUUIInstantiatedPipelineComponent.getTypesystem(uuid, comp);
+        comp.setCachedTypeSystem(desc);
+        return desc;
+    }
+
+    /**
+     * Returns the JCas created by this driver after a stream-mode finalize when
+     * {@link Component#withCreateOwnCas(boolean)} was enabled.
+     * Returns {@code null} if the feature was not enabled, stream mode was not used,
+     * or finalize has not been called yet
+     */
+    public JCas getResultCas(String uuid) {
+        InstantiatedComponent comp = components.get(uuid);
+        if (comp == null) return null;
+        return comp.getResultCas();
+    }
+
+    /**
+     * Returns the result CAS from every component in this driver that had
+     * {@link Component#withCreateOwnCas(boolean)} enabled.
+     * Components whose finalize has not been called yet, or that did not enable the feature,
+     * are omitted from the list
+     */
+    public List<JCas> getResultCases() {
+        return components.values().stream()
+                .map(InstantiatedComponent::getResultCas)
+                .filter(Objects::nonNull)
+                .collect(java.util.stream.Collectors.toList());
     }
 
     @Override
@@ -701,6 +750,7 @@ public class DUUIRayParallelDriver implements IDUUIDriverInterface {
                 }
             }
         }
+        client.close();
     }
 
     /**
@@ -776,6 +826,8 @@ public class DUUIRayParallelDriver implements IDUUIDriverInterface {
         private String clusterUrl = null;
         private boolean streamMode = false;
         private long totalDocuments = -1;
+        private boolean createOwnCas = false;
+        private String casName = null;
 
         public Component(String workingDir, String entrypoint) throws URISyntaxException, IOException {
             this.workingDir = workingDir;
@@ -925,6 +977,28 @@ public class DUUIRayParallelDriver implements IDUUIDriverInterface {
             return this;
         }
 
+        /**
+         * When enabled, the finalize result is written into a freshly created JCas instead of
+         * the last document CAS received from the reader. The last document CAS is left unchanged.
+         * Retrieve the result CAS via {@link DUUIRayParallelDriver#getResultCas(String)}.
+         * Only meaningful when combined with {@link #withStreamMode(boolean)}
+         */
+        public Component withCreateOwnCas(boolean createOwnCas) {
+            this.createOwnCas = createOwnCas;
+            return this;
+        }
+
+        /**
+         * Same as {@link #withCreateOwnCas(boolean)}, but also adds a {@code DocumentMetaData}
+         * annotation to the new CAS with both {@code documentTitle} and {@code documentId}
+         * set to {@code name}
+         */
+        public Component withCreateOwnCas(boolean createOwnCas, String name) {
+            this.createOwnCas = createOwnCas;
+            this.casName = name;
+            return this;
+        }
+
         public Component withParameter(String key, String value) {
             component.withParameter(key, value);
             return this;
@@ -983,6 +1057,10 @@ public class DUUIRayParallelDriver implements IDUUIDriverInterface {
             }
             component.withParameter("stream_mode", String.valueOf(streamMode));
             component.withParameter("total_documents", String.valueOf(totalDocuments));
+            component.withParameter("create_own_cas", String.valueOf(createOwnCas));
+            if (casName != null) {
+                component.withParameter("create_own_cas_name", casName);
+            }
             return component;
         }
     }
@@ -1034,6 +1112,10 @@ public class DUUIRayParallelDriver implements IDUUIDriverInterface {
         private final boolean streamMode;
         private final AtomicLong totalDocuments;
         private final AtomicLong streamedCount = new AtomicLong(0);
+        private final boolean createOwnCas;
+        private final String casName;
+        private volatile JCas resultCas = null;
+        private volatile TypeSystemDescription cachedTypeSystem = null;
 
         InstantiatedComponent(DUUIPipelineComponent comp) {
             component = comp;
@@ -1063,6 +1145,8 @@ public class DUUIRayParallelDriver implements IDUUIDriverInterface {
             clusterUrl = parameters.getOrDefault("cluster_url", null);
             streamMode = Boolean.parseBoolean(parameters.getOrDefault("stream_mode", "false"));
             totalDocuments = new AtomicLong(Long.parseLong(parameters.getOrDefault("total_documents", "-1")));
+            createOwnCas = Boolean.parseBoolean(parameters.getOrDefault("create_own_cas", "false"));
+            casName = parameters.getOrDefault("create_own_cas_name", null);
         }
 
         @Override public DUUIPipelineComponent getPipelineComponent() { return component; }
@@ -1113,5 +1197,11 @@ public class DUUIRayParallelDriver implements IDUUIDriverInterface {
         public void setTotalDocuments(long n) { totalDocuments.set(n); }
         public long decrementAndGetTotalDocuments() { return totalDocuments.decrementAndGet(); }
         public long incrementAndGetStreamedCount() { return streamedCount.incrementAndGet(); }
+        public boolean isCreateOwnCas() { return createOwnCas; }
+        public String getCasName() { return casName; }
+        public JCas getResultCas() { return resultCas; }
+        public void setResultCas(JCas cas) { resultCas = cas; }
+        public TypeSystemDescription getCachedTypeSystem() { return cachedTypeSystem; }
+        public void setCachedTypeSystem(TypeSystemDescription desc) { cachedTypeSystem = desc; }
     }
 }
