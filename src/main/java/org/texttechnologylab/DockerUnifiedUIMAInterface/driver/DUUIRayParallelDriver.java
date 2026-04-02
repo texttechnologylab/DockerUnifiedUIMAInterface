@@ -630,10 +630,7 @@ public class DUUIRayParallelDriver implements IDUUIDriverInterface {
                 }
 
                 if (comp.isCreateOwnCas()) {
-                    TypeSystemDescription tsd = comp.getCachedTypeSystem();
-                    JCas resultCas = tsd != null
-                            ? JCasFactory.createJCas(tsd)
-                            : JCasFactory.createJCas();
+                    JCas resultCas = JCasFactory.createJCas();
                     layer.deserialize(resultCas, new ByteArrayInputStream(finalResp.body()), comp.getTargetView());
                     if (comp.getCasName() != null) {
                         DocumentMetaData dmd = DocumentMetaData.create(resultCas);
