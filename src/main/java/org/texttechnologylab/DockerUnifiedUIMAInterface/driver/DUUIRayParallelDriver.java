@@ -74,6 +74,8 @@ public class DUUIRayParallelDriver implements IDUUIDriverInterface {
 
     // ConcurrentHashMap because run() and destroy() come from different threads
     private final ConcurrentHashMap<String, InstantiatedComponent> components;
+    // Result CAS objects are moved here in destroy() so they survive after the component is torn down
+    private final List<JCas> retainedResultCases = new java.util.concurrent.CopyOnWriteArrayList<>();
     private final HttpClient client;
     private DUUILuaContext luaContext;
     private final int connectionTimeout;
@@ -683,10 +685,13 @@ public class DUUIRayParallelDriver implements IDUUIDriverInterface {
      * are omitted from the list
      */
     public List<JCas> getResultCases() {
-        return components.values().stream()
+        // Collect from still-live components (e.g. keepAlive scenario) and from retained list (post-destroy)
+        List<JCas> result = new java.util.ArrayList<>(retainedResultCases);
+        components.values().stream()
                 .map(InstantiatedComponent::getResultCas)
                 .filter(Objects::nonNull)
-                .collect(java.util.stream.Collectors.toList());
+                .forEach(result::add);
+        return result;
     }
 
     @Override
@@ -707,6 +712,8 @@ public class DUUIRayParallelDriver implements IDUUIDriverInterface {
         // Check if this UUID was actually registered
         InstantiatedComponent removed = components.remove(uuid);
         if (removed == null) return false;
+        JCas retained = removed.getResultCas();
+        if (retained != null) retainedResultCases.add(retained);
 
         synchronized (rayLock) {
             int remaining = activeComponents.decrementAndGet();
