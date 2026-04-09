@@ -293,17 +293,6 @@ public class DUUIMultimodalCollectionReader implements DUUICollectionReader {
         }
 
         try {
-            /*
-            if (result.endsWith(".xz")) {
-                ByteArrayOutputStream out = new ByteArrayOutputStream();
-                decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.XZ, new ByteArrayInputStream(file));
-            } else if (result.endsWith(".gz")) {
-                ByteArrayOutputStream out = new ByteArrayOutputStream();
-                decodedFile = new CompressorStreamFactory().createCompressorInputStream(CompressorStreamFactory.GZIP, new ByteArrayInputStream(file));
-            } else {
-                decodedFile = new ByteArrayInputStream(file);
-            }
-            */
 
             empty.reset();
 
@@ -345,11 +334,12 @@ public class DUUIMultimodalCollectionReader implements DUUICollectionReader {
 
                     break;
                 case "application":
+
                     if (fileExtension.equals("xmi")) {
                         InputStream decodedFile = new ByteArrayInputStream(Files.readAllBytes(fFile.toPath()));
                         XmiCasDeserializer.deserialize(decodedFile, mView.getCas(), true);
                         break;
-                    } else if (mimeType.split("/")[1].equals("x-gzip")) {
+                    } else if (mimeType.split("/")[1].equals("x-gzip") || mimeType.split("/")[1].equals("gzip")) {
                         CompressorInputStream decodedFile = new CompressorStreamFactory(true).createCompressorInputStream(CompressorStreamFactory.GZIP, new ByteArrayInputStream(Files.readAllBytes(fFile.toPath())));
                         XmiCasDeserializer.deserialize(decodedFile, mView.getCas(), true);
                         break;
