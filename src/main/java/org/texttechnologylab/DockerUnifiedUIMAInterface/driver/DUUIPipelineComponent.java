@@ -67,6 +67,26 @@ public class DUUIPipelineComponent {
     private final List<String> _env = new ArrayList<>(0);
     private final String websocketElementsOptionName = "websocketElements";
     private HashMap<String, String> _parameters;
+    //--------------------slurm attributes----------------------------->
+    private static String slurmJobName = "slurmJobName";
+    private static String slurmHostPort = "slurmHostPort";
+    private static String slurmRuntime = "slurmRuntime";
+    private static String slurmCpus = "slurmCpus";
+    private static String slurmMemory = "slurmMemory";
+    private static String slurmErrorLocation = "slurmErrorLocation";
+    private static String slurmOutPutLocation = "slurmOutPutLocation";
+    private static String slurmSIFLocation = "slurmSIFLocation";
+    private static String slurmGPU = "slurmGPU";
+    private static String slurmSIFImageName = "slurmSIFImageName";
+    private static String slurmNoShutdown = "slurmNoShutdown";
+    private static String slurmUvicorn = "slurmUvicorn";
+    private static String slurmScript = "slurmScript";
+    private static String slurmPartition = "slurmPartition";
+    private static String slurmNodelist = "slurmNodelist";
+    private static String slurmWorkDir = "slurmWorkDir";
+    private static String slurmInnerPort = "slurmInnerPort";
+    //<---------------------------------------------------------------
+
 
     private String getVersion() throws URISyntaxException, IOException {
         ClassLoader classLoader = DUUIPipelineComponent.class.getClassLoader();
@@ -699,4 +719,273 @@ public class DUUIPipelineComponent {
         return Long.valueOf(_parameters.getOrDefault(timeout, "60"));
     }
 
+    //get set methods for slurm
+    public DUUIPipelineComponent withSlurmJobName(String jobName) {
+        if (_finalizedEncoded != null) {
+            throw new RuntimeException("DUUIPipelineComponent has already been finalized, it is immutable now!");
+        }
+        if (jobName == null) {
+            _options.remove(slurmJobName);
+            return this;
+        }
+        _options.put(slurmJobName, jobName);
+        _options.put(componentName, jobName);
+        return this;
+    }
+
+    public DUUIPipelineComponent withSlurmHostPort(String port) {
+        if (_finalizedEncoded != null) {
+            throw new RuntimeException("DUUIPipelineComponent has already been finalized, it is immutable now!");
+        }
+        if (port == null) {
+            _options.remove(slurmHostPort);
+            return this;
+        }
+        _options.put(slurmHostPort, port);
+        return this;
+    }
+
+
+    public DUUIPipelineComponent withSlurmRuntime(String time) {
+        if (_finalizedEncoded != null) {
+            throw new RuntimeException("DUUIPipelineComponent has already been finalized, it is immutable now!");
+        }
+        if (time == null) {
+            _options.remove(slurmRuntime);
+            return this;
+        }
+        _options.put(slurmRuntime, time);
+        return this;
+    }
+
+
+    public DUUIPipelineComponent withSlurmMemory(String numMB) {
+        if (_finalizedEncoded != null) {
+            throw new RuntimeException("DUUIPipelineComponent has already been finalized, it is immutable now!");
+        }
+        if (numMB == null) {
+            _options.remove(slurmMemory);
+            return this;
+        }
+        _options.put(slurmMemory, numMB);
+        return this;
+    }
+
+    public DUUIPipelineComponent withSlurmOutPutLocation(String loc) {
+        if (_finalizedEncoded != null) {
+            throw new RuntimeException("DUUIPipelineComponent has already been finalized, it is immutable now!");
+        }
+        if (loc == null) {
+            _options.remove(slurmOutPutLocation);
+            return this;
+        }
+        _options.put(slurmOutPutLocation, loc);
+        return this;
+    }
+
+    public DUUIPipelineComponent withSlurmErrorLocation(String loc) {
+        if (_finalizedEncoded != null) {
+            throw new RuntimeException("DUUIPipelineComponent has already been finalized, it is immutable now!");
+        }
+        if (loc == null) {
+            _options.remove(slurmErrorLocation);
+            return this;
+        }
+        _options.put(slurmErrorLocation, loc);
+        return this;
+    }
+
+    public DUUIPipelineComponent withSlurmSaveIn(String saveTo) {
+        if (_finalizedEncoded != null) {
+            throw new RuntimeException("DUUIPipelineComponent has already been finalized, it is immutable now!");
+        }
+        if (saveTo == null) {
+            _options.remove(slurmSIFLocation);
+            return this;
+        }
+        _options.put(slurmSIFLocation, saveTo);
+        return this;
+    }
+
+    public DUUIPipelineComponent withSlurmGPU(String num) {
+        if (_finalizedEncoded != null) {
+            throw new RuntimeException("DUUIPipelineComponent has already been finalized, it is immutable now!");
+        }
+        if (num == null) {
+            _options.remove(slurmGPU);
+            return this;
+        }
+        _options.put(slurmGPU, num);
+        return this;
+    }
+
+    public DUUIPipelineComponent withSlurmCPUs(String num) {
+        if (_finalizedEncoded != null) {
+            throw new RuntimeException("DUUIPipelineComponent has already been finalized, it is immutable now!");
+        }
+        if (num == null) {
+            _options.remove(slurmCpus);
+            return this;
+        }
+        _options.put(slurmCpus, num);
+        return this;
+    }
+
+    public DUUIPipelineComponent withSlurmSIFName(String sifName) {
+        if (_finalizedEncoded != null) {
+            throw new RuntimeException("DUUIPipelineComponent has already been finalized, it is immutable now!");
+        }
+        if (sifName == null) {
+            _options.remove(slurmSIFImageName);
+            return this;
+        }
+        _options.put(slurmSIFImageName, sifName);
+        return this;
+
+    }
+
+
+    public DUUIPipelineComponent withSlurmUvicorn(String loc) {
+        if (_finalizedEncoded != null) {
+            throw new RuntimeException("DUUIPipelineComponent has already been finalized, it is immutable now!");
+        }
+        if (loc == null) {
+            _options.remove(slurmUvicorn);
+            return this;
+        }
+        _options.put(slurmUvicorn, loc);
+        return this;
+    }
+
+
+    public DUUIPipelineComponent withSlurmScript(String script) {
+        if (_finalizedEncoded != null) {
+            throw new RuntimeException("DUUIPipelineComponent has already been finalized, it is immutable now!");
+        }
+        if (script == null) {
+            _options.remove(slurmScript);
+            return this;
+        }
+        _options.put(slurmScript, script);
+        return this;
+    }
+
+    public DUUIPipelineComponent withSlurmPartition(String pname) {
+        if (_finalizedEncoded != null) {
+            throw new RuntimeException("DUUIPipelineComponent has already been finalized, it is immutable now!");
+        }
+        if (pname == null) {
+            _options.remove(slurmPartition);
+            return this;
+        }
+        _options.put(slurmPartition, pname);
+        return this;
+    }
+
+    public DUUIPipelineComponent withSlurmNodelist(String nodelist) {
+        if (_finalizedEncoded != null) {
+            throw new RuntimeException("DUUIPipelineComponent has already been finalized, it is immutable now!");
+        }
+        if (nodelist == null) {
+            _options.remove(slurmNodelist);
+            return this;
+        }
+        _options.put(slurmNodelist, nodelist);
+        return this;
+    }
+
+    public DUUIPipelineComponent withSlurmWorkDir(String wd) {
+        if (_finalizedEncoded != null) {
+            throw new RuntimeException("DUUIPipelineComponent has already been finalized, it is immutable now!");
+        }
+        if (wd == null) {
+            _options.remove(slurmWorkDir);
+            return this;
+        }
+        _options.put(slurmWorkDir, wd);
+        return this;
+    }
+
+    public DUUIPipelineComponent withSlurmInnerPort(String port) {
+        if (_finalizedEncoded != null) {
+            throw new RuntimeException("DUUIPipelineComponent has already been finalized, it is immutable now!");
+        }
+        if (port == null) {
+            _options.remove(slurmInnerPort);
+            return this;
+        }
+        _options.put(slurmInnerPort, port);
+        return this;
+    }
+
+
+    public String getSlurmSIFImageName() {
+        return _options.get(slurmSIFImageName);
+    }
+
+    public String getSlurmGPU() {
+        return _options.get(slurmGPU);
+    }
+
+    public String getSlurmSIFLocation() {
+        return _options.get(slurmSIFLocation);
+    }
+
+    public String getSlurmOutPutLocation() {
+        return _options.get(slurmOutPutLocation);
+    }
+
+    public String getSlurmMem() {
+        return _options.get(slurmMemory);
+    }
+
+    public String getSlurmRuntime() {
+        return _options.get(slurmRuntime);
+    }
+
+    public String getSlurmHostPort() {
+        return _options.get(slurmHostPort);
+    }
+
+    public String getSlurmJobName() {
+        return _options.get(slurmJobName);
+    }
+
+    public String getSlurmErrorLocation() {
+        return _options.get(slurmErrorLocation);
+    }
+
+    public Boolean getSlurmRunAfterExit(Boolean defaultValue) {
+        String result = _options.get(slurmNoShutdown);
+        if (result == null) return defaultValue;
+        return Boolean.parseBoolean(result);
+    }
+
+    public String getSlurmUvicorn() {
+        return _options.get(slurmUvicorn);
+    }
+
+    public String getSlurmScript() {
+        return _options.get(slurmScript);
+    }
+
+    public String getSlurmPartition() {
+        return _options.get(slurmPartition);
+    }
+
+    public String getSlurmNodelist() {
+        return _options.get(slurmNodelist);
+    }
+
+    public String getSlurmWorkDir() {
+        return _options.get(slurmWorkDir);
+    }
+
+    public String getSlurmInnerPort() {
+        return _options.get(slurmInnerPort);
+    }
+
+    public String getSlurmCpus() {
+        return _options.get(slurmCpus);
+    }
 }

@@ -1,0 +1,35 @@
+
+container_mode: 
+  restapi: 
+    rest_available: true
+    rest_version: "v0.0.42"
+    rest_port: 16820
+
+  pre_url: "http://localhost"
+  
+  grafana_port: 3000
+  es_port: 9200
+  free_port_from: 20000
+  free_port_to: 20100
+#========================================================
+physical_mode: 
+   local_cluster:
+      pre_url: "http://localhost"
+      free_port_from: 20000
+      free_port_to: 20100
+      restapi:
+        rest_available: true 
+        rest_version: "v0.0.42"
+        rest_port: 6820
+
+
+   remote_cluster:
+      pre_url: "http://localhost"
+      free_port_from: 20000
+      free_port_to: 20100
+      restapi: 
+        rest_available: false
+        rest_version: "v0.0.42"
+        rest_port: 6820
+  
+    
