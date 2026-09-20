@@ -15,6 +15,7 @@ import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.DUUIWebsocket
 import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.DUUIComponentLog;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.connection.IDUUIConnectionHandler;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.exception.PipelineComponentException;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.lua.DUUILuaCommunicationLayer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
 import org.texttechnologylab.duui.ReproducibleAnnotation;
 
@@ -124,6 +125,12 @@ public interface IDUUIInstantiatedPipelineComponent {
         long serializeStart = System.nanoTime();
 
         try {
+            // Route DUUILogging:log*() calls to this composer, tagged with the component and document
+            if (layer instanceof DUUILuaCommunicationLayer luaLayer
+                    && composer != null && composer.isComponentLoggingEnabled()) {
+                luaLayer.setLogContext(composer, safeComponentKey(comp), safeComponentName(comp), safeDocumentId(jc), perf);
+            }
+
             DUUIPipelineComponent pipelineComponent = comp.getPipelineComponent();
             String viewName = pipelineComponent.getViewName();
             JCas viewJc;
@@ -269,6 +276,9 @@ public interface IDUUIInstantiatedPipelineComponent {
                 throw new PipelineComponentException(comp.getPipelineComponent(), e);
             }
         } finally {
+            if (layer instanceof DUUILuaCommunicationLayer luaLayer) {
+                luaLayer.clearLogContext();
+            }
             comp.addComponent(queue.getValue0());
         }
     }

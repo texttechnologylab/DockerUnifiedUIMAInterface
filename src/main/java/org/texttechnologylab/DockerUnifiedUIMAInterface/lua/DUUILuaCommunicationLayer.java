@@ -6,9 +6,12 @@ import org.luaj.vm2.LuaError;
 import org.luaj.vm2.LuaTable;
 import org.luaj.vm2.lib.jse.CoerceJavaToLua;
 import org.luaj.vm2.lib.jse.CoerceLuaToJava;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUICommunicationLayer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIHttpRequestHandler;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.exception.CommunicationLayerException;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.DUUILuaLogger;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -26,11 +29,22 @@ public class DUUILuaCommunicationLayer implements IDUUICommunicationLayer {
     private final DUUILuaContext _globalContext;
     private final DUUILuaCompiledFile _file;
 
+    private final DUUILuaLogger _logger = new DUUILuaLogger();
+
     public DUUILuaCommunicationLayer(String script, String origin, DUUILuaContext globalContext) {
         _script = script;
         _origin = origin;
-        _file = globalContext.compileFile(script);
+        _file = globalContext.compileFile(script, _logger);
         _globalContext = globalContext;
+    }
+
+    public void setLogContext(DUUIComposer composer, String componentKey, String componentName,
+                              String documentId, DUUIPipelineDocumentPerformance perf) {
+        _logger.bind(composer, componentKey, componentName, documentId, perf);
+    }
+
+    public void clearLogContext() {
+        _logger.clear();
     }
 
     @Override

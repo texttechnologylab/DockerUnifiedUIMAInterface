@@ -108,6 +108,16 @@ The REST interface is used as a standardized way to communicate with the DUUI.
 
 Python components can log during a request and have it surface on the **Java console** (and DB, if attached) via [`duui-logging`](https://texttechnologylab.github.io/DUUIlogger/).
 
+The Lua communication script can log the same way, without any setup: a `DUUILogging` object is available in every script automatically. Just call it inside `serialize`, `deserialize` or `process`:
+
+```lua
+DUUILogging:logInfo("serializing document")
+-- levels: logTrace, logDebug, logInfo, logWarn, logError, logCritical
+-- an optional logger name can be passed first: DUUILogging:logWarn("myScript", "empty document")
+```
+
+These are the camelCase counterparts of the Python `log_*` helpers. Each message is tagged with the component and document and lands next to the Python logs in the **Java console** (and DB).
+
 # Tutorials
 
 We have prepared three tutorials with different levels of complexity. All tutorials use Python as the programming platform, however, all languages where a REST service can be created could be used as base for a DUUI tool.
