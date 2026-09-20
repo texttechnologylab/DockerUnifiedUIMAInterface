@@ -9,6 +9,8 @@ function serialize(inputCas, outputStream, params)
     outputStream:write(json.encode({
         text = text,
     }))
+
+    DUUILogging:logInfo("serialized")
 end
 
 -- Called by the driver after receiving the HTTP response.
@@ -31,4 +33,6 @@ function deserialize(inputCas, inputStream)
             "application/json"
         )
     end
+
+    DUUILogging:logInfo("deserialized")
 end

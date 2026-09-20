@@ -118,6 +118,8 @@ DUUILogging:logInfo("serializing document")
 
 These are the camelCase counterparts of the Python `log_*` helpers. Each message is tagged with the component and document and lands next to the Python logs in the **Java console** (and DB).
 
+A full example can be seen in [`test_containers/python_logging`](https://github.com/texttechnologylab/DockerUnifiedUIMAInterface/tree/main/test_containers/python_logging) (a small Python component with its Lua script) and [`src/test/java/LoggingTest.java`](https://github.com/texttechnologylab/DockerUnifiedUIMAInterface/blob/main/src/test/java/LoggingTest.java) as the Java entry point.
+
 # Tutorials
 
 We have prepared three tutorials with different levels of complexity. All tutorials use Python as the programming platform, however, all languages where a REST service can be created could be used as base for a DUUI tool.
