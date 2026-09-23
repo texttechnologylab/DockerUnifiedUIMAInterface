@@ -84,12 +84,16 @@ public final class DUUILuaLogger {
     }
 
     public void log(String level, String logger, String message) {
+        log(level, logger, message, null);
+    }
+
+    public void log(String level, String logger, String message, String stacktrace) {
         DUUIComposer c = this.composer;
         if (c == null) {
             return;
         }
         DUUIComponentLog.record(
                 c, componentKey, componentName, documentId,
-                level, logger, message, null, System.currentTimeMillis(), perf);
+                level, logger, message, stacktrace, System.currentTimeMillis(), perf);
     }
 }

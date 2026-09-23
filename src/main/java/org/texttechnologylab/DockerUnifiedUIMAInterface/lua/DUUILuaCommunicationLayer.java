@@ -47,6 +47,14 @@ public class DUUILuaCommunicationLayer implements IDUUICommunicationLayer {
         _logger.clear();
     }
 
+    private void logLuaError(String phase, LuaError e) {
+        String detail = e.getMessage();
+        if (detail == null) {
+            detail = e.toString();
+        }
+        _logger.log("ERROR", null, "Uncaught Lua error in " + phase, detail);
+    }
+
     @Override
     public void process(JCas jCas, DUUIHttpRequestHandler handler, Map<String, String> parameters) throws CommunicationLayerException, CASException {
         try {
@@ -57,6 +65,7 @@ public class DUUILuaCommunicationLayer implements IDUUICommunicationLayer {
                     createLuaTableFromParameters(parameters)
             );
         } catch (LuaError e) {
+            logLuaError("process", e);
             throw new CommunicationLayerException("Caught LuaError while calling process(sourceCas, handler, parameters)", e);
         }
     }
@@ -72,6 +81,7 @@ public class DUUILuaCommunicationLayer implements IDUUICommunicationLayer {
                     CoerceJavaToLua.coerce(targetCas)
             );
         } catch (LuaError e) {
+            logLuaError("process", e);
             throw new CommunicationLayerException("Caught LuaError while calling process(sourceCas, handler, parameters, targetCas)", e);
         }
     }
@@ -95,6 +105,7 @@ public class DUUILuaCommunicationLayer implements IDUUICommunicationLayer {
         try {
             _file.call("serialize", CoerceJavaToLua.coerce(jc.getView(sourceView)), CoerceJavaToLua.coerce(out), params);
         } catch (LuaError e) {
+            logLuaError("serialize", e);
             throw new CommunicationLayerException("Caught LuaError while calling serialize(sourceCas, outputStream, parameters)", e);
         }
     }
@@ -116,6 +127,7 @@ public class DUUILuaCommunicationLayer implements IDUUICommunicationLayer {
         try {
             _file.call("deserialize", CoerceJavaToLua.coerce(tJc), CoerceJavaToLua.coerce(input));
         } catch (LuaError e) {
+            logLuaError("deserialize", e);
             throw new CommunicationLayerException("Caught LuaError while calling deserialize(targetCas, inputStream)", e);
         }
     }
