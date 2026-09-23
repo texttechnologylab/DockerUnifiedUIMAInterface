@@ -52,66 +52,80 @@ public final class DUUIComponentLog {
                 String stacktrace = text(node, "stacktrace", null);
                 Long timestamp = longOrNull(node, "timestamp");
 
-                // Append the raw record for the storage backend (flushed once per document).
-                if (perf != null) {
-                    perf.addLog(
-                            mapLevel(level).name(),
-                            logger,
-                            message,
-                            stacktrace,
-                            timestamp != null ? timestamp : System.currentTimeMillis(),
-                            componentKey);
-                }
-
-                StringBuilder sb = new StringBuilder();
-                if (composer.isLoggingSeverityEnabled()) {
-                    sb.append('[').append(mapLevel(level).name()).append(']');
-                }
-                if (composer.isLoggingSourceEnabled()) {
-                    String source = (componentName != null && !componentName.isBlank())
-                            ? componentName
-                            : componentKey;
-                    boolean hasKey = source != null && !source.isBlank();
-                    if (sb.length() > 0) {
-                        sb.append(' ');
-                    }
-                    sb.append('[');
-                    if (hasKey) {
-                        sb.append(source);
-                    }
-                    if (documentId != null) {
-                        if (hasKey) {
-                            sb.append(" | ");
-                        }
-                        sb.append(documentId);
-                    }
-                    sb.append("]");
-                }
-                if (logger != null && !logger.isEmpty()) {
-                    if (sb.length() > 0) {
-                        sb.append(' ');
-                    }
-                    sb.append(logger);
-                }
-                if (sb.length() > 0) {
-                    sb.append(": ");
-                }
-                sb.append(message);
-                if (stacktrace != null && !stacktrace.isEmpty()) {
-                    sb.append(System.lineSeparator()).append(stacktrace);
-                }
-
-                if (timestamp != null) {
-                    composer.addEvent(DUUIEvent.Sender.COMPONENT, sb.toString(), mapLevel(level), timestamp);
-                } else {
-                    composer.addEvent(DUUIEvent.Sender.COMPONENT, sb.toString(), mapLevel(level));
-                }
+                record(composer, componentKey, componentName, documentId,
+                        level, logger, message, stacktrace, timestamp, perf);
             }
         } catch (Exception e) {
             composer.addEvent(
                     DUUIEvent.Sender.SYSTEM,
                     "[ComponentLog] failed to parse component logs: " + e.getMessage(),
                     DUUIComposer.DebugLevel.DEBUG);
+        }
+    }
+
+    public static void record(DUUIComposer composer, String componentKey, String componentName, String documentId,
+                              String level, String logger, String message, String stacktrace, Long timestamp,
+                              DUUIPipelineDocumentPerformance perf) {
+        if (composer == null) {
+            return;
+        }
+        if (message == null) {
+            message = "";
+        }
+
+        // Append the raw record for the storage backend (flushed once per document).
+        if (perf != null) {
+            perf.addLog(
+                    mapLevel(level).name(),
+                    logger,
+                    message,
+                    stacktrace,
+                    timestamp != null ? timestamp : System.currentTimeMillis(),
+                    componentKey);
+        }
+
+        StringBuilder sb = new StringBuilder();
+        if (composer.isLoggingSeverityEnabled()) {
+            sb.append('[').append(mapLevel(level).name()).append(']');
+        }
+        if (composer.isLoggingSourceEnabled()) {
+            String source = (componentName != null && !componentName.isBlank())
+                    ? componentName
+                    : componentKey;
+            boolean hasKey = source != null && !source.isBlank();
+            if (sb.length() > 0) {
+                sb.append(' ');
+            }
+            sb.append('[');
+            if (hasKey) {
+                sb.append(source);
+            }
+            if (documentId != null) {
+                if (hasKey) {
+                    sb.append(" | ");
+                }
+                sb.append(documentId);
+            }
+            sb.append("]");
+        }
+        if (logger != null && !logger.isEmpty()) {
+            if (sb.length() > 0) {
+                sb.append(' ');
+            }
+            sb.append(logger);
+        }
+        if (sb.length() > 0) {
+            sb.append(": ");
+        }
+        sb.append(message);
+        if (stacktrace != null && !stacktrace.isEmpty()) {
+            sb.append(System.lineSeparator()).append(stacktrace);
+        }
+
+        if (timestamp != null) {
+            composer.addEvent(DUUIEvent.Sender.COMPONENT, sb.toString(), mapLevel(level), timestamp);
+        } else {
+            composer.addEvent(DUUIEvent.Sender.COMPONENT, sb.toString(), mapLevel(level));
         }
     }
 

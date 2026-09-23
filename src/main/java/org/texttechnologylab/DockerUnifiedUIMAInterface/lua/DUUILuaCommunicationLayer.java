@@ -6,9 +6,12 @@ import org.luaj.vm2.LuaError;
 import org.luaj.vm2.LuaTable;
 import org.luaj.vm2.lib.jse.CoerceJavaToLua;
 import org.luaj.vm2.lib.jse.CoerceLuaToJava;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.DUUIComposer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.IDUUICommunicationLayer;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.driver.DUUIHttpRequestHandler;
 import org.texttechnologylab.DockerUnifiedUIMAInterface.exception.CommunicationLayerException;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.DUUILuaLogger;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.pipeline_storage.DUUIPipelineDocumentPerformance;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -26,11 +29,30 @@ public class DUUILuaCommunicationLayer implements IDUUICommunicationLayer {
     private final DUUILuaContext _globalContext;
     private final DUUILuaCompiledFile _file;
 
+    private final DUUILuaLogger _logger = new DUUILuaLogger();
+
     public DUUILuaCommunicationLayer(String script, String origin, DUUILuaContext globalContext) {
         _script = script;
         _origin = origin;
-        _file = globalContext.compileFile(script);
+        _file = globalContext.compileFile(script, _logger);
         _globalContext = globalContext;
+    }
+
+    public void setLogContext(DUUIComposer composer, String componentKey, String componentName,
+                              String documentId, DUUIPipelineDocumentPerformance perf) {
+        _logger.bind(composer, componentKey, componentName, documentId, perf);
+    }
+
+    public void clearLogContext() {
+        _logger.clear();
+    }
+
+    private void logLuaError(String phase, LuaError e) {
+        String detail = e.getMessage();
+        if (detail == null) {
+            detail = e.toString();
+        }
+        _logger.log("ERROR", null, "Uncaught Lua error in " + phase, detail);
     }
 
     @Override
@@ -43,6 +65,7 @@ public class DUUILuaCommunicationLayer implements IDUUICommunicationLayer {
                     createLuaTableFromParameters(parameters)
             );
         } catch (LuaError e) {
+            logLuaError("process", e);
             throw new CommunicationLayerException("Caught LuaError while calling process(sourceCas, handler, parameters)", e);
         }
     }
@@ -58,6 +81,7 @@ public class DUUILuaCommunicationLayer implements IDUUICommunicationLayer {
                     CoerceJavaToLua.coerce(targetCas)
             );
         } catch (LuaError e) {
+            logLuaError("process", e);
             throw new CommunicationLayerException("Caught LuaError while calling process(sourceCas, handler, parameters, targetCas)", e);
         }
     }
@@ -81,6 +105,7 @@ public class DUUILuaCommunicationLayer implements IDUUICommunicationLayer {
         try {
             _file.call("serialize", CoerceJavaToLua.coerce(jc.getView(sourceView)), CoerceJavaToLua.coerce(out), params);
         } catch (LuaError e) {
+            logLuaError("serialize", e);
             throw new CommunicationLayerException("Caught LuaError while calling serialize(sourceCas, outputStream, parameters)", e);
         }
     }
@@ -102,6 +127,7 @@ public class DUUILuaCommunicationLayer implements IDUUICommunicationLayer {
         try {
             _file.call("deserialize", CoerceJavaToLua.coerce(tJc), CoerceJavaToLua.coerce(input));
         } catch (LuaError e) {
+            logLuaError("deserialize", e);
             throw new CommunicationLayerException("Caught LuaError while calling deserialize(targetCas, inputStream)", e);
         }
     }

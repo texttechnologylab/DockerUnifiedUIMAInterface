@@ -4,6 +4,7 @@ import org.luaj.vm2.*;
 import org.luaj.vm2.compiler.LuaC;
 import org.luaj.vm2.lib.*;
 import org.luaj.vm2.lib.jse.*;
+import org.texttechnologylab.DockerUnifiedUIMAInterface.monitoring.DUUILuaLogger;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -59,6 +60,11 @@ public class DUUILuaContext {
     }
 
     public DUUILuaCompiledFile compileFile(String file) {
+        return compileFile(file, new DUUILuaLogger());
+    }
+
+
+    public DUUILuaCompiledFile compileFile(String file, DUUILuaLogger logger) {
         if (_sandbox == null) {
             Globals globals = new Globals();
             globals.load(new JseBaseLib());
@@ -74,6 +80,9 @@ public class DUUILuaContext {
             globals.load(new LuajavaLib());
             LoadState.install(globals);
             LuaC.install(globals);
+
+            // Auto import: DUUILogging to every script.
+            globals.set("DUUILogging", CoerceJavaToLua.coerce(logger));
 
             for (Map.Entry<String, String> val : _luaScripts.entrySet()) {
                 LuaValue valsec = globals.load(val.getValue(), "global_script" + val.getKey(), globals);
@@ -114,6 +123,10 @@ public class DUUILuaContext {
             LuaValue sethook = user_globals.get("debug").get("sethook");
 
             user_globals.set("debug", LuaValue.NIL);
+
+            // Auto import: DUUILogging
+            user_globals.set("DUUILogging", CoerceJavaToLua.coerce(logger));
+
             for (Map.Entry<String, String> val : _luaScripts.entrySet()) {
                 LuaValue valsec = user_globals.load(val.getValue(), "global_script" + val.getKey(), user_globals);
                 user_globals.set(val.getKey(), valsec.call());
