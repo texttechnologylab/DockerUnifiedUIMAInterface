@@ -261,6 +261,7 @@ public class DUUIPodmanDriver implements IDUUIDriverInterface {
                     pOptions.image(comp.getImageName());
                     pOptions.remove(true);
                     pOptions.publishImagePorts(true);
+                    pOptions.expose(Map.of(9714, "tcp"));
 
                     if (comp.usesGPU()) {
                         List<ContainerCreateOptions.LinuxDevice> linuxDevices = new ArrayList<>();
