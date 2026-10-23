@@ -42,7 +42,6 @@ public interface IDUUIInstantiatedPipelineComponent {
             .followRedirects(HttpClient.Redirect.ALWAYS)
             .proxy(ProxySelector.getDefault())
             .connectTimeout(Duration.ofSeconds(1000)).build();
-    int postTries = 50;
 
     /**
      * Returns the TypeSystem used for the DUUI component used.
@@ -56,6 +55,7 @@ public interface IDUUIInstantiatedPipelineComponent {
         Triplet<IDUUIUrlAccessible, Long, Long> queue = comp.getComponent();
         //System.out.printf("Address %s\n",queue.getValue0().generateURL()+ DUUIComposer.V1_COMPONENT_ENDPOINT_TYPESYSTEM);
 
+        int postTries = comp.getPipelineComponent().getMaxTries();
         int tries = 0;
         while (tries < postTries) {
             tries++;
@@ -84,7 +84,10 @@ public interface IDUUIInstantiatedPipelineComponent {
                     return TypeSystemDescriptionFactory.createTypeSystemDescription();
                 }
             } catch (Exception e) {
-                System.out.printf("Cannot reach endpoint trying again %d/%d...\n", tries + 1, postTries);
+                if (tries >= postTries) {
+                    break;
+                }
+                System.out.printf("Cannot reach endpoint (%s) trying again %d/%d...\n", e, tries + 1, postTries);
                 try {
                     Thread.sleep(comp.getPipelineComponent().getTimeout());
                 } catch (InterruptedException ex) {
@@ -189,10 +192,10 @@ public interface IDUUIInstantiatedPipelineComponent {
             long serializeEnd = System.nanoTime();
 
             long annotatorStart = serializeEnd;
+            int postTries = pipelineComponent.getMaxTries();
             int tries = 0;
             HttpResponse<byte[]> resp = null;
-            boolean bRunning = true;
-            while (bRunning) {
+            while (tries < postTries) {
                 tries++;
                 try {
                     HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
@@ -206,15 +209,15 @@ public interface IDUUIInstantiatedPipelineComponent {
                     resp = _client.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray()).join();
                     break;
                 } catch (Exception e) {
-                    //                e.printStackTrace();
-                    System.out.printf("Cannot reach endpoint trying again %d/%d...\n", tries + 1, postTries);
+                    if (tries >= postTries) {
+                        break;
+                    }
+                    // the cause, e.g. a connection error or HttpTimeoutException (request exceeded the timeout)
+                    System.out.printf("Cannot reach endpoint (%s) trying again %d/%d...\n", e, tries + 1, postTries);
                     try {
                         Thread.sleep(comp.getPipelineComponent().getTimeout());
                     } catch (InterruptedException ex) {
                         throw new RuntimeException(ex);
-                    }
-                    if (tries > postTries) {
-                        bRunning = false;
                     }
                 }
             }
