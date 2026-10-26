@@ -98,8 +98,20 @@ local function encode_table(val, stack)
 end
 
 
+-- LuaJ stores a Java string as one UTF-8 sequence per UTF-16 code unit (CESU-8), so a character outside the
+-- Basic Multilingual Plane (e.g. U+10341) becomes two 3-byte surrogate sequences (ED A0-AF xx, ED B0-BF xx)
+-- instead of one 4-byte UTF-8 sequence. Written as raw bytes this is invalid UTF-8: Python decodes it into two
+-- lone surrogates (which e.g. break UTF-16 offset conversion), strict parsers reject it. Each surrogate is
+-- therefore written as a JSON escape (𐍁), which JSON parsers combine into the character.
+local function escape_surrogate(s)
+  local b2, b3 = s:byte(2, 3)
+  return string.format("\\u%04x", 0xd000 + (b2 - 0x80) * 64 + (b3 - 0x80))
+end
+
+
 local function encode_string(val)
-  return '"' .. val:gsub('[%z\1-\31\\"]', escape_char) .. '"'
+  local escaped = val:gsub('[%z\1-\31\\"]', escape_char):gsub('\237[\160-\191][\128-\191]', escape_surrogate)
+  return '"' .. escaped .. '"'
 end
 
 
@@ -210,8 +222,10 @@ local function codepoint_to_utf8(n)
   elseif n <= 0xffff then
     return string.char(f(n / 4096) + 224, f(n % 4096 / 64) + 128, n % 64 + 128)
   elseif n <= 0x10ffff then
-    return string.char(f(n / 262144) + 240, f(n % 262144 / 4096) + 128,
-                       f(n % 4096 / 64) + 128, n % 64 + 128)
+    -- LuaJ cannot convert 4-byte UTF-8 to a Java string; it expects the UTF-16 surrogate pair, each surrogate
+    -- as a 3-byte sequence (CESU-8, as LuaJ stores Java strings, see encode_string)
+    n = n - 0x10000
+    return codepoint_to_utf8(0xd800 + f(n / 1024)) .. codepoint_to_utf8(0xdc00 + n % 1024)
   end
   error( string.format("invalid unicode codepoint '%x'", n) )
 end

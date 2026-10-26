@@ -63,6 +63,9 @@ public class DUUIPipelineComponent {
     private static final String sourceView = "sourceView";
     private static final String targetView = "targetView";
     private static final String timeout = "timeout";
+    private static final String maxTriesOptionName = "maxTries";
+    /** Default for {@link #withMaxTries(int)}. */
+    public static final int DEFAULT_MAX_TRIES = 50;
     private final List<String> _constraints = new ArrayList<>(0);
     private final List<String> _env = new ArrayList<>(0);
     private final String websocketElementsOptionName = "websocketElements";
@@ -570,9 +573,34 @@ public class DUUIPipelineComponent {
         return this;
     }
 
+    /**
+     * Timeout of one request to the component, in <b>seconds</b> (default 60). The same number is also the pause
+     * between two tries in <b>milliseconds</b> (see {@link #withMaxTries(int)}).
+     *
+     * <p>A request that exceeds the timeout counts as a failed try and the document is sent again, while the
+     * component may still be computing the earlier request. For components that need long for some documents, set a
+     * timeout well above their longest processing time.</p>
+     */
     public DUUIPipelineComponent withTimeout(long lLong) {
         _parameters.put(timeout, String.valueOf(lLong));
         return this;
+    }
+
+    /**
+     * How often a request to the component is tried before the document fails (default
+     * {@value #DEFAULT_MAX_TRIES}). Every exception counts as a failed try: connection errors as well as a request
+     * that exceeds {@link #withTimeout(long)}. {@code 1} sends every document exactly once.
+     */
+    public DUUIPipelineComponent withMaxTries(int tries) {
+        if (tries < 1) {
+            throw new IllegalArgumentException("maxTries must be >= 1: " + tries);
+        }
+        _options.put(maxTriesOptionName, String.valueOf(tries));
+        return this;
+    }
+
+    public int getMaxTries() {
+        return Integer.parseInt(_options.getOrDefault(maxTriesOptionName, String.valueOf(DEFAULT_MAX_TRIES)));
     }
 
     public int getWebsocketElements() {
