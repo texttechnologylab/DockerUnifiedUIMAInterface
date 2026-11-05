@@ -20,6 +20,19 @@ import java.util.Map;
  * @author Alexander Leonhardt
  */
 public class DUUILuaContext {
+    /**
+     * Lock held by every call into LuaJ (compiling and running a script, coercing values for it).
+     *
+     * <p>LuaJ 3.0.1 keeps process-wide caches in plain {@link java.util.HashMap}s that it fills while scripts run:
+     * {@code CoerceJavaToLua.COERCIONS}, {@code CoerceLuaToJava.COERCIONS}, {@code JavaClass.classes},
+     * {@code JavaMethod.methods} and {@code JavaConstructor.constructors} (static final, so they cannot be replaced).
+     * Several composer workers running Lua scripts at the same time can corrupt them. A lost entry stays lost for the
+     * rest of the process: e.g. without the entry for {@code Integer}, every {@code int} returned by a Java method
+     * reaches Lua as userdata, and a script fails with "attempt to perform arithmetic __sub on userdata and number"
+     * on every following document. Holding this lock lets only one thread at a time use LuaJ.
+     */
+    public static final Object LUAJ_LOCK = new Object();
+
     private final Map<String, String> _luaScripts;
     private DUUILuaSandbox _sandbox;
 
@@ -65,6 +78,13 @@ public class DUUILuaContext {
 
 
     public DUUILuaCompiledFile compileFile(String file, DUUILuaLogger logger) {
+        // running the script's top level uses LuaJ's shared caches (e.g. luajava.bindClass), see LUAJ_LOCK
+        synchronized (LUAJ_LOCK) {
+            return compileFileLocked(file, logger);
+        }
+    }
+
+    private DUUILuaCompiledFile compileFileLocked(String file, DUUILuaLogger logger) {
         if (_sandbox == null) {
             Globals globals = new Globals();
             globals.load(new JseBaseLib());

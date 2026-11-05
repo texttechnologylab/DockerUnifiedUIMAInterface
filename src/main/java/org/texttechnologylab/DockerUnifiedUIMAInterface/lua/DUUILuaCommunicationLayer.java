@@ -57,13 +57,16 @@ public class DUUILuaCommunicationLayer implements IDUUICommunicationLayer {
 
     @Override
     public void process(JCas jCas, DUUIHttpRequestHandler handler, Map<String, String> parameters) throws CommunicationLayerException, CASException {
+        // the script sends its request itself, so the lock is held during the request (DUUILuaContext.LUAJ_LOCK)
         try {
-            _file.call(
-                    "process",
-                    CoerceJavaToLua.coerce(jCas),
-                    CoerceJavaToLua.coerce(handler),
-                    createLuaTableFromParameters(parameters)
-            );
+            synchronized (DUUILuaContext.LUAJ_LOCK) {
+                _file.call(
+                        "process",
+                        CoerceJavaToLua.coerce(jCas),
+                        CoerceJavaToLua.coerce(handler),
+                        createLuaTableFromParameters(parameters)
+                );
+            }
         } catch (LuaError e) {
             logLuaError("process", e);
             throw new CommunicationLayerException("Caught LuaError while calling process(sourceCas, handler, parameters)", e);
@@ -72,14 +75,17 @@ public class DUUILuaCommunicationLayer implements IDUUICommunicationLayer {
 
     @Override
     public void process(JCas sourceCas, DUUIHttpRequestHandler handler, Map<String, String> parameters, JCas targetCas) throws CommunicationLayerException, CASException {
+        // the script sends its request itself, so the lock is held during the request (DUUILuaContext.LUAJ_LOCK)
         try {
-            _file.call(
-                    "process",
-                    CoerceJavaToLua.coerce(sourceCas),
-                    CoerceJavaToLua.coerce(handler),
-                    createLuaTableFromParameters(parameters),
-                    CoerceJavaToLua.coerce(targetCas)
-            );
+            synchronized (DUUILuaContext.LUAJ_LOCK) {
+                _file.call(
+                        "process",
+                        CoerceJavaToLua.coerce(sourceCas),
+                        CoerceJavaToLua.coerce(handler),
+                        createLuaTableFromParameters(parameters),
+                        CoerceJavaToLua.coerce(targetCas)
+                );
+            }
         } catch (LuaError e) {
             logLuaError("process", e);
             throw new CommunicationLayerException("Caught LuaError while calling process(sourceCas, handler, parameters, targetCas)", e);
@@ -103,7 +109,9 @@ public class DUUILuaCommunicationLayer implements IDUUICommunicationLayer {
         LuaTable params = createLuaTableFromParameters(parameters);
 
         try {
-            _file.call("serialize", CoerceJavaToLua.coerce(jc.getView(sourceView)), CoerceJavaToLua.coerce(out), params);
+            synchronized (DUUILuaContext.LUAJ_LOCK) {
+                _file.call("serialize", CoerceJavaToLua.coerce(jc.getView(sourceView)), CoerceJavaToLua.coerce(out), params);
+            }
         } catch (LuaError e) {
             logLuaError("serialize", e);
             throw new CommunicationLayerException("Caught LuaError while calling serialize(sourceCas, outputStream, parameters)", e);
@@ -125,7 +133,9 @@ public class DUUILuaCommunicationLayer implements IDUUICommunicationLayer {
         }
 
         try {
-            _file.call("deserialize", CoerceJavaToLua.coerce(tJc), CoerceJavaToLua.coerce(input));
+            synchronized (DUUILuaContext.LUAJ_LOCK) {
+                _file.call("deserialize", CoerceJavaToLua.coerce(tJc), CoerceJavaToLua.coerce(input));
+            }
         } catch (LuaError e) {
             logLuaError("deserialize", e);
             throw new CommunicationLayerException("Caught LuaError while calling deserialize(targetCas, inputStream)", e);
@@ -139,13 +149,17 @@ public class DUUILuaCommunicationLayer implements IDUUICommunicationLayer {
 
     @Override
     public ByteArrayInputStream merge(List<ByteArrayInputStream> results) {
-        return (ByteArrayInputStream) CoerceLuaToJava.coerce(_file.call("merge", CoerceJavaToLua.coerce(results)), ByteArrayInputStream.class);
+        synchronized (DUUILuaContext.LUAJ_LOCK) {
+            return (ByteArrayInputStream) CoerceLuaToJava.coerce(_file.call("merge", CoerceJavaToLua.coerce(results)), ByteArrayInputStream.class);
+        }
     }
 
     @Override
     public String myLuaTestMerging() {
         // Die Funktion von Lua wird hier aufgerufen
-        _file.call("merging", null, null);
+        synchronized (DUUILuaContext.LUAJ_LOCK) {
+            _file.call("merging", null, null);
+        }
         return "merging.................. ";
     }
 
